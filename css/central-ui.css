@@ -1,0 +1,86 @@
+/* Central Pedal / Central Pedal Control: the 10.2 design system on top of the app's own styles (loaded last).
+ * docs/DESIGN-SYSTEM.md is the brief. Tokens come from css/central-tokens.css; the colour presets (Settings → Look)
+ * still write --accent, --bg, --panel..., so a church's own colours reach everything here. */
+
+/* ---- type: readable sizes, sentence case, numbers that don't jiggle ------------------------------------------- */
+body { font-size: var(--fs, 15px); }
+label { font-size: var(--fs-sm, 13px); }
+.help, .footer-note, .muted, small { font-size: max(var(--fs-sm, 13px), 1em * .86); }
+h2 { font-stretch: var(--wide, 112%); letter-spacing: -.01em; }
+.brand h1 { font-size: var(--fs-lg, 21px); font-stretch: var(--wide, 112%); }
+.brand .brand-hint { font-size: var(--fs-sm, 13px); }
+output, .num, time, .tr-time, .pf-btn b, .vu { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---- the top bar: tabs on the left; search, status and Settings on the right --------------------------------- */
+.topnav .nav-tab { text-transform: none; letter-spacing: 0; font-weight: 600; font-size: var(--fs, 15px); min-height: var(--hit, 40px); }
+.topnav .nav-right { display: flex; align-items: center; gap: var(--s2, 8px); margin-left: auto; }
+.cmd-open { display: inline-flex; align-items: center; gap: var(--s2, 8px); min-height: var(--hit, 40px); padding: 0 var(--s3, 12px); color: var(--muted); background: var(--bg2, #0B0D10); border-color: var(--line); }
+.cmd-open:hover { color: var(--text); }
+.cmd-open kbd, .cmd kbd { font: 600 11px/1 var(--font); padding: 3px 5px; border: 1px solid var(--line2, #454C58); border-radius: var(--r-sm, 6px); color: var(--muted); }
+.nav-gear { min-height: var(--hit, 40px); white-space: nowrap; }
+.nav-gear.active { background: var(--accent); color: var(--accentText); border-color: var(--accent); }
+@media (max-width: 900px) { .cmd-open span, .cmd-open kbd { display: none; } .cmd-open::before { content: "⌕"; font-size: 18px; } .nav-gear { font-size: 0; } .nav-gear::first-letter { font-size: 18px; } }
+
+/* ---- selected things are brass (the old sky-blue chips and tabs didn't match the other apps) ----------------- */
+.st-chip.on, .tab.active { background: color-mix(in srgb, var(--accent), var(--panel2) 78%); color: var(--text); border-color: var(--accent); font-weight: 700; }
+.tab.active { box-shadow: inset 0 -2px 0 var(--accent); }
+
+/* ---- Settings: groups on the left, a search over them; the open group's cards on the right -------------------- */
+.st-nav .st-chip { min-height: var(--hit, 40px); }
+.st-search { position: relative; margin-bottom: var(--s2, 8px); }
+.st-search input { width: 100%; min-height: var(--hit, 40px); padding-left: 32px; }
+.st-search::before { content: "⌕"; position: absolute; left: 11px; top: 50%; transform: translateY(-52%); color: var(--muted); font-size: 16px; pointer-events: none; }
+.st-results { display: grid; gap: 2px; margin: 0 0 var(--s3, 12px); }
+.st-results button { text-align: left; display: grid; gap: 1px; padding: var(--s2, 8px) var(--s3, 12px); background: transparent; border-color: transparent; }
+.st-results button:hover, .st-results button:focus-visible { background: var(--panel2); border-color: var(--line); }
+.st-results small { color: var(--muted); }
+.st-results .none { color: var(--muted); padding: var(--s2, 8px) var(--s3, 12px); }
+.st-hit { animation: stHit 1.8s var(--ease, ease) 1; border-radius: var(--r-sm, 6px); }
+@keyframes stHit { 0%, 35% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: 0 0 0 3px transparent; } }
+details.st-more { margin-top: var(--s3, 12px); border-top: 1px solid var(--line); padding-top: var(--s2, 8px); }
+details.st-more > summary { cursor: pointer; color: var(--muted); font-weight: 600; min-height: var(--hit, 40px); display: flex; align-items: center; }
+details.st-more[open] > summary { color: var(--text); }
+
+/* ---- "More ⋯" menus: the actions used less often, beside what they change ------------------------------------- */
+.more-wrap { position: relative; display: inline-flex; }
+.more-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 80; display: grid; gap: 2px; min-width: 220px; padding: var(--s1, 4px); background: var(--panel); border: 1px solid var(--line2, #454C58); border-radius: var(--r, 10px); box-shadow: var(--shadow); }
+.more-pop[hidden] { display: none; }
+.more-pop > button { text-align: left; background: transparent; border-color: transparent; justify-content: flex-start; min-height: var(--hit, 40px); }
+.more-pop > button:hover { background: var(--panel2); }
+
+/* ---- the command search (Ctrl+K / ⌘K) ----------------------------------------------------------------------- */
+dialog.cmd { width: min(640px, calc(100vw - 24px)); padding: 0; margin-top: 12vh; border-radius: var(--r-lg, 16px); border: 1px solid var(--line2, #454C58); background: var(--panel); color: var(--text); box-shadow: 0 24px 70px rgba(0,0,0,.6); }
+dialog.cmd::backdrop { background: rgba(5,6,8,.55); }
+.cmd-in { display: flex; align-items: center; gap: var(--s2, 8px); padding: var(--s3, 12px) var(--s4, 16px); border-bottom: 1px solid var(--line); }
+.cmd-in input { border: 0; background: transparent; font-size: var(--fs-md, 17px); padding: 6px 0; outline: none; }
+.cmd-list { max-height: min(60vh, 460px); overflow: auto; padding: var(--s1, 4px); display: grid; gap: 1px; }
+.cmd-list button { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: var(--s2, 8px); text-align: left; min-height: 44px; background: transparent; border-color: transparent; }
+.cmd-list button.on { background: color-mix(in srgb, var(--accent), var(--panel2) 82%); border-color: var(--accent); }
+.cmd-list button i { font-style: normal; text-align: center; color: var(--muted); }
+.cmd-list button small { color: var(--muted); }
+.cmd-list .cmd-group { padding: var(--s2, 8px) var(--s3, 12px) 2px; font-size: var(--fs-xs, 12px); color: var(--muted); font-stretch: var(--narrow, 88%); }
+.cmd-empty { padding: var(--s5, 24px); color: var(--muted); text-align: center; }
+.cmd-foot { display: flex; gap: var(--s3, 12px); padding: var(--s2, 8px) var(--s4, 16px); border-top: 1px solid var(--line); color: var(--muted); font-size: var(--fs-xs, 12px); }
+
+/* ---- cards and buttons: calmer depth, one radius per kind ---------------------------------------------------- */
+.card { border-radius: var(--r-lg, 16px); box-shadow: none; }
+button { border-radius: var(--r, 10px); }
+input, select, textarea { border-radius: var(--r-sm, 6px); }
+
+/* ---- touch screens and phones: everything pressable at least 52px ------------------------------------------- */
+@media (pointer: coarse) {
+  button, select, .nav-tab, .st-chip, .pf-btn { min-height: var(--hit-touch, 52px); }
+  input[type="range"] { min-height: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) { .st-hit { animation: none; box-shadow: 0 0 0 3px var(--accent); } }
+
+/* the Settings side column: the search, then the groups; the whole column stays in view */
+#tabSettings .st-side-wrap { position: sticky; top: 8px; display: grid; gap: 0; align-content: start; }
+#tabSettings .st-side-wrap .st-side { position: static; }
+@media (max-width: 900px) { #tabSettings .st-side-wrap { position: static; } }
+/* the groups read as a list, not a wall of buttons */
+#tabSettings .st-side .st-chip { background: transparent; border-color: transparent; font-weight: 500; }
+#tabSettings .st-side .st-chip:hover { background: var(--panel2); border-color: var(--line); }
+#tabSettings .st-side .st-chip.on { background: color-mix(in srgb, var(--accent), var(--panel) 84%); border-color: color-mix(in srgb, var(--accent), transparent 40%); box-shadow: inset 3px 0 0 var(--accent); font-weight: 700; }

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Central Pedal</title>
   <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="stylesheet" href="css/central-tokens.css">
   <style>
     :root { --bg:#111317; --panel:#1A1D22; --panel2:#23272E; --panel3:#2C313A; --line:#343A44; --line2:#454C58; --text:#ECE7DD; --muted:#9AA1AB; --accent:#E2C27E; --accentHi:#F0D9A4; --accentText:#1A1408; --blue:#8DB5DE; --danger:#EF6B63; --shadow:rgba(0,0,0,.35); color-scheme:dark; }
     * { box-sizing:border-box; }
@@ -96,32 +97,33 @@
   <link rel="stylesheet" href="css/parts.css">
   <link rel="stylesheet" href="css/live.css">
   <link rel="stylesheet" href="css/fx.css">
+  <link rel="stylesheet" href="css/central-ui.css">
 </head>
 <body>
   <nav class="topnav" id="topNav" aria-label="Main tabs">
-    <button class="nav-tab live-tab" data-tab="live">● LIVE</button>
-    <button class="nav-tab active" data-tab="pads">PAD</button>
-    <button class="nav-tab" data-tab="tracks">TRACKS</button>
-    <button class="nav-tab" data-tab="instrument">INSTRUMENT</button>
-    <button class="nav-tab" data-tab="looper">LOOPER</button>
-    <button class="nav-tab" data-tab="configure">CONFIGURE</button>
-    <button class="nav-tab" data-tab="learn">LEARN</button>
+    <button class="nav-tab live-tab" data-tab="live">● Live</button>
+    <button class="nav-tab active" data-tab="pads">Pad</button>
+    <button class="nav-tab" data-tab="tracks">Tracks</button>
+    <button class="nav-tab" data-tab="instrument">Instrument</button>
+    <button class="nav-tab" data-tab="looper">Looper</button>
+    <button class="nav-tab" data-tab="configure">Controls</button>
+    <button class="nav-tab" data-tab="learn">Learn</button>
     <button class="nav-tab" data-tab="io">I/O</button>
-    <button class="nav-tab" data-tab="settings">SETTINGS</button>
-    <div class="nav-right"><span class="pf-hw" id="pfHw">Not connected</span><button id="pfSystem" title="Settings: colours, audio, routing, Wi-Fi, screens, power">⚙</button></div>
+    <button class="nav-tab nav-settings-tab" data-tab="settings" hidden>Settings</button>
+    <div class="nav-right"><button class="cmd-open" id="cmdOpen" title="Find a song, a setting or an action (Ctrl+K / ⌘K)"><span>Search</span><kbd>Ctrl K</kbd></button><span class="pf-hw" id="pfHw">Not connected</span><button class="nav-gear" id="systemButton" title="Settings: sound, screens, look, controls, Wi-Fi, packages, updates">⚙ Settings</button></div>
   </nav>
   <main class="app">
     <header class="topbar">
-      <div class="brand"><h1>Central Pedal</h1><p>Your pads, tracks and instrument. Pick a pad on the left to change its sound and effects.</p></div>
-      <div class="top-actions"><input class="project-name" id="projectName" aria-label="Project name" value="My Pad Project"><button class="primary" id="performButton" title="Big-button performance screen (P)">▶ Perform</button><button id="setlistButton">♫ Setlist</button><button id="systemButton">⚙ Settings</button><button id="openProject">Open Project</button><button class="primary" id="saveProject">Save Project</button></div>
+      <div class="brand"><h1>Central Pedal</h1><p class="brand-hint">Pick a pad on the left to change its sound and effects.</p></div>
+      <div class="top-actions"><input class="project-name" id="projectName" aria-label="Project name" value="My Pad Project"><button id="performButton" title="Big-button performance screen (P)">▶ Perform</button><button id="setlistButton">♫ Setlist</button><button id="openProject">Open project</button><button id="saveProject">Save project</button></div>
     </header>
     <section class="layout">
       <aside class="card">
         <div class="row spread"><h2>Pads</h2><small>click to play</small></div><div class="pads" id="padList"></div><button class="pad input-pad" id="inputPad"><b>AUDIO INPUT</b><span id="inputPadText">Guitar / keys / mic · off</span></button>
-        <div class="pad-actions"><button id="newProject">New Stock Project</button><button id="folderImport">Import Audio Folder</button><button id="usbImport">Browse USB / SD card</button></div>
+        <div class="pad-actions"><button id="newProject">New project from stock pads</button><button id="folderImport">Import a folder of sounds</button><button id="usbImport">Browse USB / SD card</button></div>
       </aside>
       <section class="card">
-        <div class="editor-head"><div><h2 id="padTitle">Pad 1</h2><div class="status" id="status" aria-live="polite">Ready</div></div><div class="transport"><button id="keyboardButton">⌘K Keyboard</button><button class="danger" id="stopButton">Stop</button><button class="primary" id="startButton">Start Pad Sound</button></div></div>
+        <div class="editor-head"><div><h2 id="padTitle">Pad 1</h2><div class="status" id="status" aria-live="polite">Ready</div></div><div class="transport"><button id="keyboardButton" title="Play the pads from the computer keyboard (A–J)">⌨ Keyboard</button><button class="danger" id="stopButton">Stop</button><button class="primary" id="startButton">Start pad sound</button></div></div>
         <div class="form-grid">
           <label class="input-only toggle big-toggle"><input id="inputEnabled" type="checkbox"> Audio input on</label>
           <label>Name<input id="padName" data-path="name" maxlength="48"></label><label class="pad-only">Saved play key<select id="padKey" data-path="key"></select></label><label class="pad-only">Sample root key<select id="rootKey" data-path="rootKey"></select></label><label class="pad-only">Sound (built-in or imported)<select id="voice"></select></label><div class="pad-only pad-hear" id="voiceHear"></div><label class="pad-only">Chord<select id="padChord" data-path="chord"></select></label>
@@ -131,12 +133,12 @@
         </div>
         <p class="help input-only">Plug a guitar, keyboard or mic into a USB audio interface on the pedal. The effects below work on it live, on top of the pads.</p>
         <section class="sample-box pad-only">
-          <div class="sample-actions"><button class="primary" id="importAudio">Import Sound (USB / SD / file)</button><button id="clearSample">Use Synth Voice</button><span class="sample-name" id="sampleName">No imported audio on this pad</span></div>
+          <div class="sample-actions"><button id="importAudio">Import a sound</button><button id="clearSample">Use the built-in voice</button><span class="sample-name" id="sampleName">No imported audio on this pad</span></div>
           <div class="wave-wrap"><canvas id="waveform" aria-label="Imported sample waveform. Drag the handles to trim."></canvas></div>
           <div class="trim-grid"><label>Trim start <span class="control-line"><input id="trimStart" data-path="trimStart" type="range" min="0" max=".98" step=".001"><output id="trimStartOut"></output></span></label><label>Trim end <span class="control-line"><input id="trimEnd" data-path="trimEnd" type="range" min=".02" max="1" step=".001"><output id="trimEndOut"></output></span></label><div class="loop-actions"><label class="toggle"><input id="loop" data-path="loop" type="checkbox"> Loop trimmed part</label><button class="danger" id="loopStop">Stop</button></div></div>
           <p class="help">Drag the two bright handles to trim the sound. If it's playing, it fades smoothly into the new loop.</p>
         </section>
-        <div class="row" style="margin-top:13px"><button class="primary" id="savePad">Save This Pad</button><small id="saveHint">Keeps this sound and all its effects with this pad.</small></div>
+        <div class="row" style="margin-top:13px"><button id="savePad">Save this pad</button><small id="saveHint">Keeps this sound and all its effects with this pad.</small></div>
         <div class="tabs" id="tabs"><button class="tab active" data-panel="eq">EQ</button><button class="tab" data-panel="compressor">Compressor</button><button class="tab" data-panel="drive">Drive</button><button class="tab" data-panel="filter">Filter</button><button class="tab" data-panel="phaser">Phaser</button><button class="tab" data-panel="chorus">Chorus</button><button class="tab" data-panel="tremolo">Tremolo</button><button class="tab" data-panel="width">Width</button><button class="tab" data-panel="delay">Delay</button><button class="tab" data-panel="reverb">Reverb</button><button class="tab" data-panel="lfo">LFO</button><button class="tab" data-panel="texture">Texture</button></div>
         <section class="panel active" id="panel-eq">
           <div class="panel-title"><div><h3>Six-band EQ</h3><p class="help">Drag a numbered point sideways to change its frequency, and up or down to boost or cut. The shaded area behind the line is the sound playing now.</p></div><label>Editing band<select id="eqBand"></select></label><label class="toggle"><input id="eqEnabled" data-path="effects.eq.enabled" type="checkbox"> EQ on</label></div>
@@ -217,7 +219,7 @@
       <button class="pf-btn" id="trUseTracks" title="When ON: tracks play, pads follow the song key and sections, buttons use the Tracks layout"><small>USE TRACKS</small><b>OFF</b></button>
       <div class="tr-title"><b id="trSongName">No song</b><span id="trSongMeta"></span></div>
       <select id="trSongSelect" aria-label="Song"></select>
-      <button id="trMixer" title="Every track: faders, meters, mute / solo, scenes">🎚 Mixer</button><button id="trNewSong" title="Your songs, then: your own stems, the whole song split, MultiTracks.com / Prime, or Central Tracks">+ Add song</button><button id="trSetlist">♫ Setlist</button><button class="primary" id="trEdit">✎ Song editor</button>
+      <button id="trMixer" title="Every track: faders, meters, mute / solo, scenes">🎚 Mixer</button><button id="trNewSong" title="Your songs, then: your own stems, the whole song split, MultiTracks.com / Prime, or Central Tracks">+ Add song</button><button id="trSetlist">♫ Setlist</button><button id="trEdit">✎ Song editor</button>
     </div>
     <div class="tr-body">
       <div class="tr-main">
@@ -313,7 +315,7 @@
   </section>
   <section id="tabSettings" class="toptab hidden" aria-label="Settings">
     <div class="cf-head"><h2>Settings</h2><p class="muted" id="sysInfo">Central Pedal</p></div>
-    <div class="st-layout"><nav class="st-nav st-side" id="stNav" aria-label="Settings groups"></nav>
+    <div class="st-layout"><div class="st-side-wrap"><div class="st-search"><input id="stFind" type="search" placeholder="Search settings" aria-label="Search settings" autocomplete="off"></div><div class="st-results" id="stFound" hidden></div><nav class="st-nav st-side" id="stNav" aria-label="Settings groups"></nav></div>
     <div class="sys-grid st-cols" id="systemDialog">
       <section data-st="look"><h3>Appearance</h3><p class="muted">Colour presets, or pick your own. Saved with the project.</p><div class="theme-presets" id="themePresets"></div><div class="theme-grid"><label>Background<input data-theme="bg" type="color"></label><label>Panels<input data-theme="panel" type="color"></label><label>Text<input data-theme="text" type="color"></label><label>Accent<input data-theme="accent" type="color"></label><label>Blue accent<input data-theme="blue" type="color"></label><label>Lines<input data-theme="line" type="color"></label></div><label>Interface size<select id="uiScale"><option value="0.9">Small</option><option value="1" selected>Normal</option><option value="1.12">Large</option><option value="1.25">Extra large (touch)</option></select></label></section><section data-st="look" class="wide"><h3>Colours of everything</h3><p class="muted">Every screen colour, the standard section colours (used on the waveform, the section buttons, the stage display and in Central Control) and a colour for each pad.</p><div id="colorsAll"></div></section>
       <section data-st="setups" class="wide" id="setupsSection"></section>
@@ -372,6 +374,7 @@
   <script src="js/scenes.js"></script>
   <script src="js/autorestart.js"></script>
   <script src="js/settings.js"></script>
+  <script src="js/command-search.js"></script>
   <script src="js/sources.js"></script>
   <script src="js/central-tracks.js"></script>
   <script src="js/integrations.js"></script>

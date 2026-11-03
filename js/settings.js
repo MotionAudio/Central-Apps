@@ -39,7 +39,7 @@
     var a = project().audio || (project().audio = { sampleRate: 0, latency: "interactive" });
     var rate = $("#audioRate"), lat = $("#audioLatency"), info = $("#audioInfo");
     if (rate) rate.value = String(a.sampleRate || 0); if (lat) lat.value = a.latency || "interactive";
-    if (info) { var c = engine.ctx; info.textContent = c ? "Running at " + c.sampleRate + " Hz · output latency " + Math.round(((c.baseLatency || 0) + (c.outputLatency || 0)) * 1000) + " ms · " + (c.destination.maxChannelCount || 2) + " output channels" : "Audio engine not started yet (press a pad or Start Pad Sound)."; }
+    if (info) { var c = engine.ctx; info.textContent = c ? "Running at " + c.sampleRate + " Hz · output latency " + Math.round(((c.baseLatency || 0) + (c.outputLatency || 0)) * 1000) + " ms · " + (c.destination.maxChannelCount || 2) + " output channels" : "Audio engine not started yet (press a pad or Start pad sound)."; }
   }
 
   // ------------------------------------------------------------- routing matrix
@@ -166,9 +166,12 @@
   // ------------------------------------------------------------- sub-navigation
   // Settings is one group at a time (10.0.1): a list down the left, the group's cards on the right in tidy columns. (The
   // old "All" page put every card on one wall with big gaps and small text.) Each card's data-st says its group.
-  var GROUPS = [["audio", "Sound", ["audio"]], ["look", "Appearance", ["look"]], ["setups", "Saved setups", ["setups"]], ["screens", "Screens & touch", ["screens"]],
-    ["midi", "MIDI, tempo & Stream Deck", ["midi"]], ["network", "Wi-Fi & devices", ["network"]], ["packages", "Packages & key", ["packages", "license", "libraries", "community"]], ["songs", "Planning Center & CCLI", ["pco", "ccli"]],
-    ["software", "Updates & backup", ["software"]], ["system", "System", ["system"]]];
+  // (10.2) the same groups, names and order in every Central app (docs/DESIGN-SYSTEM.md): Sound, Screens & displays, Look,
+  // Controls, Network & devices, Packages & key, then what only this app has, then Software updates and About.
+  var GROUPS = [["audio", "Sound", ["audio"]], ["screens", "Screens & displays", ["screens"]], ["look", "Look", ["look"]],
+    ["midi", "Controls", ["midi"]], ["network", "Network & devices", ["network"]], ["packages", "Packages & key", ["packages", "license", "libraries", "community"]],
+    ["songs", "Planning Center & CCLI", ["pco", "ccli"]], ["setups", "Saved setups", ["setups"]],
+    ["software", "Software updates & backup", ["software"]], ["system", "About & power", ["system"]]];
   var group = "audio";
   try { var g0 = localStorage.getItem("pad-pedal-st-group"); if (g0 && GROUPS.some(function (g) { return g[0] === g0; })) group = g0; } catch (_) { }
   function groupOf(st) { var hit = GROUPS.filter(function (g) { return g[2].indexOf(st) >= 0; })[0]; return hit ? hit[0] : "system"; }
@@ -275,5 +278,20 @@
     if (window.PPShell && window.PPShell.currentTab && window.PPShell.currentTab() !== "settings") window.PPShell.showTab("settings");
     renderNav(); return true;
   }
-  window.PPSettings = { showGroup: showGroup, stepBus: stepBus, routingSummary: routingSummary, render: render, applyScale: applyScale, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
+  // (10.2) the search over the groups: every option, by its words; picking one opens its group and highlights it
+  function groupFor(st) { var id = groupOf(st || ""); var g = GROUPS.filter(function (x) { return x[0] === id; })[0]; return g ? [g[0], g[1]] : ["system", "About & power"]; }
+  (function wireFind() {
+    var input = $("#stFind"), box = $("#stFound"); if (!input || !box) return;
+    var found = [];
+    function draw() {
+      var q = input.value.trim(); if (!q || !window.PPCommand) { box.hidden = true; box.innerHTML = ""; return; }
+      found = PPCommand.searchSettings(q); box.hidden = false;
+      box.innerHTML = found.length ? found.slice(0, 12).map(function (it, i) { return '<button data-st-found="' + i + '"><span>' + esc(it.label) + "</span><small>" + esc(it.where) + "</small></button>"; }).join("")
+        : '<div class="none">No setting matches “' + esc(q) + '”.</div>';
+    }
+    input.addEventListener("input", draw);
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter" && found[0]) { e.preventDefault(); PPCommand.openSetting(found[0]); } if (e.key === "Escape") { input.value = ""; draw(); } });
+    box.addEventListener("click", function (e) { var b = e.target.closest("[data-st-found]"); if (b && found[+b.dataset.stFound]) PPCommand.openSetting(found[+b.dataset.stFound]); });
+  })();
+  window.PPSettings = { showGroup: showGroup, groupFor: groupFor, stepBus: stepBus, routingSummary: routingSummary, render: render, applyScale: applyScale, presets: PRESETS, renderRouting: renderRouting, onRouting: onRouting, channelNames: channelNames, backup: bkShow };
 })();

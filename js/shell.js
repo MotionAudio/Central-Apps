@@ -20,6 +20,7 @@
     if (current === "pads" && name !== "pads") performBefore = PP.isPerforming();
     current = name;
     document.querySelectorAll("[data-tab]").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); });
+    var gear = $("#systemButton"); if (gear) gear.classList.toggle("active", name === "settings");   // (10.2: Settings is the ⚙ button on the right of the top bar)
     document.body.classList.toggle("tab-pads", name === "pads"); document.body.dataset.tab = name;
     [["tabLive", "live"], ["tabTracks", "tracks"], ["tabInstrument", "instrument"], ["tabLooper", "looper"], ["tabConfigure", "configure"], ["tabLearn", "learn"], ["tabIO", "io"], ["tabSettings", "settings"]].forEach(function (t) { var el = $("#" + t[0]); if (el) el.classList.toggle("hidden", name !== t[1]); });
     if (name === "pads") { document.querySelector("main.app").classList.remove("hidden"); if (performBefore != null) PP.setPerformMode(performBefore); else PP.setPerformMode(PP.isPerforming()); }
