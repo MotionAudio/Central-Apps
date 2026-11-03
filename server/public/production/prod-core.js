@@ -223,12 +223,15 @@
   function drawTypeBar() {
     var bar = $("#cpTypeBar"); if (!bar || !cur) return;
     var d = types[cur.type];
+    // (10.2) one brass action (publish); the exports and "install into my apps" in one Export menu next to it
     bar.innerHTML = '<span class="cp-tb-what">' + esc(d.blurb) + '</span><span class="cp-tb-acts">' +
-      (d.exports || []).slice(0, 2).map(function (x, i) { return '<button data-exp="' + i + '">' + esc(x[0]) + "</button>"; }).join("") +
-      '<button data-act="install" title="Put it in Central Control, Central Usage and this app, on this computer">Install into my apps</button>' +
+      '<details class="cp-xmenu"><summary>Export</summary><div class="cp-xpop">' +
+      (d.exports || []).map(function (x, i) { return '<button data-exp="' + i + '">' + esc(x[0]) + "</button>"; }).join("") +
+      '<button data-act="install" title="Put it in Central Control, Central Usage and this app, on this computer">Install into my apps</button></div></details>' +
       '<button class="primary" data-act="publish">' + (d.publish && d.publish.store === "tracks" ? "Publish to Central Tracks" : "Publish to Make &amp; sell") + "</button></span>";
     bar.onclick = function (e) {
       var x = e.target.closest("[data-exp]"), a = e.target.closest("[data-act]");
+      var dm = bar.querySelector("details"); if (dm && (x || a)) dm.open = false;
       if (x) runExport(d.exports[+x.dataset.exp]);
       if (a && a.dataset.act === "publish") window.CPPublish.open();
       if (a && a.dataset.act === "install") window.CPPublish.install();

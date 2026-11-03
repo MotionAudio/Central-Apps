@@ -172,3 +172,32 @@
 .cd-dialog.cd-wide { max-width: 680px; }
 .cd-native { display: flex; flex-direction: column; gap: 6px; padding: 6px 2px; flex-basis: 100%; }
 .cd-native p { margin: 0; }
+
+/* ---------------------------------------------------------------- (10.2) the family look (docs/DESIGN-SYSTEM.md)
+   The DAW's own colours follow the shared tokens, so a church's colours (Settings → Look) reach the Studio too. */
+.cdaw { --d-bg: var(--bg2, #0F1114); --d-bg2: color-mix(in srgb, var(--bg, #111317), #000 12%); --d-panel: var(--panel, #1A1D22); --d-panel2: var(--panel2, #22262C); --d-panel3: var(--panel3, #2B3038);
+  --d-line: var(--line, #2E333B); --d-line2: var(--line2, #414854); --d-fg: var(--text, #ECE7DD); --d-mut: var(--muted, #9AA1AB); --d-dim: var(--dim, #6B727C);
+  --d-acc: var(--accent, #E2C27E); --d-acc2: var(--accentHi, #F0D9A4); --d-accfg: var(--accentText, #1A1408); font-family: var(--font, Archivo, system-ui, sans-serif); }
+.cdaw button.on { background: color-mix(in srgb, var(--d-acc), transparent 84%); }
+/* the toolbar: groups read as groups, the transport stands out */
+.cd-top { gap: 6px 10px; padding: 8px 12px; background: var(--d-panel); border-bottom: 1px solid var(--d-line); }
+.cd-top > .cd-g { padding-right: 10px; border-right: 1px solid var(--d-line); }
+.cd-top > .cd-g.cd-views { border-right: 0; }
+.cd-transport button { min-width: 38px; min-height: 34px; font-size: 15px; }
+.cd-lcd { min-width: 124px; padding: 3px 12px; }
+.cd-lcd .cd-pos { font-size: 17px; color: var(--d-acc2); letter-spacing: .02em; }
+/* track headers: a readable name, real buttons, a meter you can see from the desk */
+.cd-corner, .cd-head { width: 248px; flex-basis: 248px; }
+.cd-ruler { left: 248px; }
+.cd-compact .cd-corner, .cd-compact .cd-head { width: 190px; flex-basis: 190px; }
+.cd-compact .cd-ruler { left: 190px; }
+.cd-tname { font-size: 14px; font-weight: 600; }
+.cd-hl1, .cd-hl2 { gap: 5px; }
+.cd-hl2 button { width: 26px; height: 24px; font-size: 11px !important; border-radius: 5px; }
+.cd-vol { flex: 1; min-width: 50px; width: auto; }
+.cd-hmeter { width: 40px; height: 8px; flex: 0 0 40px; border-radius: 3px; }
+.cd-row:not(.cd-autorow) .cd-head { min-height: 56px; }
+.cd-row.sel > .cd-head { background: color-mix(in srgb, var(--d-acc), var(--d-panel) 90%); box-shadow: inset -2px 0 0 var(--d-acc); }
+.cd-dtabs button { min-height: 30px; }
+/* Central Production hides the toolbar's own undo / redo: the top bar has them for every kind of project */
+.cp-editor .cd-top .cd-g:has(> [data-a="undo"]) { display: none; }

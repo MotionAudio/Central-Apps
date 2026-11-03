@@ -6,10 +6,12 @@
 <title>Central Production · Motion Audio</title>
 <meta name="description" content="Make tracks, loops, samples, pads, instruments, plugins and pedal boards for your church's apps, in your browser or in the Central Production app.">
 <link rel="icon" href="../favicon.svg">
+<link rel="stylesheet" href="../daw/central-tokens.css">
 <link rel="stylesheet" href="../fonts/fonts.css">
 <link rel="stylesheet" href="../daw/daw.css">
 <link rel="stylesheet" href="production.css">
 <link rel="stylesheet" href="plugin-builder/plugin-builder.css">
+<link rel="stylesheet" href="../daw/command-palette.css">
 <meta name="theme-color" content="#111317">
 <script>
   // the website itself is the Motion Audio website (package keys are checked there); the app sets its own (preload)
@@ -23,7 +25,7 @@
   <button id="cpFile" class="cp-menu-btn" aria-haspopup="true">File ▾</button>
   <span class="cp-proj"><input id="cpName" class="cp-name" aria-label="Project name" hidden><span id="cpTypeChip" class="cp-chip" hidden></span><span id="cpSaved" class="cp-saved"></span></span>
   <span class="cp-undo"><button id="cpUndo" title="Undo" aria-label="Undo">↶</button><button id="cpRedo" title="Redo" aria-label="Redo">↷</button></span>
-  <span class="cp-right"><button id="cpSettings" title="Settings">Settings</button><button id="cpAccount">Sign in</button></span>
+  <span class="cp-right"><button id="cpSearch" class="cp-search" title="Search everything (Ctrl+K)" aria-label="Search everything"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg><span>Search</span><kbd>Ctrl K</kbd></button><button id="cpSettings" title="Settings (Ctrl+,)">Settings</button><button id="cpAccount">Sign in</button></span>
 </header>
 <main id="cpMain">
   <section id="cpStart" class="cp-start"></section>
@@ -67,6 +69,8 @@
 <script src="types/board.js"></script>
 <script src="prod-publish.js"></script>
 <script src="prod-settings.js"></script>
+<script src="../daw/command-palette.js"></script>
+<script src="prod-search.js"></script>
 <script>
   if (window.PPLicense) window.PPLicense.init({ app: "production" });
   window.CP.start();

@@ -6,6 +6,8 @@ import "../test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url"; const here = path.dirname(fileURLToPath(import.meta.url));
+// (10.2) a tab the top bar moved under More: open More first, then click it
+const openTab = async (pg, t) => { const sel = 'header.top .tab[data-tab="' + t + '"]'; if (await pg.evaluate((s) => { const b = document.querySelector(s); return !!(b && b.closest(".tab-menu")); }, sel)) await pg.click("#tabs .tab-morebtn"); await pg.click(sel); };
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pp-svc-")); fs.mkdirSync(path.join(tmp, "media"), { recursive: true }); fs.writeFileSync(path.join(tmp, "code-chosen"), "1");
 const ctrDir = fs.mkdtempSync(path.join(os.tmpdir(), "pp-svc-center-"));
 const ctr = spawn(process.execPath, [path.join(here, "center.js"), "--port", "8095", "--data", ctrDir, "--no-beacon"], { stdio: ["ignore", "pipe", "pipe"] });
@@ -51,7 +53,7 @@ await check("the main admin sets up (pairing PIN = the Central Pedal's) and gets
 });
 
 await check("Service tab: two parts - Run sheets and the Pre-service check", async () => {
-  await mainP.click('[data-tab="service"]'); await mainP.waitForSelector("#serviceRoot .sv-nav [data-svv='sheets'].on");
+  await openTab(mainP, "service"); await mainP.waitForSelector("#serviceRoot .sv-nav [data-svv='sheets'].on");
   assert.ok(await mainP.isVisible("#serviceRoot .sv-nav [data-svv='check']"));
 });
 await check("New run sheet: a few questions (when, what happens in order, who's on), then it makes one", async () => {
@@ -120,7 +122,7 @@ const tab = await (await b.newContext({ viewport: { width: 1024, height: 600 } }
 await tab.goto("http://127.0.0.1:8095/cu/confidence.html");
 await check("Lyrics tab: House lyrics, then the Confidence monitor with its preview, outputs and the tablet link", async () => {
   await pi.evaluate(() => { PPTracks.setTracksMode(true); PPTracks.goSection(1, { immediate: true }); PPTracks.sendDisplay(); });
-  await mainP.click('[data-tab="lyrics"]'); await mainP.waitForSelector("#confPanel .conf-bar");
+  await openTab(mainP, "lyrics"); await mainP.waitForSelector("#confPanel .conf-bar");
   assert.match(await mainP.textContent("#view-lyrics .lyr-head"), /House lyrics/);
   assert.match(await mainP.textContent("#confPanel"), /Confidence monitor/);
   await mainP.waitForFunction(() => /Way maker, miracle worker/.test((document.querySelector("#confPreview") || {}).textContent || ""), null, { timeout: 8000 });
@@ -135,14 +137,14 @@ await check("the band's screen on a tablet: the lines now in yellow, the next li
   if (cols[1]) assert.equal(cols[1], "rgb(255, 255, 255)");
 });
 await check("Settings → Confidence monitor on the lyrics computer: change the colour - the band's screen follows", async () => {
-  await mainP.click('[data-tab="settings"]'); await mainP.waitForSelector("#confCard [data-cfl='cur']");
+  await openTab(mainP, "settings"); await mainP.waitForSelector("#confCard [data-cfl='cur']");
   await mainP.evaluate(() => { const i = document.querySelector("#confCard [data-cfl='cur']"); i.value = "#33dd66"; i.dispatchEvent(new Event("input", { bubbles: true })); i.dispatchEvent(new Event("change", { bubbles: true })); });
   await tab.waitForFunction(() => document.querySelector(".cfv-cur") && getComputedStyle(document.querySelector(".cfv-cur")).color === "rgb(51, 221, 102)", null, { timeout: 6000 });
   await mainP.click("#confCard [data-cfl-reset]");
   await tab.waitForFunction(() => getComputedStyle(document.querySelector(".cfv-cur")).color === "rgb(255, 214, 10)", null, { timeout: 6000 });
 });
 await check("running the service: Next moves on, it says whether it's running long or short, and each computer fires its cues", async () => {
-  await mainP.click('[data-tab="service"]'); await mainP.waitForSelector("#serviceRoot [data-sv='start']");
+  await openTab(mainP, "service"); await mainP.waitForSelector("#serviceRoot [data-sv='start']");
   await mainP.click("#serviceRoot [data-sv='start']"); await mainP.waitForSelector("#serviceRoot .sv-now", { timeout: 5000 });
   await mainP.click("#serviceRoot [data-sv='next']");
   await mainP.waitForFunction(() => window.CUServices.state().run && window.CUServices.state().run.item === 1, null, { timeout: 5000 });

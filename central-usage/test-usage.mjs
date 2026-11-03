@@ -3,6 +3,8 @@ import "../test-reap.mjs";   // (the drivers and servers it starts go with it)
 import { chromium } from "playwright";
 import { spawn } from "node:child_process"; import fs from "node:fs"; import os from "node:os"; import path from "node:path"; import assert from "node:assert";
 import { fileURLToPath } from "node:url"; const here = path.dirname(fileURLToPath(import.meta.url));
+// (10.2) a tab the top bar moved under More: open More first, then click it
+const openTab = async (pg, t) => { const sel = 'header.top .tab[data-tab="' + t + '"]'; if (await pg.evaluate((s) => { const b = document.querySelector(s); return !!(b && b.closest(".tab-menu")); }, sel)) await pg.click("#tabs .tab-morebtn"); await pg.click(sel); };
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "pp-cu-")); fs.mkdirSync(path.join(tmp, "media"), { recursive: true }); fs.writeFileSync(path.join(tmp, "code-chosen"), "1"); // the pairing PIN counts as picked (its own test is in test-integration)
 // the center (normally inside the main admin's Central Control): here on its own, at 127.0.0.1:8095
 const ctrDir = fs.mkdtempSync(path.join(os.tmpdir(), "pp-center-"));
@@ -40,7 +42,7 @@ await check("the chart loads with chords over lyrics, in the song key", async ()
 await check("guitar with G shapes when the song is in A shows capo 2 and A->G", async () => {
   await pi.evaluate(() => { PPTracks.song().key = "A"; PPTracks.sendDisplay(); });
   await cu.waitForFunction(() => /Key A|A /.test(document.querySelector("#songMeta").textContent), null, { timeout: 5000 });
-  await cu.selectOption("#instrument", "guitar"); await cu.waitForTimeout(100); await cu.selectOption("#shapes", "G"); await cu.waitForTimeout(200);
+  await cu.selectOption("#instrument", "guitar"); await cu.waitForTimeout(100); await cu.evaluate(() => { document.querySelector("#chartOpts").open = true; }); await cu.selectOption("#shapes", "G"); await cu.waitForTimeout(200);
   assert.match(await cu.textContent("#written"), /Capo 2/); const chords = await cu.$$eval("#chart .ch", (l) => l.map((e) => e.textContent)); assert.ok(chords.includes("G") && chords.includes("D") && !chords.includes("A"), chords.join(","));
 });
 await check("B-flat trumpet reads a song in A as B", async () => { await cu.selectOption("#instrument", "Bb"); await cu.waitForTimeout(200); assert.match(await cu.textContent("#written"), /written in B/); const chords = await cu.$$eval("#chart .ch", (l) => l.map((e) => e.textContent)); assert.ok(chords.includes("B") && chords.includes("E"), chords.join(",")); });
@@ -72,7 +74,7 @@ await check("MIDI relay: the Pi's hit notes arrive with its clock and are schedu
 });
 await check("lighting: the example rig (with light bars and a strobe) is on the 3D stage and the auto show is built from the song's sections", async () => {
   await cu.evaluate(() => CentralUsage.setMode("admin"));   // the lights are on admin computers
-  await cu.click('[data-tab="lights"]'); await cu.click('[data-lx="show"]');
+  await openTab(cu, "lights"); await cu.click('[data-lx="show"]');
   await cu.waitForFunction(() => window.CULights3D && CULights3D.active() && CULights3D.count() === CULights.rig().fixtures.length && CULights.rig().fixtures.length === 14 && CULights.cuesNow().length >= 3, null, { timeout: 8000 });
 await check("lighting: light bars (each cell its own colour), strobes (button, beat-locked, hit bursts) and the 3D stage", async () => {
   const r = await cu.evaluate(() => {
@@ -382,7 +384,7 @@ await check("tell it the show (built-in engine): sections, groups, colours, leve
   const back = await cu.evaluate(() => { const l = CULights.rig().looks.find((x) => /Said: Verse/.test(x.name)); return l.g.back; }); assert.equal(back.color, "#1f4dff"); assert.ok(Math.abs(back.dim - 0.3) < 0.01);
 });
 await check("parts on the chart tab: pick Bass / Keys / Drums / Trumpet and the part for the Pi's song is drawn", async () => {
-  await cu.evaluate(() => CentralUsage.setMode("user")); await cu.click('[data-tab="chart"]');
+  await cu.evaluate(() => CentralUsage.setMode("user")); await openTab(cu, "chart");
   await pi.evaluate(() => { PPHub.push(true); PPTracks.sendDisplay(); });
   for (const inst of ["bass", "keys", "drums", "trumpet"]) {
     await cu.selectOption("#partPick", inst);
@@ -401,7 +403,10 @@ async function cuPage(label) {
   await p.goto("file://" + path.join(here, "app", "index.html")); await p.waitForFunction(() => window.CentralUsage && window.CURoles);
   return p;
 }
-const tabsShown = (p) => p.evaluate(() => Array.from(document.querySelectorAll("#tabs [data-tab]")).filter((x) => !x.hidden).map((x) => x.dataset.tab).join(","));
+// (10.2) the tabs this computer shows, in any order: the top bar groups them and moves what doesn't fit under More,
+// and Settings is the gear at the right end
+const tabsShown = (p) => p.evaluate(() => Array.from(document.querySelectorAll("header.top .tab[data-tab]")).filter((x) => !x.hidden).map((x) => x.dataset.tab).sort().join(","));
+const srt = (list) => list.split(",").sort().join(",");
 let mainP, userP, keys;
 await check("first launch: Main admin / Admin / User 1 / User 2; the main admin's setup asks inputs & outputs, the pairing PIN and its own role PIN - no Central Pedal needed", async () => {
   mainP = await cuPage("main");
@@ -419,13 +424,13 @@ await check("first launch: Main admin / Admin / User 1 / User 2; the main admin'
   assert.equal(keys.pair, code); assert.equal(keys.pin, "9876");
   assert.match(await mainP.textContent("#modePick .rp-done"), new RegExp(keys.pin)); await mainP.click("#modePick [data-rp='close']");
   await mainP.waitForFunction(() => CURoles.view() && CURoles.view().youAreMain, null, { timeout: 5000 });
-  assert.equal(await tabsShown(mainP), "devices,service,lights,mix,inears,lyrics,slides,video,shorts,io,controls,settings");
+  assert.equal(await tabsShown(mainP), srt("devices,service,lights,mix,inears,lyrics,slides,video,shorts,io,controls,settings"));
 });
 await check("the Central Pedal pairs with the main admin; the main admin is told where it is and connects to it (songs, charts, lyrics, tracks)", async () => {
   try { await mainP.waitForFunction(() => CURoles.view() && CURoles.view().pedal && CURoles.view().pedal.online, null, { timeout: 15000 }); }
   catch (e) { throw new Error("pedal not paired: " + log.split("\n").filter((l) => /center/.test(l)).slice(-5).join(" | ") + " " + ctrLog.slice(-300)); }
   await mainP.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.authed, null, { timeout: 10000 });
-  await mainP.click('[data-tab="devices"]'); await mainP.waitForFunction(() => { const c = document.querySelector("#devicesRoot .dv-pedals"); return c && /Playing from/.test(c.textContent) && c.querySelector("select[data-dv-pjob]") && c.querySelector("select[data-dv-pjob]").value === "player"; }, null, { timeout: 6000 });
+  await openTab(mainP, "devices"); await mainP.waitForFunction(() => { const c = document.querySelector("#devicesRoot .dv-pedals"); return c && /Playing from/.test(c.textContent) && c.querySelector("select[data-dv-pjob]") && c.querySelector("select[data-dv-pjob]").value === "player"; }, null, { timeout: 6000 });
 });
 await check("another computer picks User 1 and pairs with the pairing PIN (wrong PIN refused)", async () => {
   userP = await cuPage("user"); await userP.waitForFunction(() => window.CUCenter.connected(), null, { timeout: 6000 });
@@ -436,14 +441,14 @@ await check("another computer picks User 1 and pairs with the pairing PIN (wrong
   await userP.waitForFunction(() => CentralUsage.role() === "user1" && !document.getElementById("modePick"), null, { timeout: 6000 });
   assert.equal(await userP.evaluate(() => CentralUsage.prefs.code), code);
   await userP.waitForFunction(() => CentralUsage.state.connected && CentralUsage.state.authed, null, { timeout: 10000 });   // found the Central Pedal through the main admin
-  assert.equal(await tabsShown(userP), "chart,instrument,studio,inears,lyrics,io,controls,settings");
+  assert.equal(await tabsShown(userP), srt("chart,instrument,studio,inears,lyrics,io,controls,settings"));
 });
 await check("the user flips to User 2 from the top bar: lyrics, chart, in-ears, settings", async () => {
   await userP.click("#roleChip [data-chip='user2']"); await userP.waitForFunction(() => CentralUsage.role() === "user2", null, { timeout: 5000 });
-  assert.equal(await tabsShown(userP), "chart,inears,lyrics,controls,settings");
+  assert.equal(await tabsShown(userP), srt("chart,inears,lyrics,controls,settings"));
 });
 await check("becoming an admin needs the main admin's role PIN (wrong PIN refused)", async () => {
-  await userP.click('[data-tab="settings"]'); await userP.waitForSelector("#settingsRoot input[name='rlRole'][value='admin']");
+  await openTab(userP, "settings"); await userP.waitForSelector("#settingsRoot input[name='rlRole'][value='admin']");
   await userP.evaluate(() => { CentralUsage.askText = () => Promise.resolve("0000"); window.__alerts = []; window.alert = (t) => window.__alerts.push(t); });
   await userP.click("#settingsRoot input[name='rlRole'][value='admin']");
   await userP.waitForFunction(() => window.__alerts.length > 0, null, { timeout: 5000 });
@@ -453,14 +458,14 @@ await check("becoming an admin needs the main admin's role PIN (wrong PIN refuse
   await userP.waitForFunction(() => CentralUsage.role() === "admin", null, { timeout: 5000 });
 });
 await check("Devices tab: the main admin sees it online with its connection health, gives it jobs (Lights + Cameras) - it then shows only those tabs", async () => {
-  await mainP.click('[data-tab="devices"]'); await mainP.waitForSelector("#devicesRoot tr:has-text('Keys')", { timeout: 6000 });
+  await openTab(mainP, "devices"); await mainP.waitForSelector("#devicesRoot tr:has-text('Keys')", { timeout: 6000 });
   await mainP.waitForFunction(() => { const tr = [...document.querySelectorAll("#devicesRoot tr")].find((x) => /Keys/.test(x.textContent)); return tr && /good|fair|poor/.test(tr.querySelector(".dv-g").textContent); }, null, { timeout: 15000 });
   await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv='jobs']");
   await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv-job='lights']"); await mainP.waitForTimeout(400);
   await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv-job='cameras']");
   try { await userP.waitForFunction(() => JSON.stringify(CentralUsage.jobs()) === '["lights","cameras"]', null, { timeout: 5000 }); }
   catch (e) { throw new Error("jobs " + await userP.evaluate(() => JSON.stringify([CentralUsage.jobs(), CentralUsage.role()])) + " main view " + await mainP.evaluate(() => JSON.stringify(CURoles.view().devices))); }
-  assert.equal(await tabsShown(userP), "lights,video,io,controls,settings");
+  assert.equal(await tabsShown(userP), srt("lights,video,io,controls,settings"));
 });
 await check("10.0: Central Control's setup asks what the computer will do (any of 7 jobs) after Main admin / Admin; Settings shows them and who runs each", async () => {
   const c = await b.newContext({ viewport: { width: 1280, height: 800 } }), p = await c.newPage();
@@ -477,16 +482,16 @@ await check("10.0: Central Control's setup asks what the computer will do (any o
   await p.waitForSelector("#modePick [data-step='join']:not([hidden])");
   assert.equal(await p.evaluate(() => JSON.stringify(CentralUsage.jobs())), '["lyrics","slides"]');
   await p.click("#modePick [data-rp='later']"); await p.waitForFunction(() => CentralUsage.role() === "admin" && !document.getElementById("modePick"));
-  assert.equal(await tabsShown(p), "lyrics,slides,io,controls,settings");
-  await p.click('[data-tab="settings"]'); await p.waitForSelector(".rl-jobs-card [data-rl-myjob='lights']");
+  assert.equal(await tabsShown(p), srt("lyrics,slides,io,controls,settings"));
+  await openTab(p, "settings"); await p.waitForSelector(".rl-jobs-card [data-rl-myjob='lights']");
   await p.check(".rl-jobs-card [data-rl-myjob='lights']"); await p.waitForFunction(() => CentralUsage.jobs().indexOf("lights") >= 0);
-  assert.equal(await tabsShown(p), "lights,lyrics,slides,io,controls,settings");
+  assert.equal(await tabsShown(p), srt("lights,lyrics,slides,io,controls,settings"));
   await c.close();
 });
 await check("Devices tab: Change role moves it back to User 1", async () => {
   await mainP.selectOption("#devicesRoot tr:has-text('Keys') [data-dv-role]", "user1"); await mainP.click("#devicesRoot tr:has-text('Keys') [data-dv='apply']");
   await userP.waitForFunction(() => CentralUsage.role() === "user1", null, { timeout: 5000 });
-  assert.equal(await tabsShown(userP), "chart,instrument,studio,inears,lyrics,io,controls,settings");
+  assert.equal(await tabsShown(userP), srt("chart,instrument,studio,inears,lyrics,io,controls,settings"));
 });
 await check("a computer set up as Admin without the role PIN waits; the main admin allows it on the Devices tab", async () => {
   const adminP = await cuPage("admin2"); await adminP.waitForFunction(() => window.CUCenter.connected(), null, { timeout: 6000 });
@@ -511,12 +516,12 @@ await check("manual lock: nothing changes (the User 2 switch is refused) until t
   await userP.click("#mlBtn"); assert.ok(await userP.evaluate(() => document.body.classList.contains("man-locked")));
   await userP.click("#roleChip [data-chip='user2']", { force: true }); await userP.waitForTimeout(500);
   assert.equal(await userP.evaluate(() => CentralUsage.role()), "user1");
-  await userP.click('[data-tab="lyrics"]'); assert.equal(await userP.evaluate(() => CentralUsage.prefs.tab), "lyrics", "tabs can still be looked at");
+  await openTab(userP, "lyrics"); assert.equal(await userP.evaluate(() => CentralUsage.prefs.tab), "lyrics", "tabs can still be looked at");
   const bx = await userP.locator("#mlBtn").boundingBox(); await userP.mouse.move(bx.x + 5, bx.y + 5); await userP.mouse.down(); await userP.waitForTimeout(2300); await userP.mouse.up();
   await userP.waitForFunction(() => !document.body.classList.contains("man-locked"), null, { timeout: 3000 });
 });
 await check("Service tab: the main admin adds a service and starts it - the user's countdown shows its own next part (the band's first song)", async () => {
-  await mainP.click('[data-tab="service"]'); await mainP.waitForSelector("#serviceRoot [data-sv='add']"); await mainP.click("#serviceRoot [data-sv='add']");
+  await openTab(mainP, "service"); await mainP.waitForSelector("#serviceRoot [data-sv='add']"); await mainP.click("#serviceRoot [data-sv='add']");
   await mainP.waitForSelector("#serviceRoot .sv-items tbody tr"); await mainP.waitForTimeout(1200);
   await userP.waitForFunction(() => !document.querySelector("#cdChip").hidden, null, { timeout: 6000 });
   await mainP.click("#serviceRoot [data-sv='start']");
@@ -543,7 +548,7 @@ await check("talkback: the main admin talks to the Band (the user's computer pla
   await userP.evaluate(() => CUTalk.on());
   await mainP.waitForFunction((n) => CUTalk.state().heardFrames > n + 48000 * 0.3 && CUTalk.state().incoming.some((x) => x.name === "Keys" && x.kind === "main"), before, { timeout: 8000 });
   await userP.evaluate(() => CUTalk.off());
-  await mainP.click('[data-tab="devices"]'); await mainP.waitForSelector("#devicesRoot select[data-dv-tg]");
+  await openTab(mainP, "devices"); await mainP.waitForSelector("#devicesRoot select[data-dv-tg]");
   await mainP.evaluate(() => { const tr = [...document.querySelectorAll("#devicesRoot tr")].find((x) => /Keys/.test(x.textContent)); const sel = tr.querySelector("select[data-dv-tg]"); sel.value = "production"; sel.dispatchEvent(new Event("change", { bubbles: true })); });
   await mainP.waitForFunction(() => (CURoles.view().devices || []).some((d) => d.name === "Keys" && d.talkGroup === "production"), null, { timeout: 5000 });
   await mainP.evaluate(() => CUTalk.on());
@@ -561,12 +566,12 @@ await check("(10.0.1) the party line is the default: the user's Talk (top right)
   await mainP.waitForFunction(() => CUTalk.state().incoming.some((x) => x.kind === "team"), null, { timeout: 8000 });
   await mainP.waitForFunction(() => /Keys|User/.test((document.querySelector("#tbTop .tb-who") || {}).textContent || ""), null, { timeout: 8000 });
   await userP.evaluate(() => CUTalk.off());
-  await mainP.click('[data-tab="settings"]'); await mainP.waitForSelector("#settingsRoot .tb-settings [data-tb-mode='groups']", { timeout: 4000 });
+  await openTab(mainP, "settings"); await mainP.waitForSelector("#settingsRoot .tb-settings [data-tb-mode='groups']", { timeout: 4000 });
   assert.match(await mainP.textContent("#settingsRoot .tb-settings"), /party line/);
 });
 await check("(10.0.1) changing what this computer does asks for the admin code: a wrong one changes nothing, the right one does", async () => {
   await mainP.evaluate(() => { CentralUsage.store.set("jobsPicked", true); window.__alerts = []; window.alert = (t) => window.__alerts.push(t); CentralUsage.askText = () => Promise.resolve("9999"); });
-  await mainP.click('[data-tab="settings"]'); await mainP.waitForSelector("#settingsRoot [data-rl-myjob='lights']", { timeout: 4000 });
+  await openTab(mainP, "settings"); await mainP.waitForSelector("#settingsRoot [data-rl-myjob='lights']", { timeout: 4000 });
   const before = await mainP.evaluate(() => JSON.stringify(CentralUsage.jobs()));
   await mainP.evaluate(() => { const box = document.querySelector("#settingsRoot [data-rl-myjob='lights']"); box.checked = !box.checked; box.dispatchEvent(new Event("change", { bubbles: true })); });
   await mainP.waitForTimeout(500);
@@ -593,7 +598,7 @@ await check("(10.0.1) a Central Control set up before 10.0 (an admin, no jobs pi
   await c.close();
 });
 await check("Forget role on the main admin goes back to the first-launch choice", async () => {
-  await mainP.click('[data-tab="settings"]'); await mainP.waitForSelector("#settingsRoot [data-rl='forget']");
+  await openTab(mainP, "settings"); await mainP.waitForSelector("#settingsRoot [data-rl='forget']");
   // (10.0.1) it asks for the admin code first: a wrong one keeps everything as it is
   await mainP.evaluate(() => { window.confirm = () => true; window.__alerts = []; window.alert = (t) => window.__alerts.push(t); CentralUsage.askText = () => Promise.resolve("9999"); });
   await mainP.click("#settingsRoot [data-rl='forget']"); await mainP.waitForTimeout(400);
@@ -616,8 +621,8 @@ await check("iPhone / iPad: Central Control opens from the Central Pedal (http:/
   await p.fill("#modePick [data-rp='name']", "Sarah's iPhone"); await p.click("#modePick [data-rp='user1']");
   await p.fill("#modePick [data-rp='joinPin']", code); await p.click("#modePick [data-rp='go']");
   await p.waitForFunction(() => CentralUsage.role() === "user1" && !document.getElementById("modePick"), null, { timeout: 6000 });
-  assert.equal(await p.evaluate(() => Array.from(document.querySelectorAll("#tabs [data-tab]")).filter((x) => !x.hidden).map((x) => x.dataset.tab).join(",")), "chart,inears,lyrics,settings");
-  await p.click('[data-tab="chart"]'); await p.selectOption("#partPick", "bass");
+  assert.equal(await tabsShown(p), srt("chart,inears,lyrics,settings"));
+  await openTab(p, "chart"); await p.selectOption("#partPick", "bass");
   await p.waitForFunction(() => document.querySelector("#partView svg"), null, { timeout: 8000 });
   const wide = await p.evaluate(() => document.documentElement.scrollWidth); assert.ok(wide <= 400, "no sideways scrolling of the page: " + wide);
   await c.close();

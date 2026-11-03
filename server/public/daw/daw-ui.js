@@ -102,7 +102,7 @@
     if (sc) sc.scrollLeft = Math.max(0, before * U.zoom - sc.clientWidth / 2 + UI.headerW());
   }
   UI.zoom = zoom;
-  UI.headerW = function () { return UI.compact() ? 170 : 220; };
+  UI.headerW = function () { return UI.compact() ? 190 : 248; };   // (10.2: room for a readable name, the buttons and the meter - the same as daw.css)
   function layout() {
     if (!U.root) return;
     U.root.classList.toggle("cd-compact", UI.compact());
