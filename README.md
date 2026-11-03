@@ -224,6 +224,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 10.2.0:** Central Production (a free studio for tracks, loops, samples, pads, instruments and plugins, on computers and the website); make your own plugins; 41 pads, swells and modern worship hymn tracks; 30-second previews; run sheets, a pre-service check, the band's screen, a slide designer and scripture in seconds; automatic shorts; Planning Center and CCLI; 2,272 real lights, a scene programmer, screens, rooms and seats on the 3D stage; the Central Utility pack; and one new look across every app with Ctrl+K search.
+
 **New in version 10.1.1:** Sound on the Pi's headphone jack without crackles (a bigger buffer, chosen under Settings → Output device; Test sound steps it up by itself); Central Services says plainly when the website isn't reachable.
 
 **New in version 10.1.0:** A new lighting page with the stage full width, Pause, quick slots and setlists; Talk into the in-ears from Central Control and Central Usage; libraries download from inside the apps; an admin code for changing a computer's job; sounds, plugins and pedals made by the community, checked by Motion Audio and included in the yearly packs, with their makers paid.
