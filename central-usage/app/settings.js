@@ -95,6 +95,7 @@
   }
   function spy() {
     var root = $("#settingsRoot"), main = root && $("#stMain", root); if (!main) return;
+    if (!main.offsetHeight) { if (!spy.later) { spy.later = true; requestAnimationFrame(function () { spy.later = false; if (main.offsetHeight) spy(); }); } return; }   // not on screen yet: measure once it is
     var top = main.getBoundingClientRect().top + 40, cur = null;
     main.querySelectorAll(".st-group:not(.st-miss)").forEach(function (g) { if (g.getBoundingClientRect().top <= top || !cur) cur = g.dataset.stg; });
     root.querySelectorAll("#stNav [data-stg]").forEach(function (b) { b.classList.toggle("on", b.dataset.stg === cur); });

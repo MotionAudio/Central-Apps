@@ -21,6 +21,7 @@
   function chipState() {
     if (!chip) return;
     chip.classList.toggle("ok", !!CU.state.connected); chip.classList.toggle("off", !CU.state.connected);
+    var info = document.getElementById("connInfo"); chip.title = (info && info.textContent.trim() ? info.textContent.trim() + " - " : "") + "the Central Pedal: address, Find and pairing code";
   }
   CU.on("connected", chipState); setInterval(chipState, 2000); chipState();
   // "Connect to a Central Pedal…" in an empty tab opens the same box
