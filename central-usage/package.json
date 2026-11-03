@@ -170,6 +170,7 @@
           "cm-pwnode",
           "rig-map.json",
           "central-playany.lv2/**",
+          "central-pedals.so",
           "cu-video",
           "cu-video.exe",
           "ffmpeg",

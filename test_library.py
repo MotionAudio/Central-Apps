@@ -133,6 +133,51 @@ def t_installed_filter():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def t_central_pedals():
+    """(10.3) our own pedals: every control has a knob, board values are in range, the boards cover the styles, and the
+    Pi's chain names central-pedals.so by its full path"""
+    own = [p for p in PEDALS if p["opts"].get("own")]
+    assert len(own) >= 40, len(own)
+    bad = []
+    for p in own:
+        info = PLUGINS.get(p["uri"])
+        if not info or info.get("ladspa") != "central-pedals.so" or info.get("label") != p["opts"]["label"]:
+            bad.append("%s: not in instrument-plugins.json as central-pedals.so:%s" % (p["id"], p["opts"]["label"]))
+            continue
+        labelled = set(p["knobs"].values())
+        bad += ["%s: control %s has no knob" % (p["id"], c["sym"]) for c in info["controls"] if c["sym"] not in labelled]
+        if not p.get("color", "").startswith("#"):
+            bad.append("%s: no face colour" % p["id"])
+    by = {p["id"]: p for p in own}
+    for b in BOARDS:
+        for item in b["chain"]:
+            p = by.get(item[0])
+            if not p:
+                continue
+            ctl = {c["sym"]: c for c in PLUGINS[p["uri"]]["controls"]}
+            for label, v in (item[1] or {}).items():
+                c = ctl.get(p["knobs"].get(label, label))
+                if not c or not (c["min"] <= v <= c["max"]):
+                    bad.append("%s: %s %s = %s is outside the knob" % (b["id"], item[0], label, v))
+    assert not bad, "\n".join(bad[:20])
+    assert len(BOARDS) >= 60, len(BOARDS)
+    ids = {b["id"] for b in BOARDS}
+    for want in ("worship-dotted", "worship-swells", "ambient-wash", "acoustic-worship", "bass-grind", "keys-pad-shimmer", "blues-spring"):
+        assert want in ids, want
+    dotted = [i[0] for i in next(b for b in BOARDS if b["id"] == "worship-dotted")["chain"]]
+    assert "ma-dotted-delay" in dotted and "ma-shimmer" in dotted, dotted
+    tiers = {p["id"]: p["tier"] for p in own}
+    assert tiers["ma-volume"] == "free" and tiers["ma-plate"] == "plugins" and tiers["ma-amp-crunch"] == "pedals", tiers
+    host = instrument_host.InstrumentHost(None, tempfile.mkdtemp(prefix="cp-"), HERE)
+    so = host.find_pedals()
+    if not so:
+        print("      (no central-pedals.so and no C compiler here: the chain check is skipped)")
+        return
+    plate = next(p for p in own if p["id"] == "ma-plate")
+    conf = host.chain_conf("t", [{"uid": "a", "id": "ma-plate", "uri": plate["uri"], "on": True, "values": {"decay": 2.5}}], 1, 0, None, 0)
+    assert 'plugin = "%s"' % so in conf and 'label = "ma_plate"' in conf and '"decay" = 2.5' in conf, conf[-600:]
+
+
 SR = 44100
 
 
@@ -240,6 +285,7 @@ check("every pedal's plugin is listed, its knobs and starting values are real co
 check("every board is made of real pedals and knobs", t_boards)
 check("9.6: studio tools in Central Plugins, pedals in Central Pedals; the orchestra boards free, Worship Grand still Central Keys", t_plans)
 check("a pedal whose LV2 package isn't installed is left out of the chain (the rest of the chain still loads)", t_installed_filter)
+check("10.3: Central Pedals - every control has a knob, boards in range, the worship / ambient / acoustic / bass / keys / blues boards, the Pi's chain", t_central_pedals)
 print("Library: the orchestra (VSCO 2: CE -> SoundFonts)")
 check("SFZ: regions with the global / group values, the sample path, comments", t_sfz)
 check("a held note gets a loop (found by correlation, joined without a click); a fading note loops while full; a pluck rings; clicks rounded off", t_loop)

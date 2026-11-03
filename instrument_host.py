@@ -38,6 +38,7 @@ CONVOLVER_URI = "builtin:convolver"
 MAX_KEY_LAYERS = 8
 PLAYANY_CHANNEL = 10           # FluidSynth channel of play any sound (the keys layers use 0..7; 9 is drums in GM)
 PLAYANY_LABEL = "central_playany"
+PEDALS_SO = "central-pedals.so"   # (10.3) Central Pedals: our own pedals (central-usage/native/mapedals)
 PLAYANY_MODES = {"auto": 0, "notes": 1, "synth": 2}
 
 
@@ -588,6 +589,7 @@ class InstrumentHost:
         self.last_status = 0
         self.lv2 = None   # probed on first use: can this PipeWire's filter-chain load LV2 plugins?
         self.playany_so = None        # central-playany.so (found / built on first use)
+        self.pedals_so = None         # (10.3) central-pedals.so: Central Pedals, our own pedals (found / built on first use)
         self.playany_in_chain = False  # the running guitar chain has the play-any plugin in it
         self.playany_fluid = False     # FluidSynth runs for play any sound (not for keys)
         self.community = None          # (10.1) the community stage (cm-pwnode), while a board has community plugins
@@ -658,6 +660,45 @@ class InstrumentHost:
         os.replace(built + ".part", built)
         log.info("play any sound: built %s", built)
         self.playany_so = built
+        return built
+
+    # ----- (10.3) Central Pedals: our own pedals, one LADSPA library ---------------
+    def find_pedals(self, build=True):
+        """central-pedals.so: shipped (bin/linux-<arch>/ in the Pi release, native/ in Central Control, the dev build),
+        or built here from its C sources the first time (they need nothing but a C compiler)."""
+        if self.pedals_so and os.path.isfile(self.pedals_so):
+            return self.pedals_so
+        import platform
+        arch = platform.machine() or "aarch64"
+        roots = [self.app_root, os.path.dirname(self.app_root or "")]
+        cands = [os.environ.get("CC_PEDALS_SO") or ""]
+        for r in roots:
+            if r:
+                cands += [os.path.join(r, "bin", "linux-" + arch, "central-pedals.so"),
+                          os.path.join(r, "central-usage", "native", "build", "central-pedals.so"),
+                          os.path.join(r, "central-pedals.so"),
+                          os.path.join(r, "native", "central-pedals.so")]
+        built = os.path.join(self.dir, "bin", "central-pedals.so")
+        cands.append(built)
+        for c in cands:
+            if c and os.path.isfile(c):
+                self.pedals_so = c
+                return c
+        if not build:
+            return None
+        src = next((d for d in [os.path.join(r, "central-usage", "native", "mapedals") for r in roots if r] + [os.path.join(r, "mapedals") for r in roots if r]
+                    if os.path.isfile(os.path.join(d, "mapedals.c"))), None)
+        cc = shutil.which("cc") or shutil.which("gcc") or shutil.which("clang")
+        if not src or not cc:
+            return None
+        os.makedirs(os.path.dirname(built), exist_ok=True)
+        r = run([cc, "-O2", "-fPIC", "-shared", "-o", built + ".part", os.path.join(src, "mapedals-ladspa.c"), os.path.join(src, "mapedals.c"), "-lm"], timeout=180)
+        if r.returncode != 0 or not os.path.isfile(built + ".part"):
+            log.warning("Central Pedals: building the plugin library failed: %s", (r.stderr or r.stdout or "").strip()[-300:])
+            return None
+        os.replace(built + ".part", built)
+        log.info("Central Pedals: built %s", built)
+        self.pedals_so = built
         return built
 
     # ----- catalogue ---------------------------------------------------------
@@ -1091,6 +1132,12 @@ context.modules = [
                     log.warning("IR pedal %s: no impulse file, skipped", it.get("id"))
                     continue
                 node = '{ type = builtin name = %s label = convolver config = { filename = "%s" channel = 0 gain = %.4f } }' % (uid, irf, db_to_lin(it.get("irGainDb", 0)))
+            elif info.get("ladspa") == PEDALS_SO:
+                so = self.find_pedals()   # (10.3) our own pedals: the library by its full path
+                if not so:
+                    log.warning("pedal %s: Central Pedals (central-pedals.so) is not here and could not be built, skipped", it.get("id"))
+                    continue
+                node = '{ type = ladspa name = %s plugin = "%s" label = "%s" control = { %s } }' % (uid, so.replace('"', ""), info.get("label", ""), ctl)
             elif info.get("ladspa"):
                 node = '{ type = ladspa name = %s plugin = "%s" label = "%s" control = { %s } }' % (uid, re.sub(r"\.so$", "", info["ladspa"]), info.get("label", ""), ctl)
             else:
