@@ -484,6 +484,12 @@
     { id: "keys-pad-shimmer", name: "Keys: Pad Into Shimmer", kind: "keys", sound: "warm pad|pad|strings", chain: [["ma-tri-chorus", { Mix: 0.35 }], ["ma-dotted-delay", { Tempo: 72, Repeats: 0.5, Mix: 0.3 }], ["ma-shimmer", { Decay: 12, Shimmer: 0.5, Mix: 0.45 }]] },
     { id: "keys-synth-drive", name: "Keys: Synth Lead Through a Drive", kind: "keys", sound: "lead|saw|synth", chain: [["ma-clear-drive", { Drive: 0.45 }], ["ma-analog-delay", { Time: 375, Repeats: 0.4, Mix: 0.25 }], ["ma-hall", { Decay: 2.5, Mix: 0.2 }]] },
     { id: "keys-dirty-wurli", name: "Keys: Dirty Wurli", kind: "keys", sound: "wurli|electric piano", chain: [["ma-blues-drive", { Drive: 0.35 }], ["ma-vibe", { Speed: 1, Intensity: 0.5 }], ["ma-spring", { Mix: 0.2 }]] },
+    // the amps with a cabinet from the IR library (Central Pedals' IRs) in place of their own
+    { id: "amp-clean-ir", name: "American Clean + 1x12 IR", kind: "electric", chain: [["ma-opto-comp", {}], ["ma-amp-clean", { Gain: 0.35, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central 1x12 Open Back" }], ["ma-plate", { Decay: 1.5, Mix: 0.18 }]] },
+    { id: "worship-amp-ir", name: "Worship Amp + 2x12 Worship IR", kind: "electric", chain: [["ma-gold-drive", { Gain: 0.3 }], ["ma-amp-clean", { Gain: 0.4, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central 2x12 Worship Smooth" }], ["ma-dotted-delay", { Tempo: 72, Repeats: 0.4, Mix: 0.3 }], ["ma-shimmer", { Decay: 7, Mix: 0.3 }]] },
+    { id: "amp-crunch-ir", name: "British Crunch + 4x12 Vintage IR", kind: "electric", chain: [["ma-amp-crunch", { Gain: 0.55, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central 4x12 Vintage" }], ["ma-hall", { Decay: 2.2, Mix: 0.18 }]] },
+    { id: "amp-hg-ir", name: "High Gain + 4x12 Modern IR", kind: "electric", chain: [["ma-gate", { Threshold: -50 }], ["ma-amp-hg", { Gain: 0.65, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central 4x12 Modern Tight" }], ["ma-digital-delay", { Time: 400, Feedback: 0.25, Mix: 0.15 }]] },
+    { id: "amp-bass-ir", name: "Bass Amp + 8x10 IR", kind: "bass", chain: [["ma-studio-comp", { Threshold: -24, Ratio: 4 }], ["ma-amp-bass", { Gain: 0.4, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central Bass 8x10" }]] },
     { id: "keys-ambient-piano", name: "Keys: Ambient Piano", kind: "keys", sound: "salamander|grand piano|piano", chain: [["ma-swell-verb", { Swell: 300, Decay: 6, Mix: 0.4 }], ["ma-tape-delay", { Time: 450, Repeats: 0.35, Mix: 0.2 }], ["ma-hall", { Decay: 4, Mix: 0.3 }]] }
   ];
   var BY_ID = {}; pedals.forEach(function (p) { BY_ID[p.id] = p; });
