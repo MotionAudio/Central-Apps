@@ -64,11 +64,17 @@ const sea = await page.evaluate(() => {
     easter: [2024, 2025, 2026, 2027, 2028].map((y) => S.easter(y).toDateString()), advent: [2025, 2026, 2027].map((y) => S.adventStart(y).toDateString()),
     days: { "2026-11-29": d(2026, 11, 29), "2026-12-25": d(2026, 12, 25), "2027-01-06": d(2027, 1, 6), "2027-02-10": d(2027, 2, 10), "2027-03-21": d(2027, 3, 21), "2027-03-26": d(2027, 3, 26), "2027-03-28": d(2027, 3, 28), "2027-05-09": d(2027, 5, 9), "2027-05-16": d(2027, 5, 16), "2027-06-20": d(2027, 6, 20), "2027-11-25": d(2027, 11, 25), "2027-01-01": d(2027, 1, 1), "2026-08-16": d(2026, 8, 16) },
     sunday: S.thisSunday(new Date(2026, 10, 25)).date.toDateString() + " " + S.thisSunday(new Date(2026, 10, 25)).season,
-    themes: (window.CUSeasonThemes || []).length };
+    themes: (window.CUSeasonThemes || []).length, themeBgs: (window.CUSeasonThemes || []).every((th) => B.has(th.bg.bgId)),
+    perSeason: list.reduce((o, e) => { o[e.season] = (o[e.season] || 0) + 1; return o; }, {}), stills: list.filter((e) => e.kind === "still").length, free: B.list.filter((e) => !e.tier).length };
 });
-await check("seasonal: 40-60 Utility backgrounds over every season, each tagged", () => {
-  assert.ok(sea.n >= 40 && sea.n <= 60, "count " + sea.n); assert.deepEqual(sea.tiers, ["utility"]); assert.ok(sea.tagged);
-  for (const s of ["advent", "christmas", "epiphany", "newyear", "ashwednesday", "lent", "palmsunday", "goodfriday", "easter", "pentecost", "communion", "baptism", "mothersday", "fathersday", "thanksgiving", "everyday"]) assert.ok(sea.seasons.includes(s), "no " + s);
+await check("seasonal: 100-130 Utility backgrounds over every season (10.3: about double), each tagged", () => {
+  assert.ok(sea.n >= 100 && sea.n <= 130, "count " + sea.n); assert.deepEqual(sea.tiers, ["utility"]); assert.ok(sea.tagged);
+  for (const s of ["advent", "christmas", "epiphany", "newyear", "ashwednesday", "lent", "palmsunday", "goodfriday", "easter", "pentecost", "communion", "baptism", "mothersday", "fathersday", "thanksgiving", "everyday", "youth", "kids"]) assert.ok(sea.seasons.includes(s), "no " + s);
+  for (const [s, n] of Object.entries(sea.perSeason)) assert.ok(n >= (s === "everyday" ? 25 : 3), s + " has only " + n);
+  assert.ok(sea.stills >= 8, "calm stills for scripture: " + sea.stills);
+});
+await check("(10.3) the free set stays a sampler: 55-70 free, well under the Utility set", () => {
+  assert.ok(sea.free >= 55 && sea.free <= 70, "free " + sea.free); assert.ok(sea.free < sea.n * 0.7, "free " + sea.free + " vs utility " + sea.n);
 });
 await check("seasonal: they loop without a seam (the frame at 0 s and at 120 s match)", () => assert.deepEqual(sea.seam, []));
 await check("seasonal: only a device with Central Utility can choose them (the free ones stay open)", () => { assert.equal(sea.okWith, true); assert.equal(sea.okWithout, false); assert.equal(sea.freeOk, true); });
@@ -78,7 +84,7 @@ await check("the church calendar: Easter by the computus, Advent from the 4th Su
   assert.deepEqual(sea.days, { "2026-11-29": "advent", "2026-12-25": "christmas", "2027-01-06": "epiphany", "2027-02-10": "ashwednesday", "2027-03-21": "palmsunday", "2027-03-26": "goodfriday", "2027-03-28": "easter", "2027-05-09": "mothersday", "2027-05-16": "pentecost", "2027-06-20": "fathersday", "2027-11-25": "thanksgiving", "2027-01-01": "newyear", "2026-08-16": "everyday" });
   assert.equal(sea.sunday, "Sun Nov 29 2026 advent");
 });
-await check("seasonal slide looks: 12-20 themes", () => assert.ok(sea.themes >= 12 && sea.themes <= 20, "themes " + sea.themes));
+await check("seasonal slide looks: 36-60 themes (10.3), each on one of the backgrounds", () => { assert.ok(sea.themes >= 36 && sea.themes <= 60, "themes " + sea.themes); assert.ok(sea.themeBgs, "a theme names a background that isn't there"); });
 await check("the Central Pedal has the seasonal set too (companion/backgrounds-seasons.js is a copy)", async () => {
   const fs = await import("node:fs");
   assert.equal(fs.readFileSync(path.join(here, "..", "companion", "backgrounds-seasons.js"), "utf8"), fs.readFileSync(path.join(here, "app", "backgrounds-seasons.js"), "utf8"), "copy app/backgrounds-seasons.js to companion/ after changing it");

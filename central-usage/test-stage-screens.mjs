@@ -94,7 +94,7 @@ await check("(10.2) Central Utility's graphics: a countdown ticks ({countdown}),
       themes: R.themes().filter((t) => t.tier === "utility").length, tpls: R.TEMPLATES.filter((t) => t.tier === "utility").map((t) => t.group) };
   });
   assert.equal(r.left, "4:50"); assert.equal(r.anim, true); assert.equal(r.at, 60); assert.equal(r.lower, "lower"); assert.equal(r.transparent, true);
-  assert.ok(r.themes >= 12 && r.themes <= 20, "themes " + r.themes); for (const g of ["Countdowns", "Lower thirds", "Overlays"]) assert.ok(r.tpls.includes(g), g);
+  assert.ok(r.themes >= 36 && r.themes <= 60, "themes " + r.themes); for (const g of ["Countdowns", "Lower thirds", "Overlays"]) assert.ok(r.tpls.includes(g), g);
 });
 await check("the 3D screen's picture follows: its pixels change when the background changes", async () => {
   await p.evaluate(() => { CULights3D.view("audience"); });
