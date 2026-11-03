@@ -659,15 +659,15 @@ static void runTremolo(CmFx *fx, Block *b, int n) {
   }
 }
 /* the offset (0..S samples) that lines a new grain up with the one playing: the best match of the 256 samples before
- * each read point (every 2nd sample, then refined) */
+ * each read point (every 4th of them; every 3rd offset, then refined) */
 static float pitchAlign(const float *L, const float *R, long len, int pos, float dOther, float dBase, int S) {
   float best = -1e30f; int bo = 0;
   for (int pass = 0; pass < 2; pass++) {
-    int from = pass ? bo - 2 : 0, to = pass ? bo + 2 : S, step = pass ? 1 : 2;
+    int from = pass ? bo - 2 : 0, to = pass ? bo + 2 : S, step = pass ? 1 : 3;
     for (int o = from; o <= to; o += step) {
       if (o < 0 || o > S) continue;
       float c = 0, e = 1e-9f; long i0 = pos - 1 - (long)dOther, i1 = pos - 1 - (long)(dBase + o);
-      for (int j = 0; j < 256; j += 2) {
+      for (int j = 0; j < 256; j += 4) {
         long a = i0 - j, b2 = i1 - j; while (a < 0) a += len; while (b2 < 0) b2 += len;
         float x = L[a] + R[a], y = L[b2] + R[b2]; c += x * y; e += y * y;
       }
