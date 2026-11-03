@@ -20,7 +20,7 @@
  * (10.2) The DAW's native inserts, offline (freezing a track, bouncing, exporting):
  *   cu-rig --data <folder> --process <job.json>
  *   job: {"rate", "frames", "in": <raw stereo float32, interleaved>, "out": <path>, "tail": seconds,
- *         "plugins": [{"slot", "format", "id", "path"}]}   (each slot's saved state, the one its window set)
+ *         "plugins": [{"slot", "format", "id", "path", "params": [[id, value 0..1], ..]}]}   (each slot's saved state, the one its window set, then the knobs)
  *   It plays the sound through the plugins in order, takes their reported latency off (so the result lines up with the
  *   input), writes frames + tail of stereo float32 to out and prints one line:
  *   {"type":"processed","ok":true,"latency":<frames>,"frames":<n>,"names":[...]} or {"type":"processed","ok":false,"error"}
@@ -799,11 +799,121 @@ static void playany_set(cJSON *pc, const char *forKind) {
   cJSON_Delete(fallback);
   playNext = n; atomic_store(&playDirty, 1);
 }
+/* ------------------------------------------------------------------ (10.3) the DAW's native plugins, live
+ * The DAW (Central Production, the Central Usage Studio) renders each track that has VST3 / CLAP plugins a little ahead
+ * of the playhead and sends it here; a worker thread plays it through the track's plugins and sends it back, and the
+ * DAW schedules it at its song time less the chain's latency, so every track lines up with the others.
+ *   {"action":"dawChain","stream":i,"rate":48000,"plugins":[{slot,format,id,path,name,params:[[id,value],..]}]}
+ *       -> {"type":"dawChain","stream":i,"ok":..,"latency":frames,"names":[..],"errors":[..]}
+ *   {"action":"dawProcess","seq":n,"frames":F,"streams":[{"s":i,"d":"<base64 float32 L R L R ..>","a":[[offset,plug,paramId,value],..],"reset":true}]}
+ *       -> {"type":"dawProcessed","seq":n,"streams":[{"s":i,"d":"<base64>","lat":L}]}
+ *       a: parameter changes (normalized 0..1) at their frame in the block (automation); reset: it starts again
+ *       from somewhere else, so what's left in the plugins (a delay line) is played out first
+ *   {"action":"dawParam","stream":i,"plug":k,"id":paramId,"value":v}   a knob, from the next block on
+ *   {"action":"dawDrop","stream":i}
+ * Every job runs on the worker in the order it came, so a plugin's parameters are only ever set from that thread. */
+#define DAW_MAX 64
+#define DAW_PL 16
+typedef struct { PhPlug *pl[DAW_PL]; char slot[DAW_PL][24]; int n, lat; } DawChain;
+static DawChain *dawChains[DAW_MAX];
+static pl_mutex dawLock, dawQLock; static pl_cond dawCond; static int dawUp;
+typedef struct DawJob { struct DawJob *next; cJSON *msg; } DawJob;
+static DawJob *dawHead, *dawTail;
+static const char B64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static char *b64_enc(const unsigned char *p, size_t n) {
+  char *o = malloc((n + 2) / 3 * 4 + 1), *q = o; size_t i = 0;
+  for (; i + 2 < n; i += 3) { unsigned v = p[i] << 16 | p[i + 1] << 8 | p[i + 2]; *q++ = B64[v >> 18]; *q++ = B64[(v >> 12) & 63]; *q++ = B64[(v >> 6) & 63]; *q++ = B64[v & 63]; }
+  if (i < n) { unsigned v = p[i] << 16 | (i + 1 < n ? p[i + 1] << 8 : 0); *q++ = B64[v >> 18]; *q++ = B64[(v >> 12) & 63]; *q++ = i + 1 < n ? B64[(v >> 6) & 63] : '='; *q++ = '='; }
+  *q = 0; return o;
+}
+static size_t b64_dec(const char *s, unsigned char *out, size_t cap) {
+  static signed char T[256]; static int init; if (!init) { memset(T, -1, sizeof T); for (int i = 0; i < 64; i++) T[(unsigned char)B64[i]] = (signed char)i; init = 1; }
+  size_t o = 0; unsigned v = 0; int k = 0;
+  for (; *s; s++) { int d = T[(unsigned char)*s]; if (d < 0) continue; v = v << 6 | (unsigned)d; if (++k == 4) { if (o + 3 > cap) break; out[o++] = (unsigned char)(v >> 16); out[o++] = (unsigned char)(v >> 8); out[o++] = (unsigned char)v; k = 0; v = 0; } }
+  if (k == 3 && o + 2 <= cap) { out[o++] = (unsigned char)(v >> 10); out[o++] = (unsigned char)(v >> 2); } else if (k == 2 && o + 1 <= cap) out[o++] = (unsigned char)(v >> 4);
+  return o;
+}
+static void daw_block(DawChain *c, float *buf, int F, cJSON *autos) {   /* buf: F stereo frames, interleaved, in place */
+  static float L[128], R[128], oL[128], oR[128]; int na = autos ? cJSON_GetArraySize(autos) : 0, ai = 0;
+  for (int pos = 0; pos < F; pos += 128) {
+    int n = F - pos < 128 ? F - pos : 128;
+    while (ai < na) { cJSON *a = cJSON_GetArrayItem(autos, ai); int off = (int)cJSON_GetNumberValue(cJSON_GetArrayItem(a, 0)); if (off >= pos + n) break;
+      int k = (int)cJSON_GetNumberValue(cJSON_GetArrayItem(a, 1)); if (c && k >= 0 && k < c->n) ph_set_param_p(c->pl[k], (uint32_t)cJSON_GetNumberValue(cJSON_GetArrayItem(a, 2)), cJSON_GetNumberValue(cJSON_GetArrayItem(a, 3))); ai++; }
+    if (!c || !c->n) continue;
+    for (int i = 0; i < n; i++) { L[i] = buf[2 * (pos + i)]; R[i] = buf[2 * (pos + i) + 1]; }
+    for (int k = 0; k < c->n; k++) { ph_process(c->pl[k], L, R, oL, oR, n, NULL, 0); memcpy(L, oL, n * sizeof(float)); memcpy(R, oR, n * sizeof(float)); }
+    for (int i = 0; i < n; i++) { buf[2 * (pos + i)] = isfinite(L[i]) ? L[i] : 0; buf[2 * (pos + i) + 1] = isfinite(R[i]) ? R[i] : 0; }
+  }
+}
+static void daw_run(cJSON *m) {   /* the worker: one job */
+  const char *a = str(m, "action", "");
+  if (!strcmp(a, "dawParam")) { int i = (int)num(m, "stream", -1), k = (int)num(m, "plug", -1); DawChain *c = i >= 0 && i < DAW_MAX ? dawChains[i] : NULL; if (c && k >= 0 && k < c->n) ph_set_param_p(c->pl[k], (uint32_t)num(m, "id", 0), num(m, "value", 0)); return; }
+  int F = (int)num(m, "frames", 0); if (F <= 0 || F > 65536) return;
+  float *buf = malloc((size_t)F * 2 * sizeof(float)); cJSON *o = cJSON_CreateObject(), *arr, *st;
+  cJSON_AddStringToObject(o, "type", "dawProcessed"); cJSON_AddNumberToObject(o, "seq", num(m, "seq", 0)); arr = cJSON_AddArrayToObject(o, "streams");
+  cJSON_ArrayForEach(st, cJSON_GetObjectItem(m, "streams")) {
+    int i = (int)num(st, "s", -1); DawChain *c = i >= 0 && i < DAW_MAX ? dawChains[i] : NULL;
+    memset(buf, 0, (size_t)F * 2 * sizeof(float)); b64_dec(str(st, "d", ""), (unsigned char *)buf, (size_t)F * 2 * sizeof(float));
+    if (c && cJSON_IsTrue(cJSON_GetObjectItem(st, "reset"))) {   /* (played out: what a delay line still holds) */
+      float *z = calloc((size_t)(c->lat + 4096) * 2, sizeof(float)); daw_block(c, z, c->lat + 4096, NULL); free(z);
+    }
+    daw_block(c, buf, F, cJSON_GetObjectItem(st, "a"));
+    char *enc = b64_enc((const unsigned char *)buf, (size_t)F * 2 * sizeof(float)); cJSON *r = cJSON_CreateObject();
+    cJSON_AddNumberToObject(r, "s", i); cJSON_AddItemToObject(r, "d", cJSON_CreateStringReference(enc)); cJSON_AddNumberToObject(r, "lat", c ? c->lat : 0); cJSON_AddItemToArray(arr, r);
+    cJSON_AddItemToObject(r, "_e", cJSON_CreateStringReference(enc));   /* (freed after printing, below) */
+  }
+  emit_json(o);
+  cJSON_ArrayForEach(st, arr) free((void *)cJSON_GetStringValue(cJSON_GetObjectItem(st, "_e")));
+  cJSON_Delete(o); free(buf);
+}
+static void *daw_worker(void *arg) {
+  (void)arg;
+  for (;;) {
+    pl_mutex_lock(&dawQLock); while (!dawHead) pl_cond_wait_ms(&dawCond, &dawQLock, 1000);
+    DawJob *j = dawHead; dawHead = j->next; if (!dawHead) dawTail = NULL; pl_mutex_unlock(&dawQLock);
+    pl_mutex_lock(&dawLock); daw_run(j->msg); pl_mutex_unlock(&dawLock);
+    cJSON_Delete(j->msg); free(j);
+  }
+  return NULL;
+}
+static void daw_queue(cJSON *m) {
+  if (!dawUp) { pl_mutex_init(&dawLock); pl_mutex_init(&dawQLock); pl_cond_init(&dawCond); pl_thread t; if (pl_thread_start(&t, daw_worker, NULL)) return; dawUp = 1; }
+  DawJob *j = calloc(1, sizeof *j); j->msg = cJSON_Duplicate(m, 1);
+  pl_mutex_lock(&dawQLock); if (dawTail) dawTail->next = j; else dawHead = j; dawTail = j; pl_cond_signal(&dawCond); pl_mutex_unlock(&dawQLock);
+}
+static void daw_swap(int i, DawChain *nc) {   /* main thread: the worker takes the new chain from its next block */
+  if (!dawUp) { pl_mutex_init(&dawLock); pl_mutex_init(&dawQLock); pl_cond_init(&dawCond); pl_thread t; if (pl_thread_start(&t, daw_worker, NULL)) return; dawUp = 1; }
+  pl_mutex_lock(&dawLock); DawChain *old = dawChains[i]; dawChains[i] = nc; pl_mutex_unlock(&dawLock);
+  if (old) { for (int k = 0; k < old->n; k++) ph_release(old->pl[k]); free(old); }
+}
+static void daw_chain(cJSON *m) {   /* main thread (plugins load here) */
+  int i = (int)num(m, "stream", -1); if (i < 0 || i >= DAW_MAX) return;
+  DawChain *nc = calloc(1, sizeof *nc); double rate = num(m, "rate", FS); cJSON *it, *o = cJSON_CreateObject(), *names, *errs, *later = cJSON_CreateArray(), *q;
+  cJSON_AddStringToObject(o, "type", "dawChain"); cJSON_AddNumberToObject(o, "stream", i); names = cJSON_AddArrayToObject(o, "names"); errs = cJSON_AddArrayToObject(o, "errors");
+  cJSON_ArrayForEach(it, cJSON_GetObjectItem(m, "plugins")) {
+    if (nc->n >= DAW_PL) break; char slot[24], err[200] = ""; clean_uid(str(it, "slot", "p"), slot);
+    PhPlug *p = ph_get(slot, str(it, "format", ""), str(it, "id", ""), str(it, "path", ""), str(it, "stateFrom", ""), rate, MAXBLOCK, err, sizeof err);
+    if (p && ph_is_instrument(p)) { ph_release(p); p = NULL; snprintf(err, sizeof err, "it's an instrument, not an effect"); }
+    if (!p) { char e[300]; snprintf(e, sizeof e, "%s: %s", str(it, "name", "a plugin"), err[0] ? err : "it didn't load"); cJSON_AddItemToArray(errs, cJSON_CreateString(e)); continue; }
+    nc->pl[nc->n] = p; snprintf(nc->slot[nc->n], 24, "%s", slot); nc->lat += ph_latency(p); nc->n++; cJSON_AddItemToArray(names, cJSON_CreateString(ph_name(p)));
+    cJSON *pv; cJSON_ArrayForEach(pv, cJSON_GetObjectItem(it, "params")) { q = cJSON_CreateObject(); cJSON_AddStringToObject(q, "action", "dawParam"); cJSON_AddNumberToObject(q, "stream", i); cJSON_AddNumberToObject(q, "plug", nc->n - 1); cJSON_AddNumberToObject(q, "id", cJSON_GetNumberValue(cJSON_GetArrayItem(pv, 0))); cJSON_AddNumberToObject(q, "value", cJSON_GetNumberValue(cJSON_GetArrayItem(pv, 1))); cJSON_AddItemToArray(later, q); }
+  }
+  int lat = nc->lat; daw_swap(i, nc);
+  cJSON_ArrayForEach(q, later) daw_queue(q); cJSON_Delete(later);   /* (its knobs, once the worker has the new chain) */
+  cJSON_AddBoolToObject(o, "ok", cJSON_GetArraySize(errs) == 0); cJSON_AddNumberToObject(o, "latency", lat); emit_json(o); cJSON_Delete(o);
+}
+static int daw_slots(const char **slots, int max) {   /* the slots the DAW's chains use (the rig keeps them loaded) */
+  int n = 0; if (dawUp) pl_mutex_lock(&dawLock);
+  for (int i = 0; i < DAW_MAX; i++) if (dawChains[i]) for (int k = 0; k < dawChains[i]->n && n < max; k++) slots[n++] = dawChains[i]->slot[k];
+  if (dawUp) pl_mutex_unlock(&dawLock); return n;
+}
+
 static void plugs_keep(void) {   /* the plugin host keeps the plugins the newest chain and layers use, and saves + lets go of the rest */
-  const char *slots[MAXFX + MAXLAYERS]; char names[MAXLAYERS][24]; int n = 0;
+  const char *slots[MAXFX + MAXLAYERS + DAW_MAX * DAW_PL]; char names[MAXLAYERS][24]; int n = 0;
   Chain *c = atomic_load(&chainNext); if (!c) c = chainLive;
   if (c) for (int i = 0; i < c->n; i++) if (c->fx[i].type == FX_PLUG) slots[n++] = c->fx[i].uid;
   if (!strcmp(kind, "keys")) for (int i = 0; i < keysCfg.n; i++) if (keysCfg.l[i].plug) { snprintf(names[i], sizeof names[i], "%s", ph_slot(keysCfg.l[i].plug)); slots[n++] = names[i]; }
+  n += daw_slots(slots + n, DAW_MAX * DAW_PL);   /* (10.3) and the DAW's */
   ph_keep_only(slots, n);
 }
 static void keys_drop_plugins(void) { for (int i = 0; i < keysCfg.n; i++) if (keysCfg.l[i].plug) { ph_release(keysCfg.l[i].plug); keysCfg.l[i].plug = NULL; } }   /* (only with the audio stopped or not in keys) */
@@ -882,6 +992,10 @@ static void handle(cJSON *m) {
   if (!strcmp(a, "pluginSet")) { char slot[24]; clean_uid(str(m, "uid", ""), slot); ph_set_param(slot, (uint32_t)num(m, "id", 0), num(m, "value", 0)); return; }
   if (!strcmp(a, "pluginEditor")) { char slot[24]; clean_uid(str(m, "uid", ""), slot); int open = ph_editor(slot, cJSON_IsFalse(cJSON_GetObjectItem(m, "open")) ? 0 : 1); cJSON *o = cJSON_CreateObject(); cJSON_AddStringToObject(o, "type", "pluginEditor"); cJSON_AddStringToObject(o, "uid", str(m, "uid", "")); cJSON_AddBoolToObject(o, "open", open); if (!open && !cJSON_IsFalse(cJSON_GetObjectItem(m, "open"))) cJSON_AddStringToObject(o, "error", ph_has_editor(slot) ? "The plugin's window did not open." : "This plugin has no window of its own here."); emit_json(o); cJSON_Delete(o); return; }
   if (!strcmp(a, "pluginSave")) { ph_save_all(); return; }
+  /* (10.3) the DAW's native plugins, live (see "the DAW's native plugins, live" above) */
+  if (!strcmp(a, "dawChain")) { daw_chain(m); plugs_keep(); return; }
+  if (!strcmp(a, "dawProcess") || !strcmp(a, "dawParam")) { daw_queue(m); return; }
+  if (!strcmp(a, "dawDrop")) { int i = (int)num(m, "stream", -1); if (i >= 0 && i < DAW_MAX) { daw_swap(i, NULL); plugs_keep(); } return; }
   /* (10.1) a community plugin that was bypassed (crashed, stopped responding, too heavy): "Try again" loads it afresh */
   if (!strcmp(a, "pluginRestart")) { char slot[24]; clean_uid(str(m, "uid", ""), slot); ph_forget_slot(slot); apply(NULL); status(); return; }
   if (!strcmp(a, "pluginCopyState")) { char from[24], to[24]; clean_uid(str(m, "from", ""), from); clean_uid(str(m, "to", ""), to); int ok = ph_copy_state(from, to); cJSON *o = cJSON_CreateObject(); cJSON_AddStringToObject(o, "type", "pluginCopyState"); cJSON_AddStringToObject(o, "from", str(m, "from", "")); cJSON_AddStringToObject(o, "to", str(m, "to", "")); cJSON_AddBoolToObject(o, "ok", ok); emit_json(o); cJSON_Delete(o); return; }
@@ -908,6 +1022,7 @@ static int process_main(const char *jobPath) {
     if (!p) { snprintf(why, sizeof why, "%s didn't load: %s", str(it, "name", str(it, "id", "a plugin")), err[0] ? err : "no reason given"); goto done; }
     if (ph_is_instrument(p)) { snprintf(why, sizeof why, "%s is an instrument, not an effect", ph_name(p)); ph_release(p); goto done; }
     pl[np++] = p; lat += ph_latency(p); cJSON_AddItemToArray(names, cJSON_CreateString(ph_name(p)));
+    { cJSON *pv; cJSON_ArrayForEach(pv, cJSON_GetObjectItem(it, "params")) ph_set_param_p(p, (uint32_t)cJSON_GetNumberValue(cJSON_GetArrayItem(pv, 0)), cJSON_GetNumberValue(cJSON_GetArrayItem(pv, 1))); }
   }
   { double tail = num(job, "tail", 0); if (tail < 0) tail = 0; if (tail > 30) tail = 30; outN = frames + (long)(tail * FS); }
   out = calloc((size_t)outN * 2 + 2, sizeof(float)); if (!out) { snprintf(why, sizeof why, "not enough memory"); goto done; }

@@ -62,6 +62,8 @@ void ph_process(PhPlug *p, const float *inL, const float *inR, float *outL, floa
  * automatable ones; set from the app (queued for the audio thread, marks the state to save) */
 char *ph_params_json(const char *slot, int max);
 int  ph_set_param(const char *slot, uint32_t id, double value);
+/* (10.3) the same on a plugin the caller holds, from the one thread that processes it (the DAW's worker): no slot lookup */
+int  ph_set_param_p(PhPlug *p, uint32_t id, double value);
 /* the editor window */
 int  ph_has_editor(const char *slot);
 int  ph_editor(const char *slot, int open);   /* returns 1 when it is open */

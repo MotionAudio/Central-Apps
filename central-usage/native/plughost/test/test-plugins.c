@@ -1,6 +1,7 @@
 /* Two tiny CLAP plugins for testing the plugin host (never shipped):
  *   "Central Test Gain"   an effect: stereo in/out, one parameter (Gain, -24..+24 dB), state = the gain
  *   "Central Test Synth"  an instrument: MIDI / CLAP notes in, a sine per note out, one parameter (Volume 0..1)
+ *   "Central Test Delay"  (10.3) the gain, 480 samples late, and it says so (the latency extension): delay compensation
  * Build: cc -shared -fPIC -O2 -o central-test.clap test-plugins.c -lm   (Windows: x86_64-w64-mingw32-gcc -shared -o central-test.clap)
  * With -DCENTRAL_TEST_CRASH it crashes as it loads instead (the scan must only lose that one file).
  * The test suite (test-rig.mjs) loads this bundle through the rig and checks gain, notes, parameters and state. */
@@ -14,7 +15,8 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-typedef struct { clap_plugin_t p; const clap_host_t *host; int synth; double sr; double gainDb, volume; double ph[128]; int on[128]; float vel[128]; double mode; } Plug;
+#define TEST_LAT 480
+typedef struct { clap_plugin_t p; const clap_host_t *host; int synth; double sr; double gainDb, volume; double ph[128]; int on[128]; float vel[128]; double mode; int lat; float dl[2][TEST_LAT]; int di; } Plug;
 
 #ifdef CENTRAL_TEST_EVIL
 /* -DCENTRAL_TEST_EVIL: "Central Test Evil", for the community plugin wall's tests (test-plugin-wall.mjs). The gain
@@ -55,6 +57,7 @@ static const clap_plugin_descriptor_t descFx = { CLAP_VERSION_INIT, "audio.motio
 #else
 static const clap_plugin_descriptor_t descFx = { CLAP_VERSION_INIT, "audio.motion.test-gain", "Central Test Gain", "Motion Audio", "", "", "", "1.0", "a gain for the plugin host's tests", fxFeat };
 #endif
+static const clap_plugin_descriptor_t descDly = { CLAP_VERSION_INIT, "audio.motion.test-delay", "Central Test Delay", "Motion Audio", "", "", "", "1.0", "a gain 480 samples late, with its latency reported", fxFeat };
 static const clap_plugin_descriptor_t descSyn = { CLAP_VERSION_INIT, "audio.motion.test-synth", "Central Test Synth", "Motion Audio", "", "", "", "1.0", "sines for the plugin host's tests", synFeat };
 
 static bool p_init(const clap_plugin_t *plugin) { (void)plugin; return true; }
@@ -69,7 +72,7 @@ static bool p_activate(const clap_plugin_t *plugin, double sr, uint32_t mn, uint
 static void p_deactivate(const clap_plugin_t *plugin) { (void)plugin; }
 static bool p_start(const clap_plugin_t *plugin) { (void)plugin; return true; }
 static void p_stop(const clap_plugin_t *plugin) { (void)plugin; }
-static void p_reset(const clap_plugin_t *plugin) { memset(SELF->on, 0, sizeof SELF->on); }
+static void p_reset(const clap_plugin_t *plugin) { memset(SELF->on, 0, sizeof SELF->on); memset(SELF->dl, 0, sizeof SELF->dl); }
 
 static void event(Plug *s, const clap_event_header_t *h) {
   if (h->space_id != CLAP_CORE_EVENT_SPACE_ID) return;
@@ -94,7 +97,8 @@ static clap_process_status p_process(const clap_plugin_t *plugin, const clap_pro
     }
   } else {
     float g = (float)pow(10, s->gainDb / 20); float **in = pr->audio_inputs[0].data32;
-    for (uint32_t i = 0; i < n; i++) { out[0][i] = in[0][i] * g; out[1][i] = in[1][i] * g; }
+    if (s->lat) for (uint32_t i = 0; i < n; i++) { for (int c = 0; c < 2; c++) { float x = in[c][i]; out[c][i] = s->dl[c][s->di] * g; s->dl[c][s->di] = x; } s->di = (s->di + 1) % TEST_LAT; }
+    else for (uint32_t i = 0; i < n; i++) { out[0][i] = in[0][i] * g; out[1][i] = in[1][i] * g; }
   }
   return CLAP_PROCESS_CONTINUE;
 }
@@ -149,8 +153,10 @@ static bool st_save(const clap_plugin_t *plugin, const clap_ostream_t *os) { cha
 static bool st_load(const clap_plugin_t *plugin, const clap_istream_t *is) { char b[64] = { 0 }; int64_t n = is->read(is, b, sizeof b - 1); if (n < 5 || strncmp(b, "CTP1 ", 5)) return false; double v = atof(b + 5); if (SELF->synth) SELF->volume = v; else SELF->gainDb = v; return true; }
 static const clap_plugin_state_t state = { st_save, st_load };
 
+static uint32_t lat_get(const clap_plugin_t *plugin) { return (uint32_t)SELF->lat; }
+static const clap_plugin_latency_t latencyExt = { lat_get };
 static const void *p_ext(const clap_plugin_t *plugin, const char *id) {
-  (void)plugin;
+  if (!strcmp(id, CLAP_EXT_LATENCY) && SELF->lat) return &latencyExt;
   if (!strcmp(id, CLAP_EXT_AUDIO_PORTS)) return &audioPorts;
   if (!strcmp(id, CLAP_EXT_NOTE_PORTS)) return &notePorts;
   if (!strcmp(id, CLAP_EXT_PARAMS)) return &params;
@@ -160,12 +166,12 @@ static const void *p_ext(const clap_plugin_t *plugin, const char *id) {
 static void p_main(const clap_plugin_t *plugin) { (void)plugin; }
 
 /* ---- factory, entry */
-static uint32_t f_count(const clap_plugin_factory_t *f) { (void)f; return 2; }
-static const clap_plugin_descriptor_t *f_desc(const clap_plugin_factory_t *f, uint32_t i) { (void)f; return i == 0 ? &descFx : i == 1 ? &descSyn : NULL; }
+static uint32_t f_count(const clap_plugin_factory_t *f) { (void)f; return 3; }
+static const clap_plugin_descriptor_t *f_desc(const clap_plugin_factory_t *f, uint32_t i) { (void)f; return i == 0 ? &descFx : i == 1 ? &descSyn : i == 2 ? &descDly : NULL; }
 static const clap_plugin_t *f_create(const clap_plugin_factory_t *f, const clap_host_t *host, const char *id) {
-  (void)f; int syn = !strcmp(id, descSyn.id); if (!syn && strcmp(id, descFx.id)) return NULL;
-  Plug *s = calloc(1, sizeof *s); s->host = host; s->synth = syn; s->volume = 0.8; s->sr = 48000;
-  s->p = (clap_plugin_t){ syn ? &descSyn : &descFx, s, p_init, p_destroy, p_activate, p_deactivate, p_start, p_stop, p_reset, p_process, p_ext, p_main };
+  (void)f; int syn = !strcmp(id, descSyn.id), dly = !strcmp(id, descDly.id); if (!syn && !dly && strcmp(id, descFx.id)) return NULL;
+  Plug *s = calloc(1, sizeof *s); s->host = host; s->synth = syn; s->volume = 0.8; s->sr = 48000; s->lat = dly ? TEST_LAT : 0;
+  s->p = (clap_plugin_t){ syn ? &descSyn : dly ? &descDly : &descFx, s, p_init, p_destroy, p_activate, p_deactivate, p_start, p_stop, p_reset, p_process, p_ext, p_main };
   return &s->p;
 }
 static const clap_plugin_factory_t factory = { f_count, f_desc, f_create };

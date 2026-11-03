@@ -251,6 +251,7 @@ char *ph_params_json(const char *slot, int max) {
   char *s = cJSON_PrintUnformatted(a); cJSON_Delete(a); return s;
 }
 int ph_set_param(const char *slot, uint32_t id, double v) { auto it = pool.find(slot ? slot : ""); if (it == pool.end()) return 0; it->second->setParam(id, std::min(1.0, std::max(0.0, v))); it->second->dirty = true; return 1; }
+int ph_set_param_p(PhPlug *p, uint32_t id, double v) { if (!p) return 0; PP(p)->setParam(id, std::min(1.0, std::max(0.0, v))); PP(p)->dirty = true; return 1; }
 int ph_has_editor(const char *slot) { auto it = pool.find(slot ? slot : ""); return it != pool.end() && it->second->hasEditor() && windowApi()[0]; }
 int ph_editor(const char *slot, int open) {
   auto it = pool.find(slot ? slot : ""); if (it == pool.end()) return 0; Plug *p = it->second;
