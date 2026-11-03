@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, "..");
 const shots = process.env.SHOTS || "/tmp/cu-shots"; fs.mkdirSync(shots, { recursive: true });
 const ONLY = (process.env.ONLY || "").split(",").filter(Boolean), CLICK = process.env.CLICK !== "0";
+const CLICKTABS = (process.env.CLICKTABS || "").split(",").filter(Boolean);   // only click through these tabs (all when empty)
 const SIZES = (process.env.SIZES || "1920x1080,1366x768").split(",").map((s) => s.split("x").map(Number));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cu-sweep-")); fs.mkdirSync(path.join(tmp, "media"), { recursive: true }); fs.writeFileSync(path.join(tmp, "code-chosen"), "1");
 const drv = spawn("python3", [path.join(root, "pedal-driver.py"), "--simulate", tmp, "--app-root", root], { stdio: ["pipe", "pipe", "pipe"] });
@@ -110,6 +111,7 @@ async function run(c) {
   if (CLICK) {
     await setSize(SIZES[SIZES.length - 1]);
     for (const t of tabs) {
+      if (CLICKTABS.length && !CLICKTABS.includes(t)) continue;
       const views = subs[t] ? subs[t] : [null];
       for (const sub of views) {
         const go = async () => { await enter(t); if (sub) { await win.evaluate((v) => CULights.showSub(v), sub); await win.waitForTimeout(200); } };
@@ -135,6 +137,8 @@ async function run(c) {
           await win.keyboard.press("Escape").catch(() => {});
           await go();
         }
+        fs.writeFileSync(path.join(shots, "report.json"), JSON.stringify(Object.assign({ partial: cur }, report), null, 1));
+        console.log("done", c.name, t, sub || "", "ok", report.ok, "dead", report.dead.length, "obscured", report.obscured.length, "errors", report.errors.length);
       }
     }
   }
