@@ -238,8 +238,9 @@ await check("the Stream mix as the stream's sound: the sound desk's mix (here pu
       CUVideo.mixPcm(new Uint8Array(b.buffer)); sent = due; if (sent >= 144000) { clearInterval(t); done(); }
     }, 20);
   }));
-  const speed = parseFloat(await cu.evaluate(() => CUVideo.status().then((s) => s.encoder && s.encoder.speed || "0"))) || 0;   // (a busy test machine encodes slower than real time)
-  await sleep(1500); await cu.evaluate(() => CUVideo.record(false)); await sleep(2500);
+  const speedNow = () => cu.evaluate(() => CUVideo.status().then((s) => parseFloat(s.encoder && s.encoder.speed || "0") || 0));
+  const s1 = await speedNow();   // (a busy test machine encodes slower than real time - the slowest reading of the take counts)
+  await sleep(1500); const speed = Math.min(s1, await speedNow()); await cu.evaluate(() => CUVideo.record(false)); await sleep(2500);
   await cu.evaluate(() => CUVideo.config({ audio: { use: 0, delay: 80 } }).then((c) => { CUVideoTab.state.cfg = c; }));
   const file = (fs.readdirSync(recDir).filter((f) => f.endsWith(".mp4") && before.indexOf(f) < 0))[0]; assert.ok(file, "no new recording");
   const j = probe(path.join(recDir, file)); assert.ok(j && j.streams.some((s) => s.codec_type === "audio") && Number(j.format.duration) > (speed >= 0.95 ? 4 : 2), JSON.stringify(j) + " speed " + speed);
