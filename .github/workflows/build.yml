@@ -78,6 +78,7 @@ jobs:
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
           bash tools/ci-run.sh "lights auto test" node central-usage/test-lights-auto.mjs
           bash tools/ci-run.sh "lights room test (seats, the light on them)" node central-usage/test-lights-room.mjs
+          bash tools/ci-run.sh "shorts learning test (synthetic churches' feedback moves the picks; reset)" node central-usage/test-shorts-learn.mjs
           bash tools/ci-run.sh "shorts test (picking the moments, captions, a whole made-up service through the pinned ffmpeg)" node central-usage/test-shorts.mjs central-usage/native/build/ffmpeg
           CU_SKIP_NATIVE=1 bash central-usage/prepare-shared.sh
           python3 -m pip install --quiet numpy scipy soundfile pyloudnorm   # (the 10.2 hymns and pads: the sampler, loudness, filters)

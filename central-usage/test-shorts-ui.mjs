@@ -41,13 +41,17 @@ window.CU = { shorts: {
   make: async (id) => (call("make", [id]), { isMain: true, settings: D.settings, job: { id, mode: "make", step: "start", pct: 0, text: "Starting" }, queued: [] }),
   cancel: async () => (call("cancel", []), { isMain: true, settings: D.settings, job: null, queued: [] }),
   update: async (id, sid, p) => { call("update", [id, sid, p]); const s = D.data.shorts.find((x) => x.id === sid); Object.assign(s, p.status ? { status: p.status } : {}, p.title ? { title: p.title } : {}, p.start != null ? { start: p.start, end: p.end } : {}); return s; },
-  remove: async (id, sid) => { call("remove", [id, sid]); D.data.shorts = D.data.shorts.filter((x) => x.id !== sid); return { ok: true }; },
+  remove: async (id, sid, why) => { call("remove", [id, sid, why]); D.data.shorts = D.data.shorts.filter((x) => x.id !== sid); return { ok: true }; },
   add: async (id, at) => (call("add", [id, at]), { isMain: true, settings: D.settings, job: null, queued: [] }),
   reveal: async (id) => call("reveal", [id]), download: async (id, sid) => (call("download", [id, sid]), { saved: "/home/me/Downloads/short.mp4" }), pickFile: async (k) => (call("pickFile", [k]), "/pics/logo.png"),
   social: async (a) => (call("social", [a]), { platforms: { youtube: { available: true, connected: true, account: "Grace Church" }, facebook: { available: true, connected: false }, instagram: { available: true, connected: false }, tiktok: { available: false, connected: false } } }),
   connect: async (p, a) => (call("connect", [p, a]), { opened: true }), disconnect: async (p, a) => (call("disconnect", [p, a]), { ok: true }),
   post: async (id, sid, p, a) => { call("post", [id, sid, p, a]); const s = D.data.shorts.find((x) => x.id === sid); const e = { platform: p, at: Date.now(), ok: true, id: "yt1", url: "https://www.youtube.com/shorts/yt1" }; s.posts.push(e); s.status = "posted"; return e; },
-  history: async () => [], openUrl: async (u) => call("openUrl", [u]), mark: (d) => call("mark", [d]), on: (f) => { fn = f; }
+  history: async () => [],
+  stats: async (a, f) => { call("stats", [a, f]); const s = D.data.shorts.find((x) => x.id === "sB"); if (s && !s.posts.length) s.status = "posted", s.posts.push({ platform: "youtube", at: Date.now() - 864e5, ok: true, id: "ytB", url: "https://www.youtube.com/shorts/ytB", stats: { views: 1234, avgSeconds: 22.4, likes: 51, shares: 4 } }); return { checked: 1, updated: 1, errors: [] }; },
+  learned: async () => (call("learned", []), window.__learned || { lessons: 6, lines: ["Sermon shorts you keep run about 38 seconds.", "Likes stories and their payoff."] }),
+  resetLearning: async () => (call("resetLearning", []), (window.__learned = { lessons: 0, lines: ["Nothing yet. Every short you approve, trim, fix, delete or post teaches it what your church likes."] })),
+  openUrl: async (u) => call("openUrl", [u]), mark: (d) => call("mark", [d]), on: (f) => { fn = f; }
 } };
 window.__emit = (m) => fn && fn(m);
 </script><script src="${path.join(here, "app", "shorts.js")}"></script></body></html>`;
@@ -116,6 +120,18 @@ await check("Delete asks first, then the card is gone", async () => {
   await page.click('[data-ed="delete"]'); await page.click('dialog.ask [data-a="yes"]'); await page.waitForFunction(() => document.querySelectorAll(".sh-card").length === 1);
   assert.equal((await calls("remove")).pop()[2], "sA");
 });
+await check("(10.3) the posted short shows how it did; deleting another asks why (one tap, optional) and passes it on", async () => {
+  await page.click('.sh-card[data-open="sB"]'); await page.waitForSelector(".sh-ed");
+  await page.waitForFunction(() => /1,234 views · 22 s watched on average · 51 likes · 4 shares/.test((document.querySelector(".sh-hist") || {}).textContent || ""));
+  await page.click('[data-ed="delete"]'); assert.ok(!(await page.$("dialog.sh-del [data-why]")), "a posted short isn't a lesson: no reasons");
+  await page.click('dialog.ask [data-a="no"]');
+  await page.evaluate(() => { const s = window.CUShorts.state().data.shorts.find((x) => x.id === "sB"); s.status = "approved"; window.CUShorts.render(); });
+  await page.click('[data-ed="delete"]'); await page.click('dialog.sh-del [data-why="cutoff"]');
+  assert.ok(await page.$eval('dialog.sh-del [data-why="cutoff"]', (b) => b.classList.contains("on")));
+  await page.click('dialog.sh-del [data-a="yes"]'); await page.waitForFunction(() => window.calls.filter((c) => c[0] === "remove").length === 2);
+  const r = (await calls("remove")).pop(); assert.equal(r[2], "sB"); assert.equal(r[3], "cutoff");
+  assert.ok((await calls("stats")).length >= 1, "it read the numbers when the tab opened");
+});
 await check("Settings: how many, how long, the mix, the captions' look (with a preview), saved together", async () => {
   await page.click('[data-sh="settings"]'); await page.waitForSelector("dialog.sh-dlg");
   await page.fill('dialog.sh-dlg [name="count"]', "7"); await page.fill('dialog.sh-dlg [name="maxLen"]', "45");
@@ -125,7 +141,15 @@ await check("Settings: how many, how long, the mix, the captions' look (with a p
   if (process.env.SHORTS_SHOTS) await page.screenshot({ path: path.join(process.env.SHORTS_SHOTS, "shorts-settings.png") });
   await page.click('dialog.sh-dlg [data-pick="logo"]'); await page.waitForFunction(() => /logo\.png/.test(document.querySelector('[data-shown="logo"]').textContent));
   await page.click('dialog.sh-dlg button[value="save"]'); await page.waitForFunction(() => window.calls.some((c) => c[0] === "settings"));
-  const s = (await calls("settings")).pop()[1]; assert.equal(s.count, 7); assert.equal(s.maxLen, 45); assert.equal(s.sermonShare, 0.4); assert.equal(s.captions.highlight, "#ff3366"); assert.equal(s.captions.position, "top"); assert.equal(s.logo, "/pics/logo.png");
+  const s = (await calls("settings")).pop()[1]; assert.equal(s.learn, true); assert.equal(s.count, 7); assert.equal(s.maxLen, 45); assert.equal(s.sermonShare, 0.4); assert.equal(s.captions.highlight, "#ff3366"); assert.equal(s.captions.position, "top"); assert.equal(s.logo, "/pics/logo.png");
+});
+await check("(10.3) Settings → What the AI has learned: in plain words, and Reset learning (after asking)", async () => {
+  await page.click('[data-sh="settings"]'); await page.waitForFunction(() => /run about 38 seconds/.test((document.querySelector("[data-learned]") || {}).textContent || ""));
+  assert.match(await page.textContent("[data-lessons]"), /6 shorts to learn from/);
+  await page.click('dialog.sh-dlg [data-a="unlearn"]'); await page.click('dialog.ask [data-a="yes"]');
+  await page.waitForFunction(() => /Nothing yet/.test(document.querySelector("[data-learned]").textContent)); assert.equal((await calls("resetLearning")).length, 1);
+  await page.click('dialog.sh-dlg [name="learn"]'); await page.click('dialog.sh-dlg button[value="save"]');
+  await page.waitForFunction(() => window.calls.filter((c) => c[0] === "settings").length >= 2); assert.equal((await calls("settings")).pop()[1].learn, false);
 });
 await check("Accounts: YouTube connected, Facebook / Instagram to connect (one sign-in), TikTok not switched on yet", async () => {
   await page.click('[data-sh="accounts"]'); await page.waitForFunction(() => /Connected: Grace Church/.test((document.querySelector("dialog.sh-dlg") || {}).textContent || ""));

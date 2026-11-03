@@ -59,3 +59,7 @@ dialog.sh-dlg label.sh-inline { display: flex; align-items: center; gap: 8px; }
 dialog.sh-dlg .row { padding-top: 12px; }
 .sh-accts { display: grid; gap: 8px; margin: 10px 0; } .sh-acct { display: grid; grid-template-columns: 150px 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
 @media (max-width: 600px) { .sh-acct { grid-template-columns: 1fr; } }
+/* (10.3) learning */
+.sh-stats { color: var(--accentHi); }
+.sh-why { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; } .sh-why button.on { background: color-mix(in srgb, var(--danger), transparent 75%); border-color: var(--danger); }
+.sh-learned ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; } .sh-learned li { line-height: 1.4; }

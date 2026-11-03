@@ -21,8 +21,21 @@
   function toast(t, bad) { S.msg = bad ? "" : t; S.err = bad ? t : ""; paintNote(); clearTimeout(toast.t); toast.t = setTimeout(function () { S.msg = S.err = ""; paintNote(); }, 6000); }
 
   // ---------------------------------------------------------------- data
+  function statsText(x) {
+    var st = x.stats; if (!st) return "";
+    var parts = []; if (st.views != null) parts.push(st.views.toLocaleString() + " view" + (st.views === 1 ? "" : "s")); if (st.avgSeconds != null) parts.push(Math.round(st.avgSeconds) + " s watched on average"); if (st.likes) parts.push(st.likes + " like" + (st.likes === 1 ? "" : "s")); if (st.shares) parts.push(st.shares + " share" + (st.shares === 1 ? "" : "s"));
+    return parts.length ? ' <span class="sh-stats">· ' + esc(parts.join(" · ")) + "</span>" : "";
+  }
+  var statsAt = 0;
+  async function readStats(force) {
+    var a = acct(); if (!API || !API.stats || !a.token || (!force && Date.now() - statsAt < 3600e3)) return null;
+    statsAt = Date.now();
+    try { var r = await API.stats(a, !!force); if (r && r.updated) await loadShorts(true); return r; } catch (_) { return null; }
+  }
+  setInterval(function () { if (isShown()) readStats(); }, 15 * 60e3);
   async function refresh(keepOpen) {
     if (!API) return;
+    readStats();
     try { S.status = await API.status(); S.recs = await API.recordings(); } catch (e) { S.err = e.message; }
     if (!S.sel && S.recs.length) S.sel = (S.recs.find(function (r) { return r.shorts; }) || S.recs[0]).id;
     if (S.sel && !S.recs.some(function (r) { return r.id === S.sel; })) S.sel = S.recs[0] ? S.recs[0].id : null;
@@ -104,7 +117,7 @@
         var x = soc && soc[p[0]], done = last(p[0]), why = !soc ? "Sign in to your Motion Audio account to post." : !x.available ? "Not switched on yet - Download and post by hand for now." : !x.connected ? (x.why || "Connect it under Accounts first.") : "";
         return '<div class="sh-plat"><button data-post="' + p[0] + '"' + (why || s.status === "new" ? " disabled" : "") + ' title="' + esc(why || (s.status === "new" ? "Approve it first" : "Post to " + (x.account || p[1]))) + '">' + esc(p[1]) + "</button>" + (done ? '<span class="small good">' + (done.url ? '<a href="#" data-url="' + esc(done.url) + '">posted</a>' : esc(done.note || "posted")) + "</span>" : why ? '<span class="small muted">' + esc(x && x.available && !x.connected ? "not connected" : !soc ? "" : "off") + "</span>" : "") + "</div>";
       }).join("") + "</div>" + (s.status === "new" ? '<p class="muted small">Approve it to post it.</p>' : "") +
-      ((s.posts || []).length ? '<ul class="sh-hist small">' + s.posts.slice().reverse().map(function (x) { return "<li>" + esc(day(x.at)) + " · " + esc((PLAT.find(function (p) { return p[0] === x.platform; }) || [0, x.platform])[1]) + " · " + (x.ok ? (x.url ? '<a href="#" data-url="' + esc(x.url) + '">open</a>' : esc(x.note || "sent")) : '<span class="bad">' + esc(x.error || "failed") + "</span>") + "</li>"; }).join("") + "</ul>" : "") +
+      ((s.posts || []).length ? '<ul class="sh-hist small">' + s.posts.slice().reverse().map(function (x) { return "<li>" + esc(day(x.at)) + " · " + esc((PLAT.find(function (p) { return p[0] === x.platform; }) || [0, x.platform])[1]) + " · " + (x.ok ? (x.url ? '<a href="#" data-url="' + esc(x.url) + '">open</a>' : esc(x.note || "sent")) + statsText(x) : '<span class="bad">' + esc(x.error || "failed") + "</span>") + "</li>"; }).join("") + "</ul>" : "") +
       "</div></div></div></div></div>";
   }
   function wireEditor(s) {
@@ -136,7 +149,7 @@
           if (a === "close") return close();
           if (a === "save") { var p = patch(), again = p.start != null || p.captionsText != null || p.captions != null; await API.update(S.sel, s.id, p); toast(again ? "Saved. Making it again with your changes…" : "Saved."); await refresh(true); return; }
           if (a === "approve") { await API.update(S.sel, s.id, Object.assign(patch(), { status: s.status === "approved" ? "new" : "approved" })); await refresh(true); return; }
-          if (a === "delete") { if (!(await confirmBox("Delete this short? Its video file goes too."))) return; await API.remove(S.sel, s.id); S.open = null; toast("Deleted."); await refresh(); return; }
+          if (a === "delete") { var why = await deleteBox(s); if (why === false) return; await API.remove(S.sel, s.id, why || null); S.open = null; toast(why ? "Deleted. It'll pick fewer like that." : "Deleted."); await refresh(); return; }
           if (a === "download") { var r = await API.download(S.sel, s.id); if (r && r.saved) toast("Saved to " + r.saved); return; }
           if (a === "copy") { var text = [s.title, s.description, (s.hashtags || []).join(" ")].filter(Boolean).join("\n\n"); try { await navigator.clipboard.writeText(text); } catch (_) { var t = document.createElement("textarea"); t.value = text; document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove(); } toast("The title, description and hashtags are copied."); return; }
           if (a === "another") { var v = $("video", ed), at = s.start + (v ? v.currentTime || 0 : 0); await API.add(S.sel, at); toast("Making a new short from " + fmt(at) + " in the recording…"); await refresh(true); return; }
@@ -154,6 +167,20 @@
     });
     $$("[data-url]", ed).forEach(function (a) { a.onclick = function (e) { e.preventDefault(); API.openUrl(a.dataset.url); }; });
     document.addEventListener("keydown", function esc(e) { if (e.key === "Escape" && S.open) { document.removeEventListener("keydown", esc); close(); } });
+  }
+  // (10.3) deleting a short: an optional one-tap reason, so the picker learns (false: cancelled; "" no reason)
+  function deleteBox(s) {
+    return new Promise(function (resolve) {
+      var d = document.createElement("dialog"); d.className = "ask sh-del";
+      d.innerHTML = "<p><b>Delete this short?</b> Its video file goes too.</p>" + (s.status === "posted" ? "" : '<p class="muted small">Why? (optional - it helps pick better ones)</p><div class="sh-why">' + [["boring", "Boring"], ["cutoff", "Cut off mid-thought"], ["wrong", "Wrong moment"], ["audio", "Audio bad"]].map(function (r) { return '<button type="button" data-why="' + r[0] + '">' + r[1] + "</button>"; }).join("") + "</div>") +
+        '<div class="row"><button data-a="no">Cancel</button><button class="danger" data-a="yes">Delete</button></div>';
+      var why = "";
+      document.body.appendChild(d); d.showModal();
+      d.addEventListener("click", function (e) {
+        var w = e.target.dataset && e.target.dataset.why; if (w) { why = why === w ? "" : w; $$("[data-why]", d).forEach(function (b) { b.classList.toggle("on", b.dataset.why === why); }); return; }
+        var a = e.target.dataset && e.target.dataset.a; if (a) { d.close(); d.remove(); resolve(a === "yes" ? why : false); }
+      });
+    });
   }
   function confirmBox(text) {
     return new Promise(function (resolve) {
@@ -184,6 +211,7 @@
       '<div class="sh-capprev" data-prev><span>You are <i>loved</i> more</span></div></section>' +
       '<section><h3>Logo, intro and outro</h3>' + fileRow("logo", "Logo", s.logo) + '<div class="sh-grid2"><label>Corner<select name="logoCorner">' + [["top-right", "Top right"], ["top-left", "Top left"], ["bottom-right", "Bottom right"], ["bottom-left", "Bottom left"]].map(function (o) { return '<option value="' + o[0] + '"' + (s.logoCorner === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + '</select></label><label>Size (% of the width)<input type="number" name="logoSize" min="5" max="40" value="' + s.logoSize + '"></label></div>' +
       fileRow("intro", "Intro (a picture or a short video)", s.intro) + fileRow("outro", "Outro", s.outro) + "</section>" +
+      '<section class="sh-learned"><h3>What the AI has learned</h3><label class="toggle"><input type="checkbox" name="learn"' + (s.learn !== false ? " checked" : "") + '> Learn from the shorts we keep, fix, delete and post (stays on this church\'s computers)</label><ul data-learned><li class="muted">Looking…</li></ul><div class="row"><button type="button" data-a="unlearn">Reset learning</button><span class="muted small" data-lessons></span></div></section>' +
       '<section><h3>Posting</h3><label>YouTube<select name="privacy"><option value="public"' + (s.privacy === "public" ? " selected" : "") + '>Public</option><option value="unlisted"' + (s.privacy === "unlisted" ? " selected" : "") + '>Unlisted</option><option value="private"' + (s.privacy === "private" ? " selected" : "") + '>Private</option></select></label>' +
       '<label>Hashtags on every short<input name="hashtags" value="' + esc(s.hashtags || "") + '" placeholder="#church #worship"></label>' +
       '<label class="toggle"><input type="checkbox" name="tiktokDirect"' + (s.tiktokDirect ? " checked" : "") + "> TikTok: post straight away (only once Motion Audio's TikTok app is approved; otherwise shorts go to the TikTok inbox to finish)</label></section>" +
@@ -194,12 +222,15 @@
     f.addEventListener("input", prev); prev();
     $$("[data-pick]", d).forEach(function (b) { b.onclick = async function () { var p = await API.pickFile(b.dataset.pick); if (p) { f[b.dataset.pick].value = p; $('[data-shown="' + b.dataset.pick + '"]', d).textContent = p.split(/[\\/]/).pop(); } }; });
     $$("[data-clear]", d).forEach(function (b) { b.onclick = function () { f[b.dataset.clear].value = ""; $('[data-shown="' + b.dataset.clear + '"]', d).textContent = "none"; }; });
+    function paintLearned(L) { if (!L) return; $("[data-learned]", d).innerHTML = L.lines.map(function (l) { return "<li>" + esc(l) + "</li>"; }).join(""); $("[data-lessons]", d).textContent = L.lessons ? L.lessons + " short" + (L.lessons === 1 ? "" : "s") + " to learn from so far" : ""; }
+    if (API.learned) API.learned().then(paintLearned).catch(function () { });
+    $('[data-a="unlearn"]', d).onclick = async function () { if (!(await confirmText("Forget everything the AI has learned about what your church likes? It goes back to how it started.", "Reset learning"))) return; paintLearned(await API.resetLearning()); toast("The AI starts learning again from scratch."); };
     $('[data-a="reset"]', d).onclick = async function () { S.status.settings = await API.resetSettings(); d.close(); d.remove(); toast("Back to the usual settings."); refresh(true); };
     d.addEventListener("close", async function () {
       if (d.returnValue === "save") {
         var p = { auto: f.auto.checked, minRecording: Number(f.minRecording.value), count: Number(f.count.value), minLen: Number(f.minLen.value), maxLen: Number(f.maxLen.value), sermonShare: Number(f.sermonShare.value) / 100, useAI: f.useAI.checked, framing: f.framing.value, background: f.background.value, accent: f.accent.value,
           captions: { on: f.c_on.checked, size: Number(f.c_size.value), words: Number(f.c_words.value), color: f.c_color.value, highlight: f.c_highlight.value, outline: f.c_outline.value, position: f.c_position.value, upper: f.c_upper.checked, box: f.c_box.checked },
-          logo: f.logo.value, logoCorner: f.logoCorner.value, logoSize: Number(f.logoSize.value), intro: f.intro.value, outro: f.outro.value, privacy: f.privacy.value, hashtags: f.hashtags.value, tiktokDirect: f.tiktokDirect.checked };
+          logo: f.logo.value, logoCorner: f.logoCorner.value, logoSize: Number(f.logoSize.value), intro: f.intro.value, outro: f.outro.value, privacy: f.privacy.value, hashtags: f.hashtags.value, tiktokDirect: f.tiktokDirect.checked, learn: f.learn.checked };
         try { S.status.settings = await API.settings(p); toast("Saved. New shorts use these settings."); } catch (e) { toast(e.message, true); }
         render();
       }
@@ -217,7 +248,7 @@
       d.innerHTML = "<h2>Accounts</h2><p class=\"muted small\">Connect the church's accounts once; every short can then be posted with one click. You sign in on each platform's own page - Central Control never sees your passwords.</p>" +
         (soc.error ? '<p class="bad">' + esc(soc.error) + "</p>" : '<div class="sh-accts">' + PLAT.map(function (p) {
           var x = soc.platforms[p[0]], k = p[0] === "facebook" || p[0] === "instagram" ? "meta" : p[0];
-          return '<div class="sh-acct"><b>' + esc(p[1]) + "</b><span class=\"small " + (x.connected ? "good" : "muted") + '">' + esc(!x.available ? "Not switched on yet - Motion Audio still has to add this platform's app keys. Until then use Download and Copy caption." : x.connected ? "Connected: " + (x.account || "") : x.why || "Not connected") + "</span>" +
+          return '<div class="sh-acct"><b>' + esc(p[1]) + "</b><span class=\"small " + (x.connected ? "good" : "muted") + '">' + esc(!x.available ? "Not switched on yet - Motion Audio still has to add this platform's app keys. Until then use Download and Copy caption." : x.connected ? "Connected: " + (x.account || "") + (x.numbers === false && p[0] !== "tiktok" ? " - connect again to let it read how shorts do" : "") : x.why || "Not connected") + "</span>" +
             (x.available ? (x.connected ? '<button class="small" data-dis="' + k + '">Disconnect</button>' : '<button class="small primary" data-con="' + k + '">Connect' + (k === "meta" ? " Facebook and Instagram" : "") + "</button>") : "") + "</div>";
         }).join("") + "</div><p class=\"muted small\">Facebook and Instagram share one sign-in: the Facebook Page, and the Instagram professional account linked to it.</p>") +
         '<div class="row"><button data-a="refresh">Check again</button><span style="flex:1"></span><button data-a="close">Close</button></div>';
@@ -246,9 +277,9 @@
       };
     });
   }
-  function confirmText(text) {
+  function confirmText(text, yes) {
     return new Promise(function (resolve) {
-      var d = document.createElement("dialog"); d.className = "ask"; d.innerHTML = "<p>" + esc(text) + '</p><div class="row"><button data-a="no">Cancel</button><button class="primary" data-a="yes">Make them again</button></div>';
+      var d = document.createElement("dialog"); d.className = "ask"; d.innerHTML = "<p>" + esc(text) + '</p><div class="row"><button data-a="no">Cancel</button><button class="primary" data-a="yes">' + esc(yes || "Make them again") + "</button></div>";
       document.body.appendChild(d); d.showModal(); d.addEventListener("click", function (e) { var a = e.target.dataset && e.target.dataset.a; if (a) { d.close(); d.remove(); resolve(a === "yes"); } });
     });
   }
