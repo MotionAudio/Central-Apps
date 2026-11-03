@@ -4476,7 +4476,7 @@ class MiniScreen:
         if lp.get("on") is False:
             self.chips(g, hits, "looper")
             self.text(g, (self.w / 2, 160), "The looper is off", self.F["title"], self.COL["text"], "mm")
-            self.text(g, (self.w / 2, 186), "Turn it on in the app's LOOPER tab (Looper on)", self.F["sub"], self.COL["muted"], "mm")
+            self.text(g, (self.w / 2, 186), "Turn it on in the app's Looper tab (Looper on)", self.F["sub"], self.COL["muted"], "mm")
             return
         getattr(self, "looper_" + sub)(g, hits, d, lp)
 

@@ -108,7 +108,7 @@
     var bus = r.buses.looper || { follow: true }, follow = bus.follow !== false, cur = follow ? "f" : busValue(bus), ins = r.buses.instrument || { ch: 0 };
     var eff = follow ? ins : bus, now = live.buses && live.buses.looper ? (live.buses.looper === "off" ? "off" : live.buses.looper) : (eff.ch > 0 ? busOut(eff) : "off");
     if (eff.ch > 0 && eff.ch > avail) now = "1–2 · " + (eff.st ? eff.ch + "–" + (eff.ch + 1) + " aren't" : eff.ch + " isn't") + " connected";
-    return '<tr><td><b>Looper</b><br><small>the loop pedal (LOOPER tab)</small></td><td><select data-rt="looper"><option value="f"' + (follow ? " selected" : "") + ">Same as Instrument (" + esc(busOut(ins)) + ")</option>" +
+    return '<tr><td><b>Looper</b><br><small>the loop pedal (Looper tab)</small></td><td><select data-rt="looper"><option value="f"' + (follow ? " selected" : "") + ">Same as Instrument (" + esc(busOut(ins)) + ")</option>" +
       '<optgroup label="One output (mono)">' + opts.filter(function (o) { return !o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" +
       (n >= 2 ? '<optgroup label="A pair (stereo)">' + opts.filter(function (o) { return o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" : "") +
       "</select></td><td>" + esc(now) + "</td></tr>";

@@ -1143,7 +1143,7 @@
     var use = $("#trUseTracks"); if (use) { use.classList.toggle("on", !!p.tracksMode); use.querySelector("b").textContent = p.tracksMode ? "ON" : "OFF"; }
     var name = $("#trSongName"); if (!name) return;
     name.textContent = s ? (p.songIndex + 1) + ". " + s.name : (p.songs.length ? "No song selected" : "No songs yet");
-    $("#trSongMeta").textContent = s ? keyName(s.key) + (t.originalKey && t.keyShift ? " (" + (t.keyShift > 0 ? "+" : "") + t.keyShift + ")" : "") + " · " + Math.round(s.bpm) + " BPM" + (t.tempoPercent !== 100 ? " (" + t.tempoPercent + "%)" : "") + " · " + meterText(t) + " · " + (t.stems.length ? t.stems.length + " track" + (t.stems.length === 1 ? "" : "s") + " · " + fmtTime(t.duration) : "no tracks") + (s.chart ? " · chart ✓" : "") : "Add a song with + Song, then add its tracks";
+    $("#trSongMeta").textContent = s ? keyName(s.key) + (t.originalKey && t.keyShift ? " (" + (t.keyShift > 0 ? "+" : "") + t.keyShift + ")" : "") + " · " + Math.round(s.bpm) + " BPM" + (t.tempoPercent !== 100 ? " (" + t.tempoPercent + "%)" : "") + " · " + meterText(t) + " · " + (t.stems.length ? t.stems.length + " track" + (t.stems.length === 1 ? "" : "s") + " · " + fmtTime(t.duration) : "no tracks") + (s.chart ? " · chart ✓" : "") : "Press + Add song, then add its tracks";
     renderStems(); renderSections(); renderTransport(); renderPosition(); drawTimeline();
     var sel = $("#trSongSelect"); if (sel) { sel.innerHTML = '<option value="-1">— choose a song —</option>' + p.songs.map(function (q, i) { return '<option value="' + i + '"' + (i === p.songIndex ? " selected" : "") + ">" + (i + 1) + ". " + esc(q.name) + (q.tracks && q.tracks.stems && q.tracks.stems.length ? " ♫" : "") + "</option>"; }).join(""); }
   }
