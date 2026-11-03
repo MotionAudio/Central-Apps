@@ -14,6 +14,7 @@ const A = require("./audio");
 const P = require("./pick");
 const R = require("./render");
 const AI = require("./ai");
+const LEARN = require("./learn");
 
 const job = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 try { require("node:os").setPriority(19); } catch (_) { }
@@ -71,7 +72,10 @@ async function makeOne(d, sh, onPct) {
 }
 
 async function make() {
-  const S = Object.assign({}, P.DEFAULTS, job.settings || {});
+  let S = Object.assign({}, P.DEFAULTS, job.settings || {});
+  // (10.3) what this church's reviews taught: the scoring model, its usual length, its trims, its caption habits
+  const L = job.learningFile && S.learn !== false ? LEARN.load(job.learningFile) : null;
+  const LP = L ? L.prefs(S) : null; if (LP) S = LP.settings;
   fs.mkdirSync(job.out, { recursive: true });
   step("read", 0, "Reading the recording");
   const src = { audio: null, video: null };
@@ -131,7 +135,17 @@ async function make() {
     const top = []; for (const c of sermonC.slice().sort((a, b) => b.score - a.score)) { if (top.length >= 24) break; if (top.some((x) => Math.min(x.end, c.end) - Math.max(x.start, c.start) > 0.5 * (c.end - c.start))) continue; top.push(c); }
     await AI.rate(job.aiPort, top, (i, n) => step("pick", 0.66 + 0.08 * (i / n), "The AI is reading the best parts (" + i + " of " + n + ")"));
   }
-  const picks = P.select(sermonC.concat(worshipC), S);
+  // the church's model scores every moment (it starts as the rules plus the AI's rating, then leans toward what this
+  // church keeps and posts)
+  const all = sermonC.concat(worshipC);
+  if (L) { const learned = L.model().lessons > 0; for (const c of all) { const base = LEARN.baseScore(c, S); c.score = L.score(c, S); if (learned && c.score - base > 0.1) c.learnedBoost = true; } }
+  const picks = P.select(all, S);
+  // the lead-in and run-out it usually adds when it trims (within the recording, the song, the sermon's words)
+  if (LP) for (const p of picks) {
+    const pad = LP.pad[p.kind] || { start: 0, end: 0 }, lo = p.kind === "worship" ? (reg.songs[p.songIndex] || {}).start || 0 : 0, hi = p.kind === "worship" ? (reg.songs[p.songIndex] || {}).end || f.dur : f.dur;
+    const a = Math.max(lo, p.start + Math.max(-5, Math.min(5, pad.start))), b = Math.min(hi, p.end + Math.max(-5, Math.min(5, pad.end)));
+    if (b - a >= Math.max(5, S.minLen - 5)) { p.start = Math.round(a * 100) / 100; p.end = Math.round(b * 100) / 100; }
+  }
   // captions for the worship shorts: the sung words
   for (const p of picks) if (p.kind === "worship" && (job.asr || job.fakeWords) && S.captions && S.captions.on !== false) { try { p.words = await transcribe(src.audio.file, p.start, p.end - p.start); p.text = p.words.map((w) => w.text).join(" "); } catch (_) { p.words = []; } }
   const d = { version: 1, recording: job.recordingName || path.basename(job.out), created: Date.now(), settings: S, source: src, songs: reg.songs.map((s) => ({ name: s.name, start: s.start, end: s.end })), sermon: reg.sermon, hasWords: words.length > 0, note: wordsError || (!job.asr && !job.fakeWords ? "The speech model isn't downloaded on this computer (Settings → Lyrics), so these shorts were picked by their sound alone and have no captions." : null), shorts: [] };
@@ -140,8 +154,10 @@ async function make() {
   let i = 0;
   for (const p of picks) {
     i++;
-    const t = job.aiPort ? (await AI.titles(job.aiPort, p, job.church)) || AI.plainTitle(p, job.church) : AI.plainTitle(p, job.church);
-    const sh = { id: "s" + Date.now().toString(36) + i, n: i, kind: p.kind, song: p.song || null, label: p.label || "", start: p.start, end: p.end, score: Math.round(p.score * 100) / 100, why: why(p), title: t.title, description: t.description, hashtags: t.hashtags || [], words: P.wordsIn(p.words || words, p.start, p.end), status: "new", posts: [], file: shortName(i).replace(" ", "-").toLowerCase() + ".mp4" };
+    const ex = L ? L.titleExamples() : [];
+    const t = job.aiPort ? (await AI.titles(job.aiPort, p, job.church, ex)) || AI.plainTitle(p, job.church) : AI.plainTitle(p, job.church);
+    const sh = { id: "s" + Date.now().toString(36) + i, n: i, kind: p.kind, song: p.song || null, label: p.label || "", start: p.start, end: p.end, score: Math.round(p.score * 100) / 100, why: why(p), title: t.title, description: t.description, hashtags: t.hashtags || [], words: P.wordsIn(p.words || words, p.start, p.end), status: "new", posts: [], file: shortName(i).replace(" ", "-").toLowerCase() + ".mp4", features: LEARN.features(p, S), learned: !!(L && L.model().lessons) };
+    if (LP && LP.captionsOff) sh.captions = false;
     step("make", 0.75 + 0.25 * ((i - 1) / picks.length), "Making short " + i + " of " + picks.length);
     await makeOne(d, sh, (q) => step("make", 0.75 + 0.25 * ((i - 1 + q) / picks.length), "Making short " + i + " of " + picks.length));
     d.shorts.push(sh); save(d); say({ type: "short", short: sh });
@@ -153,6 +169,7 @@ function why(p) {
   if (p.kind === "worship") return [p.label ? "the " + p.label.toLowerCase() : "a peak of the song", p.parts && p.parts.peak > 0.6 ? "louder than the rest of the song" : "", p.parts && p.parts.room > 0.3 ? "the room joins in" : ""].filter(Boolean).join(", ");
   const x = p.parts || {}, out = [];
   if (p.ai != null) out.push("the AI rated it " + Math.round(1 + p.ai * 9) + "/10");
+  if (p.learnedBoost) out.push("like the ones you keep");
   if (x.text > 0.6) out.push("a strong, complete thought"); if (x.response > 0.3) out.push("the room responded"); if (x.energy > 0.6) out.push("spoken with energy"); if (x.pause > 0.5) out.push("ends on a pause");
   return out.join(", ") || "a complete thought";
 }
@@ -177,7 +194,7 @@ async function addOne() {
   const clipWords = song && (job.asr || job.fakeWords) ? await transcribe(d.source.audio.file, clip.start, clip.end - clip.start).catch(() => []) : P.wordsIn(words, clip.start, clip.end);
   const p = { kind, song: song ? song.name : null, start: clip.start, end: clip.end, text: clipWords.map((w) => w.text).join(" "), words: clipWords };
   const tt = job.aiPort ? (await AI.titles(job.aiPort, p, job.church)) || AI.plainTitle(p, job.church) : AI.plainTitle(p, job.church);
-  const sh = { id: "s" + Date.now().toString(36) + n, n, kind, song: p.song, label: "", start: clip.start, end: clip.end, score: null, why: "made by hand", title: tt.title, description: tt.description, hashtags: tt.hashtags || [], words: clipWords, status: "new", posts: [], file: "short-" + String(n).padStart(2, "0") + ".mp4" };
+  const sh = { id: "s" + Date.now().toString(36) + n, n, kind, song: p.song, label: "", start: clip.start, end: clip.end, score: null, why: "made by hand", title: tt.title, description: tt.description, hashtags: tt.hashtags || [], words: clipWords, status: "new", posts: [], file: "short-" + String(n).padStart(2, "0") + ".mp4", byHand: true };
   step("make", 0, "Making a new short");
   await makeOne(d, sh, (q) => step("make", q, "Making a new short"));
   const now = load() || d; now.shorts.push(sh); now.shorts.sort((a, b) => a.start - b.start); save(now); say({ type: "short", short: sh }); step("done", 1, "Done");

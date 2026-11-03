@@ -121,6 +121,19 @@ function textScore(text, sents) {
   return Math.max(0, Math.min(1, s));
 }
 
+/* (10.3) the same signals one by one (0..1), for the learning (learn.js): which of them a church's picks lean on */
+function textParts(text, sents) {
+  const t = String(text || "").trim(), words = t ? t.split(/\s+/).length : 0, per = Math.max(1, words / 100);
+  const short = sents && sents.length ? sents.filter((x) => x.text.split(/\s+/).length <= 12).length / sents.length : 0;
+  const first = sents && sents.length ? sents[0].text : t;
+  return {
+    strong: Math.min(1, ((t.match(STRONG) || []).length) / (6 * per)), you: Math.min(1, ((t.match(YOU) || []).length) / (8 * per)),
+    contrast: CONTRAST.test(t) ? 1 : 0, story: PAYOFF.test(t) || /\b(i was|i remember|years ago|one day|there was a|my (father|mother|dad|mom|wife|husband|son|daughter|friend))\b/i.test(t) ? 1 : 0,
+    question: /\?/.test(t) ? 1 : 0, scripture: /\b(verse|chapter|scripture|it is written|the bible|says the lord|genesis|exodus|psalms?|proverbs|isaiah|matthew|mark|luke|john|romans|corinthians|galatians|ephesians|hebrews|revelation)\b/i.test(t) ? 1 : 0,
+    admin: Math.min(1, ((t.match(ADMIN) || []).length) / 2), punchy: short, weakStart: WEAK_START.test(first) ? 1 : 0
+  };
+}
+
 // ------------------------------------------------------------------ the sound of a moment
 function at(f, t) { return Math.max(0, Math.min(f.rms.length - 1, Math.round(t / f.hop))); }
 function meanDb(f, a, b) { const i = at(f, a), j = Math.max(i + 1, at(f, b)); let s = 0; for (let k = i; k < j; k++) s += f.rms[k]; return s / (j - i); }
@@ -150,7 +163,7 @@ function sermonCandidates(sents, f, settings) {
       const part = sents.slice(i, j + 1), text = part.map((x) => x.text).join(" ");
       const ts = textScore(text, part), as = f ? audioScore(f, start, end, ref) : { energy: 0.5, response: 0, pause: 0.5 };
       const score = ts * 0.6 + as.energy * 0.15 + as.response * 0.15 + as.pause * 0.1;
-      out.push({ kind: "sermon", start: round(start), end: round(end), text, words: [].concat(...part.map((x) => x.words)), score, parts: { text: ts, energy: as.energy, response: as.response, pause: as.pause } });
+      out.push({ kind: "sermon", start: round(start), end: round(end), text, words: [].concat(...part.map((x) => x.words)), score, rule: score, parts: Object.assign({ text: ts, energy: as.energy, response: as.response, pause: as.pause }, textParts(text, part)) });
     }
   }
   return out;
@@ -164,7 +177,7 @@ function breath(f, t, r) {
 }
 function worshipCandidates(songs, f, settings) {
   const o = Object.assign({}, DEFAULTS, settings || {}), out = [];
-  const target = Math.min(o.maxLen, Math.max(o.minLen, (o.minLen + o.maxLen) / 2));
+  const target = Math.min(o.maxLen, Math.max(o.minLen, o.targetLen || (o.minLen + o.maxLen) / 2));   // (10.3: the church's preferred length, once learned)
   (songs || []).forEach((s, si) => {
     const songDb = meanDb(f, s.start, s.end), starts = [];
     if (s.sections && s.sections.length) {
@@ -186,7 +199,8 @@ function worshipCandidates(songs, f, settings) {
       const late = (a - s.start) / Math.max(1, s.end - s.start);   // later in the song builds more
       const room = response(f, a, b) * 0.5;   // the room singing along / clapping
       const score = 0.3 + peak * 0.35 + late * 0.15 + st.bonus + room * 0.1;
-      out.push({ kind: "worship", song: s.name, songIndex: si, label: st.label, start: round(a), end: round(b), text: "", score: Math.min(1, score), parts: { peak, late, bonus: st.bonus, room } });
+      const lab = String(st.label || "").toLowerCase();
+      out.push({ kind: "worship", song: s.name, songIndex: si, label: st.label, start: round(a), end: round(b), text: "", score: Math.min(1, score), rule: Math.min(1, score), parts: { peak, late, bonus: st.bonus, room, chorus: /chorus|refrain/.test(lab) ? 1 : 0, bridge: /bridge/.test(lab) ? 1 : 0, lastChorus: st.bonus >= 0.18 ? 1 : 0, tag: /tag|vamp/.test(lab) ? 1 : 0 } });
     });
   });
   return out;
@@ -227,4 +241,4 @@ function fromHere(sents, t, settings) {
 }
 function round(x) { return Math.round(x * 100) / 100; }
 
-module.exports = { DEFAULTS, windows, classify, regions, sentences, textScore, response, audioScore, sermonCandidates, worshipCandidates, select, wordsIn, fromHere, breath, overlaps, median, percentile };
+module.exports = { DEFAULTS, windows, classify, regions, sentences, textScore, textParts, response, audioScore, sermonCandidates, worshipCandidates, select, wordsIn, fromHere, breath, overlaps, median, percentile };
