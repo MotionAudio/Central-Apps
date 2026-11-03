@@ -106,7 +106,7 @@ try {
     await page2.goto("http://127.0.0.1:" + (port + 1) + "/#downloads");
     await page2.waitForSelector("#libraries", { timeout: 8000 }).catch(() => {});
     const t2 = await page2.$$eval(".lib-card", (els) => els.map((e) => ({ text: e.textContent.replace(/\s+/g, " "), btn: !!e.querySelector("a.btn") })));
-    ok(t2.length === 6 && t2.every((c) => !c.btn && /Coming soon/.test(c.text)) && /about \d+ MB/.test(t2[0].text), "not published yet: the cards say what's coming (an estimated size), no Download button", t2.map((c) => c.text.slice(0, 80)));
+    ok(t2.length === 7 && t2.every((c) => !c.btn && /Coming soon/.test(c.text)) && /about \d+ MB/.test(t2[0].text), "not published yet: the cards say what's coming (an estimated size), no Download button", t2.map((c) => c.text.slice(0, 80)));
     ok(!errors.length, "no page errors", errors);
   }
 } catch (e) {

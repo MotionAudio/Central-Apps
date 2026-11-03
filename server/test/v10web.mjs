@@ -99,7 +99,7 @@ try {
   ok(ord && /Central Usage key/.test(ord.title) && ord.apps.length === 2 && ord.apps.find((x) => x.kind === "U").keys[0].updatesUntil === "10.4" && ord.apps.find((x) => x.kind === "P").links.android === "https://motion.test/download/pedal-control/android"
     && ord.apps.every((x) => x.steps.windows && /install\.sh \| bash -s/.test(x.linuxCommand) && x.linuxCommand.startsWith("curl -fsSL https://motion.test/install.sh")),
     "an order: what it was, each app's keys, download links on our address, install steps and the Linux line", ord);
-  ok(plan && /Central Keys/.test(plan.title) && plan.packages.length === 1 && plan.libraries.map((x) => x.plan).join() === "keys,pads" && plan.libraries[0].link === "https://motion.test/download/library/keys" && plan.renews && /One key opens everything/.test(plan.oneKey),
+  ok(plan && /Central Keys/.test(plan.title) && plan.packages.length === 1 && plan.libraries.map((x) => x.plan).join() === "keys,pads,pads" && plan.libraries.some((x) => /Central Pads Extra/.test(x.name)) && plan.libraries[0].link === "https://motion.test/download/library/keys" && plan.renews && /One key opens everything/.test(plan.oneKey),
     "a sound plan: ONE key opens the whole plan, its libraries (with Central Pads), when it renews", plan);
   const anon = await j("GET", "/purchases");
   ok(anon._status === 401, "Purchases needs signing in", anon._status);

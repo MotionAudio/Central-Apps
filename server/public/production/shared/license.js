@@ -13,7 +13,7 @@
  * the default keys off there; this device then asks for a real key at its next check). */
 (function () {
   "use strict";
-  var SERVER = "";          // the Motion Audio website, e.g. "https://motion-audio.onrender.com" (empty: not open yet - the default keys)
+  var SERVER = "";          // the Motion Audio website, e.g. "https://motionaudio.org" (empty: not open yet - the default keys). Set it with tools/set-website.sh, then a quick fix release
   var REQUIRED = true;      // (the apps need a key; false turns keys off, e.g. for tests)
   var o = window.PP_LICENSE_CONFIG || {};   // (tests, or a build that points somewhere else)
   if (o.server != null) SERVER = o.server;
@@ -110,6 +110,18 @@
     if (!id || id === "free") return true;
     return planActive(id);
   }
+  // (10.3) a plan that ends during a song: what's already playing with it keeps going until the song ends (the music
+  // stops or the set moves to the next song), then it says "needs the X plan" and is bypassed. Choosing something new
+  // needs the plan straight away (hasPlan); keeps() is what the audio asks.
+  var held = {}, busy = {};
+  function anyBusy() { return Object.keys(busy).some(function (k) { return busy[k]; }); }
+  function current(id) { var L = window.PPLicense; return L && L.hasPlan && L.hasPlan !== current ? L.hasPlan(id) : hasPlan(id); }   // (what the app says now, a stand-in's too)
+  function snapshot() { held = {}; PLAN_IDS.forEach(function (id) { if (current(id)) held[id] = true; }); }
+  function keeps(id) { return current(id) || (!!held[id] && anyBusy()); }
+  function setBusy(src, playing) { var was = anyBusy(); busy[String(src)] = !!playing; var now = anyBusy(); if (now && !was) snapshot(); if (now !== was) plansChanged(); }
+  function songBoundary() { snapshot(); plansChanged(); }
+  function needs(id) { return "needs the " + (PLAN_NAMES[id] || id) + " plan"; }
+  function keepsList() { var out = {}; PLAN_IDS.forEach(function (id) { if (keeps(id)) out[id] = true; }); return out; }
   function plans() { var out = {}; PLAN_IDS.forEach(function (id) { if (hasPlan(id)) { var e = planEnd(id); out[id] = on() && e && e !== Infinity ? new Date(e).toISOString() : true; } }); return out; }
   function pkSave(toDriver) {
     try { localStorage.setItem(PK_LS, JSON.stringify(pk.list)); } catch (_) { }
@@ -187,7 +199,7 @@
   document.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target && e.target.id === "pkgKey") pkActivate(e.target.value); });
   var planSig = null;
   function plansChanged() {   // (tells the Instrument tab and the screens when a plan starts or ends)
-    var sig = JSON.stringify([on(), PLAN_IDS.map(hasPlan), !!(st && st.tracksUnlimited)]); if (sig === planSig) return; planSig = sig;
+    var sig = JSON.stringify([on(), PLAN_IDS.map(hasPlan), PLAN_IDS.map(keeps), !!(st && st.tracksUnlimited)]); if (sig === planSig) return; planSig = sig;
     try { window.dispatchEvent(new CustomEvent("pp-plans", { detail: { plans: plans(), tracksUnlimited: tracksUnlimited() } })); } catch (_) { }
   }
   function tracksUnlimited() { return !on() || !!(st && st.tracksUnlimited); }
@@ -560,7 +572,7 @@
   function downloadsUrl() { return base() ? base() + "/#downloads" : "https://motionaudio.github.io/Central-Apps/"; }
   window.PPLicense = { downloadsUrl: downloadsUrl, init: init, update: update, complete: function () { return complete(); }, on: on, licensed: licensed, state: function () { return st; }, server: base, settingsHtml: settingsHtml, release: release, recheck: recheck, open: open,
     whenReady: function (f) { if (ready) f(); else waiters.push(f); }, deviceId: deviceId, pretty: pretty, app: function () { return app; },
-    plans: plans, hasPlan: hasPlan, planName: function (id) { return PLAN_NAMES[id] || id; }, tracksUnlimited: tracksUnlimited,
+    plans: plans, hasPlan: hasPlan, keeps: keeps, keepsList: keepsList, setBusy: setBusy, songBoundary: songBoundary, needs: needs, planName: function (id) { return PLAN_NAMES[id] || id; }, tracksUnlimited: tracksUnlimited,
     packages: function () { return pk.list.slice(); }, packagesHtml: packagesHtml, checkPackages: checkPackages, addPackage: pkActivate, removePackage: pkRelease,
     syncSettings: syncSettings, settingsChanged: settingsChanged, syncNow: pullAll, reportError: reportError, support: supportBox,
     coverage: function () { return st ? { updatesUntil: st.updatesUntil != null ? st.updatesUntil : null, text: st.updatesUntilText || "", trial: !!st.trial, expiresAt: st.expiresAt || null } : null; } };
