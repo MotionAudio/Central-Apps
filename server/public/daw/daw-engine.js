@@ -116,7 +116,9 @@
       try { if (window.CMFx && fx && fx.plugin) api = window.CMFx.create(c, fx.plugin, { values: fxPlay(fx) || {}, onError: function (e) { console.warn("Central FX: " + e); } }); } catch (e) { console.warn("Central FX", e); }
       if (api && api.node) { u.input.connect(api.node); api.node.connect(u.output); (c.__cdawPending = c.__cdawPending || []).push(api.ready); } else u.input.connect(u.output);
       u.api = api;
-      u.set = function (p) { if (!api) return; Object.keys(p || {}).forEach(function (k) { if (last[k] !== p[k]) { last[k] = p[k]; api.setParam(k, p[k]); } }); };
+      // (10.3) a "tempo" knob follows the song's tempo unless the insert's "Sync to song tempo" is off
+      var tq = ((fx && fx.plugin && fx.plugin.params) || []).filter(function (q) { return (q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"); })[0];
+      u.set = function (p, now, bpm) { if (!api) return; p = Object.assign({}, p || {}); if (tq && fx.syncTempo !== false && bpm > 0) p[tq.id] = clamp(bpm, tq.min != null ? +tq.min : 20, tq.max != null ? +tq.max : 300); Object.keys(p).forEach(function (k) { if (last[k] !== p[k]) { last[k] = p[k]; api.setParam(k, p[k]); } }); };
       u.param = function () { return null; }; u.dispose = function () { if (api) api.dispose(); }; return u; } }
   };
   // an effect's description: the built-in ones from FX; a Central FX plugin's knobs come from its own file

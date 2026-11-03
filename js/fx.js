@@ -192,11 +192,11 @@
     if (sig !== (voice.__cmSig || "")) {
       var old = voice.__cm || [];
       try { voice.gateGain.disconnect(); } catch (_) { }
-      var last = voice.gateGain; voice.__cm = list.map(function (x) { var a = window.CMFx.create(voice.ctx, x.plugin, { values: x.values || {} }); last.connect(a.node); last = a.node; return a; });
+      var last = voice.gateGain; voice.__cm = list.map(function (x) { var a = window.CMFx.create(voice.ctx, x.plugin, { values: withTempo(x, liveBpm()) }); last.connect(a.node); last = a.node; return a; });
       last.connect(voice.toneFilter); voice.__cmSig = sig;
       old.forEach(function (a) { try { a.dispose(); } catch (_) { } });
     }
-    (voice.__cm || []).forEach(function (a, i) { var v = list[i] && list[i].values || {}; Object.keys(v).forEach(function (k) { a.setParam(k, v[k]); }); });
+    (voice.__cm || []).forEach(function (a, i) { var v = list[i] ? withTempo(list[i], liveBpm()) : {}; Object.keys(v).forEach(function (k) { a.setParam(k, v[k]); }); });
   }
   // a track's plugins, into its processed copy: a couple of seconds at a time so the page stays smooth
   async function cmfxStem(out, list, rate, name) {
@@ -304,11 +304,19 @@
   }
   function hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); }
   function songBpm(s) { return (s && s.bpm) || (project().tempo && project().tempo.bpm) || 72; }
+  // (10.3) a plugin with a "tempo" knob follows the song's tempo unless its "Sync to song tempo" switch is off
+  function tempoParam(pl) { return ((pl && pl.params) || []).filter(function (q) { return (q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"); })[0] || null; }
+  function withTempo(x, bpm) {
+    var v = Object.assign({}, x.values || {}), q = tempoParam(x.plugin);
+    if (q && x.syncTempo !== false && bpm > 0) v[q.id] = Math.max(q.min != null ? +q.min : 20, Math.min(q.max != null ? +q.max : 300, +bpm));
+    return v;
+  }
+  function liveBpm() { var s = null; try { s = window.PPTracks && PPTracks.song && PPTracks.song(); } catch (_) { } return songBpm(s); }
   function stemPlan(s, st) {
     if (!st.fx || !st.fx.on) return null;
     var p = core.plan(fxOf(st), pro(), songBpm(s)), cm = window.CMFx ? cmOn(st.fx.plugins) : [];
     if (!cm.length) return p;
-    return Object.assign(p || { gate: null, eq: [], comp: null, reverb: null, delay: null, out: 1 }, { cmfx: cm.map(function (x) { return { name: x.name, plugin: x.plugin, values: x.values || {} }; }) });
+    return Object.assign(p || { gate: null, eq: [], comp: null, reverb: null, delay: null, out: 1 }, { cmfx: cm.map(function (x) { return { name: x.name, plugin: x.plugin, values: withTempo(x, songBpm(s)) }; }) });
   }
   function keyFor(st, plan, rate) { return "fx:" + st.id + ":" + hash(JSON.stringify(plan) + "|" + rate); }
   var stats = { renders: 0, ms: 0, seconds: 0 };
@@ -469,7 +477,9 @@
       list.map(function (x, i) {
         var pl = x.plugin || {}, ps = pl.params || [];
         var pre = Array.isArray(pl.presets) && pl.presets.length ? ' <select data-fx-cm-preset="' + i + '" aria-label="Starting point"><option value="">Starting point…</option>' + pl.presets.map(function (p, k) { return '<option value="' + k + '">' + esc(p.name) + "</option>"; }).join("") + "</select>" : "";
-        return '<div class="fx-band">' + toggle(x.name || pl.name || "Plugin", "plugins." + i + ".on") + pre + ' <button class="link" data-fx-cm-del="' + i + '">Remove</button>' +
+        if (tempoParam(pl) && x.syncTempo === undefined) x.syncTempo = true;   // (10.3) on by default
+        var sync = tempoParam(pl) ? toggle("Sync to song tempo", "plugins." + i + ".syncTempo") : "";
+        return '<div class="fx-band">' + toggle(x.name || pl.name || "Plugin", "plugins." + i + ".on") + pre + ' <button class="link" data-fx-cm-del="' + i + '">Remove</button>' + sync +
           ps.map(function (q) { var lo = q.min != null ? +q.min : 0, hi = q.max != null ? +q.max : 1; return row(q.name || q.id, "plugins." + i + ".values." + q.id, lo, hi, (hi - lo) / 200, q.unit === "dB" || q.unit === "Hz" || q.unit === "ms" || q.unit === "%" ? q.unit : ""); }).join("") + "</div>";
       }).join("") +
       (!window.CMFx ? '<p class="muted small">The plugin engine isn\'t in this version of the app.</p>' : '<div class="row"><select data-fx-cm-pick><option value="">+ Add a plugin…</option>' + cmChoices.map(function (c, i) { var locked = cmLocked(c); return '<option value="' + i + '"' + (locked ? " disabled" : "") + ">" + esc((locked ? LOCK : "") + c.name + (c.from === "collection" ? (locked ? " (" + lockText() + ")" : "") : c.from === "mine" ? " (yours)" : c.from === "example" ? " (example)" : c.author ? " (by " + c.author + ")" : " (installed)")) + "</option>"; }).join("") + "</select></div>") + "</section>";
@@ -491,7 +501,7 @@
     if (el.hasAttribute && el.hasAttribute("data-fx-cm-pick")) {
       if (e.type !== "change" || el.value === "") return; var c = cmChoices[+el.value]; if (!c || cmLocked(c)) return;
       var pl = JSON.parse(JSON.stringify(c.plugin)); target.fx.plugins = target.fx.plugins || [];
-      target.fx.plugins.push({ name: c.name || pl.name || "Plugin", plugin: pl, values: cmDefaults(pl), on: true }); target.fx.on = true; commit(true); return;
+      target.fx.plugins.push(Object.assign({ name: c.name || pl.name || "Plugin", plugin: pl, values: cmDefaults(pl), on: true }, tempoParam(pl) ? { syncTempo: true } : {})); target.fx.on = true; commit(true); return;
     }
     if (el.hasAttribute && el.hasAttribute("data-fx-cm-preset")) {   /* (10.3) a plugin's starting points */
       if (e.type !== "change" || el.value === "") return; var it = (target.fx.plugins || [])[+el.dataset.fxCmPreset], pr = it && it.plugin && (it.plugin.presets || [])[+el.value]; if (!pr) return;
@@ -660,6 +670,6 @@
 
   window.PPFx = { stemFor: stemFor, open: open, openStem: function (id) { var t = stemTarget(id); if (t) open(t); return !!t; }, openPad: function (i) { var t = padTarget(i); if (t) open(t); return !!t; }, openBus: function (b) { open(busTarget(b)); },
     defaults: defaultFx, presets: { stem: STEM_PRESETS, pad: PAD_PRESETS, bus: BUS_PRESETS }, plan: function (s, st) { return stemPlan(s, st); }, busFx: busFx, setBusFx: function (b, fx) { setBusFx(b, fx); busApply(b); }, busChain: function (b) { return buses[b] || null; },
-    plugins: cmfxList, padToFx: padToFx, fxToPad: fxToPad, padEffects: padEffects, padGate: padGate, lockEditor: lockEditor, planCheck: planCheck, stats: function () { return stats; }, pending: function () { return Object.keys(busy).length; }, decorate: decorate, isPro: pro, applyPreset: applyPreset,
+    plugins: cmfxList, withTempo: withTempo, padToFx: padToFx, fxToPad: fxToPad, padEffects: padEffects, padGate: padGate, lockEditor: lockEditor, planCheck: planCheck, stats: function () { return stats; }, pending: function () { return Object.keys(busy).length; }, decorate: decorate, isPro: pro, applyPreset: applyPreset,
     mini: { targets: miniTargets, state: miniState, presets: miniPresets, apply: miniApply } };
 })();
