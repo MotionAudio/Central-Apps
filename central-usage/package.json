@@ -168,6 +168,7 @@
           "cu-studio.exe",
           "cm-plugbridge",
           "cm-pwnode",
+          "central-fx/*.cmfx.json",
           "rig-map.json",
           "central-playany.lv2/**",
           "cu-video",

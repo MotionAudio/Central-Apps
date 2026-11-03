@@ -57,6 +57,7 @@ jobs:
           cp -r central-usage/native/build/central-playany.lv2 bin/linux-x86_64/
           cp central-usage/native/build-linux-arm64/cm-plugbridge central-usage/native/build-linux-arm64/cm-pwnode bin/linux-aarch64/
           cp central-usage/native/build/cm-plugbridge central-usage/native/build/cm-pwnode bin/linux-x86_64/
+          make -C central-usage/native OUT=build-linux-arm64 collection && cp -r central-usage/native/build-linux-arm64/central-fx bin/linux-aarch64/ && cp -r central-usage/native/build/central-fx bin/linux-x86_64/   # (10.3: the Central FX collection next to the Pi's stage)
           node -e 'const m=require("./central-usage/native/build/rig-map.json"),P=require("./js/pedals.js");const miss=P.pedals.filter(p=>!m[p.id]).map(p=>p.id);if(miss.length){console.log("::error::pedals missing from the rig map: "+miss.join(", "));process.exit(1)}console.log("rig map: "+Object.keys(m).length+" pedals, all of js/pedals.js")'
       - name: ffmpeg (pinned, checksum-checked)
         run: |

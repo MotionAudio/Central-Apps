@@ -189,6 +189,25 @@ await check("gate: a quiet signal under the threshold is closed down by its rang
   const hard = await x.meters((m) => m.in[0] < 0.00001); assert.ok(hard.in[0] < 0.00001, "range -90: fully shut " + hard.in[0]);
   x.cmd({ cmd: "testgen", ch: 0, level: 0 });
 });
+await check("(10.3) channel inserts: a Central FX plugin after the compressor (-12 dB), its knob changed live, a broken file refused, and taken out again", async () => {
+  const dir = path.join(os.tmpdir(), "cu-mixer-ins-" + process.pid); fs.mkdirSync(dir, { recursive: true });
+  const f = path.join(dir, "vol.cmfx.json"), bad2 = path.join(dir, "bad.cmfx.json");
+  fs.writeFileSync(f, JSON.stringify({ format: "central-fx", name: "Vol", params: [{ id: "g", min: -24, max: 6, default: -12 }], graph: { blocks: [{ id: "in", type: "input" }, { id: "v", type: "gain", props: { gain: { param: "g" } } }, { id: "out", type: "output" }], wires: [{ from: "in", to: "v" }, { from: "v", to: "out" }] } }));
+  fs.writeFileSync(bad2, JSON.stringify({ format: "central-fx", name: "Bad", graph: { blocks: [{ id: "x", type: "nope" }] } }));
+  x.cmd({ cmd: "testgen", ch: 2, freq: 500, level: 0.4 }); ch(2, {});
+  await x.meters((m) => Math.abs(m.in[2] - 0.4) < 0.02);
+  x.cmd({ cmd: "insert", i: 2, slot: 0, path: f });
+  const ev = await x.wait((v) => v.ev === "insert" && v.i === 2); assert.equal(ev.name, "Vol");
+  const down = await x.meters((m) => Math.abs(m.in[2] - 0.1) < 0.01); assert.ok(Math.abs(down.in[2] - 0.4 * 0.2512) < 0.01, "-12 dB: " + down.in[2]);
+  x.cmd({ cmd: "insertParam", i: 2, slot: 0, id: "g", value: 0 });
+  const back = await x.meters((m) => Math.abs(m.in[2] - 0.4) < 0.015); assert.ok(Math.abs(back.in[2] - 0.4) < 0.015, "0 dB: " + back.in[2]);
+  x.cmd({ cmd: "insert", i: 2, slot: 1, path: bad2 });
+  const er = await x.wait((v) => v.ev === "insert" && v.slot === 1 && v.error); assert.match(er.error, /block type/);
+  x.cmd({ cmd: "insertParam", i: 2, slot: 0, id: "g", value: -12 }); await x.meters((m) => Math.abs(m.in[2] - 0.1) < 0.01);
+  x.cmd({ cmd: "insert", i: 2, slot: 0, path: "" });
+  const off = await x.meters((m) => Math.abs(m.in[2] - 0.4) < 0.015); assert.ok(Math.abs(off.in[2] - 0.4) < 0.015, "out again: " + off.in[2]);
+  x.cmd({ cmd: "testgen", ch: 2, level: 0 }); fs.rmSync(dir, { recursive: true, force: true });
+});
 await check("EQ: the second mid (+12 dB at 1 kHz) lifts a 1 kHz tone 4x; off when its gain is 0", async () => {
   x.cmd({ cmd: "testgen", ch: 1, freq: 1000, level: 0.1 });
   ch(1, { eq: FLAT_EQ.concat([1000, 12, 1]) });
