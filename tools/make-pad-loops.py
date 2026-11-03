@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Central Pedal - Central Pads: the pad pedal's pads, synthesised here (no one else's recording).
 
-  <out>/<Style>/<Key>.wav - 41 styles in all 12 keys, each a stereo chord (root, fifth, octave - Morning adds the 9th)
+  <out>/<Style>/<Key>.wav - 76 styles in all 12 keys (41 in Central Pads, 35 more in Central Pads Extra - 10.3), each a stereo chord (root, fifth, octave - Morning adds the 9th)
   LOOP seconds long that repeats without a seam. The pad pedal plays the file of the song's key as it is (no pitch
   shifting). C# is "Cs" in a file name (no # in a file name or a web address).
 
-    python3 tools/make-pad-loops.py <out folder> [--cache DIR] [--style NAME]... [--key C#]...
+    python3 tools/make-pad-loops.py <out folder> [--cache DIR] [--pulse DIR] [--style NAME]... [--key C#]...
+--pulse: also make the moving pads (10.3) as a loop set there: <DIR>/index.json and a 4-second bed per pad and key,
+         each with its gate - the pad pedal's texture channels open and close the bed in time with the song.
 --cache: the download cache (the styles made from recordings - tools/pad_sources.py, all CC0 - need it).
 
 10.2: every style is built its own way - its own voices (saws, pulse waves, a choir through vowel formants, a bowed
@@ -34,6 +36,8 @@ NAMES = ["Warm", "Air", "Choir Aah", "Choir Ooh", "Shimmer", "Strings", "Glass",
          # 10.2, more: the worship pads first, then the ones made from recordings, then more synthesised ones
          "Sunday Keys", "Ember", "Halo", "Selah", "Tide", "Dawn", "Frozen Piano", "Bowed Glass", "Vibes", "Harp Wash", "Cathedral Organ",
          "Vowels", "Tape", "Sparkle", "Eighties", "Reed", "Swell Guitar", "Breathe", "Tanpura", "Horns", "Flute Choir"]
+MAIN_NAMES = list(NAMES)            # (Central Pads)
+NAMES += PV.EXTRA_NAMES              # (10.3: Central Pads Extra - after the 41, so theirs stay exactly as they were)
 RECORDED = [n for n in NAMES if PV.needs_sources(n)]   # (made from CC0 recordings: they need the download cache)
 STYLES = [(n, PV.STYLES[n]) for n in NAMES]
 
@@ -87,11 +91,38 @@ def build(out_dir, styles=None, keys=None, seed=21, log=say, cache=None):
     return out_dir
 
 
+PULSE_SECONDS = 4.0
+
+
+def build_pulse(out_dir, keys=None, seed=77, log=say):
+    """The moving pads: per pad and key, a 4-second seamless bed, and index.json [{name, file, key, seconds, gate}]."""
+    import json
+    os.makedirs(out_dir, exist_ok=True)
+    index = []
+    for pi, (name, style, gate) in enumerate(PV.PULSES):
+        for ki, key in enumerate(KEYS):
+            fn = "%s-%s.wav" % (name.lower().replace(" ", "-"), key.replace("#", "s"))
+            index.append({"name": name, "file": fn, "key": key, "seconds": PULSE_SECONDS, "gate": gate})
+            path = os.path.join(out_dir, fn)
+            if (keys and key not in keys) or os.path.isfile(path):
+                continue
+            x = PV.render(style, D.Loop(PULSE_SECONDS), LOW + ki, np.random.default_rng(seed + pi * 31 + ki))
+            x = x / (float(np.max(np.abs(x))) or 1.0) * 0.5
+            loop_wav(path, x[:, 0], x[:, 1])
+    with open(os.path.join(out_dir, "index.json"), "w") as f:
+        json.dump(index, f, indent=1)
+    log("    moving pads: %d beds" % len(index))
+    return index
+
+
 def main(argv):
-    styles, keys, args, i, cache = [], [], [], 0, None
+    styles, keys, args, i, cache, pulse = [], [], [], 0, None, None
     while i < len(argv):
-        if argv[i] == "--cache" and i + 1 < len(argv):
-            cache = argv[i + 1]
+        if argv[i] in ("--cache", "--pulse") and i + 1 < len(argv):
+            if argv[i] == "--cache":
+                cache = argv[i + 1]
+            else:
+                pulse = argv[i + 1]
             i += 2
             continue
         if argv[i] in ("--style", "--key") and i + 1 < len(argv):
@@ -104,6 +135,8 @@ def main(argv):
         print(__doc__)
         return 2
     build(args[0], styles or None, keys or None, cache=cache)
+    if pulse:
+        build_pulse(pulse, keys or None)
     return 0
 
 

@@ -21,7 +21,9 @@ function appBlock(kind, keys) {
   return { kind, app, name: a.name, icon: a.icon, runsOn: a.runsOn, devices: a.devices, phone: a.phone, steps: steps(a), linuxCommand: installLine(a.linux),
     links: Object.fromEntries(platformsOf(app).map((p) => [p, appLink(app, p)])), keys };
 }
-const libraries = (ids) => withPads(ids).map((id) => ({ plan: id, name: PLANS[id].name + " Library", link: libraryLink(id) }));
+// (10.3: the Pads plan has two downloads - Central Pads and Central Pads Extra - both open with the same key)
+const libraries = (ids) => withPads(ids).flatMap((id) => [{ plan: id, name: PLANS[id].name + " Library", link: libraryLink(id) }]
+  .concat(id === "pads" ? [{ plan: id, name: "Central Pads Extra", link: libraryLink("central-pads-extra") }] : []));
 const appKeys = (rows) => {
   const by = {};
   for (const l of rows) (by[l.kind] = by[l.kind] || []).push({ key: pretty(l.key), who: l.assigned_name || l.assigned_email || null, inUse: l.devices || 0, trial: !!l.trial,

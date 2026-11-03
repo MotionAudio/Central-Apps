@@ -77,7 +77,7 @@ try {
   const me = await j("GET", "/me", null, li.token);
   ok(me.email === DEMO_EMAIL && me.subscribed === true && me.church && me.church.name === "Riverstone Church (demo)" && me.emailConfirmed === true, "...its church is Riverstone Church (demo), with Central Tracks Unlimited", me);
   const pu = await j("GET", "/purchases", null, li.token), demo = (pu.purchases || []).find((x) => x.type === "demo");
-  ok(demo && demo.apps.length === 3 && demo.apps.map((x) => x.keys[0].key).sort().join() === Object.values(DEMO).sort().join() && demo.packages.length === 7 && demo.libraries.length === 6
+  ok(demo && demo.apps.length === 3 && demo.apps.map((x) => x.keys[0].key).sort().join() === Object.values(DEMO).sort().join() && demo.packages.length === 7 && demo.libraries.length === 7
     && demo.apps.every((x) => x.links.windows && x.links.windows.startsWith("https://motion.test/download/")), "Purchases: the demo keys (3 apps, 7 packages), the libraries and our own download links", demo);
   const del = await j("POST", "/account/delete", { password: DEMO_PW }, li.token), fg = await j("POST", "/password/forgot", { email: DEMO_EMAIL }), ph = await j("POST", "/account/phone", { password: DEMO_PW, phone: "555-111-2222" }, li.token);
   ok(del._status === 403 && fg._status === 403 && ph._status === 403, "it can't be deleted, have its password reset or get a phone", { del, fg, ph });
