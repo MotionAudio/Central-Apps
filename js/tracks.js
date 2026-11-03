@@ -1137,13 +1137,28 @@
 
   // ------------------------------------------------------------- UI: Tracks tab
   var tl = { drag: null };
+  // (10.2) no songs at all: one clear next step instead of a page of transport buttons that can't do anything yet
+  function emptyState(on) {
+    document.body.classList.toggle("tr-nosongs", on);
+    var box = $("#trEmpty");
+    if (on && !box) {
+      var main = document.querySelector("#tabTracks .tr-main"); if (!main) return;
+      box = document.createElement("div"); box.id = "trEmpty"; box.className = "empty-state";
+      box.innerHTML = '<h3>Add your first song</h3><p class="muted">Bring in your own stems or a whole song, split a stereo song into parts, or get songs from Central Tracks. Each song keeps its key, tempo, sections, lyrics and chords.</p>' +
+        '<div class="row"><button class="primary" data-tr-empty="add">+ Add a song</button><button data-tr-empty="setlist">♫ Open a setlist</button></div>';
+      box.addEventListener("click", function (e) { var b = e.target.closest("[data-tr-empty]"); if (!b) return; var go = b.dataset.trEmpty === "add" ? $("#trNewSong") : $("#trSetlist"); if (go) go.click(); });
+      main.insertBefore(box, main.firstChild);
+    }
+    if (box) box.hidden = !on;
+  }
   function render() {
     renderRehearse();
     var s = song(), t = s && data(s), p = project();
     var use = $("#trUseTracks"); if (use) { use.classList.toggle("on", !!p.tracksMode); use.querySelector("b").textContent = p.tracksMode ? "ON" : "OFF"; }
     var name = $("#trSongName"); if (!name) return;
     name.textContent = s ? (p.songIndex + 1) + ". " + s.name : (p.songs.length ? "No song selected" : "No songs yet");
-    $("#trSongMeta").textContent = s ? keyName(s.key) + (t.originalKey && t.keyShift ? " (" + (t.keyShift > 0 ? "+" : "") + t.keyShift + ")" : "") + " · " + Math.round(s.bpm) + " BPM" + (t.tempoPercent !== 100 ? " (" + t.tempoPercent + "%)" : "") + " · " + meterText(t) + " · " + (t.stems.length ? t.stems.length + " track" + (t.stems.length === 1 ? "" : "s") + " · " + fmtTime(t.duration) : "no tracks") + (s.chart ? " · chart ✓" : "") : "Add a song with + Song, then add its tracks";
+    emptyState(!p.songs.length);
+    $("#trSongMeta").textContent = s ? keyName(s.key) + (t.originalKey && t.keyShift ? " (" + (t.keyShift > 0 ? "+" : "") + t.keyShift + ")" : "") + " · " + Math.round(s.bpm) + " BPM" + (t.tempoPercent !== 100 ? " (" + t.tempoPercent + "%)" : "") + " · " + meterText(t) + " · " + (t.stems.length ? t.stems.length + " track" + (t.stems.length === 1 ? "" : "s") + " · " + fmtTime(t.duration) : "no tracks") + (s.chart ? " · chart ✓" : "") : "Press + Add song, then add its tracks";
     renderStems(); renderSections(); renderTransport(); renderPosition(); drawTimeline();
     var sel = $("#trSongSelect"); if (sel) { sel.innerHTML = '<option value="-1">— choose a song —</option>' + p.songs.map(function (q, i) { return '<option value="' + i + '"' + (i === p.songIndex ? " selected" : "") + ">" + (i + 1) + ". " + esc(q.name) + (q.tracks && q.tracks.stems && q.tracks.stems.length ? " ♫" : "") + "</option>"; }).join(""); }
   }
