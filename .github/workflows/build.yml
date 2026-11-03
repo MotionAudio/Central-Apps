@@ -69,6 +69,7 @@ jobs:
           key: cu-asr-fast-${{ hashFiles('central-usage/asr.js') }}
       - name: Test the engine, the rig, the video helpers (Linux)
         run: |
+          npm i --no-save --no-package-lock playwright@1.48.2 >/dev/null && npx playwright install --with-deps chromium >/dev/null   # (the pictures and CCLI tests drive a browser)
           bash tools/ci-run.sh "engine test" node central-usage/native/test-mixer.mjs central-usage/native/build/cu-mixer
           bash tools/ci-run.sh "rig test" node central-usage/native/test-rig.mjs central-usage/native/build/cu-rig
           make -C central-usage/native build/test-bridge
@@ -88,7 +89,7 @@ jobs:
           bash tools/ci-run.sh "pictures in (JPEG turned upright, PNG, WebP, animated GIF, BMP, AVIF, SVG, TIFF and HEIC through the pinned ffmpeg, 3840 px, ten at once in order, drop and paste)" node central-usage/test-pictures.mjs
           bash tools/ci-run.sh "CCLI: songs streamed while the Video tab is on air, Print chart" node central-usage/test-ccli-usage.mjs
           ASR_MODEL=fast ASR_MODELS_DIR="$HOME/.cache/cu-asr" bash tools/ci-run.sh "lyrics heard in a vocal track (espeak-ng's voice through the speech model)" node central-usage/test-lyrics.mjs
-          python3 -c "import numpy" 2>/dev/null || python3 -m pip install --quiet numpy
+          python3 -m pip install --quiet numpy scipy soundfile pyloudnorm   # (the 10.2 hymns and pads: the sampler, loudness, filters)
           bash tools/ci-run.sh "library test (pedals, plans, the orchestra builder)" python3 test_library.py
           bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py
           bash tools/ci-run.sh "community items test (plugin switch, revoke list, the wall)" python3 test_community.py
