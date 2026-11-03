@@ -12,6 +12,9 @@
   var LSP = "http://lsp-plug.in/plugins/lv2/";
   var MDA = "http://drobilla.net/plugins/mda/";
   var X42 = "http://gareus.org/oss/lv2/";
+  // (10.3) Central Pedals: our own LADSPA library on the Pi (central-pedals.so), built into the rig on computers
+  var MAP = "ladspa:central-pedals.so:";
+  function own(label, color, more) { var o = { ladspa: "central-pedals.so", label: label, color: color, own: true }; Object.keys(more || {}).forEach(function (k) { o[k] = more[k]; }); return o; }
   // category: colour + icon used by the pedal graphics
   var CATEGORIES = {
     boost: { name: "Boost & overdrive", color: "#3f9f5a" }, dist: { name: "Distortion", color: "#d9542b" }, fuzz: { name: "Fuzz", color: "#8e44ad" },
@@ -338,6 +341,63 @@
     ["lofi-vinyl", "Lo-Fi Record", "mod", CALF + "Vinyl", { Hum: "drone", Speed: "speed", Age: "aging", Tone: "freq" }, { values: { aging: 0.4 } }],
     ["cycle-shifter", "Cycle Shifter (glitch)", "fuzz", "http://www.niallmoody.com/ndcplugs/cycleshifter.htm", { "New cycle": "ncvolume", Input: "ipvolume" }],
     ["lsp-flanger", "Jet Flanger", "mod", LSP + "flanger_mono", { Rate: "rate", Depth: "depth", Amount: "amount", Feedback: "fgain" }, { values: { fb_on: 1 } }],
+    // ---- 10.3: Central Pedals - our own pedals (central-usage/native/mapedals): the same C code in the computers' rig and,
+    // as central-pedals.so, on the Pi, so a board sounds the same everywhere. Each has its own face colour.
+    ["ma-clear-drive", "Clear Drive", "boost", MAP + "ma_clear_drive", { Drive: "drive", Tone: "tone", Level: "level" }, own("ma_clear_drive", "#7fb3a0")],
+    ["ma-mid-drive", "Mid Hump Drive", "boost", MAP + "ma_mid_drive", { Drive: "drive", Tone: "tone", Level: "level" }, own("ma_mid_drive", "#4f9a4a")],
+    ["ma-blues-drive", "Low-Gain Blues", "boost", MAP + "ma_blues_drive", { Drive: "drive", Tone: "tone", Level: "level" }, own("ma_blues_drive", "#2f6fb0")],
+    ["ma-gold-drive", "Gold Horse Drive", "boost", MAP + "ma_gold_drive", { Gain: "drive", Treble: "tone", Output: "level" }, own("ma_gold_drive", "#c9a24a")],
+    ["ma-bass-drive", "Bass Drive", "boost", MAP + "ma_bass_drive", { Drive: "drive", Blend: "blend", Tone: "tone", Level: "level" }, own("ma_bass_drive", "#5a6b3a")],
+    ["ma-boost", "Clean Boost", "boost", MAP + "ma_boost", { Boost: "gain", Bass: "bass", Treble: "treble" }, own("ma_boost", "#d8d2c4")],
+    ["ma-brit-dist", "British Distortion", "dist", MAP + "ma_brit_dist", { Distortion: "drive", Tone: "tone", Level: "level" }, own("ma_brit_dist", "#e0b23a")],
+    ["ma-hg-dist", "High-Gain Distortion", "dist", MAP + "ma_hg_dist", { Gain: "drive", Tone: "tone", Mids: "mid", Level: "level" }, own("ma_hg_dist", "#2b2b2e")],
+    ["ma-ge-fuzz", "Germanium Fuzz", "fuzz", MAP + "ma_ge_fuzz", { Fuzz: "drive", Tone: "tone", Bias: "bias", Volume: "level" }, own("ma_ge_fuzz", "#b23a3a")],
+    ["ma-si-fuzz", "Silicon Fuzz", "fuzz", MAP + "ma_si_fuzz", { Fuzz: "drive", Tone: "tone", Volume: "level" }, own("ma_si_fuzz", "#7a4fb0")],
+    ["ma-oct-fuzz", "Octave Fuzz", "fuzz", MAP + "ma_oct_fuzz", { Fuzz: "drive", Octave: "octave", Tone: "tone", Volume: "level" }, own("ma_oct_fuzz", "#3a8fa8")],
+    ["ma-amp-clean", "American Clean Amp", "amp", MAP + "ma_amp_clean", { Gain: "gain", Bass: "bass", Middle: "mid", Treble: "treble", Bright: "presence", Master: "master", Cabinet: "cab" }, own("ma_amp_clean", "#2e2e2e")],
+    ["ma-amp-crunch", "British Crunch Amp", "amp", MAP + "ma_amp_crunch", { Gain: "gain", Bass: "bass", Middle: "mid", Treble: "treble", Presence: "presence", Master: "master", Cabinet: "cab" }, own("ma_amp_crunch", "#c7a35a")],
+    ["ma-amp-hg", "High-Gain Amp", "amp", MAP + "ma_amp_hg", { Gain: "gain", Bass: "bass", Middle: "mid", Treble: "treble", Presence: "presence", Master: "master", Cabinet: "cab" }, own("ma_amp_hg", "#3c3f46")],
+    ["ma-amp-bass", "Bass Amp", "amp", MAP + "ma_amp_bass", { Gain: "gain", Bass: "bass", Middle: "mid", Treble: "treble", Growl: "presence", Master: "master", Cabinet: "cab" }, own("ma_amp_bass", "#4a5560")],
+    ["ma-bass-pre", "Bass Preamp", "amp", MAP + "ma_bass_pre", { Drive: "drive", Bass: "bass", "Low mid": "lowmid", "High mid": "highmid", Treble: "treble", Level: "level" }, own("ma_bass_pre", "#6b5a45")],
+    ["ma-studio-comp", "Clean VCA Compressor", "comp", MAP + "ma_studio_comp", { Threshold: "threshold", Ratio: "ratio", Attack: "attack", Release: "release", Makeup: "makeup", Blend: "blend" }, own("ma_studio_comp", "#3b6fa0")],
+    ["ma-opto-comp", "Optical Compressor", "comp", MAP + "ma_opto_comp", { "Peak reduction": "peak", Gain: "gain", Blend: "blend" }, own("ma_opto_comp", "#a8b4bf")],
+    ["ma-squash-comp", "Squash Compressor", "comp", MAP + "ma_squash_comp", { Sensitivity: "sens", Output: "level", Blend: "blend" }, own("ma_squash_comp", "#2f8fc9")],
+    ["ma-gate", "Noise Gate", "comp", MAP + "ma_gate", { Threshold: "threshold", Release: "release", Range: "range" }, own("ma_gate", "#1f4e79")],
+    ["ma-ac-pre", "Acoustic Preamp", "acoustic", MAP + "ma_ac_pre", { Bass: "bass", Middle: "mid", "Mid freq": "midfreq", Treble: "treble", Notch: "notch", "Notch depth": "notchon", Level: "level" }, own("ma_ac_pre", "#b07a45")],
+    ["ma-ac-sim", "Acoustic Body (piezo to mic)", "acoustic", MAP + "ma_ac_sim", { Body: "body", Top: "top", Mix: "mix", Level: "level" }, own("ma_ac_sim", "#d2a06a")],
+    ["ma-chorus", "Dimension Chorus", "mod", MAP + "ma_chorus", { Rate: "rate", Depth: "depth", Tone: "tone", Mix: "mix" }, own("ma_chorus", "#5fb7d4")],
+    ["ma-tri-chorus", "Tri Chorus", "mod", MAP + "ma_tri_chorus", { Rate: "rate", Depth: "depth", Tone: "tone", Mix: "mix" }, own("ma_tri_chorus", "#3f8fc0")],
+    ["ma-flanger", "Regen Flanger", "mod", MAP + "ma_flanger", { Rate: "rate", Depth: "depth", Manual: "manual", Regen: "feedback", Mix: "mix" }, own("ma_flanger", "#8a7fc0")],
+    ["ma-phaser", "Four-Stage Phaser", "mod", MAP + "ma_phaser", { Speed: "rate", Depth: "depth", Feedback: "feedback", Mix: "mix" }, own("ma_phaser", "#e07a2a")],
+    ["ma-vibe", "Uni Vibe", "mod", MAP + "ma_vibe", { Speed: "rate", Intensity: "depth", Vibrato: "mode", Volume: "level" }, own("ma_vibe", "#6a4a8a")],
+    ["ma-rotary", "Rotary Cabinet", "mod", MAP + "ma_rotary", { Fast: "fast", Drive: "drive", "Horn / drum": "balance", Mix: "mix" }, own("ma_rotary", "#7a5230")],
+    ["ma-ring", "Wobble Ring Modulator", "mod", MAP + "ma_ring", { Frequency: "freq", Wobble: "lfo", Tone: "tone", Mix: "mix" }, own("ma_ring", "#8fb03a")],
+    ["ma-harm-trem", "Harmonic Tremolo", "trem", MAP + "ma_harm_trem", { Speed: "rate", Intensity: "depth", Split: "xover", Volume: "level" }, own("ma_harm_trem", "#a0475e")],
+    ["ma-square-trem", "Square Tremolo", "trem", MAP + "ma_square_trem", { Speed: "rate", Depth: "depth", Shape: "shape", Volume: "level" }, own("ma_square_trem", "#d0607e")],
+    ["ma-octave-up", "Octave Up", "pitch", MAP + "ma_octave_up", { Octave: "octave", Dry: "dry", Tone: "tone" }, own("ma_octave_up", "#8f80e0")],
+    ["ma-octave-down", "Sub Octave", "pitch", MAP + "ma_octave_down", { "Octave 1": "oct1", "Octave 2": "oct2", Dry: "dry", Tone: "tone" }, own("ma_octave_down", "#4a3f8a")],
+    ["ma-harmonizer", "Harmonizer", "pitch", MAP + "ma_harmonizer", { Interval: "interval", Detune: "detune", Mix: "mix" }, own("ma_harmonizer", "#5a5ac0")],
+    ["ma-whammy", "Whammy", "pitch", MAP + "ma_whammy", { Position: "position", Range: "range", Mix: "mix" }, own("ma_whammy", "#c03030", { expression: "position" })],
+    ["ma-env-filter", "Quack Envelope Filter", "wah", MAP + "ma_env_filter", { Sensitivity: "sens", Range: "range", Resonance: "res", Mode: "mode", Mix: "mix" }, own("ma_env_filter", "#e0c040")],
+    ["ma-autowah", "Rhythm Auto Wah", "wah", MAP + "ma_autowah", { Rate: "rate", Depth: "depth", Resonance: "res", Mix: "mix" }, own("ma_autowah", "#b08a2a")],
+    ["ma-wah", "Wah Pedal", "wah", MAP + "ma_wah", { Position: "position", Resonance: "res", Level: "level" }, own("ma_wah", "#303030", { expression: "position" })],
+    ["ma-synth-filter", "Fuzz Synth Filter", "wah", MAP + "ma_synth_filter", { Sensitivity: "sens", Decay: "decay", Resonance: "res", Fuzz: "fuzz", Mix: "mix" }, own("ma_synth_filter", "#40a080")],
+    ["ma-analog-delay", "Analog Delay", "delay", MAP + "ma_analog_delay", { Time: "time", Repeats: "feedback", Mix: "mix", Modulation: "mod", Tone: "tone" }, own("ma_analog_delay", "#3f7a3a", { tempo: "time" })],
+    ["ma-tape-delay", "Tape Echo", "delay", MAP + "ma_tape_delay", { Time: "time", Repeats: "feedback", Mix: "mix", "Wow & flutter": "mod", Tone: "tone" }, own("ma_tape_delay", "#8a6a4a", { tempo: "time" })],
+    ["ma-digital-delay", "Clean Digital Delay", "delay", MAP + "ma_digital_delay", { Time: "time", Feedback: "feedback", Mix: "mix", "Low cut": "lowcut", "High cut": "tone" }, own("ma_digital_delay", "#4a90c0", { tempo: "time" })],
+    ["ma-dotted-delay", "Dotted Eighth Delay", "delay", MAP + "ma_dotted_delay", { Tempo: "bpm", Repeats: "feedback", Mix: "mix", Modulation: "mod", Tone: "tone" }, own("ma_dotted_delay", "#e2c27e", { tempoBpm: "bpm" })],
+    ["ma-multihead", "Multi-Head Echo", "delay", MAP + "ma_multihead", { "Repeat rate": "time", Heads: "heads", Intensity: "feedback", "Echo level": "mix", Tone: "tone" }, own("ma_multihead", "#5a3a2a", { tempo: "time" })],
+    ["ma-reverse-delay", "Backwards Delay", "delay", MAP + "ma_reverse_delay", { Time: "time", Feedback: "feedback", Mix: "mix" }, own("ma_reverse_delay", "#9a4ab0")],
+    ["ma-spring", "Spring Reverb", "reverb", MAP + "ma_spring", { Dwell: "dwell", Decay: "decay", Tone: "tone", Mix: "mix" }, own("ma_spring", "#2a2a2a")],
+    ["ma-plate", "Studio Plate", "reverb", MAP + "ma_plate", { Decay: "decay", "Pre-delay": "predelay", Tone: "tone", Mix: "mix" }, own("ma_plate", "#9aa6b0")],
+    ["ma-hall", "Hall Reverb", "reverb", MAP + "ma_hall", { Decay: "decay", "Pre-delay": "predelay", Tone: "tone", Mix: "mix" }, own("ma_hall", "#3a5a8a")],
+    ["ma-shimmer", "Octave Shimmer", "reverb", MAP + "ma_shimmer", { Decay: "decay", Shimmer: "shimmer", Tone: "tone", Mix: "mix" }, own("ma_shimmer", "#cfd8f0")],
+    ["ma-swell-verb", "Auto-Swell Reverb", "reverb", MAP + "ma_swell_verb", { Swell: "swell", Decay: "decay", Tone: "tone", Mix: "mix" }, own("ma_swell_verb", "#7a9ac0")],
+    ["ma-freeze", "Freeze Sustainer", "reverb", MAP + "ma_freeze", { Freeze: "freeze", Decay: "decay", Tone: "tone", Mix: "mix" }, own("ma_freeze", "#a0d8e8")],
+    ["ma-volume", "Volume and Swell Pedal", "util", MAP + "ma_volume", { Volume: "volume", Minimum: "min" }, own("ma_volume", "#3a3a3a", { expression: "volume" })],
+    ["ma-geq7", "7-Band Graphic EQ", "eq", MAP + "ma_geq7", { "100": "b100", "200": "b200", "400": "b400", "800": "b800", "1.6k": "b1k6", "3.2k": "b3k2", "6.4k": "b6k4", Level: "level" }, own("ma_geq7", "#c8c8c8", { graph: "eq" })],
+    ["ma-peq", "Parametric EQ", "eq", MAP + "ma_peq", { "Low cut": "lowcut", Low: "low", "Mid freq": "midfreq", Mid: "mid", "Mid width": "q", High: "high", Level: "level" }, own("ma_peq", "#2d8f8b")],
+    ["ma-mute", "Tuner Mute", "util", MAP + "ma_mute", { Mute: "mute" }, own("ma_mute", "#202020")],
   ];
   // ---- the plans (yearly, per person): which plan unlocks each pedal. "free" ones come with every Central Pedal and app.
   // (9.8) every plan includes Central Pads ($40 a year on its own)
@@ -353,7 +413,9 @@
     boost: "pedals", dist: "pedals", fuzz: "pedals", wah: "pedals", mod: "pedals", trem: "pedals", pitch: "pedals", amp: "pedals", cab: "pedals", acoustic: "pedals" };
   // the free starter set: one or two essentials of each kind (boost, drive, compressor, gate, EQ, chorus, delay, reverb, amp, cab), the tuner and the volume pedal
   var FREE = { booster: 1, ts9: 1, gxcomp: 1, calfcomp: 1, calfgate: 1, calfeq5: 1, calfbass: 1, gxchorus: 1, digdelay: 1, "dfly-hall": 1, gxamp: 1, gxcab: 1, "acoustic-comp": 1, tuner: 1, volume: 1 };
-  var pedals = P.map(function (p) { return { id: p[0], name: p[1], category: p[2], uri: p[3], knobs: p[4] || {}, opts: p[5] || {}, tier: FREE[p[0]] ? "free" : TIER_OF_CATEGORY[p[2]] || "pedals" }; });
+  // (10.3) and from our own pedals: a clean boost, a gate, the volume pedal and tuner mute (the basics every board needs)
+  ["ma-boost", "ma-gate", "ma-volume", "ma-mute"].forEach(function (id) { FREE[id] = 1; });
+  var pedals = P.map(function (p) { var o = p[5] || {}; return { id: p[0], name: p[1], category: p[2], uri: p[3], knobs: p[4] || {}, opts: o, tier: FREE[p[0]] ? "free" : TIER_OF_CATEGORY[p[2]] || "pedals", color: o.color || (CATEGORIES[p[2]] || {}).color || "#777" }; });
 
   // ---- our own boards: presets made of several pedals (name, instrument kind, chain)
   var BOARDS = [
@@ -389,7 +451,46 @@
     { id: "flute-lead", name: "Flute Lead", kind: "keys", sound: "flute lead|flute", soundPlan: "instrument", chain: [["digdelay", { Feedback: 30, Mix: 20 }], ["dfly-hall", { Decay: 2.2 }]] },
     { id: "studio-keys-ace", name: "Studio: Warm Keys", kind: "keys", chain: [["ace-eq", { "Low mid": -2, Air: 1.5 }], ["ace-comp", { Threshold: -20, Ratio: 3 }], ["mverb", { Mix: 22, Decay: 55 }]] },
     { id: "funk-wah", name: "Auto-Wah Funk", kind: "electric", chain: [["gxcomp", {}], ["fomp-autowah", { Drive: 4, Range: 0.7 }], ["gxamp", {}], ["gxcab", {}], ["cs-phaser", { Rate: 0.6 }]] },
-    { id: "bass-octave-down", name: "Bass: Octave Down", kind: "bass", chain: [["calfgate", {}], ["gxcomp", {}], ["rb-pitch", { Octaves: -1, Mix: 0.5 }], ["calfbass", {}]] }
+    { id: "bass-octave-down", name: "Bass: Octave Down", kind: "bass", chain: [["calfgate", {}], ["gxcomp", {}], ["rb-pitch", { Octaves: -1, Mix: 0.5 }], ["calfbass", {}]] },
+    // ---- 10.3: boards made with Central Pedals (our own pedals) - worship, ambient, blues, acoustic, bass and keys
+    { id: "worship-dotted", name: "Worship Lead: Dotted Eighth", kind: "electric", chain: [["ma-studio-comp", { Threshold: -24, Ratio: 3 }], ["ma-gold-drive", { Gain: 0.3, Treble: 0.55 }], ["ma-dotted-delay", { Tempo: 72, Repeats: 0.45, Mix: 0.35 }], ["ma-analog-delay", { Time: 450, Repeats: 0.3, Mix: 0.15 }], ["ma-shimmer", { Decay: 6, Shimmer: 0.4, Mix: 0.28 }], ["ma-amp-clean", { Gain: 0.35 }]] },
+    { id: "worship-swells", name: "Worship Swells (volume + shimmer)", kind: "electric", chain: [["ma-volume", {}], ["ma-opto-comp", { "Peak reduction": 0.5 }], ["ma-dotted-delay", { Tempo: 72, Repeats: 0.55, Mix: 0.4 }], ["ma-shimmer", { Decay: 10, Shimmer: 0.6, Mix: 0.55 }], ["ma-amp-clean", { Gain: 0.25 }]] },
+    { id: "worship-crunch", name: "Worship Crunch Lead", kind: "electric", chain: [["ma-gate", {}], ["ma-mid-drive", { Drive: 0.45 }], ["ma-dotted-delay", { Tempo: 72, Repeats: 0.4, Mix: 0.3 }], ["ma-hall", { Decay: 3.5, Mix: 0.25 }], ["ma-amp-crunch", { Gain: 0.45 }]] },
+    { id: "worship-rhythm", name: "Worship Clean Rhythm", kind: "electric", chain: [["ma-opto-comp", { "Peak reduction": 0.4 }], ["ma-chorus", { Mix: 0.25 }], ["ma-digital-delay", { Time: 380, Feedback: 0.25, Mix: 0.18 }], ["ma-plate", { Decay: 1.6, Mix: 0.2 }], ["ma-amp-clean", { Gain: 0.3 }]] },
+    { id: "ambient-wash", name: "Ambient Swell Wash", kind: "electric", chain: [["ma-swell-verb", { Swell: 700, Decay: 9, Mix: 0.6 }], ["ma-tape-delay", { Time: 520, Repeats: 0.55, Mix: 0.35 }], ["ma-shimmer", { Decay: 12, Shimmer: 0.5, Mix: 0.4 }], ["ma-amp-clean", { Gain: 0.2 }]] },
+    { id: "ambient-freeze", name: "Ambient Freeze Pad", kind: "electric", chain: [["ma-volume", {}], ["ma-octave-up", { Octave: 0.3, Dry: 1 }], ["ma-freeze", { Decay: 8, Mix: 0.6 }], ["ma-hall", { Decay: 6, Mix: 0.35 }], ["ma-amp-clean", { Gain: 0.2 }]] },
+    { id: "ambient-reverse", name: "Ambient Reverse", kind: "electric", chain: [["ma-opto-comp", {}], ["ma-reverse-delay", { Time: 700, Feedback: 0.35, Mix: 0.5 }], ["ma-shimmer", { Decay: 8, Mix: 0.4 }], ["ma-amp-clean", { Gain: 0.25 }]] },
+    { id: "blues-spring", name: "Blues: Clean and Spring", kind: "electric", chain: [["ma-blues-drive", { Drive: 0.2 }], ["ma-harm-trem", { Speed: 4.5, Intensity: 0.5 }], ["ma-spring", { Dwell: 0.55, Mix: 0.3 }], ["ma-amp-clean", { Gain: 0.4, Bass: 0.45, Treble: 0.6 }]] },
+    { id: "blues-gold", name: "Blues: Gold Horse Push", kind: "electric", chain: [["ma-gold-drive", { Gain: 0.4 }], ["ma-blues-drive", { Drive: 0.45 }], ["ma-analog-delay", { Time: 300, Repeats: 0.3, Mix: 0.2 }], ["ma-spring", { Mix: 0.25 }], ["ma-amp-crunch", { Gain: 0.4 }]] },
+    { id: "blues-slap", name: "Blues: Slapback", kind: "electric", chain: [["ma-boost", { Boost: 6 }], ["ma-multihead", { "Repeat rate": 110, Heads: 1, Intensity: 0.15, "Echo level": 0.35 }], ["ma-spring", { Dwell: 0.6, Mix: 0.3 }], ["ma-amp-clean", { Gain: 0.45 }]] },
+    { id: "classic-crunch", name: "Classic Rock Crunch", kind: "electric", chain: [["ma-mid-drive", { Drive: 0.4, Level: 0.6 }], ["ma-amp-crunch", { Gain: 0.6, Middle: 0.65 }], ["ma-plate", { Decay: 1.4, Mix: 0.18 }]] },
+    { id: "modern-metal", name: "Modern Metal (gate + high gain)", kind: "electric", chain: [["ma-gate", { Threshold: -50 }], ["ma-clear-drive", { Drive: 0.1, Level: 0.75 }], ["ma-amp-hg", { Gain: 0.7, Middle: 0.35 }], ["ma-peq", { "Low cut": 70, "Mid freq": 500, Mid: -3, High: 1.5 }]] },
+    { id: "fuzz-vibe", name: "Fuzz and Vibe", kind: "electric", chain: [["ma-wah", { Position: 0.5 }], ["ma-ge-fuzz", { Fuzz: 0.75 }], ["ma-vibe", { Speed: 1.5, Intensity: 0.7 }], ["ma-amp-crunch", { Gain: 0.35 }], ["ma-spring", { Mix: 0.2 }]] },
+    { id: "funk-quack", name: "Funk Quack", kind: "electric", chain: [["ma-squash-comp", { Sensitivity: 0.6 }], ["ma-env-filter", { Sensitivity: 0.65, Resonance: 0.7 }], ["ma-phaser", { Speed: 0.4, Mix: 0.35 }], ["ma-amp-clean", { Gain: 0.3 }]] },
+    { id: "surf-trem", name: "Surf Trem", kind: "electric", chain: [["ma-square-trem", { Speed: 6, Depth: 0.7, Shape: 0.5 }], ["ma-spring", { Dwell: 0.85, Decay: 0.7, Mix: 0.5 }], ["ma-amp-clean", { Gain: 0.4, Treble: 0.7 }]] },
+    { id: "synth-guitar", name: "Synth Guitar", kind: "electric", chain: [["ma-squash-comp", {}], ["ma-octave-down", { "Octave 1": 0.8, Dry: 0.3 }], ["ma-synth-filter", { Decay: 400, Resonance: 0.75 }], ["ma-digital-delay", { Time: 330, Mix: 0.25 }], ["ma-amp-clean", { Gain: 0.25 }]] },
+    { id: "whammy-lead", name: "Whammy Lead", kind: "electric", chain: [["ma-gate", {}], ["ma-whammy", { Range: 12 }], ["ma-hg-dist", { Gain: 0.55 }], ["ma-digital-delay", { Time: 420, Feedback: 0.3, Mix: 0.25 }], ["ma-amp-hg", { Gain: 0.4 }]] },
+    { id: "acoustic-worship", name: "Acoustic: Worship (body + plate)", kind: "acoustic", chain: [["ma-ac-pre", { Middle: -3, Treble: 2 }], ["ma-opto-comp", { "Peak reduction": 0.4 }], ["ma-ac-sim", { Body: 0.6, Top: 0.55 }], ["ma-plate", { Decay: 1.8, Mix: 0.2 }]] },
+    { id: "acoustic-strum", name: "Acoustic: Bright Strum", kind: "acoustic", chain: [["ma-ac-pre", { Bass: -2, Treble: 4 }], ["ma-studio-comp", { Threshold: -22, Ratio: 3 }], ["ma-chorus", { Depth: 0.3, Mix: 0.15 }], ["ma-hall", { Decay: 2.4, Mix: 0.2 }]] },
+    { id: "acoustic-ambient", name: "Acoustic: Ambient Fingerstyle", kind: "acoustic", chain: [["ma-ac-pre", {}], ["ma-ac-sim", { Body: 0.7 }], ["ma-dotted-delay", { Tempo: 68, Repeats: 0.4, Mix: 0.25 }], ["ma-shimmer", { Decay: 7, Shimmer: 0.35, Mix: 0.3 }]] },
+    { id: "acoustic-loud-room", name: "Acoustic: Loud Room (feedback notch)", kind: "acoustic", chain: [["ma-gate", { Threshold: -60 }], ["ma-ac-pre", { Bass: -4, Notch: 120, "Notch depth": 1 }], ["ma-studio-comp", { Threshold: -20, Ratio: 4 }], ["ma-geq7", { "200": -3, "3.2k": 2 }]] },
+    { id: "bass-grind", name: "Bass: Modern Grind", kind: "bass", chain: [["ma-studio-comp", { Threshold: -24, Ratio: 4, Attack: 15 }], ["ma-bass-drive", { Drive: 0.55, Blend: 0.6 }], ["ma-bass-pre", { Bass: 3, "Low mid": -3, "High mid": 3 }], ["ma-amp-bass", { Gain: 0.35 }]] },
+    { id: "bass-vintage", name: "Bass: Vintage Amp", kind: "bass", chain: [["ma-opto-comp", { "Peak reduction": 0.5 }], ["ma-amp-bass", { Gain: 0.5, Treble: 0.35, Growl: 0.2 }]] },
+    { id: "bass-sub-synth", name: "Bass: Sub Synth", kind: "bass", chain: [["ma-gate", {}], ["ma-octave-down", { "Octave 1": 0.8, Dry: 0.5 }], ["ma-synth-filter", { Fuzz: 0.3, Decay: 350 }], ["ma-amp-bass", { Gain: 0.3 }]] },
+    { id: "bass-worship", name: "Bass: Worship Clean", kind: "bass", chain: [["ma-gate", {}], ["ma-studio-comp", { Threshold: -26, Ratio: 4, Attack: 20, Release: 200 }], ["ma-bass-pre", { Bass: 2, "Low mid": -2 }], ["ma-peq", { "Low cut": 30, "Mid freq": 250, Mid: -2, High: 1 }]] },
+    { id: "bass-funk", name: "Bass: Funk Filter", kind: "bass", chain: [["ma-squash-comp", { Sensitivity: 0.55 }], ["ma-env-filter", { Sensitivity: 0.55, Range: 0.5, Mode: 1 }], ["ma-bass-pre", { Treble: 2 }]] },
+    { id: "keys-suitcase", name: "Keys: Suitcase EP (trem + phaser)", kind: "keys", sound: "suitcase|rhodes|electric piano|e\\.? ?piano|ep", chain: [["ma-square-trem", { Speed: 4, Depth: 0.4, Shape: 0.1 }], ["ma-phaser", { Speed: 0.3, Mix: 0.3 }], ["ma-amp-clean", { Gain: 0.25, Cabinet: 0 }], ["ma-spring", { Mix: 0.2 }]] },
+    { id: "keys-organ-rotary", name: "Keys: Organ Through a Rotary", kind: "keys", sound: "organ|drawbar|b3|tonewheel", chain: [["ma-amp-crunch", { Gain: 0.25, Cabinet: 0 }], ["ma-rotary", { Drive: 0.3, "Horn / drum": 0.6 }], ["ma-plate", { Decay: 1.6, Mix: 0.2 }]] },
+    { id: "keys-pad-shimmer", name: "Keys: Pad Into Shimmer", kind: "keys", sound: "warm pad|pad|strings", chain: [["ma-tri-chorus", { Mix: 0.35 }], ["ma-dotted-delay", { Tempo: 72, Repeats: 0.5, Mix: 0.3 }], ["ma-shimmer", { Decay: 12, Shimmer: 0.5, Mix: 0.45 }]] },
+    { id: "keys-synth-drive", name: "Keys: Synth Lead Through a Drive", kind: "keys", sound: "lead|saw|synth", chain: [["ma-clear-drive", { Drive: 0.45 }], ["ma-analog-delay", { Time: 375, Repeats: 0.4, Mix: 0.25 }], ["ma-hall", { Decay: 2.5, Mix: 0.2 }]] },
+    { id: "keys-dirty-wurli", name: "Keys: Dirty Wurli", kind: "keys", sound: "wurli|electric piano", chain: [["ma-blues-drive", { Drive: 0.35 }], ["ma-vibe", { Speed: 1, Intensity: 0.5 }], ["ma-spring", { Mix: 0.2 }]] },
+    // the amps with a cabinet from the IR library (Central Pedals' IRs) in place of their own
+    { id: "amp-clean-ir", name: "American Clean + 1x12 IR", kind: "electric", chain: [["ma-opto-comp", {}], ["ma-amp-clean", { Gain: 0.35, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central 1x12 Open Back" }], ["ma-plate", { Decay: 1.5, Mix: 0.18 }]] },
+    { id: "worship-amp-ir", name: "Worship Amp + 2x12 Worship IR", kind: "electric", chain: [["ma-gold-drive", { Gain: 0.3 }], ["ma-amp-clean", { Gain: 0.4, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central 2x12 Worship Smooth" }], ["ma-dotted-delay", { Tempo: 72, Repeats: 0.4, Mix: 0.3 }], ["ma-shimmer", { Decay: 7, Mix: 0.3 }]] },
+    { id: "amp-crunch-ir", name: "British Crunch + 4x12 Vintage IR", kind: "electric", chain: [["ma-amp-crunch", { Gain: 0.55, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central 4x12 Vintage" }], ["ma-hall", { Decay: 2.2, Mix: 0.18 }]] },
+    { id: "amp-hg-ir", name: "High Gain + 4x12 Modern IR", kind: "electric", chain: [["ma-gate", { Threshold: -50 }], ["ma-amp-hg", { Gain: 0.65, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central 4x12 Modern Tight" }], ["ma-digital-delay", { Time: 400, Feedback: 0.25, Mix: 0.15 }]] },
+    { id: "amp-bass-ir", name: "Bass Amp + 8x10 IR", kind: "bass", chain: [["ma-studio-comp", { Threshold: -24, Ratio: 4 }], ["ma-amp-bass", { Gain: 0.4, Cabinet: 0 }], ["ir-cab", {}, { ir: "Central Bass 8x10" }]] },
+    { id: "keys-ambient-piano", name: "Keys: Ambient Piano", kind: "keys", sound: "salamander|grand piano|piano", chain: [["ma-swell-verb", { Swell: 300, Decay: 6, Mix: 0.4 }], ["ma-tape-delay", { Time: 450, Repeats: 0.35, Mix: 0.2 }], ["ma-hall", { Decay: 4, Mix: 0.3 }]] }
   ];
   var BY_ID = {}; pedals.forEach(function (p) { BY_ID[p.id] = p; });
   function byId(id) { return BY_ID[id] || null; }

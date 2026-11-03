@@ -13,6 +13,8 @@
 # Play any sound (central-usage/native/playany/) is built into cu-rig everywhere; the natives job also builds it as
 # the Raspberry Pi's plugin (central-playany.so, LADSPA + LV2) for Linux arm64 and x64 into bin/linux-<arch>/,
 # which the Pi release (central-control-source.zip, release.yml) carries.
+# (10.3) Central Pedals (central-usage/native/mapedals/), our own pedals, the same way: built into cu-rig everywhere, and
+# central-pedals.so (LADSPA) for the Pi, arm64 and x64, into bin/linux-<arch>/.
 # Adding a native helper for every system: build it in the "natives" job (Linux, Windows cross-compiled) and in
 # the macos jobs, put it in central-usage/native/build/, list it in central-usage/package.json ->
 # build.extraResources[0].filter, and check it in the "packed apps" steps.
@@ -50,11 +52,15 @@ jobs:
           mv central-usage/native/build/cu-video.exe central-usage/native/build-win/
           bash tools/ci-run.sh "play any sound: the Pi's plugin (Linux arm64)" make -C central-usage/native CC=aarch64-linux-gnu-gcc OUT=build-linux-arm64 playany
           file central-usage/native/build-linux-arm64/central-playany.lv2/central-playany.so | grep -q aarch64 || { echo "::error::the arm64 play-any plugin is not arm64"; exit 1; }
+          bash tools/ci-run.sh "Central Pedals: the Pi's plugin library (Linux arm64)" make -C central-usage/native CC=aarch64-linux-gnu-gcc OUT=build-linux-arm64 build-linux-arm64/central-pedals.so
+          file central-usage/native/build-linux-arm64/central-pedals.so | grep -q aarch64 || { echo "::error::the arm64 central-pedals.so is not arm64"; exit 1; }
           bash tools/ci-run.sh "community plugins: the Pi's walled-off host and stage (Linux arm64)" make -C central-usage/native CC=aarch64-linux-gnu-gcc CXX=aarch64-linux-gnu-g++ OUT=build-linux-arm64 bridge
           file central-usage/native/build-linux-arm64/cm-plugbridge | grep -q aarch64 || { echo "::error::the arm64 cm-plugbridge is not arm64"; exit 1; }
           mkdir -p bin/linux-aarch64 bin/linux-x86_64
           cp -r central-usage/native/build-linux-arm64/central-playany.lv2 bin/linux-aarch64/
           cp -r central-usage/native/build/central-playany.lv2 bin/linux-x86_64/
+          cp central-usage/native/build-linux-arm64/central-pedals.so bin/linux-aarch64/
+          cp central-usage/native/build/central-pedals.so bin/linux-x86_64/
           cp central-usage/native/build-linux-arm64/cm-plugbridge central-usage/native/build-linux-arm64/cm-pwnode bin/linux-aarch64/
           cp central-usage/native/build/cm-plugbridge central-usage/native/build/cm-pwnode bin/linux-x86_64/
           make -C central-usage/native OUT=build-linux-arm64 collection && cp -r central-usage/native/build-linux-arm64/central-fx bin/linux-aarch64/ && cp -r central-usage/native/build/central-fx bin/linux-x86_64/   # (10.3: the Central FX collection next to the Pi's stage)
@@ -76,6 +82,8 @@ jobs:
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           make -C central-usage/native build/test-playany-plugin
+          bash tools/ci-run.sh "Central Pedals: every pedal alone, each family does what it says, the plugin list, the Pi's LADSPA library" make -C central-usage/native test-mapedals
+          make -s -C central-usage/native pedals-cpu   # (what each pedal costs at the rig's block of 128, for the log)
           bash tools/ci-run.sh "play any sound: plugin test" central-usage/native/build/test-playany-plugin central-usage/native/build/central-playany.lv2/central-playany.so central-usage/native/playany/central-playany.lv2/central-playany.ttl
           bash tools/ci-run.sh "updater test" node central-usage/test-updater.mjs
           bash tools/ci-run.sh "lights auto test" node central-usage/test-lights-auto.mjs
@@ -412,6 +420,7 @@ jobs:
           bash tools/ci-run.sh "community plugin wall test (sandbox-exec)" node central-usage/native/plughost/test/test-plugin-wall.mjs central-usage/native/build
           bash tools/ci-run.sh "Central FX core test (native = WebAssembly)" node test-cmfx.mjs
           bash tools/ci-run.sh "Central FX in the rig" node central-usage/native/cmfx/test-rig-cmfx.mjs central-usage/native/build
+          bash tools/ci-run.sh "Central Pedals: every pedal alone, each family" make -C central-usage/native test-mapedals ARCH="-arch ${{ matrix.cpu }}"
           bash tools/ci-run.sh "studio player test" node central-usage/native/test-studio-native.mjs central-usage/native/build/cu-studio
           bash tools/ci-run.sh "play any sound: DSP test" central-usage/native/build/test-playany
           bash tools/ci-run.sh "video smoke test" bash tools/smoke-video.sh central-usage/native/build

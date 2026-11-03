@@ -58,6 +58,7 @@
 #include "vendor/cJSON.h"
 #include "plughost/plughost.h"
 #include "playany/playany.h"
+#include "mapedals/mapedals.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -145,7 +146,7 @@ static const char *roleWords[NROLES] = {
   "up oct2 octave2 upper",
   "presence"
 };
-enum { FX_NONE, FX_DRIVE, FX_DIST, FX_FUZZ, FX_COMP, FX_GATE, FX_EQ, FX_WAH, FX_CHORUS, FX_FLANGER, FX_PHASER, FX_ROTARY, FX_TREM, FX_VIBRATO, FX_OCTAVE, FX_DELAY, FX_REVERB, FX_AMP, FX_CAB, FX_IR, FX_ACOUSTIC, FX_UTIL, FX_SHIMMER, FX_SCOMP, FX_SLIMIT, FX_SEQ, FX_SDEESS, FX_PLUG };
+enum { FX_NONE, FX_DRIVE, FX_DIST, FX_FUZZ, FX_COMP, FX_GATE, FX_EQ, FX_WAH, FX_CHORUS, FX_FLANGER, FX_PHASER, FX_ROTARY, FX_TREM, FX_VIBRATO, FX_OCTAVE, FX_DELAY, FX_REVERB, FX_AMP, FX_CAB, FX_IR, FX_ACOUSTIC, FX_UTIL, FX_SHIMMER, FX_SCOMP, FX_SLIMIT, FX_SEQ, FX_SDEESS, FX_PLUG, FX_MA };
 typedef struct { char sym[48]; int role; float min, max, def; int log; char unit[12]; } Ctl;
 typedef struct {
   char uid[24], id[64]; int type, on; float mix, levelDb, wet, dry;
@@ -155,6 +156,7 @@ typedef struct {
   Bq f[2][8]; Line line[2]; Verb *verb; float env[2], lfo, z[2][6], hold[2], att, rel; int sign[2]; float *ir; int irLen; float *hist[2]; int hpos[2]; float rmax[NROLES];
   /* the Studio effects (raw values by symbol) */ float sIn, sThr, sRatio, sMakeup, sOut, la[2][128]; int laPos[2], lhold[2]; float gr;
   /* a plugin of the musician's own (VST3, CLAP, AU, LV2) */ PhPlug *plug; char plugError[200];
+  /* (10.3) one of Central Pedals (mapedals/): its own DSP, one per side; maCtl: each control's place on it */ MpFx *ma[2]; int maCtl[24];
   int dirty;
 } Fx;
 typedef struct { Fx fx[MAXFX]; int n; int stereoIn; float inGain, gateDb, gateEnv, gateGain; int gateOn; } Chain;
@@ -262,7 +264,7 @@ static void fx_prepare(Fx *x) {   /* filters and buffers for the current paramet
   if ((x->type == FX_REVERB || x->type == FX_SHIMMER) && !x->verb) { x->verb = calloc(1, sizeof(Verb)); verb_init(x->verb); }
   x->dirty = 0;
 }
-static void fx_free(Fx *x) { if (x->plug) ph_release(x->plug); for (int s = 0; s < 2; s++) { free(x->line[s].d); free(x->hist[s]); } if (x->verb) { verb_free(x->verb); free(x->verb); } free(x->ir); memset(x, 0, sizeof *x); }
+static void fx_free(Fx *x) { if (x->plug) ph_release(x->plug); mp_free(x->ma[0]); mp_free(x->ma[1]); for (int s = 0; s < 2; s++) { free(x->line[s].d); free(x->hist[s]); } if (x->verb) { verb_free(x->verb); free(x->verb); } free(x->ir); memset(x, 0, sizeof *x); }
 
 static float lfo_rate(Fx *x) {
   switch (x->type) {
@@ -370,6 +372,12 @@ static void fx_run(Fx *x, float *L, float *R, int n) {
     if (!x->plug) return;
     ph_process(x->plug, L, R, plugL, plugR, n, NULL, 0);
     for (int i = 0; i < n; i++) { float a = plugL[i], b = plugR[i]; if (!isfinite(a)) a = 0; if (!isfinite(b)) b = 0; L[i] = a * wet + L[i] * dry; if (R != L) R[i] = b * wet + R[i] * dry; }
+    return;
+  }
+  if (x->type == FX_MA) {
+    if (!x->ma[0]) return;
+    mp_run(x->ma[0], L, plugL, n); for (int i = 0; i < n; i++) L[i] = plugL[i] * wet + L[i] * dry;
+    if (R != L && x->ma[1]) { mp_run(x->ma[1], R, plugR, n); for (int i = 0; i < n; i++) R[i] = plugR[i] * wet + R[i] * dry; }
     return;
   }
   float rate = lfo_rate(x) / (float)FS;
@@ -736,6 +744,13 @@ static void fx_from(Fx *x, cJSON *it) {
     const char *label = knobs ? cJSON_GetStringValue(cJSON_GetObjectItem(knobs, k->sym)) : NULL; k->role = role_of(label ? label : cJSON_GetStringValue(cJSON_GetArrayItem(c, 5)), k->sym);
     cJSON *v = vals ? cJSON_GetObjectItem(vals, k->sym) : NULL; x->val[x->nctl] = cJSON_IsNumber(v) ? (float)v->valuedouble : k->def; x->nctl++;
   }
+  /* (10.3) Central Pedals: the same DSP as the Pi's central-pedals.so, so a board sounds the same everywhere */
+  const char *mpre = "ladspa:central-pedals.so:"; const MpDef *md = !strncmp(uri, mpre, strlen(mpre)) ? mp_find(uri + strlen(mpre)) : NULL;
+  if (md) {
+    x->type = FX_MA; x->ma[0] = mp_new_side(md, FS, 0); x->ma[1] = mp_new_side(md, FS, 1);
+    for (int i = 0; i < x->nctl; i++) { x->maCtl[i] = mp_ctl_index(md, x->ctl[i].sym); for (int s = 0; s < 2; s++) if (x->ma[s] && x->maCtl[i] >= 0) mp_set(x->ma[s], x->maCtl[i], x->val[i]); }
+    if (!x->ma[0]) snprintf(x->plugError, sizeof x->plugError, "out of memory");
+  }
   if (x->type == FX_IR) { const char *file = str(it, "file", ""); if (file[0]) { x->ir = load_ir(file, &x->irLen); if (x->ir) { x->hist[0] = calloc((size_t)x->irLen, sizeof(float)); x->hist[1] = calloc((size_t)x->irLen, sizeof(float)); } } }
   fx_params(x); fx_prepare(x);
 }
@@ -834,7 +849,7 @@ static void handle(cJSON *m) {
   if (!strcmp(a, "apply")) { apply(cJSON_GetObjectItem(m, "config")); status(); return; }
   if (!strcmp(a, "set")) {
     Fx *x = find_fx(str(m, "uid", "")); if (!x) return; const char *sym = str(m, "sym", ""); double v = num(m, "value", 0);
-    for (int i = 0; i < x->nctl; i++) if (!strcmp(x->ctl[i].sym, sym)) { x->val[i] = (float)v; fx_params(x); fx_prepare(x); }
+    for (int i = 0; i < x->nctl; i++) if (!strcmp(x->ctl[i].sym, sym)) { x->val[i] = (float)v; if (x->type == FX_MA) { for (int s = 0; s < 2; s++) if (x->ma[s] && x->maCtl[i] >= 0) mp_set(x->ma[s], x->maCtl[i], x->val[i]); } else { fx_params(x); fx_prepare(x); } }
     cJSON *ch = lastConfig ? cJSON_GetObjectItem(lastConfig, "chain") : NULL, *it; if (ch) cJSON_ArrayForEach(it, ch) { char u[24], w[24]; clean_uid(str(it, "uid", ""), u); clean_uid(str(m, "uid", ""), w); if (!strcmp(u, w)) { cJSON *vals = cJSON_GetObjectItem(it, "values"); if (!vals) vals = cJSON_AddObjectToObject(it, "values"); cJSON_DeleteItemFromObject(vals, sym); cJSON_AddNumberToObject(vals, sym, v); } }
     return;
   }

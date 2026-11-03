@@ -143,6 +143,8 @@ install -m 644 "$SRC/community_sandbox.py"  /opt/pad-pedal/community_sandbox.py 
 install -m 644 "$SRC/instrument-plugins.json" /opt/pad-pedal/instrument-plugins.json
 # play any sound: its plugin (built by CI for arm64) and its C sources (the driver builds it from them if it is missing)
 [ -d "$SRC/bin" ] && { rm -rf /opt/pad-pedal/bin; cp -r "$SRC/bin" /opt/pad-pedal/bin; chmod -R a+rX /opt/pad-pedal/bin; }
+# (10.3) Central Pedals: the library is in bin/ (CI builds it for arm64); its C sources too, so the driver can build it if it is missing
+[ -d "$SRC/central-usage/native/mapedals" ] && install -d -m 755 /opt/pad-pedal/central-usage/native/mapedals && install -m 644 "$SRC"/central-usage/native/mapedals/*.c "$SRC"/central-usage/native/mapedals/*.h /opt/pad-pedal/central-usage/native/mapedals/
 [ -d "$SRC/central-usage/native/playany" ] && install -d -m 755 /opt/pad-pedal/central-usage/native/playany && install -m 644 "$SRC"/central-usage/native/playany/*.c "$SRC"/central-usage/native/playany/*.h /opt/pad-pedal/central-usage/native/playany/
 install -m 644 "$SRC/screens.json"           /opt/pad-pedal/screens.json
 install -m 755 "$SRC/get-sounds.sh"          /opt/pad-pedal/get-sounds.sh
