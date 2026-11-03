@@ -531,7 +531,7 @@ canvas#wave{display:none}
 #pubForm.pub-closed+.payout{grid-column:1/-1;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 
 /* #account, #purchases and #downloads read as pages of their own: the shop steps aside */
-body.view-account .hero,body.view-account #store,body.view-account #tracks,body.view-account #publish{display:none}
+body.view-account:not(.editing) .hero,body.view-account:not(.editing) #store,body.view-account:not(.editing) #tracks,body.view-account:not(.editing) #publish{display:none}
 body.view-account #account{border-top:0}
 
 /* the account: a sidebar of sections, each with its cards */
@@ -563,3 +563,14 @@ body.view-account #account{border-top:0}
 .proj{display:grid;gap:2px}
 .proj a{display:flex;justify-content:space-between;gap:.6rem;padding:.45rem .2rem;text-decoration:none;border-bottom:1px solid var(--line)}
 .proj a:hover b{text-decoration:underline}
+/* (10.2) nav elements that aren't the header's own links */
+.store-nav,.acct-side{margin-left:0}
+@media (max-width:900px){.acct-side{flex-wrap:nowrap}}
+/* phones: the six links scroll in one row; sign in / account sits next to the cart */
+@media (max-width:760px){
+  .nav-main{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-20px;padding-inline:20px;width:calc(100% + 40px)}
+  .nav-main::-webkit-scrollbar{display:none}
+  .nav-main a{white-space:nowrap;flex:none}
+  nav #acctLink,nav .acct-menu{position:absolute;top:.55rem;right:calc(max(20px,env(safe-area-inset-right,0px)) + 92px);min-height:40px;display:inline-flex;align-items:center}
+  nav .acct-menu[hidden],nav #acctLink[hidden]{display:none}
+}

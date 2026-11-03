@@ -138,7 +138,7 @@ try {
       ok(!(await page.isVisible("#acctLink")) && await page.isVisible("#acctIcon"), "signed in: an account icon instead of the Sign in link");
       await page.click("#acctIcon");
       const items = await page.$$eval("#acctDrop a, #acctDrop button", (x) => x.map((e) => e.textContent.trim()));
-      ok(JSON.stringify(items) === JSON.stringify(["Account", "Purchases", "Downloads", "Sign out"]) && /Bea/.test(await page.textContent("#acctWho")), "its menu: Account, Purchases, Downloads, Sign out (with who's signed in)", items);
+      ok(JSON.stringify(items) === JSON.stringify(["Account", "Purchases", "Downloads", "Central Services", "Central Production", "Sign out"]) && /Bea/.test(await page.textContent("#acctWho")), "its menu: Account, Purchases, Downloads, Central Services, Central Production, Sign out (with who's signed in)", items);
       await page.click('#acctDrop a[href="#purchases"]'); await page.waitForSelector("#purchases:not([hidden]) .pu-card", { timeout: 8000 });
       const t = await page.textContent("#purchases"), dl = await page.$$eval("#purchases a.btn", (x) => x.map((e) => e.getAttribute("href")));
       ok(/Central Usage key/.test(t) && /Package key/.test(t) && /One key opens everything/.test(t) && /Next renewal/.test(t) && /UWEB/.test(t) && dl.some((h) => /\/download\/(usage|pedal-control)\//.test(h)) && dl.some((h) => /\/download\/library\/keys$/.test(h)) && dl.every((h) => !/github/i.test(h)),

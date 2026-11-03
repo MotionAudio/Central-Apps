@@ -113,6 +113,7 @@ try {
   ok(/All plans/.test(await page.textContent("#pkgCard")) && /free trial/.test(await page.textContent("#pkgCard")) && /Settings → Packages/.test(await page.textContent("#pkgCard")), "Sound plans on the Account page: the trial's package key, and where to paste it", await page.textContent("#pkgCard"));
   ok(!!(await waitMail(OWNER, /package key/i)), "...and it came by email");
   // sound plans in the cart: they check out on their own (yearly)
+  await page.click('header nav a[href="#store"]'); await page.waitForSelector("#planAll [data-plan=all]", { state: "visible" });   // (10.2: from the Account page, back to Pricing as a visitor would)
   await page.click("#planAll [data-plan=all]"); await page.click("#planBundles [data-bundle='8']");
   ok((await page.textContent("#cartBtn")).includes("2"), "all the plans and a bundle for 8 in the cart");
   await page.click("#cartBtn"); await page.waitForSelector(".modal .cart-plans");
