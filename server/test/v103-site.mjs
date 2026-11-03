@@ -208,8 +208,10 @@ try {
     ok(/In your cart/.test(await p.textContent(".page-hero [data-plan=keys]")) && (await p.textContent("#cartBtn")).includes("1"), "a plan page's Add to cart: it's in the cart (and the button says so)");
     await p.click("#cartBtn"); await p.waitForSelector("#plGo");
     ok(/Central Keys/.test(await p.textContent(".modal .cart-plans")) && /Central Pads/.test(await p.textContent(".modal .cart-plans")) && /included/.test(await p.textContent(".modal .cart-plans")), "the cart: Central Keys, with Central Pads included");
+    const before = sessions().length;
     await p.click("#plGo");
     await p.waitForSelector("#stubPay", { timeout: 8000 }).catch(() => {});
+    for (let i = 0; i < 80 && sessions().length === before; i++) await new Promise((r) => setTimeout(r, 100));   // (the form shows before the checkout is made)
     const s = sessions().pop().body;
     ok(s.mode === "subscription" && /#plans-done$/.test(s.success_url || s.return_url || ""), "the plan checks out on its own, yearly (Stripe's form)", { mode: s.mode, ret: s.return_url });
     await p.click("#stubPay"); await p.waitForFunction(() => !!window.__paid);
@@ -228,7 +230,9 @@ try {
     await p.click("#clear");
     // Central Tracks Unlimited from its page
     await p.goto(base + "/sounds/tracks/", { waitUntil: "networkidle" });
+    const before2 = sessions().length;
     await p.click(".page-hero [data-subscribe]"); await p.waitForSelector("#stubPay", { timeout: 8000 }).catch(() => {});
+    for (let i = 0; i < 80 && sessions().length === before2; i++) await new Promise((r) => setTimeout(r, 100));
     ok(sessions().pop().body.mode === "subscription" && await p.isVisible("#stubPay"), "Central Tracks Unlimited: Subscribe opens Stripe's form");
     await p.context().close();
   }

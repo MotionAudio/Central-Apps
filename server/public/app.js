@@ -701,8 +701,8 @@ async function renderAccount(note) {
     const p = await api("GET", "/publisher");
     $("#myPub").innerHTML = `<div><b>${money(p.unpaid)}</b> waiting to be paid · ${money(p.paid)} paid so far</div><div class="muted" style="font-size:.9rem">${p.addsThisMonth} subscriber adds this month · your pool share is worked out on the 1st</div>` +
       (p.tracks.length ? p.tracks.map((t) => `<div>${starHtml(t.stars)} <b>${esc(t.title)}</b> <span class="muted">· ${money(t.price)} · ${t.sales} sold · ${t.adds} subscriber adds${t.status !== "live" ? " · " + esc(t.status) : ""}</span></div>`).join("") : '<div>No tracks published yet. <a href="#publish">Publish one</a>.</div>');
-  } catch (err) { $("#myPub").textContent = err.message; }
-  if (me.payoutsStarted && cfg.publishableKey) mountConnect();
+  } catch (err) { const el = $("#myPub"); if (el) el.textContent = err.message; }   // (the page may have been redrawn meanwhile: signed out)
+  if (me && me.payoutsStarted && cfg.publishableKey) mountConnect();
 }
 // the payout settings and Stripe's notices, on this page (Connect embedded components)
 function loadScript(src) { return new Promise((ok, bad) => { if (document.querySelector(`script[src="${src}"]`)) return ok(); const x = document.createElement("script"); x.src = src; x.onload = ok; x.onerror = bad; document.head.appendChild(x); }); }
