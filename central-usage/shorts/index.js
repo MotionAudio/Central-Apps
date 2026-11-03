@@ -17,8 +17,12 @@ const C = require("./captions");
 const POST = require("./post");
 const LEARN = require("./learn");
 const STATS = require("./analytics");
+const SCH = require("./schedule");
 
-const SETTINGS = Object.assign({ auto: true, useAI: true, learn: true, minRecording: 10, privacy: "public", hashtags: "", tiktokDirect: false }, P.DEFAULTS, R.DEFAULTS, { captions: Object.assign({}, C.STYLE) });
+const FULL_DEFAULTS = { speaker: "", scripture: "", links: "", hashtags: "", ccli: "", when: "slot",
+  worship: { on: false, title: "Worship - {date}", privacy: "unlisted", playlist: "Worship", platforms: { youtube: true, facebook: false }, auto: false },
+  sermon: { on: false, title: "{sermon} - {speaker}", privacy: "public", playlist: "Sermons", platforms: { youtube: true, facebook: false }, auto: false } };
+const SETTINGS = Object.assign({ auto: true, useAI: true, learn: true, schedule: SCH.DEFAULT, template: SCH.TEMPLATE, linkMode: "live", linkUrl: "", links: "", full: FULL_DEFAULTS, minRecording: 10, privacy: "public", hashtags: "", tiktokDirect: false }, P.DEFAULTS, R.DEFAULTS, { captions: Object.assign({}, C.STYLE) });
 const MODELS = { accurate: "onnx-community/whisper-small_timestamped", fast: "onnx-community/whisper-base_timestamped" };
 
 function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
@@ -107,7 +111,7 @@ function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
       let markers = []; if (r.audio) { try { const m = JSON.parse(fs.readFileSync(markersFile(path.dirname(r.audio)), "utf8")); markers = (m.marks || []).map((x) => ({ t: (x.at - m.started) / 1000, song: x.song, section: x.section, playing: x.playing })); } catch (_) { } }
       const church = (svc && svc.churchName && svc.churchName()) || "";
       const jobFile = path.join(r.dir, ".job.json");
-      fs.writeFileSync(jobFile, JSON.stringify({ mode: j.mode, id: j.shortId, at: j.at, out: r.dir, audio: r.audio, video: r.video, markers, settings, ffmpeg: bin, fonts, asr: asrInfo(), aiPort, church, recordingName: r.name, learningFile: settings.learn !== false ? learnFile : null }));
+      fs.writeFileSync(jobFile, JSON.stringify({ mode: j.mode, id: j.shortId, at: j.at, out: r.dir, audio: r.audio, video: r.video, markers, settings, ffmpeg: bin, fonts, asr: asrInfo(), aiPort, church, recordingName: r.name, recordedAt: r.when, only: j.only || null, learningFile: settings.learn !== false ? learnFile : null }));
       await new Promise((resolve) => {
         const p = fork(path.join(__dirname, "worker.js"), [jobFile], { env: Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: "1" }), stdio: ["ignore", "ignore", "pipe", "ipc"] });
         running.proc = p; let err = ""; p.stderr.on("data", (b) => { err = (err + b).slice(-2000); });
@@ -120,6 +124,7 @@ function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
       });
       try { fs.unlinkSync(jobFile); } catch (_) { }
       if (running.error && !running.cancelled) throw new Error(running.error);
+      if (!running.cancelled && (j.mode === "make" || j.mode === "full")) { const d = readShorts(r.dir); for (const k of ["worship", "sermon"]) { const it = d && d.full && d.full[k]; if (it && it.status === "new" && settings.full[k].auto) { it.status = "approved"; writeShorts(r.dir, d); const only = ["youtube", "facebook"].filter((p) => settings.full[k].platforms[p]); toQueue({ ref: j.id + "#full-" + k, recording: j.id, full: k, title: it.title, kinds: only }, only); } } }
       send({ type: "done", recording: j.id, mode: j.mode, cancelled: !!running.cancelled });
     } catch (e) { send({ type: "error", recording: j.id, error: String(e && e.message || e) }); }
     running = null; send({ type: "status", status: status() }); setTimeout(next, 100);
@@ -138,8 +143,23 @@ function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
     for (const k of ["auto", "useAI", "learn", "tiktokDirect"]) if (typeof patch[k] === "boolean") settings[k] = patch[k];
     for (const k of ["framing", "background", "accent", "logo", "logoCorner", "intro", "outro", "privacy", "hashtags"]) if (typeof patch[k] === "string") settings[k] = patch[k].slice(0, 500);
     if (patch.captions && typeof patch.captions === "object") { const c = patch.captions; settings.captions = Object.assign({}, settings.captions, { on: c.on != null ? !!c.on : settings.captions.on, font: c.font ? String(c.font).slice(0, 60) : settings.captions.font, size: c.size != null ? Math.max(2, Math.min(9, Number(c.size) || 4.6)) : settings.captions.size, color: /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : settings.captions.color, highlight: /^#[0-9a-f]{6}$/i.test(c.highlight) ? c.highlight : settings.captions.highlight, outline: /^#[0-9a-f]{6}$/i.test(c.outline) ? c.outline : settings.captions.outline, position: ["top", "middle", "bottom"].includes(c.position) ? c.position : settings.captions.position, upper: c.upper != null ? !!c.upper : settings.captions.upper, box: c.box != null ? !!c.box : settings.captions.box, words: c.words != null ? Math.max(1, Math.min(8, Math.round(c.words))) : settings.captions.words }); }
+    // (10.3) social media: the posting schedule, the description, the link to the whole service, the full videos
+    if (patch.schedule && typeof patch.schedule === "object") settings.schedule = SCH.norm(Object.assign({}, settings.schedule, patch.schedule));
+    if (typeof patch.template === "string") settings.template = patch.template.slice(0, 2000);
+    if (["live", "sermon", "custom", "none"].includes(patch.linkMode)) settings.linkMode = patch.linkMode;
+    if (typeof patch.linkUrl === "string") settings.linkUrl = /^https:\/\//.test(patch.linkUrl.trim()) ? patch.linkUrl.trim().slice(0, 300) : "";
+    if (typeof patch.links === "string") settings.links = patch.links.slice(0, 1000);
+    if (patch.full && typeof patch.full === "object") settings.full = fullNorm(Object.assign({}, settings.full, patch.full, { worship: Object.assign({}, (settings.full || {}).worship, patch.full.worship), sermon: Object.assign({}, (settings.full || {}).sermon, patch.full.sermon) }));
     saveSettings(); send({ type: "status", status: status() }); return settings;
   });
+  function fullNorm(f) {
+    f = Object.assign({}, FULL_DEFAULTS, f || {}); const str = (x, n) => String(x == null ? "" : x).slice(0, n);
+    for (const k of ["speaker", "scripture", "links", "hashtags", "ccli"]) f[k] = str(f[k], 1000);
+    f.when = f.when === "now" ? "now" : "slot";
+    for (const k of ["worship", "sermon"]) { const x = Object.assign({}, FULL_DEFAULTS[k], f[k] || {}); f[k] = { on: !!x.on, auto: !!x.auto, title: str(x.title, 120) || FULL_DEFAULTS[k].title, privacy: ["public", "unlisted", "private"].includes(x.privacy) ? x.privacy : "unlisted", playlist: str(x.playlist, 150), platforms: { youtube: !!(x.platforms || {}).youtube, facebook: !!(x.platforms || {}).facebook } }; }
+    return f;
+  }
+  settings.schedule = SCH.norm(settings.schedule); settings.full = fullNorm(settings.full);
   ipcMain.handle("shorts-settings-reset", () => { settings = JSON.parse(JSON.stringify(SETTINGS)); saveSettings(); return settings; });
   ipcMain.handle("shorts-make", (_e, id) => queue({ mode: "make", id }));
   ipcMain.handle("shorts-cancel", () => { jobs.length = 0; if (running && running.proc) { running.cancelled = true; try { running.proc.kill(); } catch (_) { } } return status(); });
@@ -172,6 +192,8 @@ function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
     }
     if (typeof patch.captions === "boolean") { lesson(patch.captions ? "captions-on" : "captions-off", s); s.captions = patch.captions ? undefined : false; again = true; }
     if (patch.status === "approved") lesson("approve", s, { edited: !!s.edited });
+    if (patch.status === "approved" && settings.schedule.auto) toQueue({ ref: id + "#" + s.id, recording: id, shortId: s.id, title: s.title });
+    if (patch.status === "new" || again) unqueue(id + "#" + s.id);
     if (again) s.status = s.status === "approved" ? "new" : s.status;   // (changed: look at it again)
     writeShorts(r.dir, d);
     if (again) queue({ mode: "render", id, shortId });
@@ -209,10 +231,11 @@ function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
   ipcMain.handle("shorts-disconnect", async (_e, platform, acct) => site(acct, "POST", "/social/" + platform + "/disconnect", {}));
   ipcMain.handle("shorts-post", async (_e, id, shortId, platform, acct) => {
     const r = find(id), d = readShorts(r.dir), s = d && d.shorts.find((x) => x.id === shortId); if (!s) throw new Error("That short isn't in the list any more.");
+    if (acct && acct.token && !(account && account.token)) account = { server: acct.server, token: acct.token };
     const tok = await site(acct, "POST", "/social/" + (platform === "facebook" || platform === "instagram" ? "meta" : platform) + "/token", {});
     const tags = s.hashtags && s.hashtags.length ? s.hashtags : String(settings.hashtags || "").split(/[\s,]+/).filter(Boolean).map((h) => "#" + h.replace(/^#/, ""));
     let res, entry;
-    try { res = await POST.post(platform, { token: tok.accessToken, pageId: tok.pageId, igUserId: tok.igUserId, file: path.join(r.dir, s.file), title: s.title, description: s.description, hashtags: tags, privacy: settings.privacy, direct: settings.tiktokDirect }); entry = { platform, at: Date.now(), ok: true, id: res.id, url: res.url, note: res.note || "", account: tok.account || "" }; }
+    try { res = await POST.post(platform, { token: tok.accessToken, pageId: tok.pageId, igUserId: tok.igUserId, file: path.join(r.dir, s.file), title: s.title, description: SCH.describe(settings.template, { title: s.title, description: s.description, hashtags: tags.join(" "), link: await serviceLink(r, d).catch(() => ""), links: settings.links, church: (svc && svc.churchName && svc.churchName()) || "", date: new Date(r.when).toLocaleDateString() }), hashtags: [], privacy: settings.privacy, direct: settings.tiktokDirect }); entry = { platform, at: Date.now(), ok: true, id: res.id, url: res.url, note: res.note || "", account: tok.account || "" }; }
     catch (e) { entry = { platform, at: Date.now(), ok: false, error: String(e.message || e).slice(0, 300) }; }
     const now = readShorts(r.dir), sh = now.shorts.find((x) => x.id === shortId); sh.posts = (sh.posts || []).concat([entry]); if (entry.ok) sh.status = "posted"; writeShorts(r.dir, now);
     if (entry.ok && !(s.posts || []).some((x) => x.ok)) lesson("post", s, { title: s.title, platform });
@@ -221,6 +244,90 @@ function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
     if (!entry.ok) throw new Error(entry.error);
     return entry;
   });
+  // ---------------------------------------------------------------- the posting queue (10.3; schedule.js)
+  // Approved shorts (and approved full videos) wait here for their platform's next posting time. This computer posts
+  // them; one that was off at a posting time catches up when it next comes on. The page hands over the church's website
+  // sign-in (account) so the queue can ask the website for each platform's token.
+  const queueFile = path.join(userData, "shorts-queue.json");
+  let Q = []; try { Q = JSON.parse(fs.readFileSync(queueFile, "utf8")).items || []; } catch (_) { }
+  let account = null, posting = false;
+  const saveQ = () => { try { fs.writeFileSync(queueFile + ".tmp", JSON.stringify({ items: Q.slice(-1000) }, null, 1)); fs.renameSync(queueFile + ".tmp", queueFile); } catch (_) { } send({ type: "queue" }); };
+  function toQueue(item, only) { Q = SCH.enqueue(Q, item, settings.schedule, Date.now(), only); if (settings.full.when === "now" && item.full) Q.filter((q) => q.ref === item.ref && q.status === "queued").forEach((q) => SCH.postNow(q, Date.now())); saveQ(); }
+  function unqueue(ref) { const before = Q.length; Q = Q.filter((q) => !(q.ref === ref && q.status === "queued")); if (Q.length !== before) saveQ(); }
+  const linkCache = {};
+  async function serviceLink(r, d) {
+    const mode = settings.linkMode;
+    if (mode === "none") return "";
+    if (mode === "custom") return settings.linkUrl || "";
+    if (mode === "sermon") { const p = d && d.full && d.full.sermon && (d.full.sermon.posts || []).find((x) => x.ok && x.platform === "youtube" && x.url); if (p) return p.url; }
+    if (linkCache[r.id]) return linkCache[r.id];
+    try { const tok = await site(account, "POST", "/social/youtube/token", {}); const l = await POST.liveLink(tok.accessToken, r.when); if (l) return (linkCache[r.id] = l.url); } catch (_) { }
+    return settings.linkUrl || "";
+  }
+  async function postItem(q) {
+    const r = list().find((x) => x.id === q.recording), d = r && readShorts(r.dir);
+    if (!r || !d) throw new Error("The recording isn't in the recordings folder any more.");
+    const item = q.full ? d.full && d.full[q.full] : d.shorts.find((x) => x.id === q.shortId);
+    if (!item) throw new Error("It isn't in the list any more.");
+    const tok = await site(account, "POST", "/social/" + (q.platform === "facebook" || q.platform === "instagram" ? "meta" : q.platform) + "/token", {});
+    const link = await serviceLink(r, d), file = path.join(r.dir, item.file);
+    let res;
+    if (q.full) {
+      const o = settings.full[q.full] || {}, desc = item.description + (link && q.full === "worship" && !item.description.includes(link) ? "\n\nThe whole service: " + link : "");
+      res = q.platform === "facebook" ? await POST.facebookVideo({ token: tok.accessToken, pageId: tok.pageId, file, title: item.title, description: desc })
+        : await POST.youtubeVideo({ token: tok.accessToken, file, title: item.title, description: desc, privacy: o.privacy, playlist: o.playlist, thumbnail: item.thumb ? path.join(r.dir, item.thumb) : null, hashtags: String(settings.full.hashtags || "").split(/[\s,]+/).filter(Boolean) });
+    } else {
+      const tags = item.hashtags && item.hashtags.length ? item.hashtags : String(settings.hashtags || "").split(/[\s,]+/).filter(Boolean).map((h) => "#" + h.replace(/^#/, ""));
+      const description = SCH.describe(settings.template, { title: item.title, description: item.description, hashtags: tags.join(" "), link, links: settings.links, church: (svc && svc.churchName && svc.churchName()) || "", date: new Date(r.when).toLocaleDateString() });
+      res = await POST.post(q.platform, { token: tok.accessToken, pageId: tok.pageId, igUserId: tok.igUserId, file, title: item.title, description, hashtags: [], privacy: settings.privacy, direct: settings.tiktokDirect });
+    }
+    const entry = { platform: q.platform, at: Date.now(), ok: true, id: res.id, url: res.url, note: res.note || "", account: tok.account || "", queued: q.id };
+    const now = readShorts(r.dir), it = q.full ? now.full[q.full] : now.shorts.find((x) => x.id === q.shortId);
+    it.posts = (it.posts || []).concat([entry]); it.status = "posted"; writeShorts(r.dir, now);
+    if (!q.full && !(item.posts || []).some((x) => x.ok)) lesson("post", item, { title: item.title, platform: q.platform });
+    let hist = []; try { hist = JSON.parse(fs.readFileSync(histFile, "utf8")); } catch (_) { }
+    hist.unshift(Object.assign({ title: item.title, recording: r.name, file }, entry)); try { fs.writeFileSync(histFile, JSON.stringify(hist.slice(0, 500), null, 1)); } catch (_) { }
+    return res;
+  }
+  async function tick() {
+    if (posting || !account || !account.token || !isMain()) return; posting = true;
+    try {
+      for (const q of SCH.due(Q, settings.schedule, Date.now())) {
+        q.status = "posting"; saveQ();
+        try { const res = await postItem(q); SCH.posted(q, { id: res.id, url: res.url, note: res.note || "" }, Date.now()); }
+        catch (e) { SCH.failed(q, e.message || e, Date.now()); }
+        saveQ();
+      }
+    } finally { posting = false; }
+  }
+  Q.forEach((q) => { if (q.status === "posting") q.status = "queued"; });   // (cut off by a restart: try it again)
+  const ticker = setInterval(() => { tick().catch(() => { }); }, process.env.CU_SHORTS_TICK ? Number(process.env.CU_SHORTS_TICK) : 60e3);
+  ipcMain.handle("shorts-account", (_e, acct) => { const had = !!(account && account.token); account = acct && acct.token ? { server: String(acct.server || ""), token: String(acct.token) } : null; if (!had && account) setTimeout(() => tick().catch(() => { }), 3000); return true; });
+  ipcMain.handle("shorts-queue", () => { const titles = {}; for (const r of list()) { const d = readShorts(r.dir); if (!d) continue; d.shorts.forEach((s) => { titles[r.id + "#" + s.id] = { title: s.title, thumb: s.thumb ? path.join(r.dir, s.thumb) : null }; }); for (const k of ["worship", "sermon"]) if (d.full && d.full[k]) titles[r.id + "#full-" + k] = { title: d.full[k].title, thumb: d.full[k].thumb ? path.join(r.dir, d.full[k].thumb) : null }; } return { items: Q.slice().sort((a, b) => (a.status === "posted") - (b.status === "posted") || a.dueAt - b.dueAt).map((q) => Object.assign({}, q, titles[q.ref] || {})), schedule: settings.schedule, signedIn: !!(account && account.token) }; });
+  ipcMain.handle("shorts-queue-action", async (_e, id, action) => {
+    const q = Q.find((x) => x.id === id); if (!q) throw new Error("That post isn't in the queue any more.");
+    const now = Date.now();
+    if (action === "now") SCH.postNow(q, now); else if (action === "skip") SCH.skip(q); else if (action === "retry") SCH.retry(q, now);
+    else if (action === "remove") Q = Q.filter((x) => x.id !== id);
+    else if (action === "later") { const at = SCH.nextFree(settings.schedule, q.platform, Q.filter((x) => x.id !== id), Math.max(now, q.dueAt) + 60e3); if (at) Object.assign(q, { dueAt: at, now: false, status: "queued" }); }
+    saveQ(); if (action === "now" || action === "retry") setTimeout(() => tick().catch(() => { }), 200);
+    return true;
+  });
+  // the full videos: edit, approve (into the queue), make again
+  ipcMain.handle("shorts-full-update", (_e, id, kind, patch) => {
+    const r = find(id), d = readShorts(r.dir), it = d && d.full && d.full[kind]; if (!it) throw new Error("That video isn't made yet.");
+    patch = patch || {};
+    if (typeof patch.title === "string") { it.title = patch.title.slice(0, 100); it.edited = true; }
+    if (typeof patch.description === "string") { it.description = patch.description.slice(0, 4900); it.edited = true; }
+    if (patch.status === "approved" || patch.status === "new") it.status = patch.status;
+    writeShorts(r.dir, d);
+    const plats = settings.full[kind].platforms, only = ["youtube", "facebook"].filter((p) => plats[p]);
+    if (patch.status === "approved") toQueue({ ref: id + "#full-" + kind, recording: id, full: kind, title: it.title, kinds: only }, only);
+    if (patch.status === "new") unqueue(id + "#full-" + kind);
+    return it;
+  });
+  ipcMain.handle("shorts-full-make", (_e, id, only) => queue({ mode: "full", id, only: only || null }));
+
   // ---------------------------------------------------------------- how the posted shorts did (10.3)
   // For each short posted in the last 45 days, at most every 6 hours: the platform's numbers, kept on the short and taught
   // to the model (views against the church's usual, the share of the short people watched).
@@ -264,7 +371,7 @@ function setup({ ipcMain, app, getWin, svc, videoDir, ffmpeg, shell, dialog }) {
   ipcMain.handle("shorts-history", () => { try { return JSON.parse(fs.readFileSync(histFile, "utf8")); } catch (_) { return []; } });
   ipcMain.handle("shorts-open-url", (_e, url) => { if (/^https:\/\//.test(String(url))) shell.openExternal(url); return true; });
 
-  return { status, list, queue, learning: L, refreshStats, stop: () => { jobs.length = 0; if (running && running.proc) { try { running.proc.kill(); } catch (_) { } } } };
+  return { status, list, queue, learning: L, refreshStats, tick, queueItems: () => Q, stop: () => { clearInterval(ticker); jobs.length = 0; if (running && running.proc) { try { running.proc.kill(); } catch (_) { } } } };
 }
 
 module.exports = { setup, SETTINGS };

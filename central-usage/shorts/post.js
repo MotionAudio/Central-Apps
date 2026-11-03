@@ -10,7 +10,9 @@ const T = process.env.CU_SOCIAL_TEST_BASE ? process.env.CU_SOCIAL_TEST_BASE.repl
 const U = {
   ytUpload: T ? T + "/yt/upload" : "https://www.googleapis.com/upload/youtube/v3/videos",
   graph: T ? T + "/graph" : "https://graph.facebook.com/v21.0",
-  tiktok: T ? T + "/tiktok" : "https://open.tiktokapis.com"
+  tiktok: T ? T + "/tiktok" : "https://open.tiktokapis.com",
+  yt: T ? T + "/yt/v3" : "https://www.googleapis.com/youtube/v3",
+  ytThumb: T ? T + "/yt/thumb" : "https://www.googleapis.com/upload/youtube/v3/thumbnails/set"
 };
 function oops(platform, r, j, fallback) {
   const m = j && (j.error && (j.error.message || j.error.error_user_msg || (typeof j.error === "string" ? j.error : "") || j.error.code) || j.message);
@@ -75,6 +77,53 @@ async function tiktok(o) {
   return { id: j.data.publish_id, url: null, note: direct ? "Posted to TikTok." : "Sent to the TikTok app's inbox: open TikTok and tap Post to finish." };
 }
 
+// ---------------------------------------------------------------- (10.3) full-length videos and the live stream's link
+/* a normal YouTube video (the worship set, the sermon): privacy, a scheduled publish time, a playlist (found or made by
+ * its name), its thumbnail */
+async function youtubeVideo(o) {
+  const size = fs.statSync(o.file).size, status = { privacyStatus: o.publishAt ? "private" : (o.privacy || "unlisted"), selfDeclaredMadeForKids: false };
+  if (o.publishAt && o.publishAt > Date.now() + 60e3) status.publishAt = new Date(o.publishAt).toISOString(); else status.privacyStatus = o.privacy || "unlisted";
+  const meta = { snippet: { title: String(o.title || "").slice(0, 100), description: String(o.description || "").slice(0, 4900), tags: (o.hashtags || []).map((h) => h.replace(/^#/, "")).slice(0, 15), categoryId: "22" }, status };
+  const r = await fetch(U.ytUpload + "?uploadType=resumable&part=snippet,status", { method: "POST", headers: { Authorization: "Bearer " + o.token, "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": "video/mp4", "X-Upload-Content-Length": String(size) }, body: JSON.stringify(meta) });
+  if (!r.ok) throw oops("YouTube", r, await json(r));
+  const at = r.headers.get("location"); if (!at) throw new Error("YouTube didn't give an upload address.");
+  const up = await fetch(at, { method: "PUT", headers: { "Content-Type": "video/mp4", "Content-Length": String(size) }, body: fs.readFileSync(o.file) });
+  const j = await json(up); if (!up.ok || !j.id) throw oops("YouTube", up, j, "the upload didn't finish");
+  const notes = [];
+  if (o.thumbnail && fs.existsSync(o.thumbnail)) { const t = await fetch(U.ytThumb + "?videoId=" + j.id, { method: "POST", headers: { Authorization: "Bearer " + o.token, "Content-Type": "image/jpeg" }, body: fs.readFileSync(o.thumbnail) }); if (!t.ok) notes.push("the thumbnail wasn't accepted (a channel needs phone verification for custom thumbnails)"); }
+  if (o.playlist) { try { const pl = await playlist(o.token, o.playlist, o.privacy); await ytJson("POST", "/playlistItems?part=snippet", o.token, { snippet: { playlistId: pl, resourceId: { kind: "youtube#video", videoId: j.id } } }); } catch (e) { notes.push("not added to the playlist (" + e.message + ")"); } }
+  return { id: j.id, url: "https://www.youtube.com/watch?v=" + j.id, note: notes.join("; ") };
+}
+async function ytJson(method, p, token, body) { const r = await fetch(U.yt + p, { method, headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined }); const j = await json(r); if (!r.ok) throw oops("YouTube", r, j); return j; }
+/* a playlist by its id, or by its name (made if it isn't there) */
+async function playlist(token, nameOrId, privacy) {
+  if (/^PL[\w-]{10,}$/.test(nameOrId)) return nameOrId;
+  let page = "";
+  for (let i = 0; i < 10; i++) { const j = await ytJson("GET", "/playlists?part=snippet&mine=true&maxResults=50" + (page ? "&pageToken=" + page : ""), token); const hit = (j.items || []).find((x) => x.snippet && x.snippet.title.trim().toLowerCase() === nameOrId.trim().toLowerCase()); if (hit) return hit.id; if (!j.nextPageToken) break; page = j.nextPageToken; }
+  const made = await ytJson("POST", "/playlists?part=snippet,status", token, { snippet: { title: nameOrId.slice(0, 150) }, status: { privacyStatus: privacy === "private" ? "private" : "public" } });
+  return made.id;
+}
+/* a normal Facebook video on the Page */
+async function facebookVideo(o) {
+  const form = new FormData();
+  form.append("access_token", o.token); form.append("title", String(o.title || "").slice(0, 250)); form.append("description", String(o.description || ""));
+  if (o.publishAt && o.publishAt > Date.now() + 10 * 60e3) { form.append("published", "false"); form.append("scheduled_publish_time", String(Math.round(o.publishAt / 1000))); }
+  form.append("source", new Blob([fs.readFileSync(o.file)], { type: "video/mp4" }), "video.mp4");
+  const r = await fetch(U.graph + "/" + o.pageId + "/videos", { method: "POST", body: form }), j = await json(r);
+  if (!r.ok || !j.id) throw oops("Facebook", r, j);
+  return { id: j.id, url: "https://www.facebook.com/watch/?v=" + j.id };
+}
+/* the church's live stream on YouTube for a service: the broadcast that started closest to `near` (within 12 hours), or the
+ * newest finished one */
+async function liveLink(token, near) {
+  const j = await ytJson("GET", "/liveBroadcasts?part=snippet&broadcastStatus=completed&broadcastType=all&maxResults=25", token);
+  const list = (j.items || []).map((x) => ({ id: x.id, at: Date.parse((x.snippet && (x.snippet.actualStartTime || x.snippet.scheduledStartTime)) || 0) || 0, title: x.snippet && x.snippet.title }));
+  if (!list.length) return null;
+  const close = near ? list.filter((x) => Math.abs(x.at - near) < 12 * 3600e3).sort((a, b) => Math.abs(a.at - near) - Math.abs(b.at - near))[0] : null;
+  const b = close || list.sort((a, b) => b.at - a.at)[0];
+  return { url: "https://www.youtube.com/watch?v=" + b.id, title: b.title, at: b.at };
+}
+
 const PLATFORMS = { youtube: { label: "YouTube Shorts", fn: youtube }, facebook: { label: "Facebook Reels", fn: facebook }, instagram: { label: "Instagram Reels", fn: instagram }, tiktok: { label: "TikTok", fn: tiktok } };
 async function post(platform, o) { const p = PLATFORMS[platform]; if (!p) throw new Error("Central Control doesn't post to " + platform + "."); if (!fs.existsSync(o.file)) throw new Error("The short's video file is missing."); return p.fn(o); }
-module.exports = { post, PLATFORMS, caption };
+module.exports = { post, PLATFORMS, caption, youtubeVideo, facebookVideo, liveLink, playlist };

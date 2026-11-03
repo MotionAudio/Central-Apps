@@ -26,7 +26,7 @@ const fake = http.createServer((req, res) => {
     const u = new URL(req.url, "http://x"), body = Buffer.concat(b).toString(), J = (o, st) => { res.writeHead(st || 200, { "Content-Type": "application/json" }); res.end(JSON.stringify(o)); };
     seen.push(req.method + " " + u.pathname);
     if (u.pathname === "/google/token") { const p = new URLSearchParams(body); if (p.get("grant_type") === "refresh_token") { refreshes++; return J({ access_token: "yt-access-2", expires_in: 3600 }); } return J({ access_token: "yt-access-1", refresh_token: "yt-refresh", expires_in: 1, scope: "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/yt-analytics.readonly" }); }
-    if (u.pathname === "/google/channels") return J({ items: [{ snippet: { title: "Grace Church" } }] });
+    if (u.pathname === "/google/channels") return J({ items: [{ snippet: { title: "Grace Church", thumbnails: { default: { url: "https://yt3.example/grace.jpg" } } } }] });
     if (u.pathname === "/meta/token") return J({ access_token: u.searchParams.get("grant_type") ? "meta-long" : "meta-short" });
     if (u.pathname === "/meta/graph/me/permissions") return J({ data: [{ permission: "read_insights", status: "granted" }, { permission: "instagram_manage_insights", status: "declined" }] });
     // (10.3) how posted shorts did
@@ -121,6 +121,7 @@ try {
   ok(res.status === 200 && /Grace Church · @gracechurch/.test(await res.text()), "Meta connects the Page and its Instagram account");
   r = await j("GET", "/social/status", null, lead.tok);
   ok(r.platforms.facebook.connected && r.platforms.facebook.account === "Grace Church" && r.platforms.instagram.connected && r.platforms.instagram.account === "@gracechurch", "the status: Facebook (the Page) and Instagram (@account)", r.platforms);
+  ok(r.platforms.youtube.avatar === "https://yt3.example/grace.jpg", "(10.3) each connection has its account's picture for the app", r.platforms.youtube);
   ok(r.platforms.youtube.numbers === true && r.platforms.facebook.numbers === true && r.platforms.instagram.numbers === false, "(10.3) it says which can read back how shorts did (Instagram's insights were declined)", r.platforms);
   r = await j("POST", "/social/facebook/token", {}, lead.tok);
   ok(r.accessToken === "page-token" && r.pageId === "page1" && r.igUserId === "ig1", "the Page's token, the Page and the Instagram account to post to", r);

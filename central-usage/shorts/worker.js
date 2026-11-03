@@ -15,6 +15,7 @@ const P = require("./pick");
 const R = require("./render");
 const AI = require("./ai");
 const LEARN = require("./learn");
+const FULL = require("./full");
 
 const job = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 try { require("node:os").setPriority(19); } catch (_) { }
@@ -162,6 +163,9 @@ async function make() {
     await makeOne(d, sh, (q) => step("make", 0.75 + 0.25 * ((i - 1 + q) / picks.length), "Making short " + i + " of " + picks.length));
     d.shorts.push(sh); save(d); say({ type: "short", short: sh });
   }
+  // (10.3) the full-length videos: just the worship set, just the sermon (each if it's switched on)
+  const FS = S.full || {};
+  if ((FS.worship && FS.worship.on) || (FS.sermon && FS.sermon.on)) await makeFull(d, f, reg, sents, FS, (q, t) => step("full", 0.9 + 0.1 * q, t));
   d.finished = Date.now(); save(d);
   step("done", 1, picks.length ? "Made " + picks.length + " short" + (picks.length > 1 ? "s" : "") : "Didn't find anything to make a short from");
 }
@@ -174,6 +178,40 @@ function why(p) {
   return out.join(", ") || "a complete thought";
 }
 
+function day(t) { const x = new Date(t || Date.now()); return x.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }); }
+async function makeFull(d, f, reg, sents, FS, prog) {
+  const c = FULL.cuts(reg, f, sents, {}), when = job.recordedAt || Date.now(), out = d.full || {};
+  const v = { date: day(when), speaker: FS.speaker || "", scripture: FS.scripture || "", church: job.church || "", theme: c.sermon && c.sermon.theme ? c.sermon.theme.replace(/^./, (x) => x.toUpperCase()) : "" };
+  const todo = [];
+  if (FS.worship && FS.worship.on && c.worship) todo.push(["worship", c.worship]);
+  if (FS.sermon && FS.sermon.on && c.sermon) todo.push(["sermon", c.sermon]);
+  let k = 0;
+  for (const [kind, cut] of todo) {
+    const name = kind === "worship" ? "full-worship" : "full-sermon", base = path.join(job.out, name), work = path.join(job.out, ".work", name);
+    let sermonTitle = v.theme;
+    if (kind === "sermon" && job.aiPort) { const txt = (sents || []).filter((x) => x.start >= cut.start && x.end <= cut.end).map((x) => x.text).join(" "); const t = await AI.titles(job.aiPort, { kind: "sermon", text: txt.slice(0, 1400) }, job.church).catch(() => null); if (t && t.title) sermonTitle = t.title; }
+    const opts = FS[kind] || {}, title = FULL.title(opts.title || (kind === "worship" ? "Worship - {date}" : "{sermon} - {speaker}"), Object.assign({ sermon: sermonTitle || "Sunday's message" }, v));
+    prog(k / todo.length, "Making the full " + kind + " video");
+    await R.renderFull({ bin, out: base + ".mp4", work, start: cut.start, end: cut.end, video: d.source.video, audio: d.source.audio, settings: d.settings, progress: (q) => prog((k + q * 0.9) / todo.length, "Making the full " + kind + " video") });
+    await R.titleThumb(bin, base + ".mp4", base + ".jpg", Math.min(30, (cut.end - cut.start) / 3), title, job.fonts, work);
+    fs.rmSync(work, { recursive: true, force: true });
+    const was = out[kind] || {};
+    out[kind] = { kind, title: was.edited ? was.title : title, description: was.edited ? was.description : kind === "worship" ? FULL.worshipDescription(cut, { links: FS.links || "", hashtags: FS.hashtags || "", ccli: FS.ccli || "" }) : FULL.sermonDescription(cut, { speaker: v.speaker, scripture: v.scripture, links: FS.links || "", hashtags: FS.hashtags || "" }),
+      start: cut.start, end: cut.end, seconds: Math.round(cut.end - cut.start), songs: cut.songs || null, chapters: cut.chapters || null, file: name + ".mp4", thumb: name + ".jpg", rendered: Date.now(), status: was.status === "posted" ? "posted" : "new", posts: was.posts || [], edited: !!was.edited };
+    d.full = out; save(d); k++;
+  }
+  const missing = [FS.worship && FS.worship.on && !c.worship ? "worship set" : "", FS.sermon && FS.sermon.on && !c.sermon ? "sermon" : ""].filter(Boolean);
+  d.full = out; d.fullNote = missing.length ? "No " + missing.join(" or ") + " long enough was found for a full video." : null;
+}
+async function fullOnly() {
+  const d = load(); if (!d) throw new Error("Make the shorts of this recording first.");
+  const f = await A.analyze(bin, d.source.audio.file, {});
+  let all = []; try { all = JSON.parse(fs.readFileSync(path.join(job.out, "transcript.json"), "utf8")).words || []; } catch (_) { }
+  const reg = P.regions(f, job.markers || []), FS = Object.assign({}, (job.settings || {}).full || {});
+  FS.worship = Object.assign({}, FS.worship, { on: !job.only || job.only === "worship" }); FS.sermon = Object.assign({}, FS.sermon, { on: !job.only || job.only === "sermon" });
+  await makeFull(d, f, reg, P.sentences(all), FS, (q, t) => step("full", q, t));
+  save(d); step("done", 1, "Done");
+}
 async function renderOne() {
   const d = load(); if (!d) throw new Error("The shorts list for this recording is missing.");
   const sh = d.shorts.find((x) => x.id === job.id); if (!sh) throw new Error("That short isn't in the list any more.");
@@ -201,7 +239,7 @@ async function addOne() {
 }
 
 (async () => {
-  try { if (job.mode === "render") await renderOne(); else if (job.mode === "add") await addOne(); else await make(); say({ type: "done", file: dataFile }); }
+  try { if (job.mode === "render") await renderOne(); else if (job.mode === "add") await addOne(); else if (job.mode === "full") await fullOnly(); else await make(); say({ type: "done", file: dataFile }); }
   catch (e) { say({ type: "error", error: String(e && e.message || e) }); process.exitCode = 1; }
   finally { if (process.send) setTimeout(() => process.exit(), 50); }
 })();
