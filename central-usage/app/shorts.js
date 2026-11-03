@@ -60,9 +60,9 @@
     var r = rec(), d = S.data, j = st.job;
     root.innerHTML =
       '<div class="sh-top"><div><h2>Shorts</h2><p class="muted small">The good parts of each service - sermon and worship - made into vertical videos with captions. Look them over, then post them.</p></div>' +
-      '<div class="row"><button data-sh="accounts">Accounts</button><button data-sh="settings">Settings</button><button data-sh="folder">Open the folder</button></div></div>' +
+      '<div class="row"><button data-sh="queue">Posting queue' + (S.queueCount ? ' <span class="sh-count">' + S.queueCount + "</span>" : "") + '</button><button data-sh="accounts">Accounts</button><button data-sh="settings">Settings</button><button data-sh="folder">Open the folder</button></div></div>' +
       '<div class="sh-note" aria-live="polite"></div>' +
-      (j ? '<div class="sh-job card"><div class="row"><b>' + esc(j.mode === "make" ? "Making shorts" : j.mode === "add" ? "Making a new short" : "Making a short again") + "</b><span class=\"muted small\">" + esc(j.text || "") + '</span><button class="small" data-sh="cancel" style="margin-left:auto">Stop</button></div><div class="sh-bar"><i style="width:' + Math.round((j.pct || 0) * 100) + '%"></i></div></div>' : "") +
+      (j ? '<div class="sh-job card"><div class="row"><b>' + esc(j.mode === "make" ? "Making shorts" : j.mode === "add" ? "Making a new short" : j.mode === "full" ? "Making the full videos" : "Making a short again") + "</b><span class=\"muted small\">" + esc(j.text || "") + '</span><button class="small" data-sh="cancel" style="margin-left:auto">Stop</button></div><div class="sh-bar"><i style="width:' + Math.round((j.pct || 0) * 100) + '%"></i></div></div>' : "") +
       (!st.speech ? '<p class="sh-hint small">The speech model isn\'t on this computer yet, so shorts get no captions and are picked by sound alone. Download it under Settings → Lyrics (listening).</p>' : "") +
       '<div class="sh-main"><aside class="sh-recs"><h3>Recordings</h3>' + recsHtml() + "</aside>" +
       '<section class="sh-list">' + (r ? listHtml(r, d) : '<div class="sh-empty"><p class="muted">No service recordings yet. Record a service (Online mix → Record, and the camera recording in Video), then come back here.</p></div>') + "</section></div>" +
@@ -79,6 +79,37 @@
         '<span class="sh-tags">' + (r.video ? '<span class="sh-tag">camera</span>' : '<span class="sh-tag dim">sound only</span>') + (r.markers ? '<span class="sh-tag">songs marked</span>' : "") + (r.shorts ? '<span class="sh-tag good">' + r.shorts + " short" + (r.shorts > 1 ? "s" : "") + "</span>" : "") + (j ? '<span class="sh-tag warn">working…</span>' : q ? '<span class="sh-tag warn">waiting</span>' : "") + "</span></li>";
     }).join("") + "</ul>";
   }
+  // (10.3) the full-length videos of the service: just the worship, just the sermon
+  function fullHtml(d) {
+    var f = d.full || {}, fs_ = (S.status && S.status.settings && S.status.settings.full) || {}, kinds = ["worship", "sermon"].filter(function (k) { return f[k] || (fs_[k] && fs_[k].on); });
+    if (!kinds.length && !d.fullNote) return "";
+    return '<div class="sh-full"><h4>Full videos</h4>' + (d.fullNote ? '<p class="muted small">' + esc(d.fullNote) + "</p>" : "") + '<div class="sh-fullrow">' + kinds.map(function (k) {
+      var v = f[k];
+      if (!v) return '<div class="sh-fcard empty"><b>' + (k === "worship" ? "Worship" : "Sermon") + '</b><span class="muted small">Not made yet.</span><button class="small" data-fullmake="' + k + '">Make it</button></div>';
+      return '<button class="sh-fcard" data-full="' + k + '"><span class="sh-fthumb">' + (v.thumb ? '<img alt="" src="' + fileUrl(S.base + "/" + v.thumb) + "?v=" + (v.rendered || 0) + '">' : "") + '<span class="sh-len">' + fmt(v.seconds) + '</span></span><span class="sh-ctitle">' + esc(v.title) + '</span><span class="sh-cmeta"><span class="sh-st ' + esc(v.status) + '">' + ({ new: "To look at", approved: "Approved", posted: "Posted" }[v.status] || esc(v.status)) + '</span><span class="muted small">' + (k === "worship" ? "Worship" : "Sermon") + "</span></span></button>";
+    }).join("") + "</div></div>";
+  }
+  function fullEditor(k) {
+    var v = S.data && S.data.full && S.data.full[k]; if (!v) return;
+    var d = document.createElement("dialog"); d.className = "sh-dlg sh-fulldlg";
+    d.innerHTML = "<h2>" + (k === "worship" ? "The worship video" : "The sermon video") + '</h2><video controls preload="metadata" src="' + fileUrl(S.base + "/" + v.file) + "?v=" + (v.rendered || 0) + '"></video>' +
+      '<label>Title<input data-f="title" maxlength="100" value="' + esc(v.title) + '"></label><label>Description' + (k === "sermon" ? ' <span class="muted small">(lines like "4:05 The second point" become chapters on YouTube)</span>' : "") + '<textarea data-f="description" rows="8">' + esc(v.description) + "</textarea></label>" +
+      ((v.posts || []).length ? '<ul class="sh-hist small">' + v.posts.map(function (x) { return "<li>" + esc(day(x.at)) + " · " + esc(x.platform) + " · " + (x.ok ? (x.url ? '<a href="#" data-url="' + esc(x.url) + '">open</a>' : "posted") : '<span class="bad">' + esc(x.error || "failed") + "</span>") + "</li>"; }).join("") + "</ul>" : "") +
+      '<div class="row"><button data-a="remake">Make it again</button><span style="flex:1"></span><button data-a="close">Close</button><button data-a="save">Save</button><button class="primary" data-a="approve">' + (v.status === "approved" || v.status === "posted" ? "Approved ✓" : "Approve and queue it") + "</button></div>";
+    document.body.appendChild(d); d.showModal();
+    $$("[data-url]", d).forEach(function (a) { a.onclick = function (e) { e.preventDefault(); API.openUrl(a.dataset.url); }; });
+    d.addEventListener("click", async function (e) {
+      var a = e.target.dataset && e.target.dataset.a; if (!a) return;
+      try {
+        var p = { title: $('[data-f="title"]', d).value, description: $('[data-f="description"]', d).value };
+        if (a === "close") { d.close(); d.remove(); return; }
+        if (a === "save") { await API.fullUpdate(S.sel, k, p); toast("Saved."); }
+        if (a === "approve") { await API.fullUpdate(S.sel, k, Object.assign(p, { status: v.status === "approved" ? "new" : "approved" })); toast(v.status === "approved" ? "Taken out of the queue." : "Approved: it's in the posting queue."); }
+        if (a === "remake") { await API.fullMake(S.sel, k); toast("Making it again…"); }
+        d.close(); d.remove(); await refresh(true);
+      } catch (err) { toast(err.message || String(err), true); }
+    });
+  }
   function listHtml(r, d) {
     var j = busyFor(r.id);
     var head = '<div class="sh-listhead"><div><h3>' + esc(r.name) + '</h3><span class="muted small">' + esc(day(r.when)) + (r.seconds ? " · " + fmt(r.seconds) : "") + (d && d.finished ? " · shorts made " + esc(day(d.finished)) : "") + "</span></div>" +
@@ -86,6 +117,7 @@
       '<button class="primary" data-sh="make"' + (j ? " disabled" : "") + ">" + (d ? "Make them again" : "Make shorts") + "</button></div></div>";
     if (d && d.note) head += '<p class="sh-hint small">' + esc(d.note) + "</p>";
     if (!d) return head + '<div class="sh-empty"><p class="muted">No shorts from this recording yet. <b>Make shorts</b> finds the best moments of the sermon and the worship and makes ' + esc((S.status && S.status.settings.count) || 5) + " of them, " + esc(S.status ? S.status.settings.minLen + "–" + S.status.settings.maxLen : "30–60") + " seconds each. It runs in the background; the service isn't affected.</p></div>";
+    head += fullHtml(d);
     var list = d.shorts.filter(function (s) { return S.filter === "all" || s.status === S.filter; });
     if (!list.length) return head + '<div class="sh-empty"><p class="muted">' + (d.shorts.length ? "None here with that filter." : j ? "Working on them…" : "Nothing good enough was found in this recording.") + "</p></div>";
     return head + '<div class="sh-grid">' + list.map(function (s) {
@@ -190,11 +222,11 @@
   }
 
   // ---------------------------------------------------------------- settings
-  function settingsDialog() {
-    var s = S.status.settings, c = s.captions || {};
-    var d = document.createElement("dialog"); d.className = "sh-dlg";
+  function settingsDialog(host) {
+    var s = S.status.settings, c = s.captions || {}, inline = !!host;
+    var d = inline ? document.createElement("div") : document.createElement("dialog"); d.className = inline ? "sh-inlineform" : "sh-dlg";
     var pct = Math.round((s.sermonShare != null ? s.sermonShare : 0.6) * 100);
-    d.innerHTML = '<form method="dialog"><h2>Shorts settings</h2>' +
+    d.innerHTML = '<form' + (inline ? "" : ' method="dialog"') + '>' + (inline ? "" : "<h2>Shorts settings</h2>") +
       '<section><h3>When</h3><label class="toggle"><input type="checkbox" name="auto"' + (s.auto ? " checked" : "") + '> Make shorts by themselves after each service recording</label>' +
       '<label class="sh-inline">Only for recordings longer than <input type="number" name="minRecording" min="0" max="240" value="' + s.minRecording + '" style="width:70px"> minutes</label></section>' +
       '<section><h3>How many and how long</h3><div class="sh-grid2"><label>Shorts per service<input type="number" name="count" min="1" max="20" value="' + s.count + '"></label>' +
@@ -212,11 +244,12 @@
       '<section><h3>Logo, intro and outro</h3>' + fileRow("logo", "Logo", s.logo) + '<div class="sh-grid2"><label>Corner<select name="logoCorner">' + [["top-right", "Top right"], ["top-left", "Top left"], ["bottom-right", "Bottom right"], ["bottom-left", "Bottom left"]].map(function (o) { return '<option value="' + o[0] + '"' + (s.logoCorner === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + '</select></label><label>Size (% of the width)<input type="number" name="logoSize" min="5" max="40" value="' + s.logoSize + '"></label></div>' +
       fileRow("intro", "Intro (a picture or a short video)", s.intro) + fileRow("outro", "Outro", s.outro) + "</section>" +
       '<section class="sh-learned"><h3>What the AI has learned</h3><label class="toggle"><input type="checkbox" name="learn"' + (s.learn !== false ? " checked" : "") + '> Learn from the shorts we keep, fix, delete and post (stays on this church\'s computers)</label><ul data-learned><li class="muted">Looking…</li></ul><div class="row"><button type="button" data-a="unlearn">Reset learning</button><span class="muted small" data-lessons></span></div></section>' +
+      socialSections(s) +
       '<section><h3>Posting</h3><label>YouTube<select name="privacy"><option value="public"' + (s.privacy === "public" ? " selected" : "") + '>Public</option><option value="unlisted"' + (s.privacy === "unlisted" ? " selected" : "") + '>Unlisted</option><option value="private"' + (s.privacy === "private" ? " selected" : "") + '>Private</option></select></label>' +
       '<label>Hashtags on every short<input name="hashtags" value="' + esc(s.hashtags || "") + '" placeholder="#church #worship"></label>' +
       '<label class="toggle"><input type="checkbox" name="tiktokDirect"' + (s.tiktokDirect ? " checked" : "") + "> TikTok: post straight away (only once Motion Audio's TikTok app is approved; otherwise shorts go to the TikTok inbox to finish)</label></section>" +
-      '<div class="row"><button type="button" data-a="reset">Back to the usual settings</button><span style="flex:1"></span><button value="cancel">Cancel</button><button class="primary" value="save">Save</button></div></form>';
-    document.body.appendChild(d); d.showModal();
+      '<div class="row"><button type="button" data-a="reset">Back to the usual settings</button><span style="flex:1"></span>' + (inline ? '<button type="button" class="primary" data-a="save">Save</button>' : '<button value="cancel">Cancel</button><button class="primary" value="save">Save</button>') + "</div></form>";
+    if (inline) { host.innerHTML = ""; host.appendChild(d); } else { document.body.appendChild(d); d.showModal(); }
     var f = $("form", d);
     function prev() { var p = $("[data-prev]", d), sz = Number(f.c_size.value); p.style.setProperty("--c", f.c_color.value); p.style.setProperty("--h", f.c_highlight.value); p.style.setProperty("--o", f.c_outline.value); p.style.fontSize = Math.round(sz * 5) + "px"; p.style.textTransform = f.c_upper.checked ? "uppercase" : "none"; p.classList.toggle("box", f.c_box.checked); p.style.alignItems = { top: "flex-start", middle: "center", bottom: "flex-end" }[f.c_position.value]; $("[data-mix]", d).textContent = f.sermonShare.value + "% sermon · " + (100 - f.sermonShare.value) + "% worship"; }
     f.addEventListener("input", prev); prev();
@@ -225,17 +258,79 @@
     function paintLearned(L) { if (!L) return; $("[data-learned]", d).innerHTML = L.lines.map(function (l) { return "<li>" + esc(l) + "</li>"; }).join(""); $("[data-lessons]", d).textContent = L.lessons ? L.lessons + " short" + (L.lessons === 1 ? "" : "s") + " to learn from so far" : ""; }
     if (API.learned) API.learned().then(paintLearned).catch(function () { });
     $('[data-a="unlearn"]', d).onclick = async function () { if (!(await confirmText("Forget everything the AI has learned about what your church likes? It goes back to how it started.", "Reset learning"))) return; paintLearned(await API.resetLearning()); toast("The AI starts learning again from scratch."); };
-    $('[data-a="reset"]', d).onclick = async function () { S.status.settings = await API.resetSettings(); d.close(); d.remove(); toast("Back to the usual settings."); refresh(true); };
-    d.addEventListener("close", async function () {
-      if (d.returnValue === "save") {
+    wireSocial(d, s);
+    $('[data-a="reset"]', d).onclick = async function () { S.status.settings = await API.resetSettings(); if (inline) settingsDialog(host); else { d.close(); d.remove(); } toast("Back to the usual settings."); refresh(true); };
+    async function save() {
         var p = { auto: f.auto.checked, minRecording: Number(f.minRecording.value), count: Number(f.count.value), minLen: Number(f.minLen.value), maxLen: Number(f.maxLen.value), sermonShare: Number(f.sermonShare.value) / 100, useAI: f.useAI.checked, framing: f.framing.value, background: f.background.value, accent: f.accent.value,
           captions: { on: f.c_on.checked, size: Number(f.c_size.value), words: Number(f.c_words.value), color: f.c_color.value, highlight: f.c_highlight.value, outline: f.c_outline.value, position: f.c_position.value, upper: f.c_upper.checked, box: f.c_box.checked },
           logo: f.logo.value, logoCorner: f.logoCorner.value, logoSize: Number(f.logoSize.value), intro: f.intro.value, outro: f.outro.value, privacy: f.privacy.value, hashtags: f.hashtags.value, tiktokDirect: f.tiktokDirect.checked, learn: f.learn.checked };
-        try { S.status.settings = await API.settings(p); toast("Saved. New shorts use these settings."); } catch (e) { toast(e.message, true); }
+        Object.assign(p, readSocial(d, f));
+        try { S.status.settings = await API.settings(p); toast("Saved. New shorts use these settings."); if (inline) { var n = $(".sh-savednote", host.parentNode || document); if (n) n.textContent = "Saved."; } } catch (e) { toast(e.message, true); }
         render();
-      }
-      d.remove();
+    }
+    if (inline) $('[data-a="save"]', d).onclick = save;
+    else d.addEventListener("close", async function () { if (d.returnValue === "save") await save(); d.remove(); });
+  }
+  // ---------------------------------------------------------------- (10.3) the schedule, the description, the full videos
+  var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], PL4 = [["youtube", "YouTube"], ["instagram", "Instagram"], ["facebook", "Facebook"], ["tiktok", "TikTok"]];
+  function timesHtml(list, key) {
+    return '<div class="sh-times" data-times="' + key + '">' + (list || []).map(function (t, i) { return timeRow(t, key, i); }).join("") + '</div><button type="button" class="small" data-addtime="' + key + '">+ Another time</button>';
+  }
+  function timeRow(t, key, i) { return '<div class="sh-time" data-key="' + key + '"><span class="sh-days">' + DAYS.map(function (n, d) { return '<label class="sh-day"><input type="checkbox" data-day="' + d + '"' + ((t.days || []).indexOf(d) >= 0 ? " checked" : "") + ">" + n + "</label>"; }).join("") + '</span><input type="time" data-time value="' + esc(t.time || "11:00") + '"><button type="button" class="small" data-deltime aria-label="Remove this time">✕</button></div>'; }
+  function socialSections(s) {
+    var sch = s.schedule || {}, pl = sch.platforms || {}, full = s.full || {};
+    var fullBlock = function (k, label) { var x = full[k] || {}; return '<div class="sh-fullset" data-fullset="' + k + '"><label class="toggle"><input type="checkbox" data-fk="on"' + (x.on ? " checked" : "") + "> Make a " + label + " video from each service</label>" +
+      '<div class="sh-grid2"><label>Title<input data-fk="title" value="' + esc(x.title || "") + '"></label><label>Privacy<select data-fk="privacy">' + ["public", "unlisted", "private"].map(function (v) { return '<option value="' + v + '"' + (x.privacy === v ? " selected" : "") + ">" + v[0].toUpperCase() + v.slice(1) + "</option>"; }).join("") + '</select></label><label>YouTube playlist<input data-fk="playlist" value="' + esc(x.playlist || "") + '" placeholder="its name - made if it isn\'t there"></label></div>' +
+      '<div class="row"><label class="toggle"><input type="checkbox" data-fp="youtube"' + ((x.platforms || {}).youtube ? " checked" : "") + '> YouTube</label><label class="toggle"><input type="checkbox" data-fp="facebook"' + ((x.platforms || {}).facebook ? " checked" : "") + '> Facebook</label><label class="toggle"><input type="checkbox" data-fk="auto"' + (x.auto ? " checked" : "") + "> Post it without waiting for approval</label></div></div>"; };
+    return '<section class="sh-social"><h3>Posting schedule</h3><label class="toggle"><input type="checkbox" name="s_auto"' + (sch.auto !== false ? " checked" : "") + "> Approved shorts go into the posting queue by themselves</label>" +
+      '<p class="muted small">When they go out (this computer posts them; if it\'s off at a posting time, they go when it next comes on):</p>' + timesHtml(sch.times, "all") +
+      '<div class="sh-grid2"><label>Starting<input type="date" name="s_start" value="' + esc(sch.start || "") + '"></label><label>At least this many hours between posts on one platform<input type="number" name="s_gap" min="0" max="168" value="' + esc(sch.gapHours != null ? sch.gapHours : 3) + '"></label><label>Minutes between platforms<input type="number" name="s_spread" min="0" max="240" value="' + esc(sch.spreadMinutes != null ? sch.spreadMinutes : 10) + '"></label></div>' +
+      '<div class="sh-plsched">' + PL4.map(function (p) { var x = pl[p[0]] || {}; return '<div class="sh-plrow" data-pl="' + p[0] + '"><label class="toggle"><input type="checkbox" data-plon' + (x.on ? " checked" : "") + "> " + p[1] + '</label><label class="toggle small"><input type="checkbox" data-plown' + (x.times ? " checked" : "") + '> its own times</label><div class="sh-owntimes"' + (x.times ? "" : " hidden") + ">" + timesHtml(x.times || sch.times, p[0]) + "</div></div>"; }).join("") + "</div></section>" +
+      '<section class="sh-social"><h3>What each post says</h3><label>Description<textarea name="s_template" rows="5">' + esc(s.template || "") + '</textarea></label><p class="muted small">{description} the short\'s own words · {link} the whole service · {links} your links · {hashtags} · {title} · {church} · {date}. A line whose link or links are empty is left out.</p>' +
+      '<div class="sh-grid2"><label>{link} goes to<select name="s_linkMode">' + [["live", "The YouTube live stream of that service"], ["sermon", "The full sermon video (once it's posted)"], ["custom", "A page I choose"], ["none", "Nothing"]].map(function (o) { return '<option value="' + o[0] + '"' + (s.linkMode === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + '</select></label><label>The page (for "a page I choose", and if no live stream is found)<input name="s_linkUrl" value="' + esc(s.linkUrl || "") + '" placeholder="https://"></label></div>' +
+      '<label>Your links<textarea name="s_links" rows="2" placeholder="gracechurch.org · Instagram @gracechurch">' + esc(s.links || "") + "</textarea></label></section>" +
+      '<section class="sh-social"><h3>Full videos</h3><p class="muted small">Besides the shorts, the whole worship set and the whole sermon as normal videos (16:9), from the same recording.</p>' + fullBlock("worship", "worship") + fullBlock("sermon", "sermon") +
+      '<div class="sh-grid2"><label>Speaker<input name="f_speaker" value="' + esc(full.speaker || "") + '"></label><label>Scripture<input name="f_scripture" value="' + esc(full.scripture || "") + '" placeholder="Romans 8"></label><label>Size<select name="f_height"><option value="1080"' + (full.height !== 720 ? " selected" : "") + '>1080p</option><option value="720"' + (full.height === 720 ? " selected" : "") + '>720p (smaller, faster)</option></select></label>' +
+      '<label>When approved<select name="f_when"><option value="slot"' + (full.when !== "now" ? " selected" : "") + '>At the next posting time</option><option value="now"' + (full.when === "now" ? " selected" : "") + ">Straight away</option></select></label></div>" +
+      '<label>Hashtags on the full videos<input name="f_hashtags" value="' + esc(full.hashtags || "") + '"></label><label>CCLI line for the worship video<input name="f_ccli" value="' + esc(full.ccli || "") + '" placeholder="CCLI Streaming License #…"></label></section>';
+  }
+  function wireSocial(d) {
+    d.addEventListener("click", function (e) {
+      var add = e.target.closest && e.target.closest("[data-addtime]"); if (add) { var box = $('[data-times="' + add.dataset.addtime + '"]', d); box.insertAdjacentHTML("beforeend", timeRow({ days: [0], time: "11:00" }, add.dataset.addtime)); return; }
+      var del = e.target.closest && e.target.closest("[data-deltime]"); if (del) { var row = del.closest(".sh-time"), b = row.parentNode; if (b.children.length > 1) row.remove(); return; }
     });
+    d.addEventListener("change", function (e) { if (e.target.matches && e.target.matches("[data-plown]")) e.target.closest(".sh-plrow").querySelector(".sh-owntimes").hidden = !e.target.checked; });
+  }
+  function readTimes(box) { return $$(".sh-time", box).map(function (r) { return { days: $$("[data-day]", r).filter(function (c) { return c.checked; }).map(function (c) { return Number(c.dataset.day); }), time: $("[data-time]", r).value || "11:00" }; }).filter(function (t) { return t.days.length; }); }
+  function readSocial(d, f) {
+    var platforms = {}; $$(".sh-plrow", d).forEach(function (r) { platforms[r.dataset.pl] = { on: $("[data-plon]", r).checked, times: $("[data-plown]", r).checked ? readTimes($(".sh-owntimes", r)) : null }; });
+    var full = { speaker: f.f_speaker.value, scripture: f.f_scripture.value, height: Number(f.f_height.value), when: f.f_when.value, hashtags: f.f_hashtags.value, ccli: f.f_ccli.value };
+    $$("[data-fullset]", d).forEach(function (b) { var k = b.dataset.fullset; full[k] = { on: $('[data-fk="on"]', b).checked, auto: $('[data-fk="auto"]', b).checked, title: $('[data-fk="title"]', b).value, privacy: $('[data-fk="privacy"]', b).value, playlist: $('[data-fk="playlist"]', b).value, platforms: { youtube: $('[data-fp="youtube"]', b).checked, facebook: $('[data-fp="facebook"]', b).checked } }; });
+    return { schedule: { auto: f.s_auto.checked, start: f.s_start.value, gapHours: Number(f.s_gap.value), spreadMinutes: Number(f.s_spread.value), times: readTimes($('[data-times="all"]', d)), platforms: platforms }, template: f.s_template.value, linkMode: f.s_linkMode.value, linkUrl: f.s_linkUrl.value, links: f.s_links.value, full: full };
+  }
+  // ---------------------------------------------------------------- (10.3) the posting queue
+  var PNAME = { youtube: "YouTube", instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok" };
+  function when(t) { var d = new Date(t), now = new Date(), same = d.toDateString() === now.toDateString(); return (same ? "Today" : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })) + " " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); }
+  async function queueDialog() {
+    var d = document.createElement("dialog"); d.className = "sh-dlg sh-qdlg"; document.body.appendChild(d); d.showModal();
+    async function paint() {
+      var q = await API.queue(), items = q.items.filter(function (x) { return x.status !== "skipped"; });
+      d.innerHTML = "<h2>Posting queue</h2>" + (q.signedIn ? "" : '<p class="sh-hint small">Nothing posts until you\'re signed in to your Motion Audio account here (Settings → Packages & key → Account).</p>') +
+        (items.length ? '<table class="sh-qt"><thead><tr><th></th><th>Short</th><th>Where</th><th>When</th><th></th></tr></thead><tbody>' + items.map(function (x) {
+          var st = x.status === "posted" ? '<span class="good">Posted ' + esc(when(x.postedAt)) + "</span>" + (x.result && x.result.url ? ' · <a href="#" data-url="' + esc(x.result.url) + '">open</a>' : x.result && x.result.note ? " · " + esc(x.result.note) : "")
+            : x.status === "failed" ? '<span class="bad">' + esc(x.error || "Didn't work") + "</span>" + (x.nextTry ? '<br><span class="muted small">trying again ' + esc(when(x.nextTry)) + "</span>" : "") : x.status === "posting" ? "Posting…" : esc(when(x.dueAt));
+          var acts = x.status === "posted" ? "" : x.status === "failed" ? '<button class="small" data-q="retry" data-id="' + x.id + '">Try again</button><button class="small" data-q="skip" data-id="' + x.id + '">Skip</button>' : x.status === "queued" ? '<button class="small" data-q="now" data-id="' + x.id + '">Post now</button><button class="small" data-q="later" data-id="' + x.id + '">Later</button><button class="small" data-q="skip" data-id="' + x.id + '">Skip</button>' : "";
+          return "<tr><td>" + (x.thumb ? '<img alt="" class="sh-qthumb" src="' + fileUrl(x.thumb) + '">' : "") + "</td><td>" + esc(x.title || "") + (x.full ? ' <span class="sh-tag">full ' + esc(x.full) + "</span>" : "") + "</td><td>" + esc(PNAME[x.platform] || x.platform) + "</td><td>" + st + '</td><td class="sh-qacts">' + acts + "</td></tr>";
+        }).join("") + "</tbody></table>" : '<p class="muted">Nothing waiting. Approve a short and it goes here, at the next posting time for each platform.</p>') +
+        '<div class="row"><button data-a="refresh">Refresh</button><span style="flex:1"></span><button data-a="close">Close</button></div>';
+      S.queueCount = items.filter(function (x) { return x.status === "queued" || x.status === "failed"; }).length;
+    }
+    d.addEventListener("click", async function (e) {
+      var u = e.target.dataset && e.target.dataset.url; if (u) { e.preventDefault(); API.openUrl(u); return; }
+      var a = e.target.dataset && e.target.dataset.a; if (a === "close") { d.close(); d.remove(); render(); return; } if (a === "refresh") return paint();
+      var qa = e.target.dataset && e.target.dataset.q; if (qa) { try { await API.queueAction(e.target.dataset.id, qa); } catch (err) { toast(err.message, true); } setTimeout(paint, qa === "now" || qa === "retry" ? 1500 : 0); }
+    });
+    await paint();
   }
   function fileRow(name, label, val) { return '<div class="sh-file"><span>' + esc(label) + '</span><b data-shown="' + name + '">' + esc(val ? String(val).split(/[\\/]/).pop() : "none") + '</b><input type="hidden" name="' + name + '" value="' + esc(val || "") + '"><button type="button" class="small" data-pick="' + name + '">Choose…</button><button type="button" class="small" data-clear="' + name + '">Remove</button></div>'; }
 
@@ -248,7 +343,7 @@
       d.innerHTML = "<h2>Accounts</h2><p class=\"muted small\">Connect the church's accounts once; every short can then be posted with one click. You sign in on each platform's own page - Central Control never sees your passwords.</p>" +
         (soc.error ? '<p class="bad">' + esc(soc.error) + "</p>" : '<div class="sh-accts">' + PLAT.map(function (p) {
           var x = soc.platforms[p[0]], k = p[0] === "facebook" || p[0] === "instagram" ? "meta" : p[0];
-          return '<div class="sh-acct"><b>' + esc(p[1]) + "</b><span class=\"small " + (x.connected ? "good" : "muted") + '">' + esc(!x.available ? "Not switched on yet - Motion Audio still has to add this platform's app keys. Until then use Download and Copy caption." : x.connected ? "Connected: " + (x.account || "") + (x.numbers === false && p[0] !== "tiktok" ? " - connect again to let it read how shorts do" : "") : x.why || "Not connected") + "</span>" +
+          return '<div class="sh-acct"><b>' + (x.avatar ? '<img class="sh-av" alt="" src="' + esc(x.avatar) + '">' : "") + esc(p[1]) + "</b><span class=\"small " + (x.connected ? "good" : "muted") + '">' + esc(!x.available ? "Not switched on yet - Motion Audio still has to add this platform's app keys. Until then use Download and Copy caption." : x.connected ? "Connected: " + (x.account || "") + (x.numbers === false && p[0] !== "tiktok" ? " - connect again to let it read how shorts do" : "") : x.why || "Not connected") + "</span>" +
             (x.available ? (x.connected ? '<button class="small" data-dis="' + k + '">Disconnect</button>' : '<button class="small primary" data-con="' + k + '">Connect' + (k === "meta" ? " Facebook and Instagram" : "") + "</button>") : "") + "</div>";
         }).join("") + "</div><p class=\"muted small\">Facebook and Instagram share one sign-in: the Facebook Page, and the Instagram professional account linked to it.</p>") +
         '<div class="row"><button data-a="refresh">Check again</button><span style="flex:1"></span><button data-a="close">Close</button></div>';
@@ -262,6 +357,8 @@
   // ---------------------------------------------------------------- wiring
   function wire() {
     $$("[data-rec]", root).forEach(function (li) { li.onclick = function () { S.sel = li.dataset.rec; S.filter = "all"; loadShorts(); }; });
+    $$("[data-full]", root).forEach(function (b) { b.onclick = function () { fullEditor(b.dataset.full); }; });
+    $$("[data-fullmake]", root).forEach(function (b) { b.onclick = async function () { try { await API.fullMake(S.sel, b.dataset.fullmake); toast("Making it…"); refresh(true); } catch (e) { toast(e.message, true); } }; });
     $$("[data-open]", root).forEach(function (b) { b.onclick = async function () { S.open = b.dataset.open; render(); if (!S.social) { var a = acct(); if (a.token) { var soc = await API.social(a); S.social = soc && soc.platforms ? soc : null; if (S.open) render(); } } }; });
     $$("[data-sh]", root).forEach(function (b) {
       var a = b.dataset.sh;
@@ -273,6 +370,7 @@
           if (a === "folder") API.reveal(S.sel);
           if (a === "settings") settingsDialog();
           if (a === "accounts") accountsDialog();
+          if (a === "queue") queueDialog();
         } catch (e) { toast(e.message || String(e), true); }
       };
     });
@@ -286,6 +384,7 @@
 
   // ---------------------------------------------------------------- events from the main process
   if (API) API.on(function (m) {
+    if (m.type === "queue") { if (API.queue) API.queue().then(function (q) { S.queueCount = q.items.filter(function (x) { return x.status === "queued" || x.status === "failed"; }).length; }).catch(function () { }); return; }
     if (m.type === "progress") { S.status = S.status || {}; S.status.job = m.job; var bar = root && $(".sh-job", root); if (bar && document.contains(bar)) { $(".sh-bar i", bar).style.width = Math.round((m.job.pct || 0) * 100) + "%"; $(".sh-job .muted", root).textContent = m.job.text || ""; } else if (isShown()) render(); return; }
     if (m.type === "status") { S.status = m.status; if (isShown()) refresh(true); return; }
     if (m.type === "short" && m.recording === S.sel && isShown() && !S.open) { loadShorts(true); return; }
@@ -304,6 +403,33 @@
   }, 1000);
 
   if (CU && CU.on) CU.on("tab", function (name) { if (name === "shorts") refresh(true); });
-  window.CUShorts = { refresh: refresh, render: render, state: function () { return S; } };
+  // the queue posts from the main process: it needs the church's website sign-in (kept in this page)
+  function handOver() { var a = acct(); if (API && API.account && a.token) API.account(a).catch(function () { }); }
+  setTimeout(handOver, 3000); setInterval(handOver, 5 * 60e3);
+  // Settings → Social media (main admin): the accounts, then everything above in one form
+  function socialCard() { return API ? '<section class="card sh-socialcard" data-social><p class="muted">Loading…</p></section>' : ""; }
+  async function fillSocial(host) {
+    host.dataset.filled = "1";
+    try { if (!S.status) S.status = await API.status(); } catch (_) { }
+    if (!S.status || !S.status.isMain) { host.innerHTML = '<h3>Social media</h3><p class="muted">Set up on the main admin\'s computer, which records the service and posts the shorts.</p>'; return; }
+    host.innerHTML = '<h3>Accounts</h3><div class="sh-accts" data-accts><p class="muted small">Checking…</p></div><h3>Shorts and posting</h3><div data-form></div><p class="muted small sh-savednote"></p>';
+    settingsDialog($("[data-form]", host)); paintAccounts($("[data-accts]", host));
+  }
+  async function paintAccounts(box) {
+    var a = acct(), soc = a.token ? await API.social(a) : { error: "Sign in to your Motion Audio account first (Packages & key → Account). The connections belong to your church's account." };
+    S.social = soc && soc.platforms ? soc : null;
+    box.innerHTML = soc.error ? '<p class="bad small">' + esc(soc.error) + "</p>" : PLAT.map(function (p) {
+      var x = soc.platforms[p[0]], k = p[0] === "facebook" || p[0] === "instagram" ? "meta" : p[0];
+      return '<div class="sh-acct"><b>' + (x.avatar ? '<img class="sh-av" alt="" src="' + esc(x.avatar) + '">' : '<span class="sh-av none"></span>') + esc(p[1]) + '</b><span class="small ' + (x.connected ? "good" : "muted") + '">' + esc(!x.available ? "Not switched on yet (Motion Audio adds this platform's app keys)" : x.connected ? (x.account || "Connected") : x.why || "Not connected") + "</span>" +
+        (x.available ? (x.connected ? '<button class="small" data-dis="' + k + '">Disconnect</button>' : '<button class="small primary" data-con="' + k + '">Connect</button>') : "") + "</div>";
+    }).join("");
+    $$("[data-con]", box).forEach(function (b) { b.onclick = async function () {
+      try { await API.connect(b.dataset.con, acct()); b.textContent = "Finish in your browser…"; b.disabled = true;
+        var t0 = Date.now(), iv = setInterval(async function () { var s2 = await API.social(acct()).catch(function () { return null; }); var on = s2 && s2.platforms && Object.keys(s2.platforms).some(function (n) { return (n === b.dataset.con || (b.dataset.con === "meta" && (n === "facebook" || n === "instagram"))) && s2.platforms[n].connected; }); if (on || Date.now() - t0 > 180e3) { clearInterval(iv); paintAccounts(box); if (on) toast("Connected."); } }, 3000);
+      } catch (e) { toast(e.message, true); } }; });
+    $$("[data-dis]", box).forEach(function (b) { b.onclick = async function () { if (!(await confirmText("Disconnect it? Posts waiting for it stay in the queue until you connect it again.", "Disconnect"))) return; await API.disconnect(b.dataset.dis, acct()).catch(function (e) { toast(e.message, true); }); paintAccounts(box); }; });
+  }
+  if (API) new MutationObserver(function () { var h = document.querySelector("[data-social]:not([data-filled])"); if (h) fillSocial(h); }).observe(document.body, { childList: true, subtree: true });
+  window.CUShorts = { refresh: refresh, render: render, state: function () { return S; }, socialCard: socialCard, openSettings: function () { if (S.status) settingsDialog(); } };
   if (window.CUShortsHarness) refresh();
 })();
