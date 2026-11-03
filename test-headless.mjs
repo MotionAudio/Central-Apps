@@ -42,7 +42,7 @@ async function isolate(p) {
   await p.route(/^https?:\/\/(127\.0\.0\.1|localhost):876[56]\//, (r) => ownDriver ? r.continue() : r.abort("connectionrefused"));
 }
 const newPage = async (o) => { const p = await browser.newPage(o); await isolate(p); return p; };
-const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+const page = await (await browser.newContext({ viewport: { width: 1280, height: 860 } })).newPage();   // (a context of its own: savedFor() opens a second page in it)
 // (opened from a file this is Central Pedal Control, which needs a key: the default P key, as a church would enter it today)
 await page.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "PDEF-AULT-KEY0-2026", kind: "P", app: "pedal-control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });
 // The app tries ws://127.0.0.1:8765 (the pedal driver). On a machine without the
@@ -64,6 +64,16 @@ await page.evaluate(() => { window.__pedalBridge.connect = function () { }; });
 await page.waitForTimeout(400);
 await page.evaluate(() => { if (window.PPShell) window.PPShell.showTab("pads"); });   // (it opens on LIVE; these checks are about the Pad tab)
 const T = (fn, arg) => page.evaluate(fn, arg);
+// Before a reload: wait until the project the page just saved is in the browser's own storage, as another page of the
+// same app sees it. (A reload straight after a save can otherwise come back to what was stored before it - here, more
+// than once, to no project at all: the page then starts from the defaults.)
+const blankPage = path.join(os.tmpdir(), "pp-headless-blank.html"); fs.writeFileSync(blankPage, "<!doctype html><title>storage</title>");
+async function savedFor() {
+  const want = await T(() => localStorage.getItem("pad-pedal-seamless-v3")); if (!want) return;
+  const p2 = await page.context().newPage(); await isolate(p2);
+  try { await p2.goto("file://" + blankPage); await p2.waitForFunction((w) => localStorage.getItem("pad-pedal-seamless-v3") === w, want, { timeout: 8000 }); }
+  finally { await p2.close(); }
+}
 const hw = (msg) => T((m) => window.__pedalBridge.handleMessage(m), msg);
 const wait = (ms) => page.waitForTimeout(ms);
 
@@ -286,7 +296,7 @@ await check("key + button changes the key display", async () => {
 });
 await check("knob settings survive a reload", async () => {
   await hw({ type: "knob", id: "volume", value: 0.66 }); await wait(250); await T(() => PP.persistNow());   // (saved before the reload, not on a timer that can lose the race)
-  await page.reload(); await page.waitForFunction(() => window.__test);
+  await savedFor(); await page.reload(); await page.waitForFunction(() => window.__test);
   assert.equal(await T(() => __test.performance().volume), 0.66);
   assert.equal(await T(() => __test.isPerforming()), true, "should reopen in Perform mode");
 });
@@ -537,7 +547,7 @@ await check("output meters move while sound plays", async () => {
   assert.ok(cover < 95, "meter cover " + cover + "% " + JSON.stringify(info));
 });
 await check("songs, tempo and new pad settings survive a reload", async () => {
-  await T(() => PP.persistNow()); await page.reload(); await page.waitForFunction(() => window.PPFeatures);
+  await T(() => PP.persistNow()); await savedFor(); await page.reload(); await page.waitForFunction(() => window.PPFeatures);
   const r = await T(() => [PP.project().songs.length, PP.project().songIndex, Math.round(PP.project().tempo.bpm), PP.project().pads[0].octaves.sub]);
   assert.deepEqual(r, [2, 1, 100, 80]);
 });
