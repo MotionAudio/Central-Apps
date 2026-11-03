@@ -22,7 +22,9 @@
     if (!chip) return;
     chip.classList.toggle("ok", !!CU.state.connected); chip.classList.toggle("off", !CU.state.connected);
   }
-  CU.on("connected", chipState); CU.on("disconnected", chipState); setInterval(chipState, 2000); chipState();
+  CU.on("connected", chipState); setInterval(chipState, 2000); chipState();
+  // "Connect to a Central Pedal…" in an empty tab opens the same box
+  document.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest('[data-ux="connect"]'); if (b) { e.stopPropagation(); setPop(true); } });
 
   // ------------------------------------------------------------------ the tabs: what fits, the rest under More
   var nav = $("#tabs"), more = null, menu = null, order = [];

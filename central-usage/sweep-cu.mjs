@@ -93,7 +93,7 @@ async function run(c) {
   await win.waitForFunction(() => CentralUsage.state.connected, null, { timeout: 10000 }).catch(() => report.errors.push({ where: c.name, err: "never connected to the simulated pedal" }));
   await win.evaluate((cd) => { CentralUsage.prefs.code = cd; CentralUsage.send({ type: "auth", code: cd }); }, code).catch(() => {});
   await win.waitForTimeout(1200);
-  const tabs = await win.evaluate(() => [...document.querySelectorAll("#tabs [data-tab]")].filter((b) => !b.hidden).map((b) => b.dataset.tab));
+  const tabs = await win.evaluate(() => [...document.querySelectorAll("header.top .tab[data-tab]")].filter((b) => !b.hidden).map((b) => b.dataset.tab));
   report.dialogs.push({ where: c.name, type: "tabs", msg: tabs.join(",") });
   const enter = async (t) => { await win.evaluate((t) => { document.querySelectorAll("dialog[open]").forEach((d) => d.close()); document.querySelectorAll(".mode-pick").forEach((d) => d.remove()); const b = document.querySelector('[data-tab="' + t + '"]'); if (b) b.click(); }, t); await win.waitForTimeout(450); };
   const subs = { lights: ["show", "songs", "looks", "fixtures", "output"] };

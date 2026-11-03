@@ -59,7 +59,7 @@
         var per = {}; shown = shown.filter(function (x) { per[x.group] = (per[x.group] || 0) + 1; return per[x.group] <= 6; });
       }
     }
-    if (!shown.length) { list.innerHTML = '<div class="cmdk-empty">Nothing matches "' + esc(el.querySelector("input").value) + '". Try a song name, a setting or a word like "stream".</div>'; return; }
+    if (!shown.length) { list.innerHTML = '<div class="cmdk-empty">Nothing matches "' + esc(el.querySelector("input").value) + '". Try fewer letters, or a word like "settings".</div>'; return; }
     var h = "", g = null;
     shown.forEach(function (it, i) {
       if (it.group !== g) { g = it.group; h += '<div class="cmdk-group">' + esc(g) + "</div>"; }
