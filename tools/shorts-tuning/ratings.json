@@ -1,0 +1,390 @@
+{
+ "about": "Ratings of candidate passages from free-to-use sermon recordings (docs/SHORTS.md lists them and their licences), 1-5: would someone scrolling, who never heard the rest, watch it as a short? Rated by reading the speech model's transcript. Only the times are kept here, not the words.",
+ "rater": "Claude (Anthropic), for Motion Audio, 2026-11-03",
+ "ratings": [
+  {
+   "rec": "christmas-service",
+   "start": 5692.9,
+   "end": 5729.56,
+   "rating": 2
+  },
+  {
+   "rec": "christmas-service",
+   "start": 5821.42,
+   "end": 5858.78,
+   "rating": 4
+  },
+  {
+   "rec": "christmas-service",
+   "start": 5931.44,
+   "end": 5975.46,
+   "rating": 2
+  },
+  {
+   "rec": "christmas-service",
+   "start": 6048.66,
+   "end": 6106.98,
+   "rating": 4
+  },
+  {
+   "rec": "christmas-service",
+   "start": 6127.56,
+   "end": 6182.26,
+   "rating": 3
+  },
+  {
+   "rec": "christmas-service",
+   "start": 6220.16,
+   "end": 6279.52,
+   "rating": 4
+  },
+  {
+   "rec": "christmas-service",
+   "start": 6461.5,
+   "end": 6501.58,
+   "rating": 3
+  },
+  {
+   "rec": "christmas-service",
+   "start": 6834.24,
+   "end": 6878.12,
+   "rating": 2
+  },
+  {
+   "rec": "famine",
+   "start": 9.88,
+   "end": 59.34,
+   "rating": 1
+  },
+  {
+   "rec": "famine",
+   "start": 85.58,
+   "end": 138,
+   "rating": 2
+  },
+  {
+   "rec": "famine",
+   "start": 158.36,
+   "end": 215.52,
+   "rating": 4
+  },
+  {
+   "rec": "famine",
+   "start": 291.64,
+   "end": 335.58,
+   "rating": 4
+  },
+  {
+   "rec": "famine",
+   "start": 386.9,
+   "end": 427.86,
+   "rating": 3
+  },
+  {
+   "rec": "famine",
+   "start": 442.18,
+   "end": 500.72,
+   "rating": 3
+  },
+  {
+   "rec": "famine",
+   "start": 547.22,
+   "end": 600.32,
+   "rating": 4
+  },
+  {
+   "rec": "famine",
+   "start": 844.68,
+   "end": 889.96,
+   "rating": 5
+  },
+  {
+   "rec": "goldenrule",
+   "start": 14.34,
+   "end": 56.94,
+   "rating": 1
+  },
+  {
+   "rec": "goldenrule",
+   "start": 124.62,
+   "end": 156.9,
+   "rating": 4
+  },
+  {
+   "rec": "goldenrule",
+   "start": 348.02,
+   "end": 404.82,
+   "rating": 3
+  },
+  {
+   "rec": "goldenrule",
+   "start": 419.42,
+   "end": 456.6,
+   "rating": 1
+  },
+  {
+   "rec": "goldenrule",
+   "start": 524.12,
+   "end": 582.22,
+   "rating": 2
+  },
+  {
+   "rec": "goldenrule",
+   "start": 651.14,
+   "end": 693.96,
+   "rating": 4
+  },
+  {
+   "rec": "goldenrule",
+   "start": 825.72,
+   "end": 872.24,
+   "rating": 2
+  },
+  {
+   "rec": "goldenrule",
+   "start": 2308.36,
+   "end": 2348.56,
+   "rating": 5
+  },
+  {
+   "rec": "goodwin",
+   "start": 2,
+   "end": 43.94,
+   "rating": 1
+  },
+  {
+   "rec": "goodwin",
+   "start": 82.18,
+   "end": 135.92,
+   "rating": 2
+  },
+  {
+   "rec": "goodwin",
+   "start": 207.7,
+   "end": 254.82,
+   "rating": 2
+  },
+  {
+   "rec": "goodwin",
+   "start": 393.34,
+   "end": 443.52,
+   "rating": 3
+  },
+  {
+   "rec": "goodwin",
+   "start": 872.92,
+   "end": 915.52,
+   "rating": 3
+  },
+  {
+   "rec": "goodwin",
+   "start": 1124.66,
+   "end": 1173.34,
+   "rating": 2
+  },
+  {
+   "rec": "goodwin",
+   "start": 1202.34,
+   "end": 1250.62,
+   "rating": 2
+  },
+  {
+   "rec": "goodwin",
+   "start": 1452.6,
+   "end": 1503.34,
+   "rating": 2
+  },
+  {
+   "rec": "jeremiah",
+   "start": 45.64,
+   "end": 85.3,
+   "rating": 2
+  },
+  {
+   "rec": "jeremiah",
+   "start": 100.92,
+   "end": 143.64,
+   "rating": 4
+  },
+  {
+   "rec": "jeremiah",
+   "start": 203.02,
+   "end": 253.34,
+   "rating": 3
+  },
+  {
+   "rec": "jeremiah",
+   "start": 278.5,
+   "end": 309.82,
+   "rating": 2
+  },
+  {
+   "rec": "jeremiah",
+   "start": 363.08,
+   "end": 408.16,
+   "rating": 5
+  },
+  {
+   "rec": "jeremiah",
+   "start": 589.98,
+   "end": 642.94,
+   "rating": 2
+  },
+  {
+   "rec": "jeremiah",
+   "start": 689.98,
+   "end": 745.08,
+   "rating": 3
+  },
+  {
+   "rec": "jeremiah",
+   "start": 869.98,
+   "end": 900.88,
+   "rating": 4
+  },
+  {
+   "rec": "moody",
+   "start": 24.62,
+   "end": 69.78,
+   "rating": 2
+  },
+  {
+   "rec": "moody",
+   "start": 176.3,
+   "end": 220.36,
+   "rating": 2
+  },
+  {
+   "rec": "moody",
+   "start": 294.36,
+   "end": 349.4,
+   "rating": 1
+  },
+  {
+   "rec": "moody",
+   "start": 357.4,
+   "end": 394.16,
+   "rating": 2
+  },
+  {
+   "rec": "moody",
+   "start": 425.8,
+   "end": 470.7,
+   "rating": 2
+  },
+  {
+   "rec": "moody",
+   "start": 614.26,
+   "end": 661.54,
+   "rating": 4
+  },
+  {
+   "rec": "moody",
+   "start": 749.98,
+   "end": 799.64,
+   "rating": 3
+  },
+  {
+   "rec": "moody",
+   "start": 829.56,
+   "end": 875.56,
+   "rating": 1
+  },
+  {
+   "rec": "reparenting",
+   "start": 80.52,
+   "end": 133.68,
+   "rating": 1
+  },
+  {
+   "rec": "reparenting",
+   "start": 178.64,
+   "end": 218.62,
+   "rating": 2
+  },
+  {
+   "rec": "reparenting",
+   "start": 232.8,
+   "end": 280.52,
+   "rating": 3
+  },
+  {
+   "rec": "reparenting",
+   "start": 284.66,
+   "end": 331.34,
+   "rating": 3
+  },
+  {
+   "rec": "reparenting",
+   "start": 345.52,
+   "end": 388.14,
+   "rating": 3
+  },
+  {
+   "rec": "reparenting",
+   "start": 395.66,
+   "end": 429.58,
+   "rating": 2
+  },
+  {
+   "rec": "reparenting",
+   "start": 511.32,
+   "end": 563.42,
+   "rating": 3
+  },
+  {
+   "rec": "reparenting",
+   "start": 974.14,
+   "end": 1022.94,
+   "rating": 4
+  },
+  {
+   "rec": "sardis",
+   "start": 312.68,
+   "end": 353.3,
+   "rating": 2
+  },
+  {
+   "rec": "sardis",
+   "start": 439.78,
+   "end": 497.84,
+   "rating": 3
+  },
+  {
+   "rec": "sardis",
+   "start": 536.14,
+   "end": 577.22,
+   "rating": 1
+  },
+  {
+   "rec": "sardis",
+   "start": 594.74,
+   "end": 626.52,
+   "rating": 4
+  },
+  {
+   "rec": "sardis",
+   "start": 649.3,
+   "end": 696.9,
+   "rating": 3
+  },
+  {
+   "rec": "sardis",
+   "start": 714.46,
+   "end": 744.46,
+   "rating": 2
+  },
+  {
+   "rec": "sardis",
+   "start": 751,
+   "end": 802.58,
+   "rating": 3
+  },
+  {
+   "rec": "sardis",
+   "start": 817.04,
+   "end": 854.06,
+   "rating": 2
+  }
+ ]
+}

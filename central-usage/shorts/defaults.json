@@ -1,7 +1,20 @@
 {
  "featureSet": 2,
  "about": "The starting weights of the shorts picker's scoring model (learn.js). Every church starts here; its own review actions move it. tools/tune-shorts.mjs fits them on free-to-use recordings (docs/SHORTS.md lists them); the recordings themselves are not kept.",
- "tuned": null,
+ "tuned": {
+  "at": "2026-11-03",
+  "passages": 64,
+  "recordings": 8,
+  "before": {
+   "top3": 2.75,
+   "firstGood": 0.25
+  },
+  "afterLeaveOneOut": {
+   "top3": 2.83,
+   "firstGood": 0.25
+  },
+  "meanRating": 2.69
+ },
  "features": [
   "bias",
   "worship",
@@ -39,11 +52,24 @@
   "lenDev"
  ],
  "weights": [
+  -0.423,
   0,
-  0,
-  6,
+  5.898,
   5,
   0,
+  -0.121,
+  0.058,
+  -0.01,
+  -0.395,
+  -0.246,
+  0.06,
+  -0.094,
+  0.118,
+  0.076,
+  -0.132,
+  -0.016,
+  -0.11,
+  0.163,
   0,
   0,
   0,
@@ -51,28 +77,15 @@
   0,
   0,
   0,
+  -0.632,
+  -0.119,
+  -0.16,
+  0.148,
   0,
   0,
   0,
   0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  0,
-  -0.4
+  -0.317
  ],
  "labels": {
   "energy": "moments spoken with energy",
