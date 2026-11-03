@@ -170,7 +170,7 @@ await check("VST3 / CLAP inserts (with a stand-in host): an armed, monitored aud
     CDaw.edit("x", () => { const t = CDaw.track(g.id); t.inserts = []; t.frozen = null; });
     return { mon: mon && { track: mon.track === g.id, input: mon.input, slot: mon.plugins[0].slot, name: mon.plugins[0].name }, off, st0, st1, st2 };
   });
-  assert.deepEqual(r.mon, { track: true, input: "1+2", slot: "dwfX1", name: "Big Comp" }); assert.equal(r.off, null);
+  assert.deepEqual(r.mon, { track: true, input: "1+2", slot: "dmfX1", name: "Big Comp" }); assert.equal(r.off, null);
   assert.equal(r.st0, "unfrozen"); assert.ok(r.st1 === "frozen" || r.st1 === "unfrozen", r.st1); assert.equal(r.st2, r.st1);
 });
 await check("keyboard shortcuts: Space plays and stops, L loops, Ctrl+Z undoes", async () => {

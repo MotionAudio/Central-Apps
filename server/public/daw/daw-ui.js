@@ -289,8 +289,8 @@
     // (10.2) VST3 / CLAP plugins: in the apps, the rig hosts them (CU.studio.native, central-usage/studio.js)
     var NS = window.CU && window.CU.studio && window.CU.studio.native;
     if (NS && !D.native.host()) {
-      D.native.setHost({ list: function (scan) { return NS.plugins(scan).then(function (r) { if (!r || !r.ok) throw new Error(r && r.error || "no plugin host"); return r.plugins; }); }, process: function (job) { return NS.process(job); }, monitor: function (m) { NS.monitor(m); }, editor: function (slot, plugins, open) { return NS.editor(slot, plugins, open); } });
-      NS.on(function (m) { if (m.type === "pluginScan") UI.say("Looking for plugins: " + m.done + " of " + m.total + (m.current ? " (" + m.current + ")" : "")); if (m.type === "instrumentStatus" && m.pluginErrors && Object.keys(m.pluginErrors).length) UI.say("A plugin didn't load: " + Object.values(m.pluginErrors)[0], true); });
+      D.native.setHost({ stream: NS.stream || null, list: function (scan) { return NS.plugins(scan).then(function (r) { if (!r || !r.ok) throw new Error(r && r.error || "no plugin host"); return r.plugins; }); }, process: function (job) { return NS.process(job); }, monitor: function (m) { NS.monitor(m); }, editor: function (slot, plugins, open) { return NS.editor(slot, plugins, open); } });
+      NS.on(function (m) { if (m.type === "rigStopped") { D.native.setHost(D.native.host()); if (D.state && D.state().playing) UI.say("The plugin host stopped: press play again.", true); } if (m.type === "pluginScan") UI.say("Looking for plugins: " + m.done + " of " + m.total + (m.current ? " (" + m.current + ")" : "")); if (m.type === "instrumentStatus" && m.pluginErrors && Object.keys(m.pluginErrors).length) UI.say("A plugin didn't load: " + Object.values(m.pluginErrors)[0], true); });
     }
     D.on("freeze", function () { if (UI.parts.mixer && U.dockOpen) try { drawDock(); } catch (_) { } UI.draw(); });
     if (window.CUMidiIn) { window.CUMidiIn.start().catch(function () { }); if (!midiOff) midiOff = window.CUMidiIn.on(midiIn); }
