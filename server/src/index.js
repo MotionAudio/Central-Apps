@@ -37,6 +37,8 @@ import * as ccli from "./ccli.js";
 import * as social from "./social.js";
 import * as alerts from "./alerts.js";
 import * as projects from "./projects.js";
+import * as helpdesk from "./helpdesk.js";
+import * as status from "./status.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -109,7 +111,10 @@ pco.setRunSheetMaker(runSheetFromPlan);         // (10.2: ... and a run sheet dr
 ccli.routes(api, { wrap, requireUser });       // (10.2: CCLI settings, song usage and the report)
 social.routes(api, { wrap, requireUser });   // (10.2: the church's YouTube / Facebook / Instagram / TikTok, for posting shorts)
 alerts.routes(api, { wrap, requireUser });   // (10.2: the pre-service check's alerts to the main admins)
-projects.routes(api, { wrap, requireUser });   // (10.2: Central Production projects saved to the account)
+projects.routes(api, { wrap, requireUser });
+helpdesk.routes(api, app, { wrap, requireUser, optionalUser: (req, res, next) => next() });   // (10.3: the Help Center's articles, support tickets)
+status.routes(api, { wrap, requireUser });   // (10.3: the public status page)
+status.start();   // (10.2: Central Production projects saved to the account)
 // a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first
 setlists.routes(api, { wrap, requireUser, addTrack: async (u, id) => {
   const t = await liveTrack(id);
