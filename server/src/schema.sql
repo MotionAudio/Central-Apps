@@ -731,3 +731,53 @@ CREATE TABLE IF NOT EXISTS production_projects (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS production_projects_user ON production_projects (user_id, updated_at DESC);
+
+-- (10.3) the support desk: each Contact support message is a ticket (open / waiting / closed) with a private link and
+-- the answers; the Help Center's articles; the status page's checks and incident notes
+ALTER TABLE support_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'open';
+ALTER TABLE support_requests ADD COLUMN IF NOT EXISTS token TEXT;
+ALTER TABLE support_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+CREATE UNIQUE INDEX IF NOT EXISTS support_requests_token ON support_requests (token) WHERE token IS NOT NULL;
+CREATE INDEX IF NOT EXISTS support_requests_user ON support_requests (user_id);
+CREATE TABLE IF NOT EXISTS support_replies (
+  id          BIGSERIAL PRIMARY KEY,
+  request_id  BIGINT NOT NULL REFERENCES support_requests(id) ON DELETE CASCADE,
+  from_staff  BOOLEAN NOT NULL DEFAULT FALSE,
+  author      TEXT NOT NULL DEFAULT '',
+  message     TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS support_replies_req ON support_replies (request_id, id);
+CREATE TABLE IF NOT EXISTS help_articles (
+  id           BIGSERIAL PRIMARY KEY,
+  slug         TEXT NOT NULL UNIQUE,
+  title        TEXT NOT NULL,
+  category     TEXT NOT NULL,
+  summary      TEXT NOT NULL DEFAULT '',
+  body         JSONB NOT NULL DEFAULT '[]',
+  position     INTEGER NOT NULL DEFAULT 0,
+  published    BOOLEAN NOT NULL DEFAULT TRUE,
+  helpful_yes  INTEGER NOT NULL DEFAULT 0,
+  helpful_no   INTEGER NOT NULL DEFAULT 0,
+  updated_by   TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS status_checks (
+  id          BIGSERIAL PRIMARY KEY,
+  service     TEXT NOT NULL,
+  state       TEXT NOT NULL,
+  ms          INTEGER,
+  note        TEXT NOT NULL DEFAULT '',
+  checked_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS status_checks_at ON status_checks (service, checked_at DESC);
+CREATE TABLE IF NOT EXISTS status_incidents (
+  id           BIGSERIAL PRIMARY KEY,
+  title        TEXT NOT NULL,
+  message      TEXT NOT NULL DEFAULT '',
+  state        TEXT NOT NULL DEFAULT 'open',
+  created_by   TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at  TIMESTAMPTZ
+);

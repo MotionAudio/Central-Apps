@@ -1,0 +1,234 @@
+{
+  "_about": "The Help Center's built-in setup guides (helpdesk.js adds each once; after that staff edit them on the site). Blocks: h, p, steps, img, video.",
+  "articles": [
+    {
+      "slug": "which-apps-do-we-need",
+      "title": "Which apps does our church need?",
+      "category": "Getting started",
+      "summary": "Six apps, one team: who uses which, and what to buy first.",
+      "body": [
+        { "t": "p", "text": "Central is six apps that find each other on your church's network. Each person uses the one that fits their job." },
+        { "t": "steps", "items": [
+          "**Central Pedal** sits at the worship leader's or keys player's feet. Pads, multitracks with click and spoken cues, chord charts, lyrics, a looper and a guitar and keys rig. We build it and ship it ready to play.",
+          "**Central Pedal Control** is the pedal's app for your computer, tablet or phone. You build setlists, add songs and set up pads at home, then upload to the pedal.",
+          "**Central Control** runs on the desk computer (the main admin and admins). It runs lights, lyrics, slides, cameras, the stream, in-ears, the mix and the run sheet.",
+          "**Central Usage** is for each musician and singer: their chart, the lyrics, their instrument sound and their own in-ear mix.",
+          "**Central Services** is the schedule: who's serving, who's away and what's being played. Everyone in the church can have it.",
+          "**Central Production** is a free studio for making tracks, loops, pads, instruments and plugins."
+        ] },
+        { "t": "p", "text": "Most churches start with a church pack (Lite, Regular, Plus or Ultra). A pack holds the Central Control, Central Usage and Central Pedal Control keys and the Central Services slots for your team. Add the pedal and the sound plans you want. Pricing → \"Which plan do I need?\" walks you through it." }
+      ]
+    },
+    {
+      "slug": "set-up-the-central-pedal",
+      "title": "Setting up the Central Pedal",
+      "category": "Central Pedal",
+      "summary": "From the box to your first song: power, screens, sound, Wi-Fi and your first setlist.",
+      "body": [
+        { "t": "h", "text": "Plug it in" },
+        { "t": "steps", "items": [
+          "Plug in the power supply that came with it. The pedal starts by itself; the 3.5\" touch screen lights up after about 30 seconds.",
+          "For a big screen, plug a monitor into HDMI 1. HDMI 2 can show the lyrics to the room. Each port shows its own choice (Settings → Screens & touch).",
+          "Headphones or the desk go into the headphone jack (outputs 1–2). A DAC board, if yours has one, is outputs 3–4, and a USB audio interface comes after that.",
+          "Connect to the church Wi-Fi: Settings → Wi-Fi & devices. The other apps find the pedal on the same network."
+        ] },
+        { "t": "img", "url": "/img/apps/pedal-live.webp", "alt": "The Central Pedal's LIVE screen: the setlist on the left, the song's sections, PAUSE and NEXT in the middle, pads below" },
+        { "t": "h", "text": "Check the sound" },
+        { "t": "steps", "items": [
+          "Settings → Sound → Test sound plays a tone on each output. You should hear outputs 1–2 in your headphones.",
+          "If you hear crackles but no music on the headphone jack, set Settings → Output device → Headphone jack buffer to Biggest.",
+          "Check where the sound goes shows which output each bus (tracks, pads, click and instrument) plays on."
+        ] },
+        { "t": "h", "text": "Your first setlist" },
+        { "t": "p", "text": "The easiest way is Central Pedal Control on your computer: + Add songs (your own MP3s or WAVs, a multitrack, or Central Tracks), arrange the setlist, then press Upload. On the pedal itself, open the Tracks tab to add songs from a USB stick." },
+        { "t": "p", "text": "Updates arrive by themselves: the pedal looks every few hours and installs in a quiet minute, never while something plays. Settings → Software updates shows what it's doing." }
+      ]
+    },
+    {
+      "slug": "main-admin-first-hour",
+      "title": "The main admin's first hour",
+      "category": "Main admins and admins",
+      "summary": "Make the church's account, install Central Control, give out keys and set up each computer's job.",
+      "body": [
+        { "t": "steps", "items": [
+          "On the website, Account → Make an account → \"Set up a new church\". Use the church's own email: that account owns the keys. Confirm the email we send.",
+          "Buy a church pack (Pricing). The keys appear under Account → My products and come by email.",
+          "Install Central Control on the desk computer (Downloads). On first start it asks for the church's name and a key, then for this computer's jobs: lyrics, lights, cameras, in-ears, tracks, the stream mix, slides.",
+          "Pick a 4-digit admin code when asked. It's needed later to change a computer's jobs.",
+          "Back on the website, Account → Your church & team: add your second main admin and your admins (Central Control), and your musicians and singers (Central Usage). Each gets an email with their key and download link.",
+          "Open Central Control's Devices tab: the pedal and every computer on the network show up there."
+        ] },
+        { "t": "img", "url": "/img/apps/cc-devices.webp", "alt": "Central Control's Devices tab, with the pedal and the church's computers" },
+        { "t": "p", "text": "Up to 2 main admins per church. Main admins can change roles, people and billing; admins run the service." }
+      ]
+    },
+    {
+      "slug": "add-admins-and-musicians",
+      "title": "Adding admins, musicians and singers",
+      "category": "Main admins and admins",
+      "summary": "Hand out keys from the Teams page, and take one back when someone moves on.",
+      "body": [
+        { "t": "steps", "items": [
+          "Sign in on the website as the church or a main admin and open Account → Your church & team.",
+          "Under Teams, add each person's name and email to Admins (Central Control), Users (Central Usage) or Pedal Control.",
+          "They get an email with their key, a link to download the app and how to sign in. Their key also shows under their own Account → My products.",
+          "To take a key back, press Remove next to the person. The key is free for the next person; their app asks for a key at its next check.",
+          "Musicians can also join with your church's code when they make their account. You'll find the code on the same page."
+        ] },
+        { "t": "p", "text": "A Central Usage key works on two devices, so players can have one at church and one at home. A Central Control key is for one computer." }
+      ]
+    },
+    {
+      "slug": "musician-setup",
+      "title": "For musicians and singers: Central Usage",
+      "category": "Musicians",
+      "summary": "Your chart, the lyrics, your sound and your own in-ear mix.",
+      "body": [
+        { "t": "steps", "items": [
+          "Open the email from your church and download Central Usage for your device. It runs on Mac, Windows, Linux, iPhone, iPad and Android.",
+          "Sign in with the email your church used, or paste your key.",
+          "Pick your part (keys, guitar, bass, vocals…). The chart follows the song the pedal is playing, in the key and the clef you choose.",
+          "In-ears: plug headphones into your device or the interface you use, and set your own mix of the tracks and the band.",
+          "Instrument: plug in a keyboard or guitar and pick a sound. The sound plans add more."
+        ] },
+        { "t": "img", "url": "/img/apps/cu-chart.webp", "alt": "Central Usage's chord chart following the song" }
+      ]
+    },
+    {
+      "slug": "planning-center-and-ccli",
+      "title": "Connecting Planning Center and CCLI",
+      "category": "Planning Center and CCLI",
+      "summary": "Bring your plans in, put the copyright line on screen and let the CCLI report fill itself in.",
+      "body": [
+        { "t": "h", "text": "Planning Center" },
+        { "t": "steps", "items": [
+          "A main admin opens Account → Planning Center & CCLI on the website (or Central Control → Settings → Planning Center & CCLI) and presses Connect Planning Center.",
+          "Sign in to Planning Center and allow Motion Audio Central. Every device in your church then sees the upcoming plans.",
+          "Pick a plan to make a setlist. Songs are matched to Central Tracks and your own songs by CCLI number, then by title; anything missing is listed with how to get it.",
+          "Plans are checked for changes every 15 minutes, or press Check for changes."
+        ] },
+        { "t": "p", "text": "Not connected yet? Import a plan from a file instead: a Planning Center CSV export, or a plain list of songs." },
+        { "t": "h", "text": "CCLI" },
+        { "t": "steps", "items": [
+          "Enter your CCLI licence number and streaming licence number on Account → Planning Center & CCLI.",
+          "Import songs from SongSelect (.txt or .usr files) or ChordPro in the song editor: words, chords, writers, copyright and the CCLI number come with them.",
+          "The copyright line shows on each song's first slide. You can move it to the last or every slide, or change its wording.",
+          "Each time a song's words reach a real screen it's counted, once per song a day. The CCLI report on your Account page downloads in the layout CCLI's reporting page asks for."
+        ] }
+      ]
+    },
+    {
+      "slug": "lights-first-steps",
+      "title": "Lights: first steps",
+      "category": "Lights",
+      "summary": "Build your stage, add your real lights and make your first scene.",
+      "body": [
+        { "t": "steps", "items": [
+          "In Central Control, give one computer the Lights job (Settings → This computer's jobs), and connect it to your DMX interface or Art-Net node.",
+          "Lighting → Build my stage asks a few questions (stage size and shape, risers, screens, your room and seats, how many lights hang where) and builds the stage in 3D.",
+          "Add your real lights: Find a real light… searches 2,272 fixtures by maker and model. Pick the mode, the universe and the address. No match? Make a profile… lets you list the channels yourself.",
+          "Make a scene: + Scene starts from a preset look. Press Program lights to set colour, brightness, position, zoom, gobo and effects for any light, live.",
+          "Run it: pick a song and press Follow the show. The auto lights follow the sections; your scenes fire where you put them.",
+          "Simulate a setlist before Sunday: the 3D stage plays it without touching the real lights."
+        ] },
+        { "t": "img", "url": "/img/apps/cc-lights.webp", "alt": "The Lighting tab: the stage in 3D above the presets" }
+      ]
+    },
+    {
+      "slug": "slides-and-lyrics",
+      "title": "Slides, lyrics and the band's screen",
+      "category": "Slides, lyrics and video",
+      "summary": "Lyrics on a background, slides from the designer, scripture in seconds and a confidence monitor for the band.",
+      "body": [
+        { "t": "steps", "items": [
+          "Lyrics come from each song's lyrics and follow the track. Under Lyrics pick a background for every song, one song or one part of a song; it crossfades.",
+          "The confidence monitor shows the band the current lines in yellow and the next in white, with chords, a clock and time left. Settings → Confidence monitor on the lyrics computer changes all of it.",
+          "Slides: make decks in the designer (text, pictures, video, shapes, themes and transitions), or import pictures, PDFs and PowerPoint. Show mode puts Preview and Live side by side.",
+          "Scripture in seconds: type \"John 3:16\" or \"Ps 23:1-4\" and it becomes slides plus a lower third for the stream. King James, World English, American Standard and Reina-Valera 1909 are built in.",
+          "The video manager decides which screen shows what: lyrics, slides, a camera or the stream."
+        ] },
+        { "t": "img", "url": "/img/apps/cc-slides.webp", "alt": "Central Control's Slides tab with Preview and Live" }
+      ]
+    },
+    {
+      "slug": "stream-and-shorts",
+      "title": "The stream and automatic shorts",
+      "category": "Stream and shorts",
+      "summary": "Stream the service, record it, and let the built-in AI make short clips for social media.",
+      "body": [
+        { "t": "steps", "items": [
+          "Give a computer the Stream mix job. The Video tab sends the program to your stream destinations (RTMP or SRT) with its own mix.",
+          "Record the service with one button on the Mix tab, or set it to record by itself.",
+          "After a recording of 10 minutes or more, Shorts finds the songs and the sermon and makes vertical clips with captions and draft titles.",
+          "Review them on the Shorts tab of the main admin's computer: play, trim, fix captions, approve or delete.",
+          "Post to YouTube, Facebook, Instagram and TikTok once each is connected (Shorts → Settings), or download and post by hand."
+        ] },
+        { "t": "p", "text": "How many shorts, how long, and the sermon and worship mix are all in Shorts → Settings." }
+      ]
+    },
+    {
+      "slug": "central-production-basics",
+      "title": "Central Production basics",
+      "category": "Central Production",
+      "summary": "Make a track, a pad, an instrument or a plugin, and use it in your other apps.",
+      "body": [
+        { "t": "steps", "items": [
+          "Open Central Production (the app, or /production/ on this website) and sign in to save projects to your account.",
+          "File → New project asks what you're making: a track, loop, sample, pad, instrument, plugin or pedal board. The project opens set up for that.",
+          "Settings → Audio picks your interface, which input each track records from, and measures the delay so recordings line up.",
+          "Record with count-in, punch in and out, or loop takes. The mixer has sends, buses and automation; the piano roll has quantize and humanize.",
+          "Export WAV, MP3 or stems. Install into my apps puts what you made into Central Control and Central Usage on this computer. Publish sends it to Make & sell or Central Tracks."
+        ] },
+        { "t": "p", "text": "Central Production is free. The sound plans unlock the better sounds inside it." }
+      ]
+    },
+    {
+      "slug": "keys-devices-renewals",
+      "title": "Keys, devices and renewals",
+      "category": "Keys, plans and billing",
+      "summary": "Where your keys are, moving a key to a new computer, and what renewing does.",
+      "body": [
+        { "t": "steps", "items": [
+          "Every key you or your church owns is on Account → My products, with the devices it's on and a Copy button. They're in your email too.",
+          "Moving to a new computer: press Release next to the old device, then enter the key on the new one.",
+          "Sound plans come as one package key that works on three of your devices at once, each a different app (for example Central Usage, Central Control and your pedal).",
+          "Central Control keys include ten releases of updates (buy during 10.x and you're covered up to 11.0). Renew for $20 any time; your apps keep working if you don't.",
+          "Sound plans and Central Tracks Unlimited renew every year or month. Cancel any time from Account → Billing."
+        ] }
+      ]
+    },
+    {
+      "slug": "no-sound-checklist",
+      "title": "No sound? A checklist",
+      "category": "Troubleshooting",
+      "summary": "Go through these in order: most problems are found in the first three.",
+      "body": [
+        { "t": "steps", "items": [
+          "On the pedal, Settings → Sound → Test sound. Hear the tone? Then it's the routing: Check where the sound goes shows each bus's output.",
+          "No tone either: Play on each sound card plays straight on each card. Silent too? It's the cable, the headphones or the socket.",
+          "Crackles but no music on the headphone jack: Settings → Output device → Headphone jack buffer → Biggest.",
+          "A USB interface: plug it in before you start, and check it shows under Settings → Output device. Its outputs come after the jack (and the DAC board).",
+          "Still nothing? Contact support from Help on this website or from Settings → About in any app; it sends us what we need to look."
+        ] }
+      ]
+    },
+    {
+      "slug": "update-failed-or-offline",
+      "title": "Update failed, \"can't reach the website\" or the pedal is offline",
+      "category": "Troubleshooting",
+      "summary": "What each message means and what to do.",
+      "body": [
+        { "t": "h", "text": "An update failed" },
+        { "t": "p", "text": "The apps download updates from GitHub. On Linux, an update waits while the computer installs its own updates, then tries again; it tells you the real reason if it can't. Settings → Software updates has Try again, and you can always download the newest version from Downloads." },
+        { "t": "h", "text": "\"Couldn't reach the Motion Audio website\"" },
+        { "t": "p", "text": "Check this device is online. The status page (/status) shows whether sign-in, downloads and payments are working right now. Your apps keep working offline; they check your key again when they're back online." },
+        { "t": "h", "text": "The pedal shows as offline" },
+        { "t": "steps", "items": [
+          "Check the pedal is on and on the same Wi-Fi as the computer (Settings → Wi-Fi & devices on the pedal).",
+          "Some church networks keep devices apart. Ask whoever runs the network to allow devices to see each other, or use a network cable.",
+          "In Central Control or Central Pedal Control, type the pedal's address (shown on its Settings → About) into Connect."
+        ] }
+      ]
+    }
+  ]
+}

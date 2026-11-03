@@ -10,6 +10,7 @@ import { config } from "./config.js";
 import { isAdmin } from "./auth.js";
 import { requireStep } from "./signin.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
+import { newToken, ticketLink } from "./helpdesk.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const SOURCES = ["website", "central-pedal", "central-pedal-control", "central-control", "central-usage", "central-services"];
@@ -66,14 +67,20 @@ export function routes(api, { wrap, brake, requireUser }) {
     if (r && r.fresh) { f.n++; freshBy.set(req.ip, f); }
     res.json({ ok: true });
   }));
+  const sentBy = new Map();   // (10.3) at most 6 messages an hour from one internet address
+  setInterval(() => { const now = Date.now(); for (const [k, v] of sentBy) if (!v.some((t) => now - t < 3600e3)) sentBy.delete(k); }, 3600e3).unref();
   api.post("/support", wrap(async (req, res) => {
     brake(req);
+    // (10.3) a box people can't see: only robots fill it in. They're told it went, and nothing is kept.
+    if (String((req.body || {}).website || "").trim()) return res.json({ ok: true, id: 0, sent: false, message: "Sent. We'll answer by email." });
+    { const now = Date.now(), t = (sentBy.get(req.ip) || []).filter((x) => now - x < 3600e3); if (t.length >= 6) throw bad("You've sent a few messages in the last hour. We'll answer those first; write again later if you need to.", 429); t.push(now); sentBy.set(req.ip, t); }
     const b = req.body || {}, email = String(b.email || (req.user && req.user.email) || "").trim().toLowerCase(), message = String(b.message || "").trim().slice(0, 8000);
     const name = String(b.name || (req.user && req.user.name) || "").trim().slice(0, 80), subject = String(b.subject || "").trim().slice(0, 140) || "Help";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw bad("Enter your email so we can answer.");
     if (message.length < 5) throw bad("Tell us what's going on.");
-    const row = await one("INSERT INTO support_requests (user_id,name,email,subject,message,app,version) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id",
-      [req.user ? req.user.id : null, name, email, subject, message, clip(b.app, 40), clip(b.version, 40)]);
+    const token = newToken();
+    const row = await one("INSERT INTO support_requests (user_id,name,email,subject,message,app,version,token) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+      [req.user ? req.user.id : null, name, email, subject, message, clip(b.app, 40), clip(b.version, 40), token]);
     let sent = false;
     if (config.supportEmail && mailOn) {
       const church = req.user ? await one("SELECT c.name, m.role FROM church_members m JOIN churches c ON c.id=m.church_id WHERE m.user_id=$1", [req.user.id]) : null;
@@ -85,7 +92,7 @@ export function routes(api, { wrap, brake, requireUser }) {
         "<div style=\"font:15px/1.5 system-ui,sans-serif\"><p>Hi" + (name ? " " + escHtml(name) : "") + ",</p><p>Thanks - we got your message and will answer by email.</p><blockquote style=\"color:#555;white-space:pre-wrap\">" + escHtml(message) + "</blockquote><p>Motion Audio support</p></div>", config.supportEmail);
       await q("UPDATE support_requests SET sent=$1 WHERE id=$2", [sent, row.id]);
     }
-    res.json({ ok: true, id: row.id, sent, message: sent ? "Sent. We'll answer by email" + (req.user && req.user.email === email ? " (a copy is in your inbox)." : ".") : "Saved. Email isn't set up on the website yet; we'll see it on the staff page." });
+    res.json({ ok: true, id: row.id, sent, link: ticketLink(token), message: sent ? "Sent. We'll answer by email" + (req.user && req.user.email === email ? " (a copy is in your inbox)." : ".") : "Saved. Email isn't set up on the website yet; we'll see it on the staff page." });
   }));
   // Motion Audio staff: the errors, and the support messages
   api.get("/admin/errors", requireUser, wrap(async (req, res) => {

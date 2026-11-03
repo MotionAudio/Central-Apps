@@ -9,6 +9,7 @@
   // section id → its title and the cards it holds (by id); staff only shows for staff
   const SECTIONS = [
     ["overview", "Overview", ["acctSummary", "meCard"]],
+    ["products", "My products", ["productsCard"]],   // (10.3)
     ["purchases", "Purchases & downloads", ["keysCard"]],
     ["packages", "Packages & keys", ["pkgCard"]],
     ["team", "Your church & team", ["churchCard", "teamsCard"]],
@@ -18,7 +19,8 @@
     ["projects", "Projects", ["projectsCard"]],
     ["tracks", "Central Tracks & publishing", ["tracksCard", "libCard", "pubCard", "connectBox"]],
     ["billing", "Billing", ["billingCard"]],
-    ["staff", "Staff", ["staffCard", "reviewCard", "opsCard", "saleCard", "pricesCard", "codesCard", "relCard", "editorsCard", "defKeysCard"]],
+    ["help", "Help & tickets", ["helpCard"]],   // (10.3)
+    ["staff", "Staff", ["editHowCard", "supportDeskCard", "statusCard", "staffCard", "reviewCard", "opsCard", "saleCard", "pricesCard", "codesCard", "relCard", "editorsCard", "defKeysCard"]],
   ];
   const home = {}; SECTIONS.forEach(([k, , ids]) => ids.forEach((id) => (home[id] = k)));
   // app.js's own helpers (it's a classic script, so its top-level names are shared with this one)

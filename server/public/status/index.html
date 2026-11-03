@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Status | Motion Audio</title>
+<meta name="description" content="Is the Motion Audio website, sign-in, downloads, payments or Central Tracks storage working? Checked every few minutes.">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="canonical" href="%PUBLIC_URL%/status/">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Motion Audio"><meta property="og:title" content="Status | Motion Audio">
+<meta property="og:description" content="Is the Motion Audio website, sign-in, downloads, payments or Central Tracks storage working? Checked every few minutes.">
+<meta property="og:image" content="%PUBLIC_URL%/img/og/status.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:url" content="%PUBLIC_URL%/status/"><meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/central-tokens.css">
+<link rel="stylesheet" href="/site.css">
+<link rel="stylesheet" href="/site-pages.css">
+<script src="https://js.stripe.com/dahlia/stripe.js" async></script>
+</head>
+<body data-page="status">
+<a class="skip" href="#main">Skip to the page</a>
+<header class="top"><div class="wrap">
+  <a class="logo" href="/" style="color:var(--ink)"><span style="color:var(--brass)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
+  <nav id="siteNav" aria-label="Main">
+    <span class="nav-main" id="navMain">
+      <div class="dd"><button class="dd-btn" type="button" aria-expanded="false" aria-controls="ddApps">Apps</button><div class="dd-panel" id="ddApps"><a href="/apps/pedal/"><img src="/brand/central-pedal.svg" alt=""><b>Central Pedal</b><span>The pedal at the worship leader&#x27;s feet</span></a><a href="/apps/pedal-control/"><img src="/brand/central-pedal-control.svg" alt=""><b>Central Pedal Control</b><span>Get the pedal ready from home</span></a><a href="/apps/control/"><img src="/brand/central-control.svg" alt=""><b>Central Control</b><span>The desk runs the whole service</span></a><a href="/apps/usage/"><img src="/brand/central-usage.svg" alt=""><b>Central Usage</b><span>Each musician&#x27;s chart, sound and mix</span></a><a href="/apps/services/"><img src="/brand/central-services.svg" alt=""><b>Central Services</b><span>Who&#x27;s serving, sorted</span></a><a href="/apps/production/"><img src="/brand/central-production.svg" alt=""><b>Central Production</b><span>Make tracks, pads, sounds and plugins</span></a><a class="dd-all" href="/apps/">Compare the apps: which ones do we need?</a></div></div>
+      <div class="dd"><button class="dd-btn" type="button" aria-expanded="false" aria-controls="ddSounds">Sounds</button><div class="dd-panel" id="ddSounds"><a href="/sounds/keys/"><span class="sw" aria-hidden="true">Ke</span><b>Central Keys</b><span>Pianos, organs, mallets, pads and synths</span></a><a href="/sounds/instrument/"><span class="sw" aria-hidden="true">In</span><b>Central Instrument</b><span>Bass, guitar, strings, brass, drums and loops</span></a><a href="/sounds/pads/"><span class="sw" aria-hidden="true">Pa</span><b>Central Pads</b><span>Pads in every key for the pad pedal</span></a><a href="/sounds/plugins/"><span class="sw" aria-hidden="true">Pl</span><b>Central Plugins</b><span>Better effects on every track, pad and bus</span></a><a href="/sounds/pedals/"><span class="sw" aria-hidden="true">Pe</span><b>Central Pedals</b><span>Guitar pedals and amp cabinets</span></a><a href="/sounds/utility/"><span class="sw" aria-hidden="true">Ut</span><b>Central Utility</b><span>Backgrounds, slide themes, clicks and looks</span></a><a href="/sounds/tracks/"><span class="sw" aria-hidden="true">Tr</span><b>Central Tracks Unlimited</b><span>Every track in the library, every month</span></a><a class="dd-all" href="/sounds/">All sounds and packs</a></div></div>
+      <a href="/pricing/" data-edit="nav.store">Pricing</a><a href="/#tracks" data-edit="nav.tracks">Central Tracks</a><a href="/create/" data-edit="nav.create">Make &amp; sell</a><a href="/#downloads" data-edit="nav.downloads">Downloads</a><a href="/help/" data-edit="nav.help">Help</a>
+    </span>
+    <span class="nav-end">
+    <a href="/#account" id="acctLink">Sign in</a>
+    <span class="acct-menu" id="acctMenu" hidden><button class="acct-icon" id="acctIcon" type="button" aria-label="Your account" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 21c1.6-4 4.6-6 8-6s6.4 2 8 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <div class="acct-drop" id="acctDrop" role="menu" hidden><div class="acct-who" id="acctWho"></div><a href="/#account" role="menuitem">Account</a><a href="/#account-products" role="menuitem">My products</a><a href="/#purchases" role="menuitem">Purchases</a><a href="/#downloads" role="menuitem">Downloads</a><a href="/#account-help" role="menuitem">Help &amp; tickets</a><a href="/services/" role="menuitem">Central Services</a><a href="/production/" role="menuitem">Central Production</a><button type="button" role="menuitem" id="acctOut">Sign out</button></div></span>
+    <button class="btn ghost small cartbtn" id="cartBtn" type="button" aria-label="Cart">Cart <span class="count">0</span></button>
+    <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="navMain"><i aria-hidden="true"></i>Menu</button>
+    </span>
+  </nav>
+</div></header>
+<div class="salebar" id="saleBar" hidden></div>
+<main id="main">
+<section class="page-hero on-stage"><div class="wrap"><div class="crumbs"><span>Status</span></div><h1>Status</h1><p class="lede">The website, sign-in, downloads, payments and Central Tracks storage, checked every few minutes. The apps keep working offline either way.</p><div class="overall" id="stOverall" aria-live="polite"><span class="dot"></span><span>Checking…</span></div></div></section>
+<section class="pg"><div class="wrap"><div id="stIncidents" style="display:grid;gap:.6rem;margin-bottom:1.4rem"></div><div class="svc-list" id="stList"></div><p class="muted" style="margin-top:1rem;font-size:.9rem" id="stWhen"></p><div id="stStaff"></div></div></section>
+</main>
+<footer class="on-stage site-foot"><div class="wrap">
+  <div class="about"><a class="logo" href="/"><span style="color:var(--brass-hi)"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg></span>Motion Audio</a>
+    <p class="apps" data-edit="footer.about">Made for worship teams, by Motion Audio. Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services, Central Production and Central Tracks.</p>
+    <a class="mail" href="mailto:support@motionaudio.org">support@motionaudio.org</a></div>
+  <div><h4>Apps</h4><ul><li><a href="/apps/pedal/">Central Pedal</a></li><li><a href="/apps/pedal-control/">Central Pedal Control</a></li><li><a href="/apps/control/">Central Control</a></li><li><a href="/apps/usage/">Central Usage</a></li><li><a href="/apps/services/">Central Services</a></li><li><a href="/apps/production/">Central Production</a></li><li><a href="/apps/">Compare the apps</a></li></ul></div>
+  <div><h4>Sounds</h4><ul><li><a href="/sounds/keys/">Central Keys</a></li><li><a href="/sounds/instrument/">Central Instrument</a></li><li><a href="/sounds/pads/">Central Pads</a></li><li><a href="/sounds/plugins/">Central Plugins</a></li><li><a href="/sounds/pedals/">Central Pedals</a></li><li><a href="/sounds/utility/">Central Utility</a></li><li><a href="/sounds/tracks/">Central Tracks Unlimited</a></li></ul></div>
+  <div><h4>Buy</h4><ul><li><a href="/pricing/">Pricing</a></li><li><a href="/pricing/#packsTop">Church packs</a></li><li><a href="/pricing/#plans">Sound plans</a></li><li><a href="/#tracks">Central Tracks</a></li><li><a href="/create/">Make &amp; sell</a></li><li><a href="/#downloads">Downloads</a></li><li><a href="/#account-products">My products</a></li></ul></div>
+  <div><h4>Help</h4><ul><li><a href="/help/">Help Center</a></li><li><a href="/help/#contact">Contact support</a></li><li><a href="/help/install.html">Install the apps</a></li><li><a href="/help/accounts.html">How accounts work</a></li><li><a href="/status/">Status</a></li><li><a href="/privacy">Privacy</a></li><li><a href="/terms">Terms</a></li><li><a href="/refunds">Refunds</a></li></ul></div>
+  <div class="fine" data-edit="footer.fine">&copy; 2026 Motion Audio. Prices in US dollars, tax included.</div>
+</div></footer>
+<div id="modalHost"></div>
+<script src="/edit.js"></script><script src="/previews.js"></script><script src="/app.js"></script><script src="/site-nav.js"></script><script src="/status-page.js"></script>
+</body>
+</html>
