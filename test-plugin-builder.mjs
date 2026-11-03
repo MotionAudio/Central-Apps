@@ -38,7 +38,7 @@ try {
 
   // an example
   await page.selectOption(".cpb-presets", { label: "Tape Delay" });
-  await page.waitForFunction(() => document.querySelectorAll(".cpb-block").length === 9);
+  await page.waitForFunction(() => document.querySelectorAll(".cpb-block").length === 9 && document.querySelectorAll(".cpb-wire").length === 8, null, { timeout: 10000 }).catch(() => { });   // (wires are drawn a frame after the blocks)
   check(await page.locator(".cpb-wire").count() === 8 && (await page.locator(".cpb-name").inputValue()) === "Tape Delay", "the Tape Delay example opens: 9 blocks, 8 wires drawn");
 
   // build one from blank: drag a reverb in, wire it, turn a setting into a knob
