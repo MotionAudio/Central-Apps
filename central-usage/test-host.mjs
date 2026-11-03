@@ -114,6 +114,19 @@ await check("channel processing: a preset (Lead vocal) fills the gate, the 4-ban
   assert.ok(lit);
   assert.ok(await cu.evaluate(() => !!document.querySelector(".mx-gt") && document.querySelectorAll('[data-mxd^="eq.m2"]').length === 3), "the gate and the second mid in the channel panel");
 });
+await check("(10.3) an insert the engine can't load says why on the mixer screen, and the message goes when it's taken out", async () => {
+  const dir = path.join(here, "native", "build", "central-fx"), bad = path.join(dir, "zz-broken.cmfx.json");
+  fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(bad, '{"format":"cmfx","name":"Broken","blocks":[{"type":"nope"}],"params":[]}');
+  try {
+    const k = await cu.evaluate(() => CUMix.state.inputs.findIndex((x) => x.name === "Keys"));
+    await cu.evaluate(() => { window.CMFxCollection = (window.CMFxCollection || []).concat([{ id: "zz-broken", name: "Broken", family: "test", params: [] }]); });
+    await cu.evaluate((k) => CUMix.op({ op: "inserts", i: k, list: [{ id: "zz-broken", on: true, values: {} }] }), k);
+    const msg = await until(() => cu.evaluate(() => { const w = document.querySelector(".mx-ins .mx-insone .warn"); return w ? w.textContent : null; }), 6000);
+    assert.ok(msg && msg.length > 3, "the reason is shown: " + msg);
+    await cu.evaluate((k) => CUMix.op({ op: "inserts", i: k, list: [] }), k);
+    await until(() => cu.evaluate(() => !document.querySelector(".mx-ins .warn")), 4000);
+  } finally { fs.rmSync(bad, { force: true }); }
+});
 await check("reverb & delay: the card sets them; the delay follows the song's tempo (a quarter note at the Central Pedal's BPM)", async () => {
   await cu.waitForSelector(".mx-fxcard", { timeout: 3000 });
   await cu.click('.mx-fxcard [data-fxq="hall"]');

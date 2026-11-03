@@ -102,7 +102,7 @@ class Engine extends EventEmitter {
     const x = this.state.inputs[i], list = (x && x.ins) || []; this.insLoaded = this.insLoaded || {};
     for (let k = 0; k < 4; k++) {
       const q = list[k], want = q && q.on !== false ? path.join(path.dirname(this.bin || ""), "central-fx", q.id + ".cmfx.json") : "", key = i + ":" + k;
-      if (force || (this.insLoaded[key] || "") !== want) { if (want || this.insLoaded[key]) this.cmd({ cmd: "insert", i, slot: k, path: want }); this.insLoaded[key] = want; }
+      if (force || (this.insLoaded[key] || "") !== want) { if (want || this.insLoaded[key]) this.cmd({ cmd: "insert", i, slot: k, path: want }); this.insLoaded[key] = want; if (this.insertInfo && this.insertInfo[key]) { delete this.insertInfo[key]; this.emit("insert", { i, slot: k, cleared: true }); } }
       if (want) Object.keys(q.values || {}).forEach((id) => this.cmd({ cmd: "insertParam", i, slot: k, id, value: q.values[id] }));
     }
   }

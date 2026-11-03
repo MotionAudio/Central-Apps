@@ -35,6 +35,7 @@ class Host {
     this.server.listen(this.port, "0.0.0.0"); this.error = null;
     this.onOp = (op, who) => this.broadcastOp(op, who); this.engine.on("op", this.onOp);
     this.onPi = () => { this.clients.forEach((c) => { if (c.role === "admin") this.sendJson(c.ws, { type: "pi", names: this.engine.pi.names }); }); this.viewsSoon(); }; this.engine.on("pi", this.onPi);
+    this.onInsert = (e) => { this.clients.forEach((c) => { if (c.role === "admin") this.sendJson(c.ws, { type: "insert", insert: e }); }); }; this.engine.on("insert", this.onInsert);   // (10.3)
     this.onState = () => { this.clients.forEach((c) => { if (c.role === "admin") this.sendJson(c.ws, { type: "state", state: this.engine.state }); }); this.viewsSoon(); }; this.engine.on("state", this.onState);
     this.meterTimer = setInterval(() => this.meters(), 100);
     if (this.talk) {
@@ -87,7 +88,7 @@ class Host {
       if (String(m.code || "") !== String(want || "")) { if (++c.fails > 5) c.ws.close(); return this.sendJson(c.ws, { type: "refused", error: role === "admin" ? "Wrong admin code (the audio host shows it in Settings)." : "Wrong in-ear code (ask the sound desk: it is on the audio host's In-ears tab)." }); }
       c.role = role; c.id = String(m.id || "").slice(0, 40) || "anon-" + Math.random().toString(36).slice(2, 8); c.name = String(m.name || "").slice(0, 40) || (role === "admin" ? "Admin" : "Someone");
       c.talkOnly = !!m.talkOnly; this.who(c, m);
-      this.sendJson(c.ws, { type: "welcome", role, host: cfg.name, state: role === "admin" ? this.engine.state : M.forUser(this.engine.state, c.id, this.live()), pi: this.engine.pi.names, engine: this.engine.info() });
+      this.sendJson(c.ws, { type: "welcome", role, host: cfg.name, state: role === "admin" ? this.engine.state : M.forUser(this.engine.state, c.id, this.live()), pi: this.engine.pi.names, engine: this.engine.info(), inserts: role === "admin" ? (this.engine.insertInfo || {}) : undefined });
       if (this.talk && role === "admin") this.sendJson(c.ws, { type: "talkers", talkers: this.talk.list() });
       if (this.recorder && role === "admin") this.sendJson(c.ws, { type: "recState", state: this.recorder.state() });
       c.talkNote = null; if (role === "user") this.talkNotes();

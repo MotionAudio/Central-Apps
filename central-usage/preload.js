@@ -34,7 +34,7 @@ contextBridge.exposeInMainWorld("CU", {
     listen: (tap, on) => ipcRenderer.invoke("mixer-listen", tap, on), record: (opt) => ipcRenderer.invoke("mixer-record", opt), openRecordings: () => ipcRenderer.invoke("open-recordings"),
     exportFile: () => ipcRenderer.invoke("mixer-export"), importFile: () => ipcRenderer.invoke("mixer-import"),
     onOp: (fn) => ipcRenderer.on("mixer-op", (_e, op, by) => fn(op, by)), onState: (fn) => ipcRenderer.on("mixer-state", (_e, st) => fn(st)), onMeters: (fn) => ipcRenderer.on("mixer-meters", (_e, m) => fn(m)),
-    onPi: (fn) => ipcRenderer.on("mixer-pi", (_e, names) => fn(names)), onAudio: (fn) => ipcRenderer.on("listen-audio", (_e, tap, frames, pcm) => fn(tap, frames, pcm)),
+    onPi: (fn) => ipcRenderer.on("mixer-pi", (_e, names) => fn(names)), onInsert: (fn) => ipcRenderer.on("mixer-insert", (_e, e) => fn(e)), onAudio: (fn) => ipcRenderer.on("listen-audio", (_e, tap, frames, pcm) => fn(tap, frames, pcm)),
     tempo: (bpm) => ipcRenderer.invoke("mixer-tempo", bpm),
     testTone: (o) => ipcRenderer.invoke("mixer-testtone", o)   // (10.2: the pre-service check)
   },

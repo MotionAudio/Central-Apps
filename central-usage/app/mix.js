@@ -102,7 +102,7 @@
     var add = list.length >= 4 ? '<p class="muted small">Up to 4 on a channel.</p>' : '<select data-mxi="add"><option value="">+ Add an insert…</option>' + fams.map(function (f) {
       return '<optgroup label="' + esc(f[0].toUpperCase() + f.slice(1)) + '">' + coll().filter(function (p) { return p.family === f; }).map(function (p) { var lk = insLocked(p); return '<option value="' + esc(p.id) + '"' + (lk ? " disabled" : "") + ">" + (lk ? "🔒 " : "") + esc(p.name) + "</option>"; }).join("") + "</optgroup>";
     }).join("") + "</select>";
-    var info = (X.engine && X.engine.insertInfo) || (X.insertInfo) || {};
+    var info = X.insertInfo || {};
     return '<div class="mx-dcol mx-ins"><h4>Inserts <small class="muted">after the compressor</small></h4>' + list.map(function (q, k) {
       var p = collOf(q.id), err = info[sel + ":" + k] && info[sel + ":" + k].error;
       if (!p) return '<div class="mx-insone"><b>' + esc(q.id) + '</b> <span class="muted small">(not in this version)</span> <button data-mxi="del" data-k="' + k + '">Remove</button></div>';
@@ -276,6 +276,7 @@
   // the delay follows the song's tempo (the Central Pedal's BPM) - the audio host passes it to its engine
   setInterval(function () { var d = CU.state && CU.state.display; if (X.kind === "local" && window.CU && window.CU.mixer && window.CU.mixer.tempo && d && d.bpm) window.CU.mixer.tempo(Number(d.bpm)); }, 1000);
   X.on("pi", function () { render(); });
+  X.on("insert", function (e) { if (visible() && e && e.i === sel) render(true); });   // (10.3) an insert that didn't load says why
   CU.on("tab", function (t) { if (t === "mix") setTimeout(function () { render(true); }, 0); });
   window.CUMixTab = { render: render };
 })();
