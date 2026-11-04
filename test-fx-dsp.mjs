@@ -96,6 +96,20 @@ check("(10.4) Central Control: the shared delay on every note value; a channel i
   const s = MM.create(); MM.apply(s, { op: "inserts", i: 0, list: [{ id: "simple-delay", values: { time: 500 }, syncNote: "1/4T" }, { id: "dotted-eighth", values: {}, syncTempo: false }] }, { role: "admin" });
   assert.equal(s.inputs[0].ins[0].syncNote, "1/4T"); assert.equal(s.inputs[0].ins[1].syncTempo, false);
 });
+{ // (10.4) Central Control's audio host: a channel insert's knobs at the song's tempo go to the engine, again when it changes
+  const os = await import("node:os"), tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cc-ins-")), cf = path.join(tmp, "central-fx"); fs.mkdirSync(cf);
+  ["simple-delay", "dotted-eighth"].forEach((id) => fs.copyFileSync(path.join(here, "production/plugin-collection", id + ".cmfx.json"), path.join(cf, id + ".cmfx.json")));
+  const Engine = (await import("node:module")).createRequire(import.meta.url)(path.join(here, "central-usage/engine.js")), sent = [];
+  const E = Engine.Engine || Engine; const eng = new E({ dir: tmp, bin: path.join(tmp, "cu-mixer") }); eng.proc = {}; eng.cmd = (o) => sent.push(o); eng.saveSoon = () => { };
+  const params = () => sent.filter((o) => o.cmd === "insertParam").map((o) => o.slot + ":" + o.id + "=" + Math.round(o.value * 10) / 10);
+  check("(10.4) Central Control: a delay insert on a note gets its time from the song's tempo; the Dotted Eighth its tempo; a new tempo sends only what moved", () => {
+    eng.setTempo(120); sent.length = 0;
+    eng.apply({ op: "inserts", i: 2, list: [{ id: "simple-delay", values: { time: 900, mix: 0.3 }, syncNote: "1/8." }, { id: "dotted-eighth", values: { mix: 0.3 } }] }, { role: "admin" });
+    const first = params(); assert.ok(first.includes("0:time=375") && first.includes("0:mix=0.3") && first.includes("1:bpm=120"), first.join(" "));
+    sent.length = 0; eng.setTempo(90); assert.deepEqual(params().sort(), ["0:time=500", "1:bpm=90"]);
+    sent.length = 0; eng.setTempo(90); assert.deepEqual(params(), [], "the same tempo: nothing");
+  });
+}
 check("a 60 s stereo track with every basic effect renders in under 6 s here (a Pi 4 is ~4x slower)", () => {
   const n = rate * 60, L = new Int16Array(n), R = new Int16Array(n); for (let i = 0; i < n; i++) { L[i] = (Math.random() - .5) * 8000; R[i] = (Math.random() - .5) * 8000; }
   const p = core.plan({ on: true, gate: { on: true, threshold: -50 }, eq: { on: true, lowCut: 80, low: 2, mid: -3, high: 3 }, comp: { on: true, amount: 40 }, reverb: { on: true, send: 20, type: "room" }, delay: { on: true, send: 15, time: "1/8" } }, false, 72);
