@@ -32,7 +32,9 @@
   // the sound libraries installed on this computer (Settings → Packages → Libraries): their presets and boards, for the frame
   function postLibraries() { var L = window.CU && window.CU.libraries; if (L && L.list) L.list().then(function (r) { post({ type: "libraries", libraries: (r && r.installed) || [] }); }).catch(function () { }); }
   window.addEventListener("pp-libraries", postLibraries);
-  if (frame) frame.addEventListener("load", function () { setTimeout(postPlans, 0); setTimeout(postLibraries, 0); });
+  // (10.4) the song's tempo (the Central Pedal's BPM), for the delays on the board that follow it
+  var lastBpm = 0; setInterval(function () { var d = CU.state && CU.state.display, b = d && +d.bpm || 0; if (loaded && b > 0 && b !== lastBpm) { lastBpm = b; post({ type: "tempo", bpm: b }); } }, 1000);
+  if (frame) frame.addEventListener("load", function () { setTimeout(postPlans, 0); setTimeout(postLibraries, 0); lastBpm = 0; });
   CU.on("tab", function (t) {
     if (t !== "instrument" || !frame) return;
     if (!loaded) { loaded = true; if (NAT) NAT.start(); frame.src = frame.dataset.src; }

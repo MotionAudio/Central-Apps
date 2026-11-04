@@ -433,6 +433,20 @@ await check("the driver receives the chain (apply) and reports instrument status
   await page.$eval(".in-controls input[type=range]", (el) => { el.value = 900; el.dispatchEvent(new Event("input", { bubbles: true })); }); await wait(300);
   const setMsg = await T(() => window.__sent.filter((m) => m.type === "instrument" && m.action === "set")[0]); assert.ok(setMsg && setMsg.uid && setMsg.sym && typeof setMsg.value === "number", JSON.stringify(setMsg));
 });
+await check("(10.4) a delay pedal follows the song's tempo: Sync to tempo on a dotted eighth sets its time (375 ms at 120 BPM), a new tempo moves it, off leaves it", async () => {
+  await T(() => { const ch = PPInstrument.chain(); ch.push({ uid: "tsync1", pedal: "ma-digital-delay", on: true, values: { time: 500 } }); PPInstrument.apply("add"); PPInstrument.render(); });
+  await page.click('#pbChain svg.pedal[data-uid="tsync1"]'); await page.waitForSelector('[data-syncon="tsync1"]', { timeout: 4000 });
+  await T(() => { window.PPSongBpm = 120; window.__sent = []; });
+  await page.check('[data-syncon="tsync1"]'); await page.waitForSelector('[data-syncnote="tsync1"]', { timeout: 4000 });
+  await page.selectOption('[data-syncnote="tsync1"]', "1/8."); await wait(200);
+  const it = await T(() => PPInstrument.chain().filter((q) => q.uid === "tsync1")[0]);
+  assert.equal(it.syncNote, "1/8."); assert.equal(it.values.time, 375);
+  const sent = await T(() => window.__sent.filter((m) => m.action === "set" && m.uid === "tsync1" && m.sym === "time").map((m) => m.value)); assert.ok(sent.indexOf(375) >= 0, JSON.stringify(sent));
+  await T(() => { window.PPSongBpm = 90; PPInstrument.syncPluginTempo(); }); assert.equal(await T(() => PPInstrument.chain().filter((q) => q.uid === "tsync1")[0].values.time), 500, "a dotted eighth at 90 BPM");
+  await page.uncheck('[data-syncon="tsync1"]'); await T(() => { window.PPSongBpm = 140; PPInstrument.syncPluginTempo(); });
+  const off = await T(() => PPInstrument.chain().filter((q) => q.uid === "tsync1")[0]); assert.equal(off.syncNote, undefined); assert.equal(off.values.time, 500, "off: it keeps its time");
+  await T(() => { delete window.PPSongBpm; const ch = PPInstrument.chain(), i = ch.findIndex((q) => q.uid === "tsync1"); ch.splice(i, 1); PPInstrument.apply("remove"); });
+});
 await check("keys: the sound list arrives from the driver and the on-screen keyboard sends notes", async () => {
   await T(() => PPInstrument.setKind("keys")); await until(() => T(() => document.querySelectorAll(".keys-item").length > 0 || /No sound banks/.test(document.querySelector(".in-keys").textContent)), 8000);
   await page.waitForSelector(".kk.white", { timeout: 4000 }); await T(() => { window.__sent = []; }); await page.dispatchEvent(".kk.white", "pointerdown"); await page.dispatchEvent(".kk.white", "pointerup"); await wait(300);

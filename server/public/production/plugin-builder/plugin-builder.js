@@ -49,6 +49,9 @@
     in: ["Sound", ""], key: ["Key (listen to)", ""], dry: ["Dry", ""], wet: ["Wet", ""],
     mod: ["Motion", ""], schpf: ["Side-chain low cut", "Hz", 1], low: ["Low / mid split", "Hz", 1], high: ["Mid / high split", "Hz", 1], speed: ["Speed (slow / fast)", ""], sustain: ["Sustain", "%"] };
   var PERCENT = { mix: 1, feedback: 1, size: 1, damp: 1, depth: 1 };
+  // (10.4) the note values a delay can sync to (PPPedals.tempo.NOTES where the page has it): [id, name, beats]
+  var SYNC_NOTES = [["1/1", "Whole", 4], ["1/2.", "Dotted half", 3], ["1/2", "Half", 2], ["1/2T", "Half triplet", 4 / 3], ["1/4.", "Dotted quarter", 1.5], ["1/4", "Quarter", 1], ["1/4T", "Quarter triplet", 2 / 3],
+    ["1/8.", "Dotted eighth", 0.75], ["1/8", "Eighth", 0.5], ["1/8T", "Eighth triplet", 1 / 3], ["1/16.", "Dotted sixteenth", 0.375], ["1/16", "Sixteenth", 0.25], ["1/16T", "Sixteenth triplet", 1 / 6], ["1/32", "Thirty-second", 0.125]];
   var NUMPROPS = { filter: [["slope", "Slope", [12, 24], "dB per octave"]], eq: [], delay: [["maxTime", "Longest time", [100, 10000], "ms"]], phaser: [["stages", "Stages", [2, 12], ""]], pitch: [["window", "Smoothness", [10, 200], "ms"]], drive: [["oversample", "Oversampling (1, 2 or 4)", [1, 4], "x"]], limiter: [["lookahead", "Look-ahead", [0, 10], "ms"]] };
   var NUMDEF = { slope: 12, maxTime: 2000, stages: 4, window: 50, oversample: 2, lookahead: 0 };
   var CHOICE_NAMES = { lowpass: "Lowpass", highpass: "Highpass", bandpass: "Bandpass", notch: "Notch", peak: "Peak", lowshelf: "Low shelf", highshelf: "High shelf", allpass: "Allpass",
@@ -417,6 +420,12 @@
           P.params.map(function (q) { return el("option", { value: q.id, text: q.name + " (" + q.id + ")", selected: b.props.param === q.id }); }).concat([el("option", { value: "+", text: "A new knob…" })]));
         inspector.appendChild(el("label", {}, ["Sends the knob", ps]));
       }
+      if (b.type === "delay") {   // (10.4) a delay on a note value: the plugin gets a Tempo knob, which the apps set to the song's tempo
+        var TN = (window.PPPedals && window.PPPedals.tempo && window.PPPedals.tempo.NOTES) || SYNC_NOTES;
+        var syn = el("select", { onchange: function () { syncDelay(b, syn.value); commit("sync"); render(); } }, [el("option", { value: "", text: "Off (its own time)", selected: !b.props.sync })].concat(TN.map(function (n) { return el("option", { value: n[0], text: n[1], selected: b.props.sync === n[0] }); })));
+        inspector.appendChild(el("label", {}, ["Sync to tempo", syn]));
+        if (b.props.sync) inspector.appendChild(el("p", { class: "cpb-hint", text: (TN.filter(function (n) { return n[0] === b.props.sync; })[0] || ["", b.props.sync])[1] + " repeats at the plugin's Tempo knob. The apps turn that knob to the song's tempo, so the repeats stay in time." }));
+      }
       if (b.type === "code") inspector.appendChild(el("button", { type: "button", text: "Edit the code", onclick: function () { codeTarget = b.id; tab = "code"; render(); } }));
       t.ports.forEach(function (p) { if (!p.audio) inspector.appendChild(portControl(b, p)); });
       var feeds = t.ports.filter(function (p) { return p.audio; }).map(function (p) {
@@ -425,6 +434,27 @@
       });
       if (feeds.length) inspector.appendChild(el("p", { class: "cpb-hint", text: feeds.join(" · ") }));
       inspector.appendChild(el("button", { type: "button", class: "cpb-danger", text: "Remove this block", onclick: removeSelected }));
+    }
+    // (10.4) "Sync to tempo" on a delay: a knob block for the plugin's Tempo knob and a Maths block (note length × 60000 / BPM)
+    // wired into the delay's time, so it plays the same everywhere a Central FX plugin plays. Off takes them out again.
+    function syncDelay(b, note) {
+      var TN = (window.PPPedals && window.PPPedals.tempo && window.PPPedals.tempo.NOTES) || SYNC_NOTES, beats = (TN.filter(function (n) { return n[0] === note; })[0] || [])[2];
+      var old = b.props.syncBlocks || [], isTempo = function (q) { return q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"; };
+      P.graph.blocks = P.graph.blocks.filter(function (x) { return old.indexOf(x.id) < 0; });
+      P.graph.wires = P.graph.wires.filter(function (w) { return old.indexOf(wireParts(w.from)[0]) < 0 && old.indexOf(wireParts(w.to)[0]) < 0; });
+      delete b.props.sync; delete b.props.syncBlocks;
+      if (!note || !beats) {   // off: a Tempo knob we added goes when nothing else uses it
+        P.params.filter(function (q) { return q.auto && isTempo(q); }).forEach(function (q) { var used = P.graph.blocks.some(function (x) { return (x.type === "param" && x.props.param === q.id) || Object.keys(x.props).some(function (k) { return x.props[k] && x.props[k].param === q.id; }); }); if (!used) P.params.splice(P.params.indexOf(q), 1); });
+        return;
+      }
+      var tq = P.params.filter(isTempo)[0];
+      if (!tq) { if (P.params.length >= 32) { say("A plugin can have up to 32 knobs: take one out to sync the delay.", true); return; } var tid = "bpm", k = 2; while (P.params.some(function (q) { return q.id === tid; })) tid = "bpm" + k++; tq = { id: tid, name: "Tempo", min: 40, max: 240, default: 120, unit: "BPM", auto: true }; P.params.push(tq); }
+      var base = b.id.slice(0, 22), ids = [base + "_tempo", base + "_note"]; ids = ids.map(function (id) { var x = id, n = 2; while (block(x)) x = id + n++; return x; });
+      P.graph.wires = P.graph.wires.filter(function (w) { var to = wireParts(w.to); return !(to[0] === b.id && to[1] === "time"); }); delete b.props.time;
+      P.graph.blocks.push({ id: ids[0], type: "param", x: (b.x || 0) - 200, y: (b.y || 0) - 150, props: { param: tq.id } });
+      P.graph.blocks.push({ id: ids[1], type: "math", x: (b.x || 0) - 200, y: (b.y || 0) - 60, props: { op: "divide", a: Math.round(beats * 60000 * 1000) / 1000 } });
+      P.graph.wires.push({ from: ids[0] + ".out", to: ids[1] + ".b" }, { from: ids[1] + ".out", to: b.id + ".time" });
+      b.props.sync = note; b.props.syncBlocks = ids; b.props.maxTime = Math.min(10000, Math.max(b.props.maxTime || 2000, Math.ceil(beats * 60000 / (tq.min > 0 ? tq.min : 40))));
     }
     function addKnob(from) {
       var base = from ? from.name : "knob", id = base, i = 2; while (P.params.some(function (q) { return q.id === id; })) id = base + i++;

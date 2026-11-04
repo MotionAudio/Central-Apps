@@ -21,8 +21,11 @@ class G:
                   "description": description, "params": [], "presets": [], "graph": {"blocks": [], "wires": []}}
         self.col = 0
 
-    def knob(self, pid, name, lo, hi, default, unit="", log=False, group=None):
-        q = {"id": pid, "name": name, "min": lo, "max": hi, "default": default}
+    def knob(self, pid, name, lo, hi, default, unit="", log=False, group=None, sync=False):
+        q = {"id": pid}
+        if sync:   # (10.4) a delay's time knob: the apps can set it to a note at the song's tempo ("Sync to tempo")
+            q["tempoSync"] = True
+        q.update({"name": name, "min": lo, "max": hi, "default": default})
         if unit:
             q["unit"] = unit
         if log:
@@ -111,7 +114,7 @@ g.preset("Octave and fifth", mix=0.4, shimmer=0.5, fifth=0.35, decay=0.92); g.pr
 P.append(g.done())
 
 g = G("simple-delay", "Delay", "delay", "free", "A clean delay: set the time, how many repeats and how loud they are. The basic delay.")
-t = g.knob("time", "Time", 40, 1500, 380, "ms", True); fb = g.knob("feedback", "Repeats", 0, 0.9, 0.35); mix = g.knob("mix", "Mix", 0, 1, 0.25)
+t = g.knob("time", "Time", 40, 1500, 380, "ms", True, sync=True); fb = g.knob("feedback", "Repeats", 0, 0.9, 0.35); mix = g.knob("mix", "Mix", 0, 1, 0.25)
 g.chain(g.block("in", "input"), g.block("echo", "delay", {"time": t, "feedback": fb, "mix": mix, "tone": 7000, "maxTime": 1600}), g.block("out", "output"))
 g.preset("Slapback", time=110, feedback=0.1, mix=0.25); g.preset("Quarter at 80", time=750, feedback=0.35, mix=0.22); g.preset("Long trails", time=600, feedback=0.6, mix=0.3)
 P.append(g.done())
@@ -130,7 +133,7 @@ g.preset("Lead line", feedback=0.45, mix=0.3, tone=4500); g.preset("Ambient swel
 P.append(g.done())
 
 g = G("ping-pong-delay", "Ping-Pong Delay", "delay", "plugins", "Repeats that bounce left and right across the stereo field.")
-t = g.knob("time", "Time", 40, 1500, 330, "ms", True); fb = g.knob("feedback", "Repeats", 0, 0.9, 0.45); mix = g.knob("mix", "Mix", 0, 1, 0.3)
+t = g.knob("time", "Time", 40, 1500, 330, "ms", True, sync=True); fb = g.knob("feedback", "Repeats", 0, 0.9, 0.45); mix = g.knob("mix", "Mix", 0, 1, 0.3)
 tone = g.knob("tone", "Tone", 1500, 16000, 6000, "Hz", True); wid = g.knob("width", "Width", 0, 2, 1.3)
 g.chain(g.block("in", "input"), g.block("echo", "delay", {"time": t, "feedback": fb, "mix": 1, "tone": tone, "mode": "pingpong", "maxTime": 1600}), g.block("wide", "stereo", {"width": wid}))
 mixed(g, "wide", mix, "linear")
@@ -138,7 +141,7 @@ g.preset("Bouncy eighths", time=250, feedback=0.4, mix=0.3); g.preset("Wide voca
 P.append(g.done())
 
 g = G("tape-echo", "Tape Echo", "delay", "plugins", "Warm, wobbly repeats that darken and saturate as they fade, like a tape machine.")
-t = g.knob("time", "Time", 60, 1200, 420, "ms", True); fb = g.knob("feedback", "Repeats", 0, 0.9, 0.45); mix = g.knob("mix", "Mix", 0, 1, 0.3)
+t = g.knob("time", "Time", 60, 1200, 420, "ms", True, sync=True); fb = g.knob("feedback", "Repeats", 0, 0.9, 0.45); mix = g.knob("mix", "Mix", 0, 1, 0.3)
 wow = g.knob("wobble", "Wobble", 0, 1, 0.35); age = g.knob("age", "Tape age", 1200, 9000, 3200, "Hz", True); sat = g.knob("saturation", "Saturation", 0, 18, 6, "dB")
 g.block("in", "input", col=0, row=1); g.block("tm", "param", {"param": "time"}, col=0, row=0)
 g.block("w", "lfo", {"rate": 0.6, "from": -3, "to": 3, "shape": "sine"}, col=0, row=2); g.block("wa", "param", {"param": "wobble"}, col=0, row=3)

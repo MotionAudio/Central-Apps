@@ -31,6 +31,7 @@
     var d = e.data; if (!d || d.cu !== "inst") return; var m = d.msg || {};
     if (m.type === "shown") { if (window.PPInstrument) window.PPInstrument.show(); return; }
     if (m.type === "plans") { var was = JSON.stringify(plans); plans = { on: !!m.on, list: m.plans || {}, keeps: m.keeps || {} }; if (was !== JSON.stringify(plans)) window.dispatchEvent(new CustomEvent("pp-plans")); return; }
+    if (m.type === "tempo") { window.PPSongBpm = +m.bpm || 0; return; }   // (10.4) the song's tempo, for the delays that follow it
     if (m.type === "libraries") { if (window.PPInstrument && window.PPInstrument.syncLibraries) window.PPInstrument.syncLibraries(m.libraries || []); return; }   // (the sound libraries installed on this computer: their presets and boards)
     window.PPFeatures.emit(m);
   });

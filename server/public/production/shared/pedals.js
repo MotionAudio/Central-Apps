@@ -516,7 +516,67 @@
   function missing(tiers) { return (Array.isArray(tiers) ? tiers : [tiers]).filter(function (t) { return t && t !== "free" && !has(t); }); }
   function planText(tiers) { var m = Array.isArray(tiers) ? tiers : [tiers]; return m.filter(function (t) { return PLANS[t]; }).map(function (t) { return PLANS[t].name + " · " + PLANS[t].price; }).join(" + "); }
   function lockText(tiers) { var t = planText(tiers); return t ? "Part of " + t : ""; }
-  var api = { CATEGORIES: CATEGORIES, pedals: pedals, boards: BOARDS, byId: byId, PLANS: PLANS, FREE: FREE, boardPlans: boardPlans, soundTier: soundTier, has: has, keeps: keeps, needsText: needsText, busy: busy, missing: missing, planText: planText, lockText: lockText,
+  // ---- (10.4) tempo sync: every delay can follow the song's tempo, on a note value. One table for every app (the DAW,
+  // the pads and tracks, the pedal boards, the Central FX plugins); the C and Python hosts carry the same numbers.
+  // A note's length is in beats (a beat is a quarter note), so its time is beats × 60000 / BPM ms.
+  var NOTES = [["1/1", "Whole", 4], ["1/2.", "Dotted half", 3], ["1/2", "Half", 2], ["1/2T", "Half triplet", 4 / 3], ["1/4.", "Dotted quarter", 1.5], ["1/4", "Quarter", 1],
+    ["1/4T", "Quarter triplet", 2 / 3], ["1/8.", "Dotted eighth", 0.75], ["1/8", "Eighth", 0.5], ["1/8T", "Eighth triplet", 1 / 3], ["1/16.", "Dotted sixteenth", 0.375],
+    ["1/16", "Sixteenth", 0.25], ["1/16T", "Sixteenth triplet", 1 / 6], ["1/32", "Thirty-second", 0.125]];
+  var NOTE_BEATS = {}; NOTES.forEach(function (n) { NOTE_BEATS[n[0]] = n[2]; });
+  function noteBeats(note) { return NOTE_BEATS[note] || 0; }
+  function noteName(note) { var n = NOTES.filter(function (x) { return x[0] === note; })[0]; return n ? n[1] : note; }
+  function noteMs(note, bpm) { var b = noteBeats(note); bpm = +bpm; return b && bpm > 0 ? b * 60000 / Math.max(20, Math.min(400, bpm)) : 0; }
+  function clampN(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+  // the catalogue's delay pedals: which control takes the time, and in what (ms, s, or a BPM with the pedal's own note)
+  var DIG_NOTES = { "1/2.": 0, "1/2": 1, "1/2T": 2, "1/4.": 3, "1/4": 4, "1/4T": 5, "1/8.": 6, "1/8": 7, "1/8T": 8, "1/16.": 9, "1/16": 10, "1/16T": 11, "1/32": 13 };
+  var PEDAL_SYNC = {
+    gxdelay: { ms: ["timt_l", "timt_r"] }, gxecho: { ms: ["timt_l", "timt_r"] }, duckdelay: { ms: ["TIME"] }, "gx-duckdelay-st": { ms: ["TIME"] },
+    tubedelay: { ms: ["delay"] }, zamdelay: { ms: ["time"], set: { sync: 0 } }, "ace-delay": { ms: ["time"] }, slapback: { ms: ["dt0"] }, "triple-tap": { ms: ["cdel"] },
+    "ma-analog-delay": { ms: ["time"] }, "ma-tape-delay": { ms: ["time"] }, "ma-digital-delay": { ms: ["time"] }, "ma-multihead": { ms: ["time"] }, "ma-reverse-delay": { ms: ["time"] },
+    "invada-delay": { s: ["delay1"] }, "munge-delay": { s: ["delay1"] }, "swh-revdelay": { s: ["delay_time"] },
+    digdelay: { bpm: "BPM", noteSym: "NOTES", noteMap: DIG_NOTES, set: { SYNC: 0 } }, "gx-digidelay-st": { bpm: "BPM", noteSym: "NOTES", noteMap: DIG_NOTES, set: { SYNC: 0 } },
+    calfvdelay: { bpm: "bpm", subdiv: true }, "calfrev-delay": { bpm: "bpm", subdiv: true, set: { sync: 0 } },
+    "ma-dotted-delay": { bpm: "bpm", fixed: "1/8." }, echocat: { bpm: "bpm", own: true }
+  };
+  // the ranges of a pedal's controls where the app doesn't know them yet (the Pi's scan or the generated list win)
+  var SYNC_RANGES = { timt_l: [1, 5000], timt_r: [1, 5000], TIME: [1, 2000], delay: [1, 2500], time: [1, 8000], dt0: [0, 1000], cdel: [0, 2700], delay1: [0.02, 2], delay_time: [0, 5], BPM: [24, 360], bpm: [30, 300] };
+  function pedalSync(p) { p = typeof p === "string" ? byId(p) : p; return p ? PEDAL_SYNC[p.id] || null : null; }
+  // the values a synced pedal takes at a BPM: {sym: value}; ctl(sym) -> {min, max} or null (falls back to SYNC_RANGES)
+  function pedalSyncValues(p, note, bpm, ctl) {
+    var s = pedalSync(p), out = {}; if (!s || !(bpm > 0)) return null;
+    function range(sym) { var c = ctl ? ctl(sym) : null; if (c && !c.guess && c.max > c.min) return [+c.min, +c.max]; return SYNC_RANGES[sym] || [0, 1e9]; }
+    if (s.ms || s.s) { var ms = noteMs(note, bpm); if (!ms) return null; (s.ms || s.s).forEach(function (sym) { var r = range(sym), v = s.s ? ms / 1000 : ms; out[sym] = clampN(Math.round(v * 1000) / 1000, r[0], r[1]); }); }
+    else if (s.bpm) {
+      var r = range(s.bpm), want = noteBeats(note), base = s.fixed ? noteBeats(s.fixed) : 1, b = bpm, n = note;
+      if (s.own) { out[s.bpm] = clampN(Math.round(bpm * 100) / 100, r[0], r[1]); }
+      else if (s.noteSym) { if (s.noteMap[n] == null) { n = want >= 3 ? "1/2" : "1/32"; b = bpm * noteBeats(n) / want; } out[s.bpm] = clampN(Math.round(b * 100) / 100, r[0], r[1]); out[s.noteSym] = s.noteMap[n]; }
+      else if (s.subdiv) { var sd = 0, tt = 0; for (var k = 1; k <= 16 && !sd; k++) { var t = want * k; if (Math.abs(t - Math.round(t)) < 1e-6 && Math.round(t) >= 1 && Math.round(t) <= 16) { sd = k; tt = Math.round(t); } }
+        if (!sd) return null; out[s.bpm] = clampN(Math.round(bpm * 100) / 100, r[0], r[1]); out.subdiv = sd; out.time_l = tt; out.time_r = tt; }
+      else { if (!want) return null; b = bpm * base / want; out[s.bpm] = clampN(Math.round(b * 100) / 100, r[0], r[1]); }   // (a fixed note: the pedal's BPM moves so its note lands on ours)
+    }
+    Object.keys(s.set || {}).forEach(function (k) { out[k] = s.set[k]; });
+    return out;
+  }
+  // a Central FX plugin (.cmfx.json): its tempo knob (BPM) and the knob that sets a delay's time in ms
+  function pluginTempoParam(pl) { return ((pl && pl.params) || []).filter(function (q) { return q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"; })[0] || null; }
+  function pluginTimeParam(pl) {
+    var ps = (pl && pl.params) || [], blocks = (pl && pl.graph && pl.graph.blocks) || [];
+    var flagged = ps.filter(function (q) { return q.tempoSync === true; })[0]; if (flagged) return flagged;
+    if (!blocks.some(function (b) { return b.type === "delay"; })) return null;
+    return ps.filter(function (q) { return q.tempoSync !== false && String(q.unit || "").toLowerCase() === "ms" && /^(time|delay|delaytime|delay_time|echo)$/i.test(q.id); })[0] || null;
+  }
+  // a plugin's knob values as they play at a BPM: the tempo knob follows unless syncTempo is false (on by default, 10.3);
+  // the time knob follows when x.syncNote is a note (off by default, so a saved delay keeps its sound)
+  function pluginSyncValues(pl, values, x, bpm) {
+    var v = {}; Object.keys(values || {}).forEach(function (k) { v[k] = values[k]; }); x = x || {}; if (!(bpm > 0)) return v;
+    var tq = pluginTempoParam(pl), mq = pluginTimeParam(pl);
+    if (tq && x.syncTempo !== false) v[tq.id] = clampN(+bpm, tq.min != null ? +tq.min : 20, tq.max != null ? +tq.max : 300);
+    if (mq && x.syncNote && noteBeats(x.syncNote)) v[mq.id] = clampN(noteMs(x.syncNote, bpm), mq.min != null ? +mq.min : 1, mq.max != null ? +mq.max : 4000);
+    return v;
+  }
+  var tempo = { NOTES: NOTES, beats: noteBeats, name: noteName, ms: noteMs, pedal: pedalSync, pedalValues: pedalSyncValues, pluginTempo: pluginTempoParam, pluginTime: pluginTimeParam, pluginValues: pluginSyncValues };
+
+  var api = { CATEGORIES: CATEGORIES, pedals: pedals, boards: BOARDS, byId: byId, tempo: tempo, PLANS: PLANS, FREE: FREE, boardPlans: boardPlans, soundTier: soundTier, has: has, keeps: keeps, needsText: needsText, busy: busy, missing: missing, planText: planText, lockText: lockText,
     pedalLocked: function (p) { p = typeof p === "string" ? byId(p) : p; return !!(p && p.tier && !has(p.tier)); },
     pedalStopped: function (p) { p = typeof p === "string" ? byId(p) : p; return !!(p && p.tier && !keeps(p.tier)); },
     boardLocked: function (b) { return missing(b && (b.plans || boardPlans(b))).length > 0; } };

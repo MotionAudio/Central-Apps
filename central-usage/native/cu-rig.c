@@ -158,6 +158,7 @@ typedef struct {
   /* the Studio effects (raw values by symbol) */ float sIn, sThr, sRatio, sMakeup, sOut, la[2][128]; int laPos[2], lhold[2]; float gr;
   /* a plugin of the musician's own (VST3, CLAP, AU, LV2) */ PhPlug *plug; char plugError[200];
   /* (10.3) one of Central Pedals (mapedals/): its own DSP, one per side; maCtl: each control's place on it */ MpFx *ma[2]; int maCtl[24];
+  float dms;   /* (10.4) a delay timed by a BPM (and its note): its time in ms, else 0 */
   int dirty;
 } Fx;
 typedef struct { Fx fx[MAXFX]; int n; int stereoIn; float inGain, gateDb, gateEnv, gateGain; int gateOn; } Chain;
@@ -206,6 +207,20 @@ static void fx_params(Fx *x) {   /* control values -> normalized roles */
     Ctl *c = &x->ctl[k]; if (c->role < 0 || x->has[c->role]) continue; float v = x->val[k], n;
     if (c->max > c->min) n = c->log && c->min > 0 && v > 0 ? (float)(log(v / c->min) / log(c->max / c->min)) : (v - c->min) / (c->max - c->min); else n = 0.5f;
     x->p[c->role] = clampf(n, 0, 1); x->raw[c->role] = v; x->rmax[c->role] = c->max; snprintf(x->unit[c->role], sizeof x->unit[c->role], "%s", c->unit); x->has[c->role] = 1;
+  }
+  /* (10.4) a delay pedal timed by a BPM (Guitarix Digital Delay, Echo Cat, Calf Vintage / Reverse Delay): its time is the
+   * note at that BPM - the Digital Delay's NOTES list, Calf's time / subdivide, else one beat - as the real plugin plays it */
+  x->dms = 0;
+  if (x->type == FX_DELAY) {
+    int bi = -1, ni = -1, si = -1, ti = -1;
+    for (int k = 0; k < x->nctl; k++) { const char *s = x->ctl[k].sym; if (bi < 0 && (!strcmp(x->ctl[k].unit, "bpm") || !strcmp(s, "BPM") || !strcmp(s, "bpm"))) bi = k; if (!strcmp(s, "NOTES")) ni = k; if (!strcmp(s, "subdiv")) si = k; if (!strcmp(s, "time_l")) ti = k; }
+    if (bi >= 0) {
+      static const float NB[18] = { 3, 2, 4.0f / 3, 1.5f, 1, 2.0f / 3, 0.75f, 0.5f, 1.0f / 3, 0.375f, 0.25f, 1.0f / 6, 0.1875f, 0.125f, 1.0f / 12, 0.09375f, 0.0625f, 1.0f / 24 };
+      float bpm = clampf(x->val[bi], 20, 400), beats = 1;
+      if (ni >= 0) { int n = (int)lrintf(x->val[ni]); if (n >= 0 && n < 18) beats = NB[n]; }
+      else if (si >= 0 && ti >= 0) beats = clampf(x->val[ti], 1, 16) / clampf(x->val[si], 1, 16);
+      x->dms = clampf(beats * 60000 / bpm, 1, 4000);
+    }
   }
   x->dirty = 1;
 }
@@ -346,7 +361,7 @@ static inline float fx_sample(Fx *x, int s, float y) {
       float sub = x->hold[s] * x->env[s] * 1.2f, up = bq(&f[2], fabsf(y)) * 1.5f, dn = x->p[R_DOWN], upl = x->has[R_UP] ? x->p[R_UP] : 0;
       return y * (x->has[R_MIX] ? 1 - x->p[R_MIX] : 0.7f) + sub * dn + up * upl; }
     case FX_DELAY: {
-      float d = ms_of(x, 60, 1200) * (float)FS / 1000, fb = clampf(x->p[R_FEEDBACK], 0, 0.95f), m = x->has[R_MIX] ? x->p[R_MIX] : 0.35f;
+      float d = (x->dms > 0 ? x->dms : ms_of(x, 60, 1200)) * (float)FS / 1000, fb = clampf(x->p[R_FEEDBACK], 0, 0.95f), m = x->has[R_MIX] ? x->p[R_MIX] : 0.35f;
       float e = line_get(&x->line[s], d); line_put(&x->line[s], y + bq(&f[0], e) * fb); return y + e * m * 1.4f; }
     case FX_REVERB: case FX_SHIMMER: {
       float size = x->has[R_SIZE] && !strcmp(x->unit[R_SIZE], "s") ? clampf(x->raw[R_SIZE] / 8, 0, 1) : x->p[R_SIZE], room = 0.7f + 0.28f * size, damp = 0.2f + 0.6f * (x->has[R_DAMP] ? x->p[R_DAMP] : 0.4f), m = x->has[R_MIX] ? x->p[R_MIX] : 0.3f;

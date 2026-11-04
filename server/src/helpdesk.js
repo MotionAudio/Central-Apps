@@ -21,7 +21,7 @@ import * as store from "./storage.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const clip = (s, n) => String(s == null ? "" : s).slice(0, n);
-export const CATEGORIES = ["Getting started", "Central Pedal", "Main admins and admins", "Musicians", "Lights", "Slides, lyrics and video", "Stream and shorts", "Planning Center and CCLI", "Central Production", "Keys, plans and billing", "Troubleshooting"];
+export const CATEGORIES = ["Getting started", "Central Pedal", "Sound and effects", "Main admins and admins", "Musicians", "Lights", "Slides, lyrics and video", "Stream and shorts", "Planning Center and CCLI", "Central Production", "Keys, plans and billing", "Troubleshooting"];
 const SLUG = /^[a-z0-9][a-z0-9-]{1,79}$/;
 const slugify = (s) => clip(String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""), 80) || "article";
 
