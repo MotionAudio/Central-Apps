@@ -183,12 +183,14 @@ APPS = [
                 ("Mixer and automation", "Sends, buses, automation, a piano roll and a drum grid with quantize and humanize."),
             ]),
             ("Plugins", [
-                ("Real VST3 and CLAP plugins", "Live while you record, and frozen into the track for playback."),
+                ("Real VST3 and CLAP plugins", "They play live on every track as the song plays, and a knob you turn is heard in about a fifth of a second. Freezing a track is there to save power."),
+                ("Play a keyboard through them", "Notes from a MIDI keyboard go through the track's plugins, with only a few milliseconds of delay."),
+                ("Delays in time", "Every delay can follow the song's tempo, tempo changes included: pick a note, from a whole note to a 1/32, dotted or triplet."),
                 ("Make your own plugins", "Drag blocks (filter, delay, reverb, drive, chorus, compressor, pitch, LFO, knobs) and wire them up, or write code."),
                 ("They play everywhere", "Plugins you make play in every app: the pedal, Central Control, Central Usage, the website and Production."),
             ]),
             ("Getting your work out", [
-                ("Export", "WAV, MP3, stems, or SF2/SFZ instruments."),
+                ("Export", "WAV, MP3, stems, or SF2/SFZ instruments, with every plugin's automation in the sound."),
                 ("Install into my apps", "Puts what you made into Central Control and Central Usage on this computer."),
                 ("Publish", "Send it to Make & sell or Central Tracks, and get paid when people use it."),
                 ("Saved to your account", "The app and the website open the same projects."),

@@ -183,6 +183,23 @@
       ]
     },
     {
+      "slug": "production-plugins",
+      "title": "VST3 and CLAP plugins in Central Production",
+      "category": "Central Production",
+      "summary": "Put your own plugins on a track, hear a knob change straight away, play a keyboard through them and export with their automation.",
+      "body": [
+        { "t": "steps", "items": [
+          "Open the mixer, press + Effect on a track and choose Your VST3 / CLAP plugins…, then the plugin. The first time, it looks for the plugins on this computer.",
+          "Press play: the track plays through its plugins, lined up with every other track. Turn a knob in the panel, or press Open its window to use the plugin's own controls.",
+          "To set how soon a knob is heard while the song plays, open Settings → Audio → Plugin response: Fast (about 100 ms, for a quick computer), Balanced (about 200 ms) or Safe (about 400 ms). If the computer can't keep up, it gives the plugins more time by itself and tells you.",
+          "Play a MIDI keyboard on an instrument track that has plugins and you hear them on every note. Settings → Audio → Keyboard through plugins chooses Lowest delay (a few milliseconds: the SoundFont sound and the track's plugins straight to your sound card) or Through the whole track (everything on the track, about 10 to 20 ms more).",
+          "Automate a plugin knob from the track's automation lanes (A). Exports, stems and freezing all include the automation.",
+          "On a slower computer, right-click a track's name and choose Freeze to play it from a rendered copy. It frees the computer's power; change anything on the track and it plays live again."
+        ] },
+        { "t": "p", "text": "VST3 and CLAP plugins play in the Central Production and Central Usage apps on Mac, Windows and Linux. In the website version, Central FX plugins (including the ones you build) play, and a track frozen in the app plays its frozen sound." }
+      ]
+    },
+    {
       "slug": "delays-in-time",
       "title": "Delays that stay in time with the song",
       "category": "Sound and effects",
