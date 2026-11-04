@@ -48,6 +48,54 @@ check("without Central Plugins the better ones fall back to the basics", () => {
   assert.notEqual(basic.comp.ratio, 20); assert.equal(pro.comp.ratio, 20);
 });
 check("effects off = nothing to do", () => { assert.equal(core.plan({ on: false, eq: { on: true, low: 6 } }, true, 72), null); assert.equal(core.plan({ on: true }, true, 72), null); });
+check("(10.4) every note value: dotted 1/8 at 120 bpm = 0.375 s, 1/8 triplet, 1/32, a whole note (Central Plugins); without it only 1/4 and 1/8", () => {
+  const pl = (time, pro, extra) => core.plan({ on: true, delay: Object.assign({ on: true, send: 100, time, feedback: 0 }, extra || {}) }, pro, 120).delay.seconds;
+  assert.equal(pl("1/8.", true), 0.375); assert.ok(Math.abs(pl("1/8T", true) - 1 / 6) < 1e-9); assert.equal(pl("1/32", true), 0.0625); assert.equal(pl("1/1", true), 2);
+  assert.equal(pl("1/8.", false), 0.5, "basic: a quarter instead");
+});
+check("(10.4) a delay not synced plays its own time in ms (Central Plugins); a saved one with no sync setting stays synced", () => {
+  const pl = (dl, pro) => core.plan({ on: true, delay: Object.assign({ on: true, send: 100, feedback: 0 }, dl) }, pro, 120).delay.seconds;
+  assert.equal(pl({ time: "1/8", sync: false, ms: 300 }, true), 0.3);
+  assert.equal(pl({ time: "1/8", sync: false, ms: 300 }, false), 0.25, "basic: synced");
+  assert.equal(pl({ time: "1/8" }, true), 0.25, "no sync setting: synced");
+  const n = rate, x = new Int16Array(n); x[0] = 16000; const p = core.plan({ on: true, delay: { on: true, send: 100, time: "1/4", sync: false, ms: 300, feedback: 0 } }, true, 120), r = core.processStem(x, null, n, rate, p);
+  assert.ok(Math.abs(r.L[Math.round(rate * 0.3)]) > 1000, "a repeat at 0.3 s");
+});
+// (10.4) the note table every app uses (js/pedals.js): pedals, Central FX plugins
+const PED = (await import("node:module")).createRequire(import.meta.url)(path.join(here, "js/pedals.js")), TP = PED.tempo;
+check("(10.4) note lengths: 1/8 at 120 = 250 ms, dotted 1/8 = 375 ms, 1/4 triplet = 333 ms, 14 note values", () => {
+  assert.equal(TP.ms("1/8", 120), 250); assert.equal(TP.ms("1/8.", 120), 375); assert.ok(Math.abs(TP.ms("1/4T", 120) - 1000 / 3) < 1e-9); assert.equal(TP.NOTES.length, 14);
+});
+check("(10.4) delay pedals synced: ms knobs (both sides of a stereo delay), seconds knobs, a BPM with its note list, Calf's subdivide, a fixed-note pedal's BPM", () => {
+  assert.deepEqual(TP.pedalValues("gxdelay", "1/8.", 120), { timt_l: 375, timt_r: 375 });
+  assert.deepEqual(TP.pedalValues("invada-delay", "1/4", 120), { delay1: 0.5 });
+  assert.deepEqual(TP.pedalValues("digdelay", "1/8T", 90), { BPM: 90, NOTES: 8, SYNC: 0 });
+  assert.deepEqual(TP.pedalValues("digdelay", "1/1", 72), { BPM: 36, NOTES: 1, SYNC: 0 }, "a whole note: a half at half the BPM");
+  assert.deepEqual(TP.pedalValues("calfvdelay", "1/4T", 100), { bpm: 100, subdiv: 3, time_l: 2, time_r: 2 });
+  assert.deepEqual(TP.pedalValues("ma-dotted-delay", "1/4", 120, () => ({ min: 50, max: 200 })), { bpm: 90 }, "its dotted eighth at 90 = a quarter at 120");
+  assert.deepEqual(TP.pedalValues("ma-analog-delay", "1/1", 60, () => ({ min: 20, max: 600 })), { time: 600 }, "held to the knob's range");
+  assert.equal(TP.pedalValues("booster", "1/8", 120), null, "not a delay");
+  const missing = PED.pedals.filter((p) => p.category === "delay" && !TP.pedal(p)).map((p) => p.id).sort();
+  assert.deepEqual(missing, ["gx-tape-st", "mbdelay", "mbecho", "mda-delay", "mda-dubdelay", "swh-delayorama", "swh-tape", "tap-echo", "zyn-echo"], "the delays without a time knob the app can set reliably");
+});
+check("(10.4) Central FX delays: the time knob found (flagged or by name), on a note; the tempo knob on by default; off keeps the knob", () => {
+  const coll = (id) => JSON.parse(fs.readFileSync(path.join(here, "production/plugin-collection", id + ".cmfx.json"), "utf8"));
+  ["simple-delay", "tape-echo", "ping-pong-delay"].forEach((id) => assert.equal((TP.pluginTime(coll(id)) || {}).id, "time", id));
+  assert.equal(TP.pluginTime(coll("dotted-eighth")), null); assert.equal(TP.pluginTempo(coll("dotted-eighth")).id, "bpm");
+  assert.deepEqual(TP.pluginValues(coll("simple-delay"), { time: 900 }, { syncNote: "1/8" }, 120), { time: 250 });
+  assert.deepEqual(TP.pluginValues(coll("simple-delay"), { time: 900 }, {}, 120), { time: 900 });
+  assert.equal(TP.pluginValues(coll("dotted-eighth"), {}, {}, 96).bpm, 96); assert.equal(TP.pluginValues(coll("dotted-eighth"), { bpm: 72 }, { syncTempo: false }, 96).bpm, 72);
+});
+// (10.4) Central Control: the shared delay's notes and a channel insert's knobs at the song's tempo (central-usage/app/mixer-model.js)
+const MM = (await import("node:module")).createRequire(import.meta.url)(path.join(here, "central-usage/app/mixer-model.js"));
+check("(10.4) Central Control: the shared delay on every note value; a channel insert's time knob on a note and its tempo knob", () => {
+  assert.equal(MM.delayMs({ sync: "1/16d", bpm: 120 }), 187.5); assert.equal(MM.delayMs({ sync: "1/1", bpm: 120 }), 2000); assert.equal(MM.delayMs({ sync: "ms", ms: 420, bpm: 120 }), 420);
+  const sd = JSON.parse(fs.readFileSync(path.join(here, "production/plugin-collection/simple-delay.cmfx.json"), "utf8")), de = JSON.parse(fs.readFileSync(path.join(here, "production/plugin-collection/dotted-eighth.cmfx.json"), "utf8"));
+  assert.deepEqual(MM.insertValues({ values: { time: 900 }, syncNote: "1/8." }, sd, 100), { time: 450 });
+  assert.equal(MM.insertValues({ values: {} }, de, 84).bpm, 84);
+  const s = MM.create(); MM.apply(s, { op: "inserts", i: 0, list: [{ id: "simple-delay", values: { time: 500 }, syncNote: "1/4T" }, { id: "dotted-eighth", values: {}, syncTempo: false }] }, { role: "admin" });
+  assert.equal(s.inputs[0].ins[0].syncNote, "1/4T"); assert.equal(s.inputs[0].ins[1].syncTempo, false);
+});
 check("a 60 s stereo track with every basic effect renders in under 6 s here (a Pi 4 is ~4x slower)", () => {
   const n = rate * 60, L = new Int16Array(n), R = new Int16Array(n); for (let i = 0; i < n; i++) { L[i] = (Math.random() - .5) * 8000; R[i] = (Math.random() - .5) * 8000; }
   const p = core.plan({ on: true, gate: { on: true, threshold: -50 }, eq: { on: true, lowCut: 80, low: 2, mid: -3, high: 3 }, comp: { on: true, amount: 40 }, reverb: { on: true, send: 20, type: "room" }, delay: { on: true, send: 15, time: "1/8" } }, false, 72);

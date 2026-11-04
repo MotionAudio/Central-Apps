@@ -288,6 +288,57 @@ await check("Pedal board: pedals from the catalogue in order, moved, knobs set; 
   await page.locator("[data-mv='-1']").click(); const ch = await T(() => CP.project().data.chain.map((x) => x[0])); assert.ok(!/delay/i.test(ch[0]) && /delay/i.test(ch[1]), ch.join());
   const it = await publishMake("board"); assert.ok(it.files.some((f) => f.role === "source" && /\.json$/.test(f.name)));
 });
+await check("(10.4) every delay follows the tempo: the DAW's delay (1/8 = 250 ms and dotted 1/8 = 375 ms at 120 BPM, its own time when not synced, a tempo change inside an export), an old project's delay keeps its note, Central FX delays on a note, a builder delay synced", async () => {
+  const r = await T(async () => {
+    await CPT.create("track", { name: "Tempo" });
+    const rate = 48000, imp = new AudioBuffer({ numberOfChannels: 2, length: rate / 10, sampleRate: rate }); imp.getChannelData(0)[480] = 1; imp.getChannelData(1)[480] = 1;   // (10 ms in: a clip fades in over its first 3 ms)
+    const src = CDaw.addAudio(imp), uid = CDaw.uid, out = {};
+    const setup = (ins, bpm, tempos, at) => CDaw.edit("tempo test", (p) => { p.bpm = bpm; p.tempos = tempos || []; p.sigs = []; p.tracks = []; p.master.inserts = []; const t = CDaw.newTrack("audio", "Click");
+      t.clips = (at || [0]).map((b) => ({ id: uid("c"), kind: "audio", start: b, len: 1, name: "", audio: { src, offset: 0, gain: 0, fadeIn: 0, fadeOut: 0 } })); t.inserts = [ins]; p.tracks.push(t); });
+    const peakMs = (d, fromS, toS) => { let bi = -1, bv = 0; for (let i = Math.round(fromS * rate); i < Math.min(d.length, toS * rate); i++) if (Math.abs(d[i]) > bv) { bv = Math.abs(d[i]); bi = i; } return Math.round((bi / rate - fromS) * 1000 * 10) / 10; };
+    const echo = async (ins, bpm) => { setup(ins, bpm); const b = await CDaw.render({ from: 0, to: 4, tail: 0, rate }); return peakMs(b.getChannelData(0), 0.05, 1.9) + 50 - 10; };
+    const dly = (params) => ({ id: uid("f"), type: "delay", on: true, params: Object.assign({ feedback: 0, mix: 1 }, params) });
+    out.eighth = await echo(dly({ sync: 1, note: 8 }), 120);
+    out.dotted = await echo(dly({ sync: 1, note: 7 }), 120);
+    out.own = await echo(dly({ sync: 0, ms: 300 }), 120);
+    out.noteNames = CDaw.fxDef("delay").params.filter((q) => q[0] === "note")[0][7].length;
+    // a tempo change at bar 2 (120 -> 60 BPM): the second click's eighth is 500 ms in the export
+    const b2 = CDaw.tempo.barToBeat(2); setup(dly({ sync: 1, note: 8 }), 120, [{ bar: 2, bpm: 60 }], [0, b2]);
+    const bufT = await CDaw.render({ from: 0, to: b2 + 4, tail: 0, rate }), t2 = CDaw.tempo.beatToSec(b2);
+    out.before = peakMs(bufT.getChannelData(0), 0.05, 1.9) + 40; out.after = peakMs(bufT.getChannelData(0), t2 + 0.05, t2 + 1.9) + 40;
+    // a project saved before 10.4: its delay ("time": dotted eighth) plays the same note
+    const old = JSON.parse(JSON.stringify(CDaw.project())); old.tracks[0].inserts = [{ id: "fo", type: "delay", on: true, params: { time: 3, feedback: 0, mix: 1 } }]; old.tempos = [];
+    CDaw.load(old); const mi = CDaw.project().tracks[0].inserts[0].params; out.migrated = [mi.note, mi.time === undefined];
+    // a Central FX delay (the collection's Delay) with "Sync to tempo" on a quarter: 500 ms at 120 BPM, wherever its knob was
+    const sd = JSON.parse(JSON.stringify(window.CMFxCollection.filter((p) => p.id === "simple-delay")[0]));
+    out.cmfx = await echo({ id: uid("f"), type: "cmfx", on: true, plugin: sd, params: { time: 900, feedback: 0, mix: 1 }, syncNote: "1/4" }, 120);
+    out.cmfxOwn = await echo({ id: uid("f"), type: "cmfx", on: true, plugin: sd, params: { time: 900, feedback: 0, mix: 1 } }, 120);
+    // the same plugin played directly with the values every app gives it (the pedal app, the boards, Central Control)
+    const L = new Float32Array(rate), R = new Float32Array(rate); L[0] = R[0] = 1;
+    const vals = PPPedals.tempo.pluginValues(sd, { time: 900, feedback: 0, mix: 1 }, { syncNote: "1/8T" }, 100), ren = CMFx.render(sd, rate, L, R, vals);
+    out.direct = [Math.round(vals.time * 10) / 10, peakMs(ren.left, 0.05, 0.99) + 50];
+    return out;
+  });
+  const near = (a, b, tol, what) => assert.ok(Math.abs(a - b) <= tol, what + ": " + a + " ms, wanted " + b);
+  near(r.eighth, 250, 1, "1/8 at 120 BPM"); near(r.dotted, 375, 1, "dotted 1/8 at 120 BPM"); near(r.own, 300, 1, "its own time (not synced)");
+  assert.equal(r.noteNames, 14, "every note value");
+  near(r.before, 250, 1, "1/8 before the tempo change"); near(r.after, 500, 2, "1/8 after the change to 60 BPM");
+  assert.deepEqual(r.migrated, [7, true], "the old delay's dotted eighth");
+  near(r.cmfx, 500, 2, "a Central FX delay synced to a quarter"); near(r.cmfxOwn, 900, 2, "the same plugin on its own time");
+  near(r.direct[0], 200, 0.1, "an eighth triplet at 100 BPM"); near(r.direct[1], 200, 2, "played directly");
+  // the plugin builder: "Sync to tempo" on a delay makes a Tempo knob and wires the note into the delay's time
+  await T(() => CPT.create("plugin", { name: "Synced Echo" })); await page.waitForSelector(".cp-plugin .cpb-block");
+  await page.selectOption(".cpb-presets", { label: "Tape Delay" });
+  await page.waitForFunction(() => (CP.project().data.graph.blocks || []).some((b) => b.type === "delay"), null, { timeout: 5000 });
+  await page.locator(".cpb-block.cpb-t-delay").first().dispatchEvent("pointerdown");
+  await page.locator("label:has-text('Sync to tempo') select").selectOption("1/8.");
+  await page.waitForFunction(() => (CP.project().data.graph.blocks || []).some((b) => b.type === "delay" && b.props.sync), null, { timeout: 5000 });   // (the builder hands its changes on after 150 ms)
+  const pb = await T(() => { const P = JSON.parse(JSON.stringify(CP.project().data)), d = P.graph.blocks.filter((b) => b.type === "delay")[0], rate = 48000, L = new Float32Array(rate), R = new Float32Array(rate); L[0] = R[0] = 1;
+    const tq = PPPedals.tempo.pluginTempo(P), ok = CMFx.check(P).ok, vals = PPPedals.tempo.pluginValues(P, {}, {}, 120), ren = CMFx.render(P, rate, L, R, vals); let bi = 0, bv = 0; for (let i = Math.round(0.1 * rate); i < rate; i++) if (Math.abs(ren.left[i]) > bv) { bv = Math.abs(ren.left[i]); bi = i; }
+    return { sync: d.props.sync, tempo: tq && tq.unit, ok, echo: Math.round(bi / rate * 1000) }; });
+  assert.equal(pb.sync, "1/8."); assert.equal(pb.tempo, "BPM"); assert.ok(pb.ok, "the synced plugin checks");
+  assert.ok(Math.abs(pb.echo - 375) <= 3, "the builder's synced delay at 120 BPM: " + pb.echo + " ms");
+});
 await shot("09-end");
 
 console.log(errs.length ? "\npage errors:\n  " + errs.slice(0, 8).join("\n  ") : "");

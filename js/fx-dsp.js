@@ -67,11 +67,12 @@ window.PP_FX_CORE = function () {
     var type = REVERBS[rv.type] && (pro || !PRO_REVERBS[rv.type]) ? rv.type : "room", d = REVERBS[type];
     return { type: type, combs: d[0], feedback: Math.min(0.97, d[1] + (pro ? clamp(rv.size == null ? 0 : rv.size, -50, 50) / 50 * 0.06 : 0)), damp: d[2], pre: d[3], bright: d[4], send: clamp(rv.send, 0, 100) / 100 };
   }
-  var DIVS = { "1/4": 1, "1/8": 0.5, "1/2": 2, "1/16": 0.25, "1/4.": 1.5, "1/8.": 0.75 }, BASIC_DIVS = { "1/4": 1, "1/8": 1 };
+  var DIVS = { "1/1": 4, "1/2.": 3, "1/2": 2, "1/2T": 4 / 3, "1/4.": 1.5, "1/4": 1, "1/4T": 2 / 3, "1/8.": 0.75, "1/8": 0.5, "1/8T": 1 / 3, "1/16.": 0.375, "1/16": 0.25, "1/16T": 1 / 6, "1/32": 0.125 }, BASIC_DIVS = { "1/4": 1, "1/8": 1 };   // (10.4: every note value)
   function delayParams(dl, pro, bpm) {
     if (!dl || !dl.on || !(dl.send > 0)) return null;
     var div = DIVS[dl.time] && (pro || BASIC_DIVS[dl.time]) ? dl.time : "1/4", beat = 60 / clamp(bpm || 72, 30, 300);
-    return { seconds: Math.min(2.5, beat * DIVS[div]), feedback: clamp(dl.feedback == null ? 30 : dl.feedback, 0, pro ? 90 : 60) / 100, send: clamp(dl.send, 0, 100) / 100,
+    var own = pro && dl.sync === false;   // (10.4) not synced: its own time in ms (Central Plugins)
+    return { seconds: own ? clamp(Number(dl.ms) || 375, 20, 2500) / 1000 : Math.min(2.5, beat * DIVS[div]), feedback: clamp(dl.feedback == null ? 30 : dl.feedback, 0, pro ? 90 : 60) / 100, send: clamp(dl.send, 0, 100) / 100,
       pingpong: !!(pro && dl.pingpong), tone: pro && dl.tone ? clamp(dl.tone, 800, 16000) : 9000 };
   }
 

@@ -10,6 +10,7 @@
  "params": [
   {
    "id": "time",
+   "tempoSync": true,
    "name": "Time",
    "min": 40,
    "max": 1500,

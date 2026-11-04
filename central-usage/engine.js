@@ -87,7 +87,7 @@ class Engine extends EventEmitter {
   }
   ssendCmd(i) { const sd = this.state.stream.sends[i]; return sd ? { cmd: "ssend", i, level: sd.level, pan: sd.pan, on: sd.on === false ? 0 : 1 } : { cmd: "ssend", i, level: -90, pan: 0, on: 0 }; }
   // the song's tempo (the Central Pedal's BPM): the delay follows it when it is set to a note value
-  setTempo(bpm) { bpm = Math.round((Number(bpm) || 0) * 10) / 10; const d = this.state.fx.dly; if (!(bpm >= 30 && bpm <= 400) || Math.abs((d.bpm || 0) - bpm) < 0.05) return false; d.bpm = bpm; this.cmd(this.fxCmd()); this.saveSoon(); this.emit("op", { op: "fx", patch: { dly: { bpm } } }, { role: "host" }); return true; }
+  setTempo(bpm) { bpm = Math.round((Number(bpm) || 0) * 10) / 10; if (bpm >= 30 && bpm <= 400 && bpm !== this.songBpm) { this.songBpm = bpm; this.insertTempo(); } const d = this.state.fx.dly; if (!(bpm >= 30 && bpm <= 400) || Math.abs((d.bpm || 0) - bpm) < 0.05) return false; d.bpm = bpm; this.cmd(this.fxCmd()); this.saveSoon(); this.emit("op", { op: "fx", patch: { dly: { bpm } } }, { role: "host" }); return true; }
   trackOrder() { const s = this.state, out = []; s.inputs.forEach((x, i) => { if (x.group === "tracks" && x.direct < 0 && (x.src.kind === "in" || (x.src.kind === "pi" && this.pi.live[x.src.key] != null))) out.push(i); }); return out; }
   mixCmd(m) {
     const q = this.state.mixes[m], tapped = (this.taps.get(m + 1) || new Set()).size > 0, wired = !!q.wired;
@@ -103,8 +103,20 @@ class Engine extends EventEmitter {
     for (let k = 0; k < 4; k++) {
       const q = list[k], want = q && q.on !== false ? path.join(path.dirname(this.bin || ""), "central-fx", q.id + ".cmfx.json") : "", key = i + ":" + k;
       if (force || (this.insLoaded[key] || "") !== want) { if (want || this.insLoaded[key]) this.cmd({ cmd: "insert", i, slot: k, path: want }); this.insLoaded[key] = want; if (this.insertInfo && this.insertInfo[key]) { delete this.insertInfo[key]; this.emit("insert", { i, slot: k, cleared: true }); } }
-      if (want) Object.keys(q.values || {}).forEach((id) => this.cmd({ cmd: "insertParam", i, slot: k, id, value: q.values[id] }));
+      if (want) { const v = this.insValues(q, want), sent = (this.insSent = this.insSent || {})[key] = {}; Object.keys(v).forEach((id) => { sent[id] = v[id]; this.cmd({ cmd: "insertParam", i, slot: k, id, value: v[id] }); }); }
     }
+  }
+  // (10.4) an insert's knobs at the song's tempo: its tempo knob (unless "Sync to song tempo" is off) and a delay's time
+  // knob on its note (mixer-model.js insertValues); the plugin's file says which knobs those are
+  insDef(file) { this.insDefs = this.insDefs || {}; if (!(file in this.insDefs)) { try { this.insDefs[file] = JSON.parse(fs.readFileSync(file, "utf8")); } catch (_) { this.insDefs[file] = null; } } return this.insDefs[file]; }
+  insValues(q, file) { const bpm = this.songBpm || (this.state.fx.dly && this.state.fx.dly.bpm) || 0; return M.insertValues(q, bpm > 0 ? this.insDef(file) : null, bpm); }
+  insertTempo() {   // a new tempo: only the knobs that follow it are sent
+    if (!this.proc) return;
+    (this.state.inputs || []).forEach((x, i) => (x.ins || []).forEach((q, k) => {
+      const key = i + ":" + k, file = this.insLoaded && this.insLoaded[key]; if (!file || q.on === false) return;
+      const v = this.insValues(q, file), sent = (this.insSent = this.insSent || {})[key] = (this.insSent[key] || {});
+      Object.keys(v).forEach((id) => { if (sent[id] === v[id]) return; sent[id] = v[id]; this.cmd({ cmd: "insertParam", i, slot: k, id, value: v[id] }); });
+    }));
   }
   pushAll() {
     this.insLoaded = {};
