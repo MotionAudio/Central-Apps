@@ -81,7 +81,7 @@
   function nativeMenu(btn, done, scan) {
     UI.say(scan ? "Looking for VST3 and CLAP plugins on this computer…" : "Getting your plugins…");
     D.native.host().list(scan).then(function (list) {
-      var items = (list || []).filter(function (p) { return p.format !== "cmfx"; }).map(function (p) { return [p.name + (p.vendor ? " · " + p.vendor : "") + " (" + String(p.format).toUpperCase() + ")", function () { done({ id: D.uid("f"), type: "native", on: true, params: {}, plugin: { format: p.format, id: p.id, path: p.path, name: p.name, vendor: p.vendor || "", key: p.key || "" }, v: 0 }); UI.say(p.name + " is on the track. It plays live while you monitor an armed audio track, and in playback once the track is frozen (it freezes before an export)."); }]; });
+      var items = (list || []).filter(function (p) { return p.format !== "cmfx"; }).map(function (p) { return [p.name + (p.vendor ? " · " + p.vendor : "") + " (" + String(p.format).toUpperCase() + ")", function () { done({ id: D.uid("f"), type: "native", on: true, params: {}, plugin: { format: p.format, id: p.id, path: p.path, name: p.name, vendor: p.vendor || "", key: p.key || "" }, v: 0 }); UI.say(p.name + " is on the track. It plays live in playback, from a keyboard and while you monitor an armed audio track, and exports keep its automation."); }]; });
       if (!items.length) items.push(["(none found yet)", null, false]);
       items.push(null, ["Look for plugins again", function () { nativeMenu(btn, done, true); }]);
       UI.menu(btn, items);
@@ -120,7 +120,7 @@
     var st = D.native.state(t), host = !!D.native.host(), live = host && D.liveFx.tracks().some(function (x) { return x.id === t.id; }), fz = t.frozen;
     var lat = (D.liveFx.chains()[Object.keys(D.liveFx.chains()).filter(function (i) { return D.liveFx.chains()[i].sig && D.liveFx.chains()[i].sig.indexOf('"' + f.id + '"') >= 0; })[0]] || {}).lat;
     return '<div class="cd-native"><p><b>' + esc(f.plugin.name) + "</b> · " + esc(String(f.plugin.format).toUpperCase()) + (f.plugin.vendor ? " · " + esc(f.plugin.vendor) : "") + "</p>" +
-      (host ? '<p class="cd-dim">' + (st === "frozen" ? "Frozen (saving CPU): playback uses the frozen sound until something changes or you unfreeze it." : "Plays live as the song plays" + (lat ? " · the track's plugins' delay (" + lat + " samples) is made up for" : "") + ". A knob turned here or in its window is heard about " + Math.round(D.liveFx.ahead() * 1000) + " ms later.") +
+      (host ? '<p class="cd-dim">' + (st === "frozen" ? "Frozen (saving CPU): playback uses the frozen sound until something changes or you unfreeze it." : "Plays live as the song plays" + (lat ? " · the track's plugins' delay (" + lat + " samples) is made up for" : "") + ". A knob turned here or in its window is heard about " + Math.round(D.liveFx.response().proc * 1000) + " ms later (Settings → Audio → Plugin response)." + (t.kind !== "audio" ? " A keyboard on this track plays through it too." : "")) +
           " While the track is armed and monitored, its input plays through it too.</p>" +
         '<div class="cd-line"><button data-native="window">Open its window</button>' + (f.plist ? "" : '<button data-native="params">Show its knobs</button>') +
         '<button data-native="freeze"' + (st === "freezing" ? " disabled" : "") + ' title="Optional: plays the track from a rendered copy to save CPU">' + (st === "frozen" ? "Freeze again" : "Freeze (saves CPU)") + "</button>" + (fz ? '<button data-native="unfreeze">Unfreeze</button>' : "") + "</div>"

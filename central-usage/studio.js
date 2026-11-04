@@ -146,17 +146,21 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
   // Live: an armed audio track's input through its plugins (the rig's own audio, low delay). Offline: cu-rig --process
   // plays a rendered track through them (freezing, bounces, exports). Their states live in <userData>/daw-rig.
   const rigData = path.join(userData, "daw-rig"), rigBin = path.join(binDir, "cu-rig" + EXE);
-  let rig = null, rigBuf = "", rigWait = [], rigMon = null;
+  let rig = null, rigBuf = Buffer.alloc(0), rigWait = [], rigMon = null, rigKeys = null;
   function rigStart() {
     if (rig && rig.exitCode == null) return { ok: true };
     if (!fs.existsSync(rigBin)) return { ok: false, error: "The plugin host (cu-rig) isn't installed with this app." };
     fs.mkdirSync(rigData, { recursive: true }); try { fs.chmodSync(rigBin, 0o755); } catch (_) { }
     const args = ["--data", rigData, "--block", "128"], map = path.join(binDir, "rig-map.json"); if (fs.existsSync(map)) args.push("--map", map);
-    rig = spawn(rigBin, args, { stdio: ["pipe", "pipe", "ignore"] }); rigBuf = "";
-    rig.stdout.on("data", (b) => { rigBuf += b; let i; while ((i = rigBuf.indexOf("\n")) >= 0) { const line = rigBuf.slice(0, i); rigBuf = rigBuf.slice(i + 1); let m; try { m = JSON.parse(line); } catch (_) { continue; }
-      if (m.type === "dawProcessed") { const w = dawWait.get(m.seq); if (w) { dawWait.delete(m.seq); w(m); } continue; }   // (10.3: straight back to the DAW that asked)
-      send("studio-native", m); rigWait = rigWait.filter((w) => !w(m)); } });
-    rig.on("exit", () => { rig = null; rigMon = null; dawWait.forEach((w) => w(null)); dawWait.clear(); send("studio-native", { type: "rigStopped" }); }); rig.on("error", () => { rig = null; });
+    rig = spawn(rigBin, args, { stdio: ["pipe", "pipe", "ignore"] }); rigBuf = Buffer.alloc(0);
+    // (10.4) a line can carry raw bytes after it: "B<n> {json}\n" + n bytes (the DAW's sound, without base64)
+    rig.stdout.on("data", (b) => { rigBuf = rigBuf.length ? Buffer.concat([rigBuf, b]) : b; for (;;) { const i = rigBuf.indexOf(10); if (i < 0) break;
+      let head = rigBuf.toString("utf8", 0, i), bin = null, used = i + 1; const bm = /^B(\d+) /.exec(head);
+      if (bm) { const n = +bm[1]; if (rigBuf.length < used + n) break; bin = rigBuf.subarray(used, used + n); used += n; head = head.slice(bm[0].length); }
+      const rest = rigBuf.subarray(used); let m; try { m = JSON.parse(head); } catch (_) { rigBuf = rest; continue; }
+      if (m.type === "dawProcessed") { m.bin = bin ? Buffer.from(bin) : null; rigBuf = rest; const w = dawWait.get(m.seq); if (w) { dawWait.delete(m.seq); w(m); } continue; }   // (10.3: straight back to the DAW that asked)
+      rigBuf = rest; send("studio-native", m); rigWait = rigWait.filter((w) => !w(m)); } });
+    rig.on("exit", () => { rig = null; rigMon = null; rigKeys = null; dawWait.forEach((w) => w(null)); dawWait.clear(); send("studio-native", { type: "rigStopped" }); }); rig.on("error", () => { rig = null; });
     return { ok: true };
   }
   const rigSend = (m) => { if (rig && rig.stdin.writable) try { rig.stdin.write(JSON.stringify(m) + "\n"); } catch (_) { } };
@@ -176,7 +180,7 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
     try {
       const d = job && job.data; if (!d || !d.byteLength) return { ok: false, error: "there's no sound to play through the plugins" };
       fs.writeFileSync(inF, Buffer.from(d.buffer, d.byteOffset, d.byteLength));
-      fs.writeFileSync(jf, JSON.stringify({ rate: +job.rate || 48000, frames: +job.frames || 0, in: inF, out: outF, tail: +job.tail || 0, plugins: (job.plugins || []).slice(0, 16) }));
+      fs.writeFileSync(jf, JSON.stringify({ rate: +job.rate || 48000, frames: +job.frames || 0, in: inF, out: outF, tail: +job.tail || 0, plugins: (job.plugins || []).slice(0, 16), auto: Array.isArray(job.auto) ? job.auto : [] }));   // (10.4: with the plugins' automation)
       const out = await new Promise((res) => { const p = spawn(rigBin, ["--data", rigData, "--process", jf], { stdio: ["ignore", "pipe", "ignore"] }); let o = ""; p.stdout.on("data", (b) => { o += b; }); p.on("close", () => res(o)); p.on("error", (e) => res(JSON.stringify({ type: "processed", ok: false, error: e.message }))); });
       let line = null; try { line = JSON.parse(String(out).trim().split("\n").pop()); } catch (_) { }
       if (!line) return { ok: false, error: "The plugin host stopped (a plugin may have crashed)." };
@@ -186,11 +190,24 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
   });
   ipcMain.on("studio-native-monitor", (_e, m) => {
     rigMon = m && m.plugins && m.plugins.length ? m : null;
-    if (!rigMon) { if (rig) rigSend({ action: "apply", config: { kind: "off" } }); return; }
+    if (!rigMon) { if (rig) rigSend(rigKeys ? keysOf(rigKeys) : { action: "apply", config: { kind: "off" } }); return; }
     if (rigStart().ok) rigSend(chainOf(rigMon.plugins, 0, rigMon.input));
   });
+  // (10.4) a keyboard through a track's plugins, the lowest-delay way (keysOf, below)
+  ipcMain.handle("studio-native-keys", async (_e, k) => {
+    if (!k) { const had = rigKeys; rigKeys = null; if (had && rig && !rigMon) rigSend({ action: "apply", config: { kind: "off" } }); return { ok: true }; }
+    if (k.level != null && !k.layers) { if (rigKeys) { rigKeys.levelDb = +k.level || 0; if (!rigMon) rigSend({ action: "level", levelDb: rigKeys.levelDb }); } return { ok: true }; }   // (the track's fader)
+    if (rigMon) return { ok: false, busy: true };
+    const r = rigStart(); if (!r.ok) return r;
+    rigKeys = k; const st = await rigAsk(keysOf(k), (m) => m.type === "instrumentStatus", 30000);
+    for (const p of k.plugins || []) for (const kv of p.params || []) rigSend({ action: "pluginSet", uid: p.slot, id: kv[0], value: kv[1] });
+    const errs = st && st.pluginErrors ? Object.values(st.pluginErrors) : [];
+    return st ? { ok: !!st.running && !errs.length, running: !!st.running, errors: errs, error: st.error || "" } : { ok: false, error: "The plugin host didn't answer." };
+  });
+  ipcMain.on("studio-native-midi", (_e, d) => { if (rigKeys && !rigMon) rigSend({ action: "midi", data: d }); });
+  ipcMain.on("studio-native-set", (_e, slot, id, value) => rigSend({ action: "pluginSet", uid: slot, id, value }));
   // (10.3) live: every track with native plugins is streamed through them in the rig a little ahead of the playhead
-  // (cu-rig.c: "the DAW's native plugins, live"). The audio goes as base64 inside the rig's JSON lines.
+  // (cu-rig.c: "the DAW's native plugins, live"). (10.4) The audio goes as raw bytes after the line, both ways.
   let dawSeq = 0; const dawWait = new Map();
   ipcMain.handle("studio-daw-chain", async (_e, stream, rate, plugins) => {
     const r = rigStart(); if (!r.ok) return Object.assign(r, { errors: [r.error] });
@@ -200,8 +217,12 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
   ipcMain.handle("studio-daw-process", (_e, batch) => new Promise((res) => {
     if (!rig || rig.exitCode != null) return res(null);
     const seq = ++dawSeq, t = setTimeout(() => { dawWait.delete(seq); res(null); }, 4000);
-    dawWait.set(seq, (m) => { clearTimeout(t); res(m ? { streams: (m.streams || []).map((x) => ({ s: x.s, lat: x.lat, d: new Uint8Array(Buffer.from(x.d || "", "base64")) })) } : null); });
-    rigSend({ action: "dawProcess", seq, frames: batch.frames, streams: (batch.streams || []).map((x) => ({ s: x.s, d: Buffer.from(x.d.buffer, x.d.byteOffset, x.d.byteLength).toString("base64"), a: x.a && x.a.length ? x.a : undefined, reset: !!x.reset })) });
+    const F = +batch.frames || 0, blk = F * 8;
+    dawWait.set(seq, (m) => { clearTimeout(t); if (!m) return res(null); let at = 0; const b = m.bin;
+      res({ streams: (m.streams || []).map((x) => { if (x.z || !b) return { s: x.s, lat: x.lat, z: 1 }; const d = new Uint8Array(b.buffer, b.byteOffset + at, Math.min(blk, b.length - at)); at += blk; return { s: x.s, lat: x.lat, d }; }) }); });
+    const parts = [], streams = (batch.streams || []).map((x) => { const z = !x.d || x.z; if (!z) parts.push(Buffer.from(x.d.buffer, x.d.byteOffset, x.d.byteLength)); const o = { s: x.s }; if (z) o.z = 1; if (x.a && x.a.length) o.a = x.a; if (x.reset) o.reset = true; return o; });
+    const body = parts.length === 1 ? parts[0] : Buffer.concat(parts);
+    if (rig && rig.stdin.writable) try { rig.stdin.write("B" + body.length + " " + JSON.stringify({ action: "dawProcess", seq, frames: F, streams }) + "\n"); if (body.length) rig.stdin.write(body); } catch (_) { }
   }));
   ipcMain.on("studio-daw-param", (_e, stream, plug, id, value) => rigSend({ action: "dawParam", stream, plug, id, value }));
   ipcMain.on("studio-daw-drop", (_e, stream) => rigSend({ action: "dawDrop", stream }));
@@ -214,4 +235,10 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
   });
   app.on("before-quit", () => { if (rig) { rigSend({ action: "pluginSave" }); const p = rig; setTimeout(() => { try { p.kill(); } catch (_) { } }, 300); } });
 };
+// (10.4) a keyboard on an instrument track with VST3 / CLAP plugins: the rig plays the track's SoundFont layers and its
+// plugins straight to the sound card (lowest delay). An armed audio track being monitored through the rig comes first.
+function keysOf(k) { return ({ action: "apply", config: { kind: "keys", input: { device: "auto", channel: "L", gainDb: 0, gateOn: false }, levelDb: +k.levelDb || 0, routing: {},
+    keys: { volume: 1, transpose: 0, sustain: true, velocity: "normal", layers: (k.layers || []).slice(0, 8).map((l, i) => ({ uid: "dkl" + i, patch: { file: l.file, bank: l.bank || 0, prog: l.prog || 0 }, on: true, volume: l.volume == null ? 1 : l.volume, pan: l.pan || 0, octave: l.octave || 0, transpose: l.transpose || 0, lo: l.lo == null ? 0 : l.lo, hi: l.hi == null ? 127 : l.hi, velLo: l.velLo || 1, velHi: l.velHi || 127 })) },
+    chain: (k.plugins || []).slice(0, 16).map((p) => ({ uid: p.slot, stateFrom: p.stateFrom || "", id: "plug", plugin: { format: p.format, id: p.id, path: p.path, name: p.name }, on: true, mix: 1, levelDb: 0 })) } }); }
 module.exports.sf2Presets = sf2Presets;
+module.exports.keysOf = keysOf;

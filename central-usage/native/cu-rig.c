@@ -21,6 +21,7 @@
  *   cu-rig --data <folder> --process <job.json>
  *   job: {"rate", "frames", "in": <raw stereo float32, interleaved>, "out": <path>, "tail": seconds,
  *         "plugins": [{"slot", "format", "id", "path", "params": [[id, value 0..1], ..]}]}   (each slot's saved state, the one its window set, then the knobs)
+ *         "auto": [[frame, plugin, paramId, value 0..1], ..]   (10.4: the plugins' automation lanes, in frame order)
  *   It plays the sound through the plugins in order, takes their reported latency off (so the result lines up with the
  *   input), writes frames + tail of stereo float32 to out and prints one line:
  *   {"type":"processed","ok":true,"latency":<frames>,"frames":<n>,"names":[...]} or {"type":"processed","ok":false,"error"}
@@ -826,14 +827,20 @@ static void playany_set(cJSON *pc, const char *forKind) {
  *       from somewhere else, so what's left in the plugins (a delay line) is played out first
  *   {"action":"dawParam","stream":i,"plug":k,"id":paramId,"value":v}   a knob, from the next block on
  *   {"action":"dawDrop","stream":i}
+ * (10.4) The same dawProcess as a binary line: B<n> {"action":"dawProcess","seq","frames","streams":[{"s","a","reset","z"}]}
+ *   followed by n bytes: each stream's F stereo float32 frames in turn (none for a stream with "z":1, silence). The answer
+ *   comes the same way: B<n> {"type":"dawProcessed","seq","streams":[{"s","lat","z"}]} + the sound of those without z.
+ *   Both go straight to a worker from the stdin thread. Streams 48-63 (playing on a keyboard now) have a worker of their own.
  * Every job runs on the worker in the order it came, so a plugin's parameters are only ever set from that thread. */
 #define DAW_MAX 64
+#define DAW_LIVE0 48   /* (10.4) streams 48..63: what's played on a keyboard right now, on a worker of its own */
 #define DAW_PL 16
-typedef struct { PhPlug *pl[DAW_PL]; char slot[DAW_PL][24]; int n, lat; } DawChain;
+typedef struct { PhPlug *pl[DAW_PL]; char slot[DAW_PL][24]; int n, lat; double rate; long quiet; } DawChain;
 static DawChain *dawChains[DAW_MAX];
-static pl_mutex dawLock, dawQLock; static pl_cond dawCond; static int dawUp;
-typedef struct DawJob { struct DawJob *next; cJSON *msg; } DawJob;
-static DawJob *dawHead, *dawTail;
+typedef struct DawJob { struct DawJob *next; cJSON *msg; unsigned char *bin; long binN; } DawJob;
+typedef struct { pl_mutex lock, qlock; pl_cond cond; DawJob *head, *tail; } DawWorker;
+static DawWorker dawW[2]; static int dawUp;
+static DawWorker *daw_for(int stream) { return &dawW[stream >= DAW_LIVE0 ? 1 : 0]; }
 static const char B64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 static char *b64_enc(const unsigned char *p, size_t n) {
   char *o = malloc((n + 2) / 3 * 4 + 1), *q = o; size_t i = 0;
@@ -848,8 +855,11 @@ static size_t b64_dec(const char *s, unsigned char *out, size_t cap) {
   if (k == 3 && o + 2 <= cap) { out[o++] = (unsigned char)(v >> 10); out[o++] = (unsigned char)(v >> 2); } else if (k == 2 && o + 1 <= cap) out[o++] = (unsigned char)(v >> 4);
   return o;
 }
-static void daw_block(DawChain *c, float *buf, int F, cJSON *autos) {   /* buf: F stereo frames, interleaved, in place */
-  static float L[128], R[128], oL[128], oR[128]; int na = autos ? cJSON_GetArraySize(autos) : 0, ai = 0;
+static void emit_bin(cJSON *j, const unsigned char *data, size_t n) {   /* (10.4) "B<n> <json>\n" then n raw bytes */
+  char *s = cJSON_PrintUnformatted(j); pl_mutex_lock(&outLock); fprintf(proto, "B%zu ", n); fputs(s, proto); fputc('\n', proto); if (n) fwrite(data, 1, n, proto); fflush(proto); pl_mutex_unlock(&outLock); free(s);
+}
+static void daw_block(DawChain *c, float *buf, int F, cJSON *autos) {   /* buf: F stereo frames, interleaved, in place (one worker per chain) */
+  float L[128], R[128], oL[128], oR[128]; int na = autos ? cJSON_GetArraySize(autos) : 0, ai = 0;
   for (int pos = 0; pos < F; pos += 128) {
     int n = F - pos < 128 ? F - pos : 128;
     while (ai < na) { cJSON *a = cJSON_GetArrayItem(autos, ai); int off = (int)cJSON_GetNumberValue(cJSON_GetArrayItem(a, 0)); if (off >= pos + n) break;
@@ -860,49 +870,83 @@ static void daw_block(DawChain *c, float *buf, int F, cJSON *autos) {   /* buf: 
     for (int i = 0; i < n; i++) { buf[2 * (pos + i)] = isfinite(L[i]) ? L[i] : 0; buf[2 * (pos + i) + 1] = isfinite(R[i]) ? R[i] : 0; }
   }
 }
-static void daw_run(cJSON *m) {   /* the worker: one job */
+/* (10.4) a block of silence going into a chain that has been silent for 2 seconds isn't processed at all, and silence
+ * coming out isn't sent back: "z" instead of the sound. A track that's quiet most of the song costs almost nothing. */
+static void daw_run(cJSON *m, const unsigned char *bin, long binN) {   /* the worker: one job */
   const char *a = str(m, "action", "");
-  if (!strcmp(a, "dawParam")) { int i = (int)num(m, "stream", -1), k = (int)num(m, "plug", -1); DawChain *c = i >= 0 && i < DAW_MAX ? dawChains[i] : NULL; if (c && k >= 0 && k < c->n) ph_set_param_p(c->pl[k], (uint32_t)num(m, "id", 0), num(m, "value", 0)); return; }
+  if (!strcmp(a, "dawParam")) { int i = (int)num(m, "stream", -1), k = (int)num(m, "plug", -1); DawChain *c = i >= 0 && i < DAW_MAX ? dawChains[i] : NULL; if (c && k >= 0 && k < c->n) { ph_set_param_p(c->pl[k], (uint32_t)num(m, "id", 0), num(m, "value", 0)); c->quiet = 0; } return; }
   int F = (int)num(m, "frames", 0); if (F <= 0 || F > 65536) return;
-  float *buf = malloc((size_t)F * 2 * sizeof(float)); cJSON *o = cJSON_CreateObject(), *arr, *st;
+  size_t blk = (size_t)F * 2 * sizeof(float); int binary = bin != NULL; long at = 0;
+  cJSON *o = cJSON_CreateObject(), *arr, *st; int ns = cJSON_GetArraySize(cJSON_GetObjectItem(m, "streams"));
+  unsigned char *outB = binary ? malloc(blk * (size_t)(ns > 0 ? ns : 1)) : NULL; size_t outN = 0;
+  float *buf = malloc(blk);
   cJSON_AddStringToObject(o, "type", "dawProcessed"); cJSON_AddNumberToObject(o, "seq", num(m, "seq", 0)); arr = cJSON_AddArrayToObject(o, "streams");
   cJSON_ArrayForEach(st, cJSON_GetObjectItem(m, "streams")) {
-    int i = (int)num(st, "s", -1); DawChain *c = i >= 0 && i < DAW_MAX ? dawChains[i] : NULL;
-    memset(buf, 0, (size_t)F * 2 * sizeof(float)); b64_dec(str(st, "d", ""), (unsigned char *)buf, (size_t)F * 2 * sizeof(float));
-    if (c && cJSON_IsTrue(cJSON_GetObjectItem(st, "reset"))) {   /* (played out: what a delay line still holds) */
-      float *z = calloc((size_t)(c->lat + 4096) * 2, sizeof(float)); daw_block(c, z, c->lat + 4096, NULL); free(z);
+    int i = (int)num(st, "s", -1); DawChain *c = i >= 0 && i < DAW_MAX ? dawChains[i] : NULL; int zin = cJSON_IsTrue(cJSON_GetObjectItem(st, "z")) || num(st, "z", 0) == 1;
+    memset(buf, 0, blk);
+    if (!zin) { if (binary) { if (at + (long)blk <= binN) memcpy(buf, bin + at, blk); at += (long)blk; } else b64_dec(str(st, "d", ""), (unsigned char *)buf, blk); }
+    cJSON *autos = cJSON_GetObjectItem(st, "a"); int reset = cJSON_IsTrue(cJSON_GetObjectItem(st, "reset"));
+    if (c && reset) {   /* (played out: what a delay line still holds) */
+      float *z = calloc((size_t)(c->lat + 4096) * 2, sizeof(float)); daw_block(c, z, c->lat + 4096, NULL); free(z); c->quiet = 0;
     }
-    daw_block(c, buf, F, cJSON_GetObjectItem(st, "a"));
-    char *enc = b64_enc((const unsigned char *)buf, (size_t)F * 2 * sizeof(float)); cJSON *r = cJSON_CreateObject();
-    cJSON_AddNumberToObject(r, "s", i); cJSON_AddItemToObject(r, "d", cJSON_CreateStringReference(enc)); cJSON_AddNumberToObject(r, "lat", c ? c->lat : 0); cJSON_AddItemToArray(arr, r);
+    int skip = c && zin && !autos && c->quiet > (long)(c->rate * 2), zout = 1;
+    if (!skip) {
+      daw_block(c, buf, F, autos);
+      float pk = 0; for (int k = 0; k < F * 2; k++) { float v = fabsf(buf[k]); if (v > pk) pk = v; }
+      zout = pk < 1e-6f; if (c) { if (zout) c->quiet += F; else c->quiet = 0; }
+    }
+    cJSON *r = cJSON_CreateObject(); cJSON_AddNumberToObject(r, "s", i); cJSON_AddNumberToObject(r, "lat", c ? c->lat : 0);
+    if (zout) cJSON_AddNumberToObject(r, "z", 1);
+    else if (binary) { memcpy(outB + outN, buf, blk); outN += blk; }
+    else cJSON_AddItemToObject(r, "d", cJSON_CreateStringReference(b64_enc((const unsigned char *)buf, blk)));
+    cJSON_AddItemToArray(arr, r);
   }
-  emit_json(o);
-  cJSON_ArrayForEach(st, arr) free((void *)cJSON_GetStringValue(cJSON_GetObjectItem(st, "d")));   /* (the encoded blocks were references) */
-  cJSON_Delete(o); free(buf);
+  if (binary) emit_bin(o, outB, outN); else emit_json(o);
+  if (!binary) cJSON_ArrayForEach(st, arr) { cJSON *d = cJSON_GetObjectItem(st, "d"); if (d) free((void *)cJSON_GetStringValue(d)); }   /* (the encoded blocks were references) */
+  cJSON_Delete(o); free(buf); free(outB);
 }
 static void *daw_worker(void *arg) {
-  (void)arg;
+  DawWorker *w = (DawWorker *)arg;
   for (;;) {
-    pl_mutex_lock(&dawQLock); while (!dawHead) pl_cond_wait_ms(&dawCond, &dawQLock, 1000);
-    DawJob *j = dawHead; dawHead = j->next; if (!dawHead) dawTail = NULL; pl_mutex_unlock(&dawQLock);
-    pl_mutex_lock(&dawLock); daw_run(j->msg); pl_mutex_unlock(&dawLock);
-    cJSON_Delete(j->msg); free(j);
+    pl_mutex_lock(&w->qlock); while (!w->head) pl_cond_wait_ms(&w->cond, &w->qlock, 1000);
+    DawJob *j = w->head; w->head = j->next; if (!w->head) w->tail = NULL; pl_mutex_unlock(&w->qlock);
+    pl_mutex_lock(&w->lock); daw_run(j->msg, j->bin, j->binN); pl_mutex_unlock(&w->lock);
+    cJSON_Delete(j->msg); free(j->bin); free(j);
   }
   return NULL;
 }
-static void daw_queue(cJSON *m) {
-  if (!dawUp) { pl_mutex_init(&dawLock); pl_mutex_init(&dawQLock); pl_cond_init(&dawCond); pl_thread t; if (pl_thread_start(&t, daw_worker, NULL)) return; dawUp = 1; }
-  DawJob *j = calloc(1, sizeof *j); j->msg = cJSON_Duplicate(m, 1);
-  pl_mutex_lock(&dawQLock); if (dawTail) dawTail->next = j; else dawHead = j; dawTail = j; pl_cond_signal(&dawCond); pl_mutex_unlock(&dawQLock);
+static void daw_init(void) {   /* (before stdin is read: jobs can arrive on the stdin thread) */
+  if (dawUp) return;
+  for (int k = 0; k < 2; k++) { pl_mutex_init(&dawW[k].lock); pl_mutex_init(&dawW[k].qlock); pl_cond_init(&dawW[k].cond); pl_thread t; if (pl_thread_start(&t, daw_worker, &dawW[k])) return; }
+  dawUp = 1;
+}
+static int daw_stream_of(cJSON *m) {   /* which worker a job goes to: by its (first) stream */
+  cJSON *s0 = cJSON_GetArrayItem(cJSON_GetObjectItem(m, "streams"), 0); return (int)(s0 ? num(s0, "s", 0) : num(m, "stream", 0));
+}
+static void daw_queue_own(cJSON *m, unsigned char *bin, long binN) {   /* takes m and bin */
+  daw_init(); DawWorker *w = daw_for(daw_stream_of(m));
+  DawJob *j = calloc(1, sizeof *j); j->msg = m; j->bin = bin; j->binN = binN;
+  pl_mutex_lock(&w->qlock); if (w->tail) w->tail->next = j; else w->head = j; w->tail = j; pl_cond_signal(&w->cond); pl_mutex_unlock(&w->qlock);
+}
+static void daw_queue(cJSON *m) { daw_queue_own(cJSON_Duplicate(m, 1), NULL, 0); }
+/* (10.4) the stdin thread hands the DAW's audio and knobs straight to the workers (not via the main thread, which may
+ * be busy with a plugin's window): lower and steadier delay */
+static int daw_fast(char *line, const unsigned char *bin, long n) {
+  if (!bin && !strstr(line, "\"daw")) return 0;
+  cJSON *m = cJSON_Parse(line); if (!m) return bin != NULL;
+  const char *a = str(m, "action", "");
+  if (strcmp(a, "dawProcess") && strcmp(a, "dawParam")) { cJSON_Delete(m); return 0; }
+  unsigned char *copy = NULL; if (bin && n > 0) { copy = malloc((size_t)n); memcpy(copy, bin, (size_t)n); }
+  daw_queue_own(m, copy ? copy : (bin ? malloc(1) : NULL), bin ? n : 0); return 1;
 }
 static void daw_swap(int i, DawChain *nc) {   /* main thread: the worker takes the new chain from its next block */
-  if (!dawUp) { pl_mutex_init(&dawLock); pl_mutex_init(&dawQLock); pl_cond_init(&dawCond); pl_thread t; if (pl_thread_start(&t, daw_worker, NULL)) return; dawUp = 1; }
-  pl_mutex_lock(&dawLock); DawChain *old = dawChains[i]; dawChains[i] = nc; pl_mutex_unlock(&dawLock);
+  daw_init(); DawWorker *w = daw_for(i);
+  pl_mutex_lock(&w->lock); DawChain *old = dawChains[i]; dawChains[i] = nc; pl_mutex_unlock(&w->lock);
   if (old) { for (int k = 0; k < old->n; k++) ph_release(old->pl[k]); free(old); }
 }
 static void daw_chain(cJSON *m) {   /* main thread (plugins load here) */
   int i = (int)num(m, "stream", -1); if (i < 0 || i >= DAW_MAX) return;
-  DawChain *nc = calloc(1, sizeof *nc); double rate = num(m, "rate", FS); cJSON *it, *o = cJSON_CreateObject(), *names, *errs, *later = cJSON_CreateArray(), *q;
+  DawChain *nc = calloc(1, sizeof *nc); double rate = num(m, "rate", FS); nc->rate = rate; cJSON *it, *o = cJSON_CreateObject(), *names, *errs, *later = cJSON_CreateArray(), *q;
   cJSON_AddStringToObject(o, "type", "dawChain"); cJSON_AddNumberToObject(o, "stream", i); names = cJSON_AddArrayToObject(o, "names"); errs = cJSON_AddArrayToObject(o, "errors");
   cJSON_ArrayForEach(it, cJSON_GetObjectItem(m, "plugins")) {
     if (nc->n >= DAW_PL) break; char slot[24], err[200] = ""; clean_uid(str(it, "slot", "p"), slot);
@@ -917,9 +961,9 @@ static void daw_chain(cJSON *m) {   /* main thread (plugins load here) */
   cJSON_AddBoolToObject(o, "ok", cJSON_GetArraySize(errs) == 0); cJSON_AddNumberToObject(o, "latency", lat); emit_json(o); cJSON_Delete(o);
 }
 static int daw_slots(const char **slots, int max) {   /* the slots the DAW's chains use (the rig keeps them loaded) */
-  int n = 0; if (dawUp) pl_mutex_lock(&dawLock);
+  int n = 0; if (dawUp) { pl_mutex_lock(&dawW[0].lock); pl_mutex_lock(&dawW[1].lock); }
   for (int i = 0; i < DAW_MAX; i++) if (dawChains[i]) for (int k = 0; k < dawChains[i]->n && n < max; k++) slots[n++] = dawChains[i]->slot[k];
-  if (dawUp) pl_mutex_unlock(&dawLock); return n;
+  if (dawUp) { pl_mutex_unlock(&dawW[1].lock); pl_mutex_unlock(&dawW[0].lock); } return n;
 }
 
 static void plugs_keep(void) {   /* the plugin host keeps the plugins the newest chain and layers use, and saves + lets go of the rest */
@@ -1041,11 +1085,16 @@ static int process_main(const char *jobPath) {
   { double tail = num(job, "tail", 0); if (tail < 0) tail = 0; if (tail > 30) tail = 30; outN = frames + (long)(tail * FS); }
   out = calloc((size_t)outN * 2 + 2, sizeof(float)); if (!out) { snprintf(why, sizeof why, "not enough memory"); goto done; }
   { static float aL[512], aR[512], bL[512], bR[512]; long total = outN + lat;
-    for (long pos = 0; pos < total; pos += 512) {
+    cJSON *au = cJSON_GetObjectItem(job, "auto"); int na = cJSON_GetArraySize(au), ai = 0;   /* (10.4) the plugins' automation, at its frame */
+    for (long pos = 0; pos < total; ) {
+      while (ai < na) { cJSON *e = cJSON_GetArrayItem(au, ai); long f = (long)cJSON_GetNumberValue(cJSON_GetArrayItem(e, 0)); if (f > pos) break;
+        int k = (int)cJSON_GetNumberValue(cJSON_GetArrayItem(e, 1)); if (k >= 0 && k < np) ph_set_param_p(pl[k], (uint32_t)cJSON_GetNumberValue(cJSON_GetArrayItem(e, 2)), cJSON_GetNumberValue(cJSON_GetArrayItem(e, 3))); ai++; }
       int n = (int)(total - pos < 512 ? total - pos : 512);
+      if (ai < na) { long f = (long)cJSON_GetNumberValue(cJSON_GetArrayItem(cJSON_GetArrayItem(au, ai), 0)); if (f > pos && f - pos < n) n = (int)(f - pos); }
       for (int k = 0; k < n; k++) { long i = pos + k; aL[k] = i < frames ? in[2 * i] : 0; aR[k] = i < frames ? in[2 * i + 1] : 0; }
       for (int j = 0; j < np; j++) { ph_process(pl[j], aL, aR, bL, bR, n, NULL, 0); memcpy(aL, bL, n * sizeof(float)); memcpy(aR, bR, n * sizeof(float)); }
       for (int k = 0; k < n; k++) { long o = pos + k - lat; if (o >= 0 && o < outN) { out[2 * o] = isfinite(aL[k]) ? aL[k] : 0; out[2 * o + 1] = isfinite(aR[k]) ? aR[k] : 0; } }
+      pos += n;
     } }
   { FILE *f = fopen(str(job, "out", ""), "wb"); if (!f) { snprintf(why, sizeof why, "the result can't be written"); goto done; } fwrite(out, sizeof(float), (size_t)outN * 2, f); fclose(f); }
 done:
@@ -1082,5 +1131,6 @@ int main(int argc, char **argv) {
   if (BLOCK < 32) BLOCK = 32; if (BLOCK > 2048) BLOCK = 2048;
   if (mapPath[0]) { char *s = read_file(mapPath); if (s) { rigMap = cJSON_Parse(s); free(s); } }
   status();
+  daw_init(); ph_set_fast(daw_fast);   /* (10.4) */
   return ph_run(on_line, on_quit);   /* the main thread: commands, plugins and their windows (stdin is read on a thread of its own) */
 }

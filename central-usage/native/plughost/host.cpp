@@ -62,6 +62,7 @@ static std::vector<std::function<void()>> posted;
 struct Timer { uint64_t id; int period; uint64_t next; TimerFn fn; };
 static std::vector<Timer> timers; static uint64_t timerIds = 1;
 std::vector<FdWatch> fdWatches;   // (gui_x11.cpp polls them)
+int (*gFast)(char *, const unsigned char *, long) = nullptr;
 void post(std::function<void()> f) { { std::lock_guard<std::mutex> g(postLock); posted.push_back(std::move(f)); } wake(); }
 uint64_t addTimer(int periodMs, TimerFn fn) { Timer t{ timerIds++, std::max(1, periodMs), nowMs() + (uint64_t)std::max(1, periodMs), std::move(fn) }; timers.push_back(t); return t.id; }
 void removeTimer(uint64_t id) { for (auto &t : timers) if (t.id == id) t.fn = nullptr; }
@@ -179,6 +180,7 @@ static Plug *PP(PhPlug *p) { return reinterpret_cast<Plug *>(p); }
 extern "C" {
 void ph_init(const char *dataDir, void (*emit)(const char *json)) { gData = dataDir && dataDir[0] ? dataDir : "."; gEmit = emit; loadPaused(); }
 void ph_post(void (*fn)(void *), void *arg) { post([fn, arg] { fn(arg); }); }
+void ph_set_fast(int (*fn)(char *, const unsigned char *, long)) { ph::gFast = fn; }
 
 PhPlug *ph_get(const char *slot, const char *format, const char *id, const char *path, const char *stateFrom, double sr, int maxBlock, char *err, int errLen) {
   std::string s = slot ? slot : "", f = format ? format : "", i = id ? id : "", pa = path ? path : "";

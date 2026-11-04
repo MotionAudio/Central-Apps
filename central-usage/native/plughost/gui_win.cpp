@@ -5,6 +5,8 @@
 #endif
 #include <windows.h>
 #include <ole2.h>
+#include <fcntl.h>
+#include <io.h>
 #include <atomic>
 #include <cstdio>
 #include <string>
@@ -54,12 +56,8 @@ extern "C" int ph_run(void (*onLine)(char *), void (*onQuit)(void)) {
   { typedef BOOL(WINAPI * SetCtx)(HANDLE); auto f = (SetCtx)(void *)GetProcAddress(GetModuleHandleW(L"user32.dll"), "SetProcessDpiAwarenessContext"); if (f) f((HANDLE)-4); }   // per-monitor aware: plugin windows stay sharp
   wakeEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
   std::thread([onLine] {
-    std::string acc; char buf[65536];
-    while (fgets(buf, sizeof buf, stdin)) {
-      acc += buf; if (acc.empty() || acc.back() != '\n') continue;
-      std::string line = acc; acc.clear();
-      post([onLine, line] { std::string t = line; while (!t.empty() && (t.back() == '\n' || t.back() == '\r')) t.pop_back(); if (!t.empty()) onLine(&t[0]); });
-    }
+    _setmode(_fileno(stdin), _O_BINARY);   // (10.4: the DAW's audio arrives as raw bytes)
+    readStdin([onLine](const std::string &line) { post([onLine, line] { std::string t = line; onLine(&t[0]); }); });
     post([] { quitting = true; });
   }).detach();
   SetTimer(NULL, 0, 15, tick);
