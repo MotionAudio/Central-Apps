@@ -21,7 +21,7 @@
       (s.note ? '<p class="muted" style="font-size:.9rem;margin:0">' + h(s.note) + "</p>" : "") +
       '<div class="hist" role="img" aria-label="' + h(s.name) + ', the last 24 hours">' + s.history.map((b) => '<i class="bar-' + h(b || "none") + '" title="' + h(WORD[b || "none"]) + '"></i>').join("") + "</div>" +
       '<div class="hist-legend"><span>24 hours ago</span><span>' + (s.uptime != null ? s.uptime + "% working, 14 days" : "") + "</span><span>Now</span></div></div>").join("");
-    $("#stWhen").textContent = d.checked ? "Last checked " + ago(d.checked) + ". Checked every " + (d.everyMin || 3) + " minutes." : "";
+    $("#stWhen").textContent = (d.checked ? "Last checked " + ago(d.checked) + ". Checked every " + (d.everyMin || 3) + " minutes." : "") + (d.version ? " Website version " + d.version + "." : "");
     staffTools();
   }
   const canStaff = () => typeof me !== "undefined" && me && me.admin;

@@ -8,7 +8,7 @@
 // Each is up, degraded (slow or partly working) or down. Motion Audio staff can post an incident note, shown on top.
 //   STATUS_CHECKS=off stops the checks (tests); STATUS_EVERY_MIN sets how often (default 3).
 import { q, one } from "./db.js";
-import { config } from "./config.js";
+import { config, SITE_VERSION } from "./config.js";
 import { isAdmin } from "./auth.js";
 import { requireStep } from "./signin.js";
 import * as store from "./storage.js";
@@ -56,7 +56,7 @@ export function routes(api, { wrap, requireUser }) {
     const incidents = await q("SELECT id, title, message, state, created_at, resolved_at FROM status_incidents WHERE state='open' OR resolved_at > now() - interval '7 days' ORDER BY created_at DESC LIMIT 10");
     const name = ["none", "up", "degraded", "down"];
     res.set("Cache-Control", "no-store");
-    res.json({ services: SERVICES.map(([k, label]) => {
+    res.json({ version: SITE_VERSION, services: SERVICES.map(([k, label]) => {
       const l = latest.find((x) => x.service === k), h = Array(48).fill("none");
       bars.filter((b) => b.service === k && b.ago >= 0 && b.ago < 48).forEach((b) => (h[47 - b.ago] = name[b.worst]));
       const u = up.find((x) => x.service === k);
