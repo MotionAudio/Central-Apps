@@ -190,6 +190,10 @@ function rowCard(p) {   // an app on its own: a row of the price list
   return `<div class="pl-row"><img src="/brand/${p.icon}.svg" alt=""><div class="what"><span class="label" ${ed(k + ".tag")}>${T(k + ".tag", p.tag)}</span><h3 ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3></div>
     <p class="desc" ${ed(k + ".desc")}>${T(k + ".desc", p.pts.join(" "))}</p>${priceTag(p.id, p.per)}${addBtn(p, " ghost")}</div>`;
 }
+function productionRow() {   // (10.4) Central Production on the price list: free, so a download instead of the cart
+  return `<div class="pl-row"><img src="/brand/central-production.svg" alt=""><div class="what"><span class="label" ${ed("prod.production.tag")}>${T("prod.production.tag", "Free")}</span><h3><a href="/apps/production/">Central Production</a></h3></div>
+    <p class="desc" ${ed("prod.production.desc")}>${T("prod.production.desc", "A studio for making tracks, loops, pads, instruments, plugins and pedal boards. Mac, Windows, Linux and your browser. No key needed.")}</p><div class="price"><span>Free</span></div><span class="pl-btns"><a class="btn ghost" href="/#downloads">Download</a> <a class="btn ghost" href="/production/">Open</a></span></div>`;
+}
 function renderSale() {   // the strip under the header while a sale is on
   const el = $("#saleBar"), x = cfg.sale; if (!el) return;
   el.hidden = !x;
@@ -218,7 +222,7 @@ function renderRack() {
   const pb = $("#pedalBuy"), pk = $("#packs"), rk = $("#rack");
   if (pb) pb.innerHTML = products.filter((p) => p.id === "pedal" && shown(p)).map(pedalCard).join("");
   if (pk) { pk.innerHTML = packs.filter(shown).map(packCard).join(""); pk.hidden = !pk.innerHTML; pk.style.setProperty("--n", packs.filter(shown).length); }
-  if (rk) rk.innerHTML = products.filter((p) => p.id !== "pedal" && shown(p)).map(rowCard).join("");
+  if (rk) rk.innerHTML = products.filter((p) => p.id !== "pedal" && shown(p)).map(rowCard).join("") + productionRow();
   renderPlanPrice(); renderPlans(); markPlanButtons();
   if (typeof window.onShopRender === "function") window.onShopRender();
 }
