@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 // Everything set through environment variables (Render → the service → Environment). See ../.env.example.
 const env = process.env;
 export const config = {
@@ -142,3 +145,7 @@ export const PUBLISHER_SHARE = 0.75;          // of each purchase
 // subscriber adds they got that month (each subscriber counts once per track). Never pays out more than comes in.
 export const POOL_SHARE = 0.5;
 export const MIN_PAYOUT_CENTS = 1000;         // monthly payouts start at $10
+
+// (10.4) the website's version: the release it was built from (tools/bump-version.sh sets it in the website's
+// Central Production page), shown on /health and the Status page so it's easy to see the site is up to date
+export const SITE_VERSION = (() => { try { const f = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public", "production", "index.html"); return (fs.readFileSync(f, "utf8").match(/CP_VERSION = "([0-9.]+)"/) || [])[1] || ""; } catch (_) { return ""; } })();

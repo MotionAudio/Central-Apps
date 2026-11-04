@@ -60,6 +60,19 @@
     unit.mix = function (m, now) { unit.dry.gain.setTargetAtTime(Math.cos(m * Math.PI / 2), now, 0.02); unit.wetG.gain.setTargetAtTime(Math.sin(m * Math.PI / 2), now, 0.02); };
     unit.mixKey = mixKey;
   }
+  // (10.4) tempo sync: the note values a delay can follow (a beat is a quarter note) - the same as PPPedals.tempo.NOTES
+  var DNOTES = [["1/1", "Whole", 4], ["1/2.", "Dotted half", 3], ["1/2", "Half", 2], ["1/2T", "Half triplet", 4 / 3], ["1/4.", "Dotted quarter", 1.5], ["1/4", "Quarter", 1], ["1/4T", "Quarter triplet", 2 / 3],
+    ["1/8.", "Dotted eighth", 0.75], ["1/8", "Eighth", 0.5], ["1/8T", "Eighth triplet", 1 / 3], ["1/16.", "Dotted sixteenth", 0.375], ["1/16", "Sixteenth", 0.25], ["1/16T", "Sixteenth triplet", 1 / 6], ["1/32", "Thirty-second", 0.125]];
+  function noteSec(i, bpm) { var n = DNOTES[Math.round(i)] || DNOTES[8]; return n[2] * 60 / clamp(bpm || 100, 20, 400); }
+  // a delay saved before 10.4 had "time": 8 note values in another order (1/16 .. 1 bar); it becomes the same note
+  function fxMigrate(f) { if (f && f.type === "delay" && f.params && f.params.time != null && f.params.note == null) { var m = [11, 9, 8, 7, 5, 4, 2, 0][Math.round(f.params.time)]; f.params.note = m == null ? 8 : m; delete f.params.time; } return f; }
+  // a Central FX plugin's knobs at a tempo: its tempo knob (10.3, on unless syncTempo is false) and a delay's time knob (10.4, x.syncNote)
+  function cmfxTempo(fx, p, bpm) {
+    var TP = window.PPPedals && window.PPPedals.tempo; if (TP) return TP.pluginValues(fx && fx.plugin, p, fx, bpm);
+    var tq = ((fx && fx.plugin && fx.plugin.params) || []).filter(function (q) { return (q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"); })[0];
+    p = Object.assign({}, p || {}); if (tq && fx.syncTempo !== false && bpm > 0) p[tq.id] = clamp(bpm, tq.min != null ? +tq.min : 20, tq.max != null ? +tq.max : 300); return p;
+  }
+  function cmfxFollows(fx) { var TP = window.PPPedals && window.PPPedals.tempo, pl = fx && fx.plugin; if (!pl) return false; return TP ? !!(TP.pluginTempo(pl) || TP.pluginTime(pl)) : ((pl.params || []).some(function (q) { return q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"; })); }
   var FX = {
     eq: { name: "EQ", params: [["low", "Low", -15, 15, 0, "dB"], ["mid", "Mid", -15, 15, 0, "dB"], ["midFreq", "Mid freq", 200, 5000, 1000, "Hz"], ["high", "High", -15, 15, 0, "dB"], ["hpf", "Low cut", 20, 400, 20, "Hz", true], ["mid2", "Mid 2", -15, 15, 0, "dB", true], ["mid2Freq", "Mid 2 freq", 800, 12000, 3500, "Hz", true], ["lpf", "High cut", 2000, 20000, 20000, "Hz", true]],
       make: function (c) { var u = { input: G(c), output: G(c) }, hp = c.createBiquadFilter(), lo = c.createBiquadFilter(), m1 = c.createBiquadFilter(), m2 = c.createBiquadFilter(), hi = c.createBiquadFilter(), lp = c.createBiquadFilter();
@@ -89,10 +102,10 @@
         u.input.connect(pre).connect(conv).connect(tone).connect(u.wetG).connect(u.output); var t = -1;
         u.set = function (p, now) { var ty = Math.round(p.type); if (ty !== t) { t = ty; conv.buffer = irBuffer(c, [1.2, 2.8, 2.0, 5.5][ty] || 1.2, [0.3, 0.45, 0.1, 0.5][ty] || 0.3, 99 + ty); } pre.delayTime.setTargetAtTime(p.predelay / 1000, now, 0.02); tone.frequency.setTargetAtTime(p.tone, now, 0.02); u.mix(p.mix, now); };
         u.param = function (k) { return { tone: tone.frequency, mix: u.wetG.gain }[k] || null; }; return u; } },
-    delay: { name: "Delay", params: [["time", "Time", 0, 7, 2, "", false, ["1/16", "1/8T", "1/8", "1/8.", "1/4", "1/4.", "1/2", "1 bar"]], ["feedback", "Feedback", 0, 0.92, 0.3, ""], ["mix", "Mix", 0, 1, 0.2, ""], ["tone", "Tone", 800, 16000, 5000, "Hz", true], ["pingpong", "Ping-pong", 0, 1, 0, "", true, ["Off", "On"]]],
+    delay: { name: "Delay", tempo: true, params: [["sync", "Sync to tempo", 0, 1, 1, "", false, ["Off", "On"]], ["note", "Note", 0, DNOTES.length - 1, 8, "", false, DNOTES.map(function (n) { return n[1]; })], ["ms", "Time", 1, 3900, 375, "ms"], ["feedback", "Feedback", 0, 0.92, 0.3, ""], ["mix", "Mix", 0, 1, 0.2, ""], ["tone", "Tone", 800, 16000, 5000, "Hz", true], ["pingpong", "Ping-pong", 0, 1, 0, "", true, ["Off", "On"]]],
       make: function (c) { var u = { input: G(c), output: G(c) }, dl = c.createDelay(4), dr = c.createDelay(4), fb = G(c, 0.3), tone = c.createBiquadFilter(), merge = c.createChannelMerger(2), cross = G(c, 0), straight = G(c, 1); tone.type = "lowpass"; wet(c, u, "mix");
         u.input.connect(dl); dl.connect(tone).connect(fb).connect(dl); dl.connect(merge, 0, 0); dl.connect(straight).connect(merge, 0, 1); dl.connect(cross).connect(dr); dr.connect(merge, 0, 1); merge.connect(u.wetG).connect(u.output);
-        u.set = function (p, now, bpm) { var beats = [0.25, 1 / 3, 0.5, 0.75, 1, 1.5, 2, 4][Math.round(p.time)] || 0.5, s = Math.min(3.9, beats * 60 / (bpm || 100)); dl.delayTime.setTargetAtTime(s, now, 0.05); dr.delayTime.setTargetAtTime(s, now, 0.05); fb.gain.setTargetAtTime(p.feedback, now, 0.02); tone.frequency.setTargetAtTime(p.tone, now, 0.02); var pp = p.pingpong >= 0.5; cross.gain.setTargetAtTime(pp ? 1 : 0, now, 0.02); straight.gain.setTargetAtTime(pp ? 0 : 1, now, 0.02); u.mix(p.mix, now); };
+        u.set = function (p, now, bpm) { var s = p.sync >= 0.5 ? Math.min(3.9, noteSec(p.note, bpm)) : clamp((p.ms || 375) / 1000, 0.001, 3.9);   /* (10.4: a note at the tempo, or its own time) */ dl.delayTime.setTargetAtTime(s, now, 0.05); dr.delayTime.setTargetAtTime(s, now, 0.05); fb.gain.setTargetAtTime(p.feedback, now, 0.02); tone.frequency.setTargetAtTime(p.tone, now, 0.02); var pp = p.pingpong >= 0.5; cross.gain.setTargetAtTime(pp ? 1 : 0, now, 0.02); straight.gain.setTargetAtTime(pp ? 0 : 1, now, 0.02); u.mix(p.mix, now); };
         u.param = function (k) { return { feedback: fb.gain, mix: u.wetG.gain, tone: tone.frequency }[k] || null; }; return u; } },
     chorus: { name: "Chorus", pro: true, params: [["rate", "Rate", 0.05, 5, 0.8, "Hz"], ["depth", "Depth", 0, 1, 0.5, ""], ["mix", "Mix", 0, 1, 0.5, ""]],
       make: function (c) { var u = { input: G(c), output: G(c) }, d1 = c.createDelay(0.05), d2 = c.createDelay(0.05), lfo = c.createOscillator(), lg1 = G(c, 0.002), lg2 = G(c, -0.002), m = c.createChannelMerger(2); wet(c, u, "mix");
@@ -116,9 +129,10 @@
       try { if (window.CMFx && fx && fx.plugin) api = window.CMFx.create(c, fx.plugin, { values: fxPlay(fx) || {}, onError: function (e) { console.warn("Central FX: " + e); } }); } catch (e) { console.warn("Central FX", e); }
       if (api && api.node) { u.input.connect(api.node); api.node.connect(u.output); (c.__cdawPending = c.__cdawPending || []).push(api.ready); } else u.input.connect(u.output);
       u.api = api;
-      // (10.3) a "tempo" knob follows the song's tempo unless the insert's "Sync to song tempo" is off
-      var tq = ((fx && fx.plugin && fx.plugin.params) || []).filter(function (q) { return (q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"); })[0];
-      u.set = function (p, now, bpm) { if (!api) return; p = Object.assign({}, p || {}); if (tq && fx.syncTempo !== false && bpm > 0) p[tq.id] = clamp(bpm, tq.min != null ? +tq.min : 20, tq.max != null ? +tq.max : 300); Object.keys(p).forEach(function (k) { if (last[k] !== p[k]) { last[k] = p[k]; api.setParam(k, p[k]); } }); };
+      // (10.3) a "tempo" knob follows the song's tempo unless the insert's "Sync to song tempo" is off; (10.4) a delay's
+      // time knob follows it on a note when the insert's "Sync to tempo" has one (f.syncNote). f: the insert as it is now
+      u.tempo = cmfxFollows(fx);
+      u.set = function (p, now, bpm, f) { if (!api) return; p = cmfxTempo(f || fx, p, bpm); Object.keys(p).forEach(function (k) { if (last[k] !== p[k]) { last[k] = p[k]; api.setParam(k, p[k]); } }); };
       u.param = function () { return null; }; u.dispose = function () { if (api) api.dispose(); }; return u; } }
   };
   // an effect's description: the built-in ones from FX; a Central FX plugin's knobs come from its own file
@@ -132,12 +146,14 @@
   FX.native = { name: "Native plugin", params: [], make: function (c, fx) { var u = { input: G(c), output: G(c) }; u.input.connect(u.output); u.set = function () { if (c === ctx && fx) liveKnob(fx.id); }; u.param = function () { return null; }; return u; } };   // (live it passes the sound: see "native plugins")
   function fxDefaults(fx) { var d = {}, def = fxDef(fx); (def ? def.params : []).forEach(function (p) { d[p[0]] = p[4]; }); return d; }
   // the params as they play: without Central Plugins the full-version knobs stay at their defaults (and pro effects pass through)
-  function fxPlay(fx) { var def = fxDef(fx); if (!def) return null; var p = Object.assign(fxDefaults(fx), fx.params || {}); if (!pro()) def.params.forEach(function (q) { if (q[6]) p[q[0]] = q[4]; }); return p; }
+  function fxPlay(fx) { fxMigrate(fx); var def = fxDef(fx); if (!def) return null; var p = Object.assign(fxDefaults(fx), fx.params || {}); if (!pro()) def.params.forEach(function (q) { if (q[6]) p[q[0]] = q[4]; }); return p; }
   function keepsTier(t) { var P = window.PPPedals; return !t || t === "free" || !P || !P.keeps ? true : !!P.keeps(t); }   // (10.3) a plan that ends mid-song keeps playing to the stop
   function fxUsable(fx) { var def = FX[fx.type]; return !!def && fx.on !== false && !(def.pro && !keepsTier("plugins")) && !(fx.type === "cmfx" && fx.plugin && fx.plugin.tier && !keepsTier(fx.plugin.tier)); }
   var GATE_SRC = "class G extends AudioWorkletProcessor{constructor(){super();this.p={threshold:-45,range:-60,release:120};this.e=0;this.g=1;this.port.onmessage=e=>{Object.assign(this.p,e.data)}}process(i,o){const a=i[0],b=o[0];if(!a||!a.length)return true;const th=Math.pow(10,this.p.threshold/20),fl=Math.pow(10,this.p.range/20),rel=Math.exp(-1/(sampleRate*this.p.release/1000)),att=Math.exp(-1/(sampleRate*0.001));for(let n=0;n<a[0].length;n++){let x=0;for(let c=0;c<a.length;c++)x=Math.max(x,Math.abs(a[c][n]));this.e=x>this.e?x:this.e*0.9995;const t=this.e>th?1:fl;this.g=t>this.g?t+(this.g-t)*att:t+(this.g-t)*rel;for(let c=0;c<b.length;c++)b[c][n]=(a[c]||a[0])[n]*this.g}return true}}registerProcessor('cdaw-gate',G);" +
     "class R extends AudioWorkletProcessor{constructor(){super();this.on=false;this.port.onmessage=e=>{this.on=!!e.data.on}}process(i){const a=i[0];if(this.on&&a&&a.length){this.port.postMessage({t:currentTime,ch:a.map(x=>x.slice(0))})}return true}}registerProcessor('cdaw-rec',R);" +
-    "class P extends AudioWorkletProcessor{constructor(o){super();const p=o.processorOptions||{};this.c=p.chunk|0;this.skip=p.skip|0;this.total=p.total|0;this.f=0;this.b=null;this.bs=0;this.k=o.numberOfInputs|0}process(ins){for(let i=0;i<128;i++){const fr=this.f+i;if(fr<this.skip||fr>=this.total)continue;const x=fr-this.skip,j=x%this.c;if(j===0){this.b=[];for(let k=0;k<this.k;k++)this.b.push(new Float32Array(this.c*2));this.bs=x}for(let k=0;k<this.k;k++){const a=ins[k]||[],L=a[0],R=a[1]||a[0],o=this.b[k];o[2*j]=L?L[i]:0;o[2*j+1]=R?R[i]:0}if(j===this.c-1||fr===this.total-1){this.port.postMessage({s:this.bs,n:j+1,d:this.b},this.b.map(z=>z.buffer));this.b=null}}this.f+=128;return true}}registerProcessor('cdaw-tap',P);";
+    "class P extends AudioWorkletProcessor{constructor(o){super();const p=o.processorOptions||{};this.c=p.chunk|0;this.skip=p.skip|0;this.total=p.total|0;this.f=0;this.b=null;this.bs=0;this.k=o.numberOfInputs|0}process(ins){for(let i=0;i<128;i++){const fr=this.f+i;if(fr<this.skip||fr>=this.total)continue;const x=fr-this.skip,j=x%this.c;if(j===0){this.b=[];for(let k=0;k<this.k;k++)this.b.push(new Float32Array(this.c*2));this.bs=x}for(let k=0;k<this.k;k++){const a=ins[k]||[],L=a[0],R=a[1]||a[0],o=this.b[k];o[2*j]=L?L[i]:0;o[2*j+1]=R?R[i]:0}if(j===this.c-1||fr===this.total-1){this.port.postMessage({s:this.bs,n:j+1,d:this.b},this.b.map(z=>z.buffer));this.b=null}}this.f+=128;return true}}registerProcessor('cdaw-tap',P);" +
+    "class Q extends AudioWorkletProcessor{constructor(o){super();this.q=[];this.stop=-1;this.late=0;this.ms=0;this.lt=0;this.port.onmessage=e=>{const m=e.data;if(m.items)for(const it of m.items)this.q.push(it);if(m.stop!=null)this.stop=m.stop}}process(i,outs){const f0=currentFrame,f1=f0+128,st=this.stop,keep=[];for(const it of this.q){const n=it.d.length>>1,s=it.f,e=s+n;if(!it.seen){it.seen=1;if(s<f0){this.late++;this.ms=Math.max(this.ms,(f0-s)/sampleRate*1000)}}if(e<=f0)continue;if(s>=f1){keep.push(it);continue}const o=outs[it.k];if(o&&o.length){const L=o[0],R=o[1]||o[0],a=Math.max(s,f0),b=st>=0?Math.min(e,f1,st):Math.min(e,f1);for(let fr=a;fr<b;fr++){const j=2*(fr-s),g=st>=0&&st-fr<64?(st-fr)/64:1;L[fr-f0]+=it.d[j]*g;if(R!==L)R[fr-f0]+=it.d[j+1]*g}}if(e>f1)keep.push(it)}this.q=keep;if(this.late&&currentTime-this.lt>0.5){this.lt=currentTime;this.port.postMessage({late:this.late,ms:this.ms});this.late=0;this.ms=0}return true}}registerProcessor('cdaw-play',Q);" +
+    "class K extends AudioWorkletProcessor{constructor(o){super();this.B=((o.processorOptions||{}).block|0)||256;this.on=true;this.b=null;this.j=0;this.f=0;this.port.onmessage=e=>{this.on=!!e.data.on;if(!this.on){this.b=null;this.j=0}}}process(ins){if(!this.on)return true;const a=ins[0]||[],L=a[0],R=a[1]||a[0];for(let i=0;i<128;i++){if(!this.b){this.b=new Float32Array(this.B*2);this.f=currentFrame+i;this.j=0}const j=this.j;this.b[2*j]=L?L[i]:0;this.b[2*j+1]=R?R[i]:0;if(++this.j===this.B){this.port.postMessage({f:this.f,d:this.b},[this.b.buffer]);this.b=null}}return true}}registerProcessor('cdaw-cap',K);";   // (10.4: cdaw-play plays processed blocks at their frame; cdaw-cap hands a keyboard's sound to the plugins)
   function worklets(c) { if (!c.audioWorklet) return Promise.resolve(false); if (!c.__cdaw) c.__cdaw = c.audioWorklet.addModule("data:text/javascript;charset=utf-8," + encodeURIComponent(GATE_SRC)).then(function () { return true; }).catch(function () { return false; }); return c.__cdaw; }
 
   // ------------------------------------------------------------- the project
@@ -220,19 +236,22 @@
     if (sig !== this.chainSig) {   // the chain changed: build it again (a 10 ms crossfade so nothing clicks)
       var old = this.chain, oldIn = this.input; this.chainSig = sig;
       try { this.input.disconnect(); } catch (_) { }
-      var last = this.input; this.chain = use.map(function (f) { var u = FX[f.type].make(self.c, f); u.id = f.id; last.connect(u.input); last = u.output; return u; });
+      var last = this.input; this.chain = use.map(function (f) { var u = FX[f.type].make(self.c, f); u.id = f.id; if (FX[f.type].tempo) u.tempo = true; last.connect(u.input); last = u.output; return u; });
       last.connect(this.preOut);
       setTimeout(function () { old.forEach(function (u) { try { u.output.disconnect(); } catch (_) { } if (u.dispose) u.dispose(); }); }, 200);
     }
-    this.chain.forEach(function (u) { var f = use.filter(function (x) { return x.id === u.id; })[0]; if (f && u.set) u.set(fxPlay(f), now, bpm); });
+    this.chain.forEach(function (u) { var f = use.filter(function (x) { return x.id === u.id; })[0]; u.fx = f; if (f && u.set) u.set(fxPlay(f), now, bpm, f); });
   };
+  // (10.4) the song's tempo where the playhead is: the effects that follow it (delays, Central FX with a tempo or time knob)
+  Strip.prototype.tempo = function (bpm, when) { this.chain.forEach(function (u) { if (u.tempo && u.fx && u.set) u.set(fxPlay(u.fx), when, bpm, u.fx); }); };
   function Graph(c, offline) {
-    this.c = c; this.offline = offline; this.strips = {}; this.insts = {}; this.instSig = {}; this.auto = false;
+    this.c = c; this.offline = offline; this.bpmNow = 0; this.strips = {}; this.insts = {}; this.instSig = {}; this.auto = false;
     this.master = new Strip(c); this.master.route(c.destination);
     this.click = G(c, 0.6); this.click.connect(c.destination);
   }
   Graph.prototype.sync = function (p) {
     var self = this, now = this.c.currentTime, ids = {}, anySolo = p.tracks.some(function (t) { return t.solo && t.kind !== "bus"; });
+    var bpmNow = this.offline ? (this.bpmFrom || p.bpm) : (this === rt ? bpmAt(T.playing ? position() : T.pos) : p.bpm); this.bpmNow = bpmNow;   // (10.4)
     p.tracks.forEach(function (t) { ids[t.id] = 1; if (!self.strips[t.id]) self.strips[t.id] = new Strip(self.c); });
     p.tracks.forEach(function (t) {
       var s = self.strips[t.id], dest = t.output && t.output !== "master" && self.strips[t.output] && t.output !== t.id ? self.strips[t.output].input : self.master.input;
@@ -241,7 +260,7 @@
       if (!(aut.volume && aut.volume.length)) s.fader.gain.setTargetAtTime(dbToGain(t.volume), now, 0.012);
       if (!(aut.pan && aut.pan.length)) s.pan.pan.setTargetAtTime(clamp(t.pan, -1, 1), now, 0.012);
       var muted = t.mute || (anySolo && t.kind !== "bus" && !t.solo); s.mute.gain.setTargetAtTime(muted ? 0 : 1, now, 0.006);
-      s.setInserts(t.inserts, p.bpm, now);
+      s.setInserts(t.inserts, bpmNow, now);
       // sends: post-fader (or pre) to the buses
       var want = {}; (t.sends || []).forEach(function (sd) { var b = self.strips[sd.to]; if (!b || sd.to === t.id) return; want[sd.to] = 1; var g = s.sends[sd.to]; if (!g || g.pre !== !!sd.pre) { if (g) try { g.node.disconnect(); } catch (_) { } var n = G(self.c, 0); (sd.pre ? s.preOut : s.mute).connect(n); n.connect(b.input); g = s.sends[sd.to] = { node: n, pre: !!sd.pre }; } if (!(aut["send:" + sd.to] && aut["send:" + sd.to].length)) g.node.gain.setTargetAtTime(dbToGain(sd.level), now, 0.012); });
       Object.keys(s.sends).forEach(function (k) { if (!want[k]) { try { s.sends[k].node.disconnect(); } catch (_) { } delete s.sends[k]; } });
@@ -249,9 +268,20 @@
     });
     Object.keys(this.strips).forEach(function (id) { if (!ids[id]) { self.strips[id].route(null); if (self.insts[id]) self.insts[id].allOff(now, true); delete self.strips[id]; delete self.insts[id]; delete self.instSig[id]; } });
     this.master.fader.gain.setTargetAtTime(dbToGain(p.master.volume || 0), now, 0.012);
-    this.master.setInserts(p.master.inserts, p.bpm, now);
+    this.master.setInserts(p.master.inserts, bpmNow, now);
     this.click.gain.setTargetAtTime(p.metronome.level == null ? 0.6 : p.metronome.level, now, 0.01);
     return Promise.all(Object.keys(this.insts).map(function (id) { return self.insts[id].ready; }));
+  };
+  // (10.4) a tempo change at `when`: in an export the render pauses there, so even a plugin's knob lands on its beat
+  Graph.prototype.applyTempo = function (bpm, when) {
+    if (!(bpm > 0) || this.bpmNow === bpm) return; this.bpmNow = bpm; var self = this, c = this.c;
+    var any = [this.master].concat(Object.keys(this.strips).map(function (id) { return self.strips[id]; })).some(function (s) { return s.chain.some(function (u) { return u.tempo; }); });
+    if (!any) return;   // (nothing follows it: no pause in a render - the live plugins' renders pause on their own)
+    function go(at) { Object.keys(self.strips).forEach(function (id) { self.strips[id].tempo(bpm, at); }); self.master.tempo(bpm, at); }
+    if (this.offline && when > c.currentTime + 0.01 && c.suspend) {
+      var q = Math.ceil(when * c.sampleRate / 128), seen = c.__cdawSusp = c.__cdawSusp || {}; while (seen[q * 128 / c.sampleRate]) q++; var at = q * 128 / c.sampleRate; seen[at] = 1;
+      c.suspend(at).then(function () { go(at); c.resume(); }, function () { go(when); });
+    } else go(Math.max(when, c.currentTime));
   };
   // automation: a param of a track -> its AudioParam in this graph, and the value scale
   Graph.prototype.autoTarget = function (t, key) {
@@ -264,16 +294,21 @@
   };
   // ------------------------------------------------------------- the audio device (Settings → Audio), kept on this computer
   // { input, output: device ids ("" = the system's), rate, buffer (frames), channels (how many inputs to open),
-  //   loopbackMs: the measured round trip (output → cable → input) that recordings are lined up by, or null }
+  //   loopbackMs: the measured round trip (output → cable → input) that recordings are lined up by, or null,
+  //   pluginResponse: "fast" | "balanced" | "safe" (10.4: how far ahead VST3 / CLAP plugins get the sound: see "live"),
+  //   keysRoute: "direct" | "track" (10.4: a keyboard through a track's plugins: see "a keyboard through ...") }
   var AUDIO_KEY = "cdaw-audio";
   function audioSettings() {
     var a = {}; try { a = JSON.parse(localStorage.getItem(AUDIO_KEY) || "{}") || {}; } catch (_) { }
     if (a.input == null) try { a.input = localStorage.getItem("cdaw-input-device") || ""; } catch (_) { }
-    return Object.assign({ input: "", output: "", rate: 48000, buffer: 256, channels: 2, loopbackMs: null }, a);
+    return Object.assign({ input: "", output: "", rate: 48000, buffer: 256, channels: 2, loopbackMs: null, pluginResponse: "balanced", keysRoute: "direct" }, a);
   }
   function setAudio(patch) {
     var old = audioSettings(), a = Object.assign({}, old, patch || {});
     a.rate = [44100, 48000, 88200, 96000].indexOf(+a.rate) >= 0 ? +a.rate : 48000; a.buffer = clamp(Math.round(+a.buffer) || 256, 32, 4096); a.channels = clamp(Math.round(+a.channels) || 2, 1, 32);
+    if (!RESP[a.pluginResponse]) a.pluginResponse = "balanced"; if (a.keysRoute !== "track") a.keysRoute = "direct";   // (10.4)
+    if (a.pluginResponse !== old.pluginResponse) NL.extra = 0;
+    if (a.keysRoute !== old.keysRoute) { KB.rigFail = {}; kbRigOff(); Object.keys(KB.tracks).forEach(function (id) { kbDrop(KB.tracks[id]); }); }
     var devChanged = a.input !== old.input || a.output !== old.output || a.rate !== old.rate || a.buffer !== old.buffer;
     if (devChanged && !(patch && "loopbackMs" in patch)) a.loopbackMs = null;   // (a new route: the old measurement no longer holds)
     try { localStorage.setItem(AUDIO_KEY, JSON.stringify(a)); } catch (_) { }
@@ -409,6 +444,9 @@
         }
       });
     });
+    // (10.4) the tempo for the effects that follow it: where it starts, then each change in this window
+    if (sink.first) g.applyTempo(bpmAt(a), Math.max(g.c.currentTime, sink.time(a)));
+    tempoList().forEach(function (tc) { if (tc.beat >= a - 1e-9 && tc.beat < b) g.applyTempo(tc.bpm, sink.time(tc.beat)); });
     // automation points ahead
     if (g.auto) p.tracks.forEach(function (t) { Object.keys(t.auto || {}).forEach(function (k) { var list = t.auto[k]; if (!list || !list.length) return; var tg = g.autoTarget(t, k); if (!tg) return; list.forEach(function (pt) { if (pt.b >= a && pt.b < b) try { tg.param.linearRampToValueAtTime(tg.val(pt.v), sink.time(pt.b)); } catch (_) { } }); }); });
     // the click (and the count-in)
@@ -477,7 +515,7 @@
   function setPos(beat) { var was = T.playing; if (was) { var rec = T.recording; stop(); T.pos = Math.max(0, beat); if (!rec) play(); } else { T.pos = Math.max(0, beat); fire("transport", state()); } }
   // an edit while it plays: everything ahead is scheduled again from where it is now (sounds already playing fade out in 4 ms)
   function reschedule() { if (!T.playing || T.recording) return; var now = ctx.currentTime, pos = beatAtTime(now + 0.03);
-    if (NL.S || liveTracks().length) { var sw = now + NL.ahead, lp = beatAtTime(sw); liveStop(sw); var S2 = liveStart(lp, { t0: sw, carryOn: true }); if (S2) liveBegin(S2, sw); }   /* (10.3: the live tracks carry on from a moment ahead) */ silence(T.sink, now + 0.02); T.pass++; T.sink = newSink(pos, true); T.cursor = pos; autoStart(rt, pos, now + 0.03); tick(); }
+    if (NL.S || liveTracks().length) { var sw = now + Math.max(0.5, liveResp().proc + 0.35), lp = beatAtTime(sw); liveStop(sw); var S2 = liveStart(lp, { t0: sw, carryOn: true }); if (S2) liveBegin(S2, sw); }   /* (10.3: the live tracks carry on from a moment ahead) */ silence(T.sink, now + 0.02); T.pass++; T.sink = newSink(pos, true); T.cursor = pos; autoStart(rt, pos, now + 0.03); tick(); }
   function state() { return { waiting: !!T.waiting, playing: T.playing, recording: T.recording, pos: position(), bpm: bpmAt(position()), countingIn: T.playing && T.countBeats > 0 && ctx && ctx.currentTime < T.t0 }; }
   function tick() {
     if (!T.playing || !ctx) return;
@@ -486,7 +524,7 @@
       while (to > L.end && from < L.end) {
         schedule(T.sink, from, L.end); var tEnd = songTime(L.end);
         T.wraps.push(tEnd); T.t0 = tEnd; T.b0 = L.start; from = L.start; T.pass++; var old = T.sink; T.sink = newSink(L.start, true); T.sink.sources = old.sources; T.sink.notes = old.notes;
-        autoStart(rt, L.start, tEnd); to = beatAtTime(ahead);
+        autoStart(rt, L.start, tEnd); rt.applyTempo(bpmAt(L.start), tEnd); to = beatAtTime(ahead);
       }
     }
     if (to > from) { schedule(T.sink, from, to); T.sink.first = false; }
@@ -603,10 +641,14 @@
     var t = track(trackId); if (!t || t.kind === "audio" || t.kind === "bus") return;
     var c = ensureCtx(); if (c.state === "suspended") c.resume();
     var st = data[0] & 0xF0, n = data[1], v = data[2] || 0, inst = rt.insts[t.id], strip = rt.strips[t.id], k = t.id + ":" + n;
-    var native = monitor.ok && monitor.tracks[t.id] && NAT && NAT.monitor;
+    // (10.4) a track with VST3 / CLAP plugins: the keyboard goes through them (see "a keyboard through a track's plugins")
+    var mode = kbMode(t), K = mode === "track" ? kbStream(t) : null, dest = K ? K.input : strip && strip.input;
+    if (mode === "direct") { var msg = [data[0], n, v]; kbRig(t).then(function () { NH.host.midi(msg); }, function () { }); inst = null; }
+    if (K && st === 0x90 && v > 0) kbWake(K);
+    var native = !mode && monitor.ok && monitor.tracks[t.id] && NAT && NAT.monitor;
     if (native) NAT.monitor.send({ action: "midi", track: t.id, data: [data[0], n, v] });
     if (st === 0x90 && v > 0) {
-      if (!native && inst) { if (live.held[k]) inst.noteOff(live.held[k], 0); live.held[k] = inst.noteOn(strip.input, n, v, 0); }
+      if (!native && inst && dest) { if (live.held[k]) inst.noteOff(live.held[k], 0); live.held[k] = inst.noteOn(dest, n, v, 0); }
       if (T.recording && t.arm) { var b = position(); if (proj.loop.on && b >= proj.loop.end) b = proj.loop.start + ((b - proj.loop.start) % (proj.loop.end - proj.loop.start)); (rec.midi[t.id] = rec.midi[t.id] || []).push({ p: n, v: v, on: b }); rec.held[k] = rec.midi[t.id][rec.midi[t.id].length - 1]; }
     } else if (st === 0x80 || (st === 0x90 && v === 0)) {
       if (live.sustain[t.id]) { (live.sustained[t.id] = live.sustained[t.id] || []).push(k); }
@@ -617,7 +659,7 @@
       if (!live.sustain[t.id]) { (live.sustained[t.id] || []).forEach(function (k2) { if (live.held[k2] && inst) { inst.noteOff(live.held[k2], 0); delete live.held[k2]; } }); live.sustained[t.id] = []; }
     }
   }
-  function nativeTracks() { var out = []; monitor.tracks = {}; proj.tracks.forEach(function (t) { if (!t.layers || t.kind === "audio" || t.kind === "bus") return; var ls = SND.nativeLayers && SND.nativeLayers(t.layers); if (!ls) return; out.push({ id: t.id, volume: dbToGain(t.volume), pan: t.pan, mute: t.mute, layers: ls }); monitor.tracks[t.id] = 1; }); return out; }
+  function nativeTracks() { var out = []; monitor.tracks = {}; proj.tracks.forEach(function (t) { if (!t.layers || t.kind === "audio" || t.kind === "bus") return; if (NH.host && natives(t).length) return;   /* (10.4: through its plugins instead) */ var ls = SND.nativeLayers && SND.nativeLayers(t.layers); if (!ls) return; out.push({ id: t.id, volume: dbToGain(t.volume), pan: t.pan, mute: t.mute, layers: ls }); monitor.tracks[t.id] = 1; }); return out; }
   var monSig = "";
   function syncMonitor() { if (!NAT || !NAT.monitor || !monitor.started) return; var tr = nativeTracks(), sig = JSON.stringify(tr); if (sig !== monSig) { monSig = sig; NAT.monitor.send({ action: "tracks", tracks: tr }); } }
   function startMonitor() {
@@ -664,7 +706,8 @@
   function freezeSig(t) {
     var n = natives(t); if (!n.length) return "";
     var x = clone(t); ["volume", "pan", "mute", "solo", "arm", "monitor", "sends", "auto", "lanes", "height", "color", "name", "frozen", "output", "inserts"].forEach(function (k) { delete x[k]; });
-    return strHash(JSON.stringify([x, n.map(function (f) { return [f.id, f.plugin.format, f.plugin.id, f.plugin.path, f.v || 0, knobList(f)]; }), proj.bpm, proj.tempos || [], proj.sigs || []]));
+    var lanes = {}; Object.keys(t.auto || {}).forEach(function (k) { var m = /^fx:([^:]+):\d+$/.exec(k); if (m && n.some(function (f) { return f.id === m[1]; })) lanes[k] = t.auto[k]; });   // (10.4: its plugins' automation is frozen in too)
+    return strHash(JSON.stringify([x, n.map(function (f) { return [f.id, f.plugin.format, f.plugin.id, f.plugin.path, f.v || 0, knobList(f)]; }), proj.bpm, proj.tempos || [], proj.sigs || [], lanes]));
   }
   function frozenOK(t) { return !!(t && t.frozen && t.frozen.sig && buffers[t.frozen.src] && t.frozen.sig === freezeSig(t)); }
   function clipsFor(t) { return frozenOK(t) ? [{ id: "fz" + t.id, kind: "audio", start: 0, len: t.frozen.len, audio: { src: t.frozen.src, offset: 0, gain: 0, fadeIn: 0, fadeOut: 0.01 } }] : t.clips; }
@@ -679,7 +722,7 @@
     var job = renderRaw({ from: 0, to: to, tracks: [id], dry: id, exact: true, rate: rate }).then(function (buf) {
       var L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L, N = buf.length, data = new Float32Array(N * 2);
       for (var i = 0; i < N; i++) { data[2 * i] = L[i]; data[2 * i + 1] = R[i]; }
-      return NH.host.process({ rate: rate, frames: N, data: data, tail: 0, plugins: n.map(function (f) { return Object.assign(nativeJob(f), { params: knobList(f) }); }) });
+      return NH.host.process({ rate: rate, frames: N, data: data, tail: 0, plugins: n.map(function (f) { return Object.assign(nativeJob(f), { params: knobList(f) }); }), auto: nativeAuto(t, rate, N) });   // (10.4: with its automation)
     }).then(function (r) {
       if (!r || !r.ok) throw new Error(r && r.error || "the plugins didn't play");
       var d = new Float32Array(r.data.buffer ? r.data.buffer.slice(r.data.byteOffset || 0, (r.data.byteOffset || 0) + r.data.byteLength) : r.data), M = Math.min(r.frames, d.length >> 1), out = new AudioBuffer({ numberOfChannels: 2, length: Math.max(1, M), sampleRate: rate }), oL = out.getChannelData(0), oR = out.getChannelData(1);
@@ -695,26 +738,49 @@
     if (!opts.temp) NH.busy[id] = job;
     return job;
   }
+  // (10.4) a track's plugin automation for a render from the song's start: [[frame, plugin, parameter, value]], every
+  // 256 frames where it changes (the same lanes the live sound follows)
+  function nativeAuto(t, rate, frames) {
+    var out = [], aut = t && t.auto || {};
+    natives(t).forEach(function (f, k) {
+      Object.keys(aut).forEach(function (key) {
+        var m = /^fx:([^:]+):(\d+)$/.exec(key); if (!m || m[1] !== f.id || !aut[key] || !aut[key].length) return;
+        var pts = aut[key].slice().sort(function (x, y) { return x.b - y.b; }), last = null;
+        for (var o = 0; o < frames; o += 256) { var v = autoAt(pts, secToBeat(o / rate)); if (last == null || Math.abs(v - last) > 1e-4) { out.push([o, k, +m[2], v]); last = v; } }
+      });
+    });
+    return out.sort(function (x, y) { return x[0] - y[0]; });
+  }
   function beatsPerBarAt(b) { try { return beatToBar(b).per || 4; } catch (_) { return 4; } }
   function unfreeze(id) { var t = track(id); if (t && t.frozen) edit("Unfreeze", function () { track(id).frozen = null; }); }
   function nativeState(t) { var n = natives(t); return !n.length ? "none" : NH.busy[t.id] ? "freezing" : frozenOK(t) ? "frozen" : t.frozen ? "stale" : "unfrozen"; }
 
-  // ------------------------------------------------------------- native plugins, live (10.3)
+  // ------------------------------------------------------------- native plugins, live (10.3; quicker and lighter in 10.4)
   // In the apps every track with VST3 / CLAP plugins plays through them while the song plays: no freezing. What a track
-  // will play is known ahead, so its dry sound (clips through its instrument) is rendered a little ahead of the playhead
-  // (an OfflineAudioContext for each window of the song, tapped a chunk at a time by an AudioWorklet and paused so it
-  // keeps about NL.ahead seconds in front), streamed through the track's plugins in the rig (cu-rig.c: "the DAW's
-  // native plugins, live") and scheduled at its song time less the chain's reported latency. So every track lines up
-  // with the others, and nothing else in the mix is held back. Automation of a plugin's parameters goes with the audio,
-  // at its frame; a knob turned (here or in the plugin's window) is heard about NL.ahead later. A loop or a seek starts
-  // new windows; a start or a seek resets the plugins (what a delay line still held is played out), an edit while it
-  // plays carries on without. Freezing a track still saves CPU: a frozen track plays its frozen sound instead.
-  var NL = { ahead: 0.6, chunk: 8192, win: 12, S: null, idx: {}, next: 0, chains: {}, knobs: {}, n: 0, stats: { late: 0, chunks: 0, worstMs: 0, batches: 0 } };
+  // will play is known ahead, so its dry sound (clips through its instrument) is rendered ahead of the playhead (an
+  // OfflineAudioContext for each window of the song, tapped a chunk at a time by an AudioWorklet and paused so it keeps
+  // about NL.dryAhead seconds in front) and queued here. (10.4) The plugins get it only shortly before it's heard: small
+  // blocks (Settings → Audio → "Plugin response": about 100, 200 or 400 ms ahead) sent as raw bytes to the rig (cu-rig.c:
+  // "the DAW's native plugins, live"), so a knob turned here or in the plugin's window is heard that soon. What comes
+  // back plays from one AudioWorklet per session (cdaw-play) at its song time less the chain's reported latency, so every
+  // track lines up with the others and nothing else in the mix is held back. Silence isn't sent either way, and a chain
+  // that has gone quiet isn't processed (lighter). Automation of a plugin's parameters goes with the audio, at its frame.
+  // A loop or a seek starts new windows; a start or a seek resets the plugins (what a delay line still held is played
+  // out), an edit while it plays carries on without. Freezing a track still saves CPU: a frozen track plays its frozen
+  // sound instead. If the computer can't keep up, the plugins are given more time from then on (and it says so).
+  var RESP = { fast: { proc: 0.1, block: 512 }, balanced: { proc: 0.2, block: 1024 }, safe: { proc: 0.4, block: 4096 } };
+  var NL = { dryAhead: 1, chunk: 8192, win: 12, extra: 0, S: null, idx: {}, next: 0, kidx: {}, knext: 0, chains: {}, knobs: {}, n: 0, stats: { late: 0, chunks: 0, worstMs: 0, batches: 0, silent: 0, sent: 0 } };
+  function liveResp() {
+    var r = RESP[audioSettings().pluginResponse] || RESP.balanced, rate = ctx ? ctx.sampleRate : 48000;
+    return { proc: r.proc + NL.extra, block: Math.max(256, Math.round(r.block * rate / 48000 / 128) * 128) };
+  }
+  function dryAhead() { return Math.max(0.8, liveResp().proc * 2 + 0.4); }
   function liveHost() { return NH.host && NH.host.stream ? NH.host.stream : null; }
   function liveTracks() { return liveHost() && ctx ? proj.tracks.filter(function (t) { return t.kind !== "bus" && natives(t).length && !frozenOK(t); }) : []; }
-  function liveIdx(id) { if (NL.idx[id] == null) NL.idx[id] = NL.next++ % 64; return NL.idx[id]; }
+  function liveIdx(id) { if (NL.idx[id] == null) NL.idx[id] = NL.next++ % 48; return NL.idx[id]; }   // (48-63: keyboards, below)
   function chainSig(t) { return JSON.stringify(natives(t).map(function (f) { return [f.id, f.plugin.format, f.plugin.id, f.plugin.path]; })) + "@" + (ctx ? ctx.sampleRate : 0); }
   function knobList(f) { var p = f.params || {}; return Object.keys(p).filter(function (k) { return /^\d+$/.test(k); }).sort().map(function (k) { return [+k, +p[k]]; }); }
+  function silent(d) { if (!d) return true; for (var i = 0; i < d.length; i++) if (d[i] > 1e-7 || d[i] < -1e-7) return false; return true; }
   function liveChains(tracks) {
     var H = liveHost();
     Object.keys(NL.idx).forEach(function (id) { var t = track(id), i = NL.idx[id]; if (NL.chains[i] && !(t && natives(t).length)) { H.drop(i); delete NL.chains[i]; } });   // (no plugins any more)
@@ -727,30 +793,45 @@
       return c.p;
     }));
   }
-  // a knob turned in the panel: to the plugin now (an automated parameter follows its lane instead)
+  // a knob turned in the panel: to the plugin now, in the playing chain and the keyboard's (an automated parameter follows its lane instead)
   function liveKnob(fxId) {
-    var H = liveHost(); if (!H) return; var t = null, k = -1;
+    var H = liveHost(); if (!H && !(NH.host && NH.host.set)) return; var t = null, k = -1;
     proj.tracks.some(function (x) { var n = natives(x); for (var i = 0; i < n.length; i++) if (n[i].id === fxId) { t = x; k = i; return true; } return false; });
-    if (!t || NL.idx[t.id] == null || !NL.chains[NL.idx[t.id]]) return;
-    knobList(natives(t)[k]).forEach(function (kv) { var key = fxId + ":" + kv[0], lane = t.auto && t.auto["fx:" + fxId + ":" + kv[0]]; if ((lane && lane.length) || NL.knobs[key] === kv[1]) return; NL.knobs[key] = kv[1]; H.param(NL.idx[t.id], k, kv[0], kv[1]); });
+    if (!t) return; var f = natives(t)[k], play = H && NL.idx[t.id] != null && NL.chains[NL.idx[t.id]], K = KB.tracks[t.id], rig = KB.rigTrack === t.id && NH.host.set;
+    knobList(f).forEach(function (kv) {
+      var key = fxId + ":" + kv[0], lane = t.auto && t.auto["fx:" + fxId + ":" + kv[0]]; if (NL.knobs[key] === kv[1]) return; NL.knobs[key] = kv[1];
+      if (play && !(lane && lane.length)) H.param(NL.idx[t.id], k, kv[0], kv[1]);
+      if (K && H) H.param(K.idx, k, kv[0], kv[1]);
+      if (rig) NH.host.set(kbSlot(f), kv[0], kv[1]);
+    });
   }
   function liveStart(fromBeat, opts) {   // a session from fromBeat: S.first resolves when its first sound is in
     opts = opts || {}; var tracks = liveTracks(); if (!tracks.length) return null;
-    var S = { from: fromBeat, cur: fromBeat, t0: null, rate: ctx.sampleRate, ids: tracks.map(function (t) { return t.id; }), sigs: tracks.map(chainSig).join("|"), srcs: [], pending: [], dead: false, base: 0, got: 0, reset: !opts.carryOn, autoLast: {}, done: false };
+    var S = { from: fromBeat, cur: fromBeat, t0: null, rate: ctx.sampleRate, ids: tracks.map(function (t) { return t.id; }), sigs: tracks.map(chainSig).join("|"), q: [], pending: [], dead: false, base: 0, got: 0, reset: !opts.carryOn, autoLast: {}, done: false, endAt: null, player: null, conn: [], inflight: 0 };
     S.idx = S.ids.map(liveIdx); S.t0want = opts.t0;
     var ok; S.first = new Promise(function (r) { ok = r; }); S.firstOK = function () { if (ok) { var o = ok; ok = null; o(); } }; setTimeout(S.firstOK, 4000);
     NL.S = S; NL.stats.sessions = (NL.stats.sessions || 0) + 1;
-    liveChains(tracks).then(function () { if (!S.dead) return liveFeed(S); }).catch(function (e) { fire("message", "The plugins couldn't play live: " + (e && e.message || e)); S.firstOK(); });
+    S.timer = setInterval(function () { livePump(S); }, 5);
+    liveChains(tracks).then(function () {
+      if (S.dead) return; var H = liveHost();
+      // (10.4) the knobs as they are now (a lane that's been deleted leaves its last value in the plugin otherwise)
+      tracks.forEach(function (t) { natives(t).forEach(function (f, k) { knobList(f).forEach(function (kv) { var lane = t.auto && t.auto["fx:" + f.id + ":" + kv[0]]; if (lane && lane.length) return; NL.knobs[f.id + ":" + kv[0]] = kv[1]; H.param(liveIdx(t.id), k, kv[0], kv[1]); }); }); });
+      return liveFeed(S);
+    }).catch(function (e) { fire("message", "The plugins couldn't play live: " + (e && e.message || e)); S.firstOK(); });
     return S;
   }
   function liveBegin(S, t0) {   // the transport has started: when the session's first frame is heard
-    S.t0 = Math.round(t0 * S.rate) / S.rate; var p = S.pending; S.pending = [];
-    p.forEach(function (x) { liveOut(S, x[0], x[1], x[2], x[3]); });
+    S.t0 = Math.round(t0 * S.rate) / S.rate; S.f0 = Math.round(S.t0 * S.rate);
+    var p = S.pending; S.pending = []; p.forEach(function (x) { liveOut(S, x[0], x[1], x[2], x[3]); });
+    livePump(S);
   }
-  function liveStop(at) {   // its sound ends at `at` (now when not given)
-    var S = NL.S; if (!S) return; S.dead = true; NL.S = null; S.firstOK();
-    var t = Math.max(at != null ? at : 0, ctx ? ctx.currentTime : 0);
-    S.srcs.forEach(function (x) { try { x.src.stop(t); } catch (_) { } });
+  function liveEnd(S) { if (S.dead) return; S.dead = true; clearInterval(S.timer); S.q = []; S.firstOK(); if (NL.S === S) NL.S = null; }
+  function liveStop(at) {   // its sound ends at `at` (now when not given); until then it keeps playing (an edit carries on from there)
+    var S = NL.S; if (!S) return; NL.S = null; S.firstOK();
+    var now = ctx ? ctx.currentTime : 0, t = Math.max(at != null ? at : 0, now);
+    if (S.player) S.player.port.postMessage({ stop: Math.round(t * S.rate) });
+    var pl = S.player, conn = S.conn; setTimeout(function () { if (pl) { try { pl.disconnect(); } catch (_) { } } }, Math.max(0, (t - now) * 1000) + 300);
+    if (at == null || t <= now + 0.01 || S.t0 == null) liveEnd(S); else S.endAt = t;
   }
   function liveFeed(S) {
     if (S.dead || S.done) { S.firstOK(); return Promise.resolve(); }
@@ -777,7 +858,7 @@
       S.ids.forEach(function (id, k) { var st = g.strips[id]; if (!st) return; try { st.input.disconnect(); } catch (_) { } st.input.connect(tap, 0, k); });
       tap.connect(oc.destination);
       NL.stats.setupMs = Math.max(NL.stats.setupMs || 0, performance.now() - tw);
-      tap.port.onmessage = function (e) { if (!S.dead) liveChunk(S, base + e.data.s, e.data.n, e.data.d, secA, base); };
+      tap.port.onmessage = function (e) { if (!S.dead) { S.q.push({ sf: base + e.data.s, n: e.data.n, d: e.data.d, off: 0, secA: secA, sfA: base }); livePump(S); } };
       var sink = { graph: g, time: function (x) { return beatToSec(x) - beatToSec(from); }, started: {}, sources: [], notes: [], pass: 1, from: from, first: true, offline: true }, acts = {};
       function at(sec, fn, hold) { var q = Math.round(sec * rate / 128) * 128; if (q <= 0 || q >= preF + frames) { if (fn) fn(); return; } var x = acts[q] = acts[q] || { fns: [], hold: null }; if (fn) x.fns.push(fn); if (hold != null) x.hold = hold; }
       function sched(x, y) { proj = p2; try { schedule(sink, x, y); } catch (e2) { console.warn("live", e2); } proj = keep; }
@@ -793,12 +874,26 @@
       return oc.startRendering().catch(function () { });
     });
   }
-  function liveHold(S, sf) {   // wait until stream frame sf is no more than about NL.ahead from being heard
+  function liveHold(S, sf) {   // wait until stream frame sf is no more than about dryAhead() from being heard
     return new Promise(function (res) {
-      (function chk() { if (S.dead) return res(false); var t0 = S.t0 != null ? S.t0 : ctx.currentTime + 0.15; if (t0 + sf / S.rate - ctx.currentTime < NL.ahead * 1.5 + 0.2) res(true); else setTimeout(chk, 25); })();
+      (function chk() { if (S.dead) return res(false); var t0 = S.t0 != null ? S.t0 : ctx.currentTime + 0.15, w = t0 + sf / S.rate; if (S.endAt != null && w > S.endAt + 0.5) { liveEnd(S); return res(false); } if (w - ctx.currentTime < dryAhead() + 0.2) res(true); else setTimeout(chk, 25); })();
     });
   }
-  function liveAuto(S, t, sf, n, secA, sfA) {   // [[frame in the chunk, plugin, parameter, value]] - the lanes of the track's plugins
+  // the dry sound waiting here goes to the plugins in small blocks, each shortly before it's heard
+  function livePump(S) {
+    if (S.endAt != null && ctx && ctx.currentTime > S.endAt + 1) { liveEnd(S); return; }
+    if (S.dead || !S.q.length || S.pumping) return; S.pumping = true;
+    try {
+      var R = liveResp(), now = ctx.currentTime;
+      while (S.q.length) {
+        var c = S.q[0], sf = c.sf + c.off, when = S.t0 != null ? S.t0 + sf / S.rate : null;
+        if (when == null ? sf / S.rate > R.proc + 0.05 : when - now > R.proc) break;
+        if (S.endAt != null && when != null && when >= S.endAt) { liveEnd(S); break; }
+        var n = Math.min(R.block, c.n - c.off); liveSend(S, c, c.off, n); c.off += n; if (c.off >= c.n) S.q.shift();
+      }
+    } finally { S.pumping = false; }
+  }
+  function liveAuto(S, t, sf, n, secA, sfA) {   // [[frame in the block, plugin, parameter, value]] - the lanes of the track's plugins
     var out = [], aut = t && t.auto || {};
     natives(t).forEach(function (f, k) {
       Object.keys(aut).forEach(function (key) {
@@ -809,35 +904,119 @@
     });
     return out.sort(function (x, y) { return x[0] - y[0]; });
   }
-  function liveChunk(S, sf, n, data, secA, sfA) {
-    var H = liveHost(), streams = [];
+  function liveSend(S, c, off, n) {
+    var H = liveHost(), streams = [], sf = c.sf + off;
     S.ids.forEach(function (id, k) {
-      var d = data[k]; if (!d) return; var st = { s: S.idx[k], d: n < NL.chunk ? d.subarray(0, n * 2) : d };
+      var d = c.d[k], st = { s: S.idx[k] }, b = d ? d.subarray(off * 2, (off + n) * 2) : null;
+      if (silent(b)) { st.z = 1; NL.stats.silent++; } else st.d = b.slice();   // (a copy of just this block: a view would send the whole chunk)
       if (S.reset) st.reset = true;
-      var au = liveAuto(S, track(id), sf, n, secA, sfA); if (au.length) st.a = au;
+      var au = liveAuto(S, track(id), sf, n, c.secA, c.sfA); if (au.length) st.a = au;
       streams.push(st);
     });
-    S.reset = false; NL.stats.batches++; var tq = performance.now();
+    S.reset = false; NL.stats.batches++; NL.stats.sent += n; S.inflight++; var tq = performance.now();
     return H.process({ frames: n, streams: streams }).then(function (r) {
-      var rt = performance.now() - tq; NL.stats.rtMax = Math.max(NL.stats.rtMax || 0, rt); NL.stats.rtSum = (NL.stats.rtSum || 0) + rt;
-      if (!r || S.dead) return;
-      r.streams.forEach(function (x) { var k = S.idx.indexOf(x.s); if (k >= 0) liveOut(S, S.ids[k], sf, x.d, x.lat || 0); });
-      S.got += n; if (S.got >= Math.min(NL.ahead * S.rate * 0.75, S.base)) S.firstOK();
+      S.inflight--; var rt2 = performance.now() - tq; NL.stats.rtMax = Math.max(NL.stats.rtMax || 0, rt2); NL.stats.rtSum = (NL.stats.rtSum || 0) + rt2;
+      if (!r || S.dead && S.endAt == null) return;
+      var items = []; r.streams.forEach(function (x) { var k = S.idx.indexOf(x.s); if (k >= 0 && !x.z && x.d) items.push([k, sf, x.d, x.lat || 0]); });
+      if (S.t0 == null) S.pending = S.pending.concat(items); else liveOutAll(S, items);
+      S.got += n; if (S.got >= Math.min(liveResp().proc * S.rate * 0.9, S.base)) S.firstOK();
     });
   }
-  function liveOut(S, tid, sf, u8, lat) {   // a processed chunk, at its song time less the chain's latency
-    if (S.t0 == null) { S.pending.push([tid, sf, u8, lat]); return; }
-    var f = u8.byteOffset % 4 ? new Float32Array(u8.slice().buffer) : new Float32Array(u8.buffer, u8.byteOffset, u8.byteLength >> 2), n = f.length >> 1, start = sf - lat, skip = start < 0 ? -start : 0;
-    var strip = rt && rt.strips[tid]; if (n - skip <= 0 || !strip) return;
-    var b = ctx.createBuffer(2, n - skip, S.rate), L = b.getChannelData(0), R = b.getChannelData(1);
-    for (var i = skip; i < n; i++) { L[i - skip] = f[2 * i]; R[i - skip] = f[2 * i + 1]; }
-    var when = S.t0 + (start + skip) / S.rate, now = ctx.currentTime, src = ctx.createBufferSource(); src.buffer = b; src.connect(strip.input); src.onended = function () { try { src.disconnect(); } catch (_) { } };
-    NL.stats.chunks++; var pt = NL.stats.per = NL.stats.per || {}; pt[tid] = (pt[tid] || 0) + 1;
-    if (when < now + 0.003) { var late = now + 0.005 - when; NL.stats.late++; NL.stats.worstMs = Math.max(NL.stats.worstMs, late * 1000);
-      if (NL.ahead < 3 && !S.grew) { S.grew = true; NL.ahead = Math.min(3, NL.ahead + 0.3); fire("message", "This computer is busy: the plugins now play " + Math.round(NL.ahead * 1000) + " ms ahead."); }   /* (a slow or busy computer: more in hand from now on) */ if (late >= b.duration) return; src.start(now + 0.005, late); }
-    else src.start(when);
-    S.srcs = S.srcs.filter(function (x) { return x.end > now - 0.2; }); S.srcs.push({ src: src, end: when + b.duration });
+  function livePlayer(S) {   // one AudioWorklet plays every live track of the session, each into its own channel strip
+    if (S.player || !ctx || !ctx.audioWorklet) return S.player;
+    try { S.player = new AudioWorkletNode(ctx, "cdaw-play", { numberOfInputs: 0, numberOfOutputs: S.ids.length, outputChannelCount: S.ids.map(function () { return 2; }) }); } catch (e) { return null; }
+    S.player.port.onmessage = function (e) {
+      if (!e.data || !e.data.late) return; NL.stats.late += e.data.late; NL.stats.worstMs = Math.max(NL.stats.worstMs, e.data.ms || 0);
+      if (NL.extra < 0.6 && !S.grew) { S.grew = true; NL.extra = Math.min(0.6, NL.extra + 0.1); fire("message", "This computer is busy: the plugins now get " + Math.round(liveResp().proc * 1000) + " ms ahead (Settings → Audio → Plugin response)."); }
+    };
+    return S.player;
   }
+  function liveOut(S, k, sf, u8, lat) { liveOutAll(S, [[k, sf, u8, lat]]); }
+  function liveOutAll(S, items) {   // processed blocks, each at its song time less its chain's latency
+    var P = livePlayer(S); if (!P || !items.length) return; var msg = [], tr = [];
+    items.forEach(function (x) {
+      var k = x[0], u8 = x[2], id = S.ids[k], strip = rt && rt.strips[id]; if (!strip) return;
+      if (S.conn[k] !== strip) { try { if (S.conn[k]) P.disconnect(k); } catch (_) { } P.connect(strip.input, k); S.conn[k] = strip; }
+      var f = u8.byteOffset % 4 ? new Float32Array(u8.slice().buffer) : u8.byteOffset === 0 && u8.byteLength === u8.buffer.byteLength ? new Float32Array(u8.buffer) : new Float32Array(u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength));
+      msg.push({ k: k, f: S.f0 + x[1] - x[3], d: f }); tr.push(f.buffer); NL.stats.chunks++;
+      var pt = NL.stats.per = NL.stats.per || {}; pt[id] = (pt[id] || 0) + 1;
+    });
+    if (msg.length) P.port.postMessage({ items: msg }, tr);
+  }
+
+  // ------------------------------------------------------------- (10.4) a keyboard through a track's VST3 / CLAP plugins
+  // A note played on an instrument track that has native plugins goes through them:
+  //   "direct" (Settings → Audio → Keyboard through plugins: Lowest delay) when the track's sounds are SoundFonts: the
+  //            rig plays the sounds and the plugins straight to the sound card (a few ms), at the track's volume. The
+  //            track's built-in effects after them and its sends aren't in that live sound.
+  //   "track"  otherwise, or when chosen: the page plays the sound (as it always did) into a small capture worklet, each
+  //            256-frame block goes through the track's plugins in the rig (on a worker of its own) and comes back into
+  //            the track's channel strip, through everything after them (about 10-20 ms more).
+  // Each keyboard plays a copy of the track's plugins (the same knobs and saved state), so a song playing at the same
+  // time isn't disturbed. Knobs reach both. What's recorded is the notes, as always.
+  var KB = { tracks: {}, rigTrack: null, rigSig: "", rigReady: null, rigLevel: null, rigFail: {}, next: 0 };
+  function kbSlot(f) { return ("dk" + String(f.id).replace(/[^A-Za-z0-9]/g, "")).slice(0, 12); }
+  function kbPlugins(t) { return natives(t).map(function (f) { return Object.assign(nativeJob(f), { slot: kbSlot(f), stateFrom: nativeSlot(f), params: knobList(f) }); }); }
+  function kbVer(t) { return natives(t).map(function (f) { return f.v || 0; }).join(","); }   // (the plugin's window closed: its saved state changed)
+  function kbMode(t) {
+    if (!t || t.kind === "audio" || t.kind === "bus" || !natives(t).length || !NH.host || !ctx) return null;
+    var a = audioSettings(), ls = SND.nativeLayers && SND.nativeLayers(t.layers);
+    if (a.keysRoute !== "track" && NH.host.keys && NH.host.midi && !NH.monKey && ls && !KB.rigFail[t.id]) return "direct";
+    return liveHost() ? "track" : null;
+  }
+  function kbRig(t) {   // -> Promise: the rig plays this track's sounds and plugins
+    var plugins = kbPlugins(t), layers = SND.nativeLayers(t.layers), sig = JSON.stringify([layers, plugins.map(function (p) { return [p.slot, p.format, p.id, p.path]; }), kbVer(t)]);
+    if (KB.rigTrack === t.id && KB.rigSig === sig && KB.rigReady) return KB.rigReady;
+    KB.rigTrack = t.id; KB.rigSig = sig; KB.rigLevel = t.volume || 0;
+    var p = KB.rigReady = NH.host.keys({ track: t.id, layers: layers, plugins: plugins, levelDb: t.mute ? -120 : t.volume || 0 }).then(function (r) {
+      if (r && r.ok) return r;
+      if (KB.rigReady === p) { KB.rigReady = null; KB.rigTrack = null; }
+      if (!(r && r.busy)) { KB.rigFail[t.id] = true; fire("message", "The keyboard plays through " + t.name + "'s plugins in the page instead" + (r && (r.errors && r.errors[0] || r.error) ? " (" + (r.errors && r.errors[0] || r.error) + ")" : "") + "."); }
+      throw new Error("not in the rig");
+    });
+    return p;
+  }
+  function kbRigOff() { if (KB.rigTrack == null) return; KB.rigTrack = null; KB.rigSig = ""; KB.rigReady = null; if (NH.host && NH.host.keys) NH.host.keys(null); }
+  function kbIdx(id) { if (NL.kidx[id] == null) NL.kidx[id] = 48 + (NL.knext++ % 16); return NL.kidx[id]; }
+  function kbStream(t) {   // the page's sound for this track, through a copy of its plugins
+    var H = liveHost(), K = KB.tracks[t.id], sig = chainSig(t) + "|" + kbVer(t), strip = rt && rt.strips[t.id];
+    if (K && K.sig === sig && K.ctx === ctx) { if (strip && K.strip !== strip && K.play) { try { K.play.disconnect(); } catch (_) { } K.play.connect(strip.input); K.strip = strip; } return K; }
+    if (K) kbDrop(K);
+    K = KB.tracks[t.id] = { id: t.id, idx: kbIdx(t.id), sig: sig, ctx: ctx, input: G(ctx, 1), cap: null, play: null, strip: strip, on: true, quietIn: 0, quietOut: 0, J: 512, ready: false, lat: 0, rt: [] };
+    K.p = H.chain(K.idx, ctx.sampleRate, kbPlugins(t)).then(function (r) { K.lat = r && r.latency || 0; K.ready = true; if (r && r.errors && r.errors.length) fire("message", "A plugin didn't load: " + r.errors[0]); });
+    worklets(ctx).then(function () {
+      if (KB.tracks[t.id] !== K) return;
+      K.cap = new AudioWorkletNode(ctx, "cdaw-cap", { numberOfInputs: 1, numberOfOutputs: 0, channelCount: 2, channelCountMode: "explicit", processorOptions: { block: 256 } });
+      K.input.connect(K.cap); K.cap.port.onmessage = function (e) { kbBlock(K, e.data.f, e.data.d); };
+      K.play = new AudioWorkletNode(ctx, "cdaw-play", { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+      K.play.port.onmessage = function (e) { if (e.data && e.data.late && K.J < 4800) { K.J += 256; NL.stats.kbLate = (NL.stats.kbLate || 0) + 1; } };   // (late: a little more in hand from now on)
+      if (strip) K.play.connect(strip.input);
+    });
+    return K;
+  }
+  function kbBlock(K, f, d) {
+    var H = liveHost(); if (!K.ready || !H || KB.tracks[K.id] !== K) return;
+    var rate = K.ctx.sampleRate, quiet = silent(d);
+    if (quiet) { K.quietIn += 256; if (K.quietIn > rate * 3 && K.quietOut > rate * 3) { K.on = false; if (K.cap) K.cap.port.postMessage({ on: false }); return; } } else K.quietIn = 0;
+    var tq = performance.now(), st = { s: K.idx }; if (quiet) st.z = 1; else st.d = d;
+    H.process({ frames: 256, streams: [st] }).then(function (r) {
+      var ms = performance.now() - tq; K.rt.push(ms); if (K.rt.length > 64) K.rt.shift(); NL.stats.kbRtMax = Math.max(NL.stats.kbRtMax || 0, ms);
+      var x = r && r.streams && r.streams[0]; if (!x || x.z || !x.d) { K.quietOut += 256; return; } K.quietOut = 0;
+      var u8 = x.d, fl = u8.byteOffset % 4 ? new Float32Array(u8.slice().buffer) : new Float32Array(u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength));
+      if (K.play) K.play.port.postMessage({ items: [{ k: 0, f: f + K.J, d: fl }] }, [fl.buffer]);
+    });
+  }
+  function kbWake(K) { if (!K.on) { K.on = true; K.quietIn = K.quietOut = 0; if (K.cap) K.cap.port.postMessage({ on: true }); } }
+  function kbDrop(K) {
+    if (KB.tracks[K.id] === K) delete KB.tracks[K.id];
+    try { K.input.disconnect(); } catch (_) { } try { if (K.cap) K.cap.disconnect(); } catch (_) { } try { if (K.play) K.play.disconnect(); } catch (_) { }
+    var H = liveHost(); if (H) H.drop(K.idx);
+  }
+  function kbTidy() {   // a track's plugins changed or went: the keyboard's copies follow
+    Object.keys(KB.tracks).forEach(function (id) { var t = track(id); if (!t || kbMode(t) !== "track") kbDrop(KB.tracks[id]); });
+    if (KB.rigTrack != null) { var t = track(KB.rigTrack); if (!t || kbMode(t) !== "direct") kbRigOff(); else if ((t.mute ? -120 : t.volume || 0) !== KB.rigLevel) { KB.rigLevel = t.mute ? -120 : t.volume || 0; NH.host.keys({ level: KB.rigLevel }); } }
+  }
+  on("change", function () { if (Object.keys(KB.tracks).length || KB.rigTrack != null) kbTidy(); });
   function liveParams(tid, fid) {   // a plugin's parameters (normalized), for its knobs and automation lanes
     var t = track(tid), f = t && natives(t).filter(function (x) { return x.id === fid; })[0], H = liveHost(); if (!f || !H) return Promise.resolve([]);
     ensureCtx(); return liveChains([t]).then(function () { return H.params(nativeSlot(f)); }).then(function (l) {
@@ -898,7 +1077,7 @@
     if (o.temp) proj.tracks.forEach(function (t) { if (o.temp[t.id]) { t.frozen = Object.assign({}, o.temp[t.id]); t.frozen.sig = freezeSig(t); } });
     if (o.dry) { proj.tracks.forEach(function (t) { if (t.id !== o.dry) return; t.inserts = []; t.volume = 0; t.pan = 0; t.sends = []; t.auto = {}; t.output = "master"; t.frozen = null; t.mute = false; t.solo = true; }); proj.master = { volume: 0, inserts: [] }; }
     proj.metronome = Object.assign({}, proj.metronome, { on: false });
-    var g = new Graph(oc, true); g.auto = true; var p2 = proj;
+    var g = new Graph(oc, true); g.auto = true; g.bpmFrom = bpmAt(from); var p2 = proj;
     return worklets(oc).then(function () { return g.sync(p2); }).then(function () { return Promise.all(oc.__cdawPending || []); }).then(function () {   // (Central FX plugins load before it renders)
       var t0 = 0.02, sink = { graph: g, time: function (b) { return t0 + beatToSec(b) - beatToSec(from); }, started: {}, sources: [], notes: [], pass: 1, from: from, first: true, offline: true };
       // scheduled a few seconds at a time (the render pauses to take the next part): everything up front would keep every
@@ -908,7 +1087,8 @@
       for (var b = from + CH; b < end; b += CH) (function (a) {
         var at = Math.floor((sink.time(a) - 0.3) * rate / 128) * 128 / rate;
         if (at <= 0.05 || seen[at]) { schedule(sink, a, Math.min(end, a + CH)); return; }
-        seen[at] = 1;
+        if (oc.__cdawSusp && oc.__cdawSusp[at]) { schedule(sink, a, Math.min(end, a + CH)); return; }   // (10.4: a tempo change pauses there already)
+        seen[at] = 1; (oc.__cdawSusp = oc.__cdawSusp || {})[at] = 1;
         oc.suspend(at).then(function () { var k = proj; proj = p2; try { schedule(sink, a, Math.min(end, a + CH)); } catch (e) { console.warn("render", e); } proj = k; oc.resume(); });
       })(b);
       proj = keep; return oc.startRendering();
@@ -923,8 +1103,8 @@
   function load(p, bufs) {
     stop({ home: true }); p = migrate(p);
     Object.assign(buffers, bufs || {});
-    proj = p; proj.tracks.forEach(function (t) { t.clips = t.clips || []; t.sends = t.sends || []; t.inserts = t.inserts || []; t.auto = t.auto || {}; t.lanes = t.lanes || []; });
-    proj.master = proj.master || { volume: 0, inserts: [] }; proj.tempos = proj.tempos || []; proj.sigs = proj.sigs || []; proj.markers = proj.markers || []; proj.punch = proj.punch || { on: false, start: 4, end: 8 };
+    proj = p; proj.tracks.forEach(function (t) { t.clips = t.clips || []; t.sends = t.sends || []; t.inserts = t.inserts || []; t.auto = t.auto || {}; t.lanes = t.lanes || []; t.inserts.forEach(fxMigrate); });
+    proj.master = proj.master || { volume: 0, inserts: [] }; (proj.master.inserts || []).forEach(fxMigrate); proj.tempos = proj.tempos || []; proj.sigs = proj.sigs || []; proj.markers = proj.markers || []; proj.punch = proj.punch || { on: false, start: 4, end: 8 };
     undoStack = []; redoStack = []; dirty = false; changed("load"); fire("transport", state());
   }
   function fresh(o) { load(newProject(o)); }
@@ -977,10 +1157,10 @@
     play: play, stop: stop, toggle: toggle, setPos: setPos, position: position, state: state, record: record, live: liveMidi, startMonitor: startMonitor, monitor: function () { return monitor; },
     render: render, stems: stems, songEnd: songEnd, buffers: buffers, addAudio: addAudio, decode: decode, importAudio: importAudio, usedAudio: usedAudio, rewarp: rewarp, keyShift: keyShift,
     split: split, cutRange: cutRange, quantize: quantize, humanize: humanize, snapBeat: snapBeat, autoAt: autoAt, clipSrc: clipSrc,
-    tempo: { beatToSec: beatToSec, secToBeat: secToBeat, barToBeat: barToBeat, beatToBar: beatToBar, bpmAt: bpmAt, bpb: function (b) { return beatToBar(b || 0).per; } },
+    tempo: { NOTES: DNOTES, noteSec: noteSec, beatToSec: beatToSec, secToBeat: secToBeat, barToBeat: barToBeat, beatToBar: beatToBar, bpmAt: bpmAt, bpb: function (b) { return beatToBar(b || 0).per; } },
     FX: FX, fxDef: fxDef, fxDefaults: fxDefaults, pro: pro, ctx: ensureCtx, graph: function () { return rt; }, latency: latency, recovery: recovery,
-    liveFx: { stats: function () { return NL.stats; }, session: function () { return NL.S; }, tracks: liveTracks, params: liveParams, openWindow: liveWindowOpen, ahead: function (v) { if (v != null) NL.ahead = Math.max(0.15, Math.min(2, +v)); return NL.ahead; }, chains: function () { return NL.chains; } },
-    native: { setHost: function (h) { NH.host = h || null; NH.monKey = null; NL.chains = {}; syncInputMonitor(); }, host: function () { return NH.host; }, list: natives, slot: nativeSlot, freeze: freeze, unfreeze: unfreeze, state: nativeState, frozen: frozenOK, sig: freezeSig },
+    liveFx: { stats: function () { return NL.stats; }, session: function () { return NL.S; }, tracks: liveTracks, params: liveParams, openWindow: liveWindowOpen, response: liveResp, extra: function (v) { if (v != null) NL.extra = Math.max(0, Math.min(2, +v)); return NL.extra; }, chains: function () { return NL.chains; }, keyboard: function () { return { tracks: KB.tracks, rig: KB.rigTrack, mode: function (id) { return kbMode(track(id)); } }; } },
+    native: { setHost: function (h) { NH.host = h || null; NH.monKey = null; NL.chains = {}; Object.keys(KB.tracks).forEach(function (id) { var K = KB.tracks[id]; delete KB.tracks[id]; try { K.input.disconnect(); if (K.play) K.play.disconnect(); } catch (_) { } }); KB.rigTrack = null; KB.rigReady = null; KB.rigFail = {}; syncInputMonitor(); }, host: function () { return NH.host; }, list: natives, slot: nativeSlot, freeze: freeze, unfreeze: unfreeze, state: nativeState, frozen: frozenOK, sig: freezeSig },
     audio: { settings: audioSettings, set: setAudio, devices: devices, info: inputInfo, measure: measureLatency, choices: inputChoices, channelsOf: chansOf, findDelay: findDelay, compensation: compensation }, uid: uid, COLORS: COLORS, KEYS: KEYS, SNAP: SNAP, dbToGain: dbToGain, clamp: clamp, clone: clone
   };
 })();

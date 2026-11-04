@@ -144,10 +144,14 @@
   function frameLoop() {
     if (!U.root || !U.root.isConnected) { U.rafOn = false; return; }
     var st = D.state(), r = U.root;
-    $(".cd-pos", r).textContent = st.countingIn ? "Count-in" : UI.posText(st.pos); $(".cd-time", r).textContent = UI.timeText(st.pos);
+    var pt = st.countingIn ? "Count-in" : UI.posText(st.pos), tt = UI.timeText(st.pos), pe = $(".cd-pos", r), te = $(".cd-time", r);
+    if (pe && pe.textContent !== pt) pe.textContent = pt; if (te && te.textContent !== tt) te.textContent = tt;
     if (UI.parts.arrange) UI.parts.arrange.playhead(st);
-    if (UI.parts.mixer && U.dockOpen && U.dock === "mixer") UI.parts.mixer.meters();
-    if (UI.parts.arrange && UI.parts.arrange.meters) UI.parts.arrange.meters();
+    U.frameN = (U.frameN || 0) + 1;
+    if (U.frameN % 2 === 0) {   // (10.4) the meters 30 times a second: smooth to the eye, half the work
+      if (UI.parts.mixer && U.dockOpen && U.dock === "mixer") UI.parts.mixer.meters();
+      if (UI.parts.arrange && UI.parts.arrange.meters) UI.parts.arrange.meters();
+    }
     if (UI.parts.editors && UI.parts.editors.playhead && U.dockOpen && U.dock === "editor") UI.parts.editors.playhead(st);
     requestAnimationFrame(frameLoop);
   }
@@ -161,10 +165,14 @@
     return { peak: pk, rms: Math.sqrt(sum / mbuf.length), hold: h.v, clip: h.clip, reset: function () { h.clip = false; h.v = 0; } };
   };
   UI.meterDraw = function (cv, lv, vertical) {
-    var w = cv.clientWidth, h = cv.clientHeight; if (cv.width !== w) cv.width = w; if (cv.height !== h) cv.height = h; var g = cv.getContext("2d"); g.clearRect(0, 0, w, h);
+    var w = cv.clientWidth, h = cv.clientHeight;
     function pos(v) { var db = 20 * Math.log10(Math.max(1e-6, v)); return D.clamp((db + 60) / 66, 0, 1); }
     var L = vertical ? h : w, a = pos(lv.rms) * L, pk = pos(lv.peak) * L, hd = pos(lv.hold) * L;
-    var grad = vertical ? g.createLinearGradient(0, h, 0, 0) : g.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, "#4FA36B"); grad.addColorStop(0.75, "#9BCB86"); grad.addColorStop(0.9, "#E8C25A"); grad.addColorStop(1, "#E5484D");
+    // (10.4) lighter: nothing is drawn when the meter wouldn't move by a pixel (a quiet track costs nothing)
+    var sig = w + "," + h + "," + Math.round(a) + "," + Math.round(pk) + "," + Math.round(hd) + "," + (lv.clip ? 1 : 0); if (cv.__sig === sig) return; cv.__sig = sig;
+    if (cv.width !== w) cv.width = w; if (cv.height !== h) cv.height = h; var g = cv.getContext("2d"); g.clearRect(0, 0, w, h);
+    var gk = (vertical ? "v" : "h") + w + "x" + h, grad = cv.__grad && cv.__gk === gk ? cv.__grad : null;
+    if (!grad) { grad = vertical ? g.createLinearGradient(0, h, 0, 0) : g.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, "#4FA36B"); grad.addColorStop(0.75, "#9BCB86"); grad.addColorStop(0.9, "#E8C25A"); grad.addColorStop(1, "#E5484D"); cv.__grad = grad; cv.__gk = gk; }
     g.fillStyle = "#0B0D10"; g.fillRect(0, 0, w, h); g.fillStyle = grad; g.globalAlpha = 0.45;
     if (vertical) g.fillRect(0, h - pk, w, pk); else g.fillRect(0, 0, pk, h); g.globalAlpha = 1;
     if (vertical) g.fillRect(0, h - a, w, a); else g.fillRect(0, 0, a, h);
@@ -242,7 +250,12 @@
         '<p class="cd-dim">A smaller buffer plays with less delay but needs a faster computer. Each audio track records from one input (mono) or a pair (stereo): choose it in the track\'s menu (right-click its name).</p>' +
         '<h4>Lining up recordings</h4><div class="cd-auinfo cd-dim">Opening the input…</div>' +
         '<div class="cd-line"><button data-au-measure class="primary">Measure it (loopback)</button><button data-au-clear' + (a.loopbackMs == null ? " hidden" : "") + '>Use the reported delay</button></div>' +
-        '<p class="cd-dim">Loopback: connect an output of your interface to one of its inputs with a cable (or hold a mic by a speaker) and turn it up. Six clicks play and the time they take to come back lines up everything you record.</p></div>';
+        '<p class="cd-dim">Loopback: connect an output of your interface to one of its inputs with a cable (or hold a mic by a speaker) and turn it up. Six clicks play and the time they take to come back lines up everything you record.</p>' +
+        (D.native.host() ? '<h4>VST3 and CLAP plugins</h4>' +   // (10.4)
+          '<div class="cd-line"><label>Plugin response<select data-au="pluginResponse">' + [["fast", "Fast (about 100 ms)"], ["balanced", "Balanced (about 200 ms)"], ["safe", "Safe (about 400 ms)"]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === a.pluginResponse ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>" +
+          '<label>Keyboard through plugins<select data-au="keysRoute">' + [["direct", "Lowest delay"], ["track", "Through the whole track"]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === a.keysRoute ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label></div>" +
+          '<p class="cd-dim">Plugin response is how soon a knob you turn on a plugin is heard while the song plays. Fast needs a quicker computer; if it can\'t keep up, it gives the plugins more time and tells you. ' +
+          'Keyboard through plugins: Lowest delay plays SoundFont sounds and the track\'s plugins straight to your sound card (a few milliseconds), without the track\'s other effects and sends. Through the whole track adds about 10 to 20 ms and includes everything on the track.</p>' : "") + "</div>";
       function info() {
         A.info().then(function (i) {
           var box = $(".cd-auinfo", el); if (!box) return;
@@ -252,7 +265,7 @@
         }).catch(function (e) { var box = $(".cd-auinfo", el); if (box) box.textContent = "The input isn't open: " + (e && e.message || e); });
       }
       info();
-      el.onchange = function (e) { var k = e.target.dataset.au; if (!k) return; var v = e.target.value, patch = {}; patch[k] = k === "input" || k === "output" ? v : +v; A.set(patch); UI.say("Audio: " + (k === "rate" || k === "buffer" ? "the sound restarted with the new setting." : "changed.")); UI.audioPanel(el); };
+      el.onchange = function (e) { var k = e.target.dataset.au; if (!k) return; var v = e.target.value, patch = {}; patch[k] = k === "input" || k === "output" || k === "pluginResponse" || k === "keysRoute" ? v : +v; A.set(patch); UI.say("Audio: " + (k === "rate" || k === "buffer" ? "the sound restarted with the new setting." : "changed.")); UI.audioPanel(el); };
       el.onclick = function (e) {
         if (e.target.closest("[data-au-names]")) { A.info().then(function () { UI.audioPanel(el); }).catch(function (er) { UI.say("The input wasn't allowed: " + (er.message || er), true); }); }
         if (e.target.closest("[data-au-clear]")) { A.set({ loopbackMs: null }); UI.audioPanel(el); }
@@ -289,7 +302,7 @@
     // (10.2) VST3 / CLAP plugins: in the apps, the rig hosts them (CU.studio.native, central-usage/studio.js)
     var NS = window.CU && window.CU.studio && window.CU.studio.native;
     if (NS && !D.native.host()) {
-      D.native.setHost({ stream: NS.stream || null, list: function (scan) { return NS.plugins(scan).then(function (r) { if (!r || !r.ok) throw new Error(r && r.error || "no plugin host"); return r.plugins; }); }, process: function (job) { return NS.process(job); }, monitor: function (m) { NS.monitor(m); }, editor: function (slot, plugins, open) { return NS.editor(slot, plugins, open); } });
+      D.native.setHost({ stream: NS.stream || null, list: function (scan) { return NS.plugins(scan).then(function (r) { if (!r || !r.ok) throw new Error(r && r.error || "no plugin host"); return r.plugins; }); }, process: function (job) { return NS.process(job); }, monitor: function (m) { NS.monitor(m); }, keys: NS.keys ? function (k) { return NS.keys(k); } : null, midi: NS.midi ? function (d) { NS.midi(d); } : null, set: NS.set ? function (slot, id, v) { NS.set(slot, id, v); } : null, editor: function (slot, plugins, open) { return NS.editor(slot, plugins, open); } });
       NS.on(function (m) { if (m.type === "rigStopped") { D.native.setHost(D.native.host()); if (D.state && D.state().playing) UI.say("The plugin host stopped: press play again.", true); } if (m.type === "pluginScan") UI.say("Looking for plugins: " + m.done + " of " + m.total + (m.current ? " (" + m.current + ")" : "")); if (m.type === "instrumentStatus" && m.pluginErrors && Object.keys(m.pluginErrors).length) UI.say("A plugin didn't load: " + Object.values(m.pluginErrors)[0], true); });
     }
     D.on("freeze", function () { if (UI.parts.mixer && U.dockOpen) try { drawDock(); } catch (_) { } UI.draw(); });

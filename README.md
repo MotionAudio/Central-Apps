@@ -224,6 +224,8 @@ API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 <details>
 <summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
 
+**New in version 10.4.0:** Central Production's plugins answer a knob in about 0.2 s (Plugin response: Fast, Balanced, Safe), MIDI keyboards play through a track's VST3 / CLAP plugins, exports keep plugin automation, and it's about 40% lighter while playing; every delay in every app can follow the song's tempo on a note you pick; Central Production on the website's home page and Pricing.
+
 **New in version 10.3.0:** Plugins play live on every Central Production track; shorts that learn your church, post on a schedule with a link to the stream, and full worship and sermon videos; 82 pads, 32 plugins, 55 new pedals (68 boards), 20 hymns, 118 Utility backgrounds and 51 slide themes; a new website with app and sound pages, cart and checkout, My products, Help with support tickets and a status page; signed installers ready to switch on.
 
 **New in version 10.2.0:** Central Production (a free studio for tracks, loops, samples, pads, instruments and plugins, on computers and the website); make your own plugins; 41 pads, swells and modern worship hymn tracks; 30-second previews; run sheets, a pre-service check, the band's screen, a slide designer and scripture in seconds; automatic shorts; Planning Center and CCLI; 2,272 real lights, a scene programmer, screens, rooms and seats on the 3D stage; the Central Utility pack; and one new look across every app with Ctrl+K search.

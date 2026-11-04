@@ -81,12 +81,13 @@
   function nativeMenu(btn, done, scan) {
     UI.say(scan ? "Looking for VST3 and CLAP plugins on this computer…" : "Getting your plugins…");
     D.native.host().list(scan).then(function (list) {
-      var items = (list || []).filter(function (p) { return p.format !== "cmfx"; }).map(function (p) { return [p.name + (p.vendor ? " · " + p.vendor : "") + " (" + String(p.format).toUpperCase() + ")", function () { done({ id: D.uid("f"), type: "native", on: true, params: {}, plugin: { format: p.format, id: p.id, path: p.path, name: p.name, vendor: p.vendor || "", key: p.key || "" }, v: 0 }); UI.say(p.name + " is on the track. It plays live while you monitor an armed audio track, and in playback once the track is frozen (it freezes before an export)."); }]; });
+      var items = (list || []).filter(function (p) { return p.format !== "cmfx"; }).map(function (p) { return [p.name + (p.vendor ? " · " + p.vendor : "") + " (" + String(p.format).toUpperCase() + ")", function () { done({ id: D.uid("f"), type: "native", on: true, params: {}, plugin: { format: p.format, id: p.id, path: p.path, name: p.name, vendor: p.vendor || "", key: p.key || "" }, v: 0 }); UI.say(p.name + " is on the track. It plays live in playback, from a keyboard and while you monitor an armed audio track, and exports keep its automation."); }]; });
       if (!items.length) items.push(["(none found yet)", null, false]);
       items.push(null, ["Look for plugins again", function () { nativeMenu(btn, done, true); }]);
       UI.menu(btn, items);
     }).catch(function (e) { UI.say(e.message || String(e), true); });
   }
+  function TP() { return window.PPPedals && window.PPPedals.tempo; }
   function drawFx(body) {
     var panel = $(".cd-fxpanel", body); if (!mx.open) { panel.hidden = true; return; }
     var parts = mx.open.split(":"), id = parts[0], fid = parts[1], master = id === "master", t = master ? null : D.track(id), list = master ? P().master.inserts : t && t.inserts, f = list && list.filter(function (x) { return x.id === fid; })[0];
@@ -97,9 +98,10 @@
     panel.innerHTML = '<div class="cd-fxhead"><b>' + esc(def.name) + "</b> · " + esc(master ? "Main mix" : t.name) + (locked ? ' <span class="cd-lock">Part of Central Plugins: add your package key in Settings to use it</span>' : !pro && def.params.some(function (q) { return q[6]; }) ? ' <span class="cd-lock">The basic version: Central Plugins opens the rest of its knobs</span>' : "") + '<button class="ghost" data-close>✕</button></div>' +
       '<div class="cd-knobs">' + def.params.map(function (q) {
         var off = locked || (q[6] && !pro), v = p[q[0]], key = "fx:" + f.id + ":" + q[0];
+        if (f.type === "delay" && ((q[0] === "ms" && p.sync >= 0.5) || (q[0] === "note" && p.sync < 0.5))) return "";   // (10.4) the note when it follows the tempo, else its own time
         if (q[7]) return '<label class="cd-knob' + (off ? " off" : "") + '"><span>' + esc(q[1]) + '</span><select data-k="' + q[0] + '"' + (off ? " disabled" : "") + ">" + q[7].map(function (o, i) { return '<option value="' + i + '"' + (Math.round(v) === i ? " selected" : "") + ">" + esc(o) + "</option>"; }).join("") + "</select></label>";
         return '<label class="cd-knob' + (off ? " off" : "") + '"><span>' + esc(q[1]) + '</span><input type="range" min="' + q[2] + '" max="' + q[3] + '" step="' + ((q[3] - q[2]) / 400) + '" value="' + v + '" data-k="' + q[0] + '"' + (off ? " disabled" : "") + '><output>' + fmt(v, q) + "</output>" + (!master && !off && f.type !== "cmfx" ? '<button class="cd-autobtn" data-auto="' + key + '" title="Automate it">A</button>' : "") + "</label>";
-      }).join("") + (f.type === "cmfx" && ((f.plugin && f.plugin.params) || []).some(function (q) { return (q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"); }) ? '<label class="cd-sync"><input type="checkbox" data-synctempo' + (f.syncTempo !== false ? " checked" : "") + '> Sync to song tempo</label>' : "") + (f.type === "native" ? nativeInfo(t, f) : "") + (f.type === "cmfx" ? '<p class="cd-dim">' + (!window.CMFx ? "A Central FX plugin. It plays once the plugin engine is in this build." : !def.params.length ? "This plugin has no knobs." : "A Central FX plugin" + (f.plugin && f.plugin.author ? " by " + esc(f.plugin.author) : "") + ".") + "</p>" : "") + "</div>";
+      }).join("") + (f.type === "cmfx" && ((f.plugin && f.plugin.params) || []).some(function (q) { return (q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"); }) ? '<label class="cd-sync"><input type="checkbox" data-synctempo' + (f.syncTempo !== false ? " checked" : "") + '> Sync to song tempo</label>' : "") + (f.type === "cmfx" && TP() && TP().pluginTime(f.plugin) ? '<label class="cd-knob cd-sync"><span>Sync to tempo</span><select data-syncnote><option value="">Off (its own time)</option>' + TP().NOTES.map(function (n) { return '<option value="' + n[0] + '"' + (f.syncNote === n[0] ? " selected" : "") + ">" + esc(n[1]) + "</option>"; }).join("") + "</select></label>" : "") + (f.type === "native" ? nativeInfo(t, f) : "") + (f.type === "cmfx" ? '<p class="cd-dim">' + (!window.CMFx ? "A Central FX plugin. It plays once the plugin engine is in this build." : !def.params.length ? "This plugin has no knobs." : "A Central FX plugin" + (f.plugin && f.plugin.author ? " by " + esc(f.plugin.author) : "") + ".") + "</p>" : "") + "</div>";
     panel.onclick = function (e) { if (e.target.closest("[data-close]")) { mx.open = null; draw(mx.body); }
       var nb = e.target.closest("[data-native]"); if (nb && t) {
         var k = nb.dataset.native;
@@ -108,11 +110,13 @@
         if (k === "window") D.liveFx.openWindow(t.id, f.id).then(function (r) { if (r && r.error) UI.say(r.error, true); else if (r && r.ok) UI.say("Its window is open: what you change there is heard as it plays."); });
         if (k === "params") D.liveFx.params(t.id, f.id).then(function () { draw(mx.body); });
       } var a = e.target.closest("[data-auto]"); if (a) { var key = a.dataset.auto; D.edit("Automation lane", function () { var tt = D.track(id); if (tt.lanes.indexOf(key) < 0) tt.lanes.push(key); }); UI.say("An automation lane is under the track: click it to add points."); } };
+    var sn = $("[data-syncnote]", panel); if (sn) sn.onchange = function () { var v = sn.value; D.edit(v ? "Sync to tempo" : "Own delay time", function (pp) { var l = master ? pp.master.inserts : D.track(id).inserts, x = l.filter(function (z) { return z.id === fid; })[0]; if (x) { if (v) x.syncNote = v; else delete x.syncNote; } }); };   // (10.4)
     var st = $("[data-synctempo]", panel); if (st) st.onchange = function () { var on = st.checked; D.edit(on ? "Sync to song tempo" : "Own tempo", function (pp) { var l = master ? pp.master.inserts : D.track(id).inserts, x = l.filter(function (z) { return z.id === fid; })[0]; if (x) x.syncTempo = on; }); };   // (10.3)
     $$("[data-k]", panel).forEach(function (inp) {
       var q = def.params.filter(function (x) { return x[0] === inp.dataset.k; })[0];
       inp.oninput = function () { var v = +inp.value; if (inp.nextElementSibling && inp.nextElementSibling.tagName === "OUTPUT") inp.nextElementSibling.textContent = fmt(v, q); D.nudge(def.name + " " + q[1], function (pp) { var l = master ? pp.master.inserts : D.track(id).inserts, x = l.filter(function (z) { return z.id === fid; })[0]; x.params = x.params || {}; x.params[q[0]] = v; }); };
       inp.onchange = inp.oninput;
+      if (f.type === "delay" && q[0] === "sync") inp.onchange = function () { inp.oninput(); setTimeout(function () { draw(mx.body); }, 0); };   // (10.4: shows the note or the time)
     });
   }
   function nativeInfo(t, f) {
@@ -120,7 +124,7 @@
     var st = D.native.state(t), host = !!D.native.host(), live = host && D.liveFx.tracks().some(function (x) { return x.id === t.id; }), fz = t.frozen;
     var lat = (D.liveFx.chains()[Object.keys(D.liveFx.chains()).filter(function (i) { return D.liveFx.chains()[i].sig && D.liveFx.chains()[i].sig.indexOf('"' + f.id + '"') >= 0; })[0]] || {}).lat;
     return '<div class="cd-native"><p><b>' + esc(f.plugin.name) + "</b> · " + esc(String(f.plugin.format).toUpperCase()) + (f.plugin.vendor ? " · " + esc(f.plugin.vendor) : "") + "</p>" +
-      (host ? '<p class="cd-dim">' + (st === "frozen" ? "Frozen (saving CPU): playback uses the frozen sound until something changes or you unfreeze it." : "Plays live as the song plays" + (lat ? " · the track's plugins' delay (" + lat + " samples) is made up for" : "") + ". A knob turned here or in its window is heard about " + Math.round(D.liveFx.ahead() * 1000) + " ms later.") +
+      (host ? '<p class="cd-dim">' + (st === "frozen" ? "Frozen (saving CPU): playback uses the frozen sound until something changes or you unfreeze it." : "Plays live as the song plays" + (lat ? " · the track's plugins' delay (" + lat + " samples) is made up for" : "") + ". A knob turned here or in its window is heard about " + Math.round(D.liveFx.response().proc * 1000) + " ms later (Settings → Audio → Plugin response)." + (t.kind !== "audio" ? " A keyboard on this track plays through it too." : "")) +
           " While the track is armed and monitored, its input plays through it too.</p>" +
         '<div class="cd-line"><button data-native="window">Open its window</button>' + (f.plist ? "" : '<button data-native="params">Show its knobs</button>') +
         '<button data-native="freeze"' + (st === "freezing" ? " disabled" : "") + ' title="Optional: plays the track from a rendered copy to save CPU">' + (st === "frozen" ? "Freeze again" : "Freeze (saves CPU)") + "</button>" + (fz ? '<button data-native="unfreeze">Unfreeze</button>' : "") + "</div>"

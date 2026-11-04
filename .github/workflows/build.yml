@@ -273,7 +273,7 @@ jobs:
           npm install --no-save --no-audit --no-fund playwright@1.49.1 && npx playwright install --with-deps chromium
           bash ../tools/ci-run.sh "Central Production in the browser" node test-web.mjs
           bash ../tools/ci-run.sh "Central Production app" xvfb-run -a node test-app.mjs
-          LIVE_AHEAD=1.5 bash ../tools/ci-run.sh "VST3 / CLAP plugins live (the rig, the test plugins: tracks together, delay compensation, automation, start / stop, seek)" xvfb-run -a node test-live.mjs
+          LIVE_RESPONSE=safe bash ../tools/ci-run.sh "VST3 / CLAP plugins live (the rig, the test plugins: tracks together, delay compensation, automation, start / stop, seek)" xvfb-run -a node test-live.mjs
           bash ../tools/ci-run.sh "electron-builder (Central Production)" npx electron-builder --linux deb AppImage --x64 --publish never
           test -f dist/linux-unpacked/resources/app-src/production/index.html && test -f dist/linux-unpacked/resources/app-src/daw/daw-engine.js || { echo "::error::the Central Production page is missing"; exit 1; }
           test -x dist/linux-unpacked/resources/native/cu-studio || { echo "::error::the low-delay player is missing"; exit 1; }

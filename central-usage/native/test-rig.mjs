@@ -27,7 +27,10 @@ if (!haveSf2) console.log("  (no python to build the test SoundFont: " + (py.std
 
 const p = spawn(bin, ["--data", path.join(tmp, "data"), "--map", map, "--backend", "null", "--block", "256"], { stdio: ["pipe", "pipe", "inherit"] });
 let buf = "", msgs = []; const waiters = [];
-p.stdout.on("data", (c) => { buf += c; let i; while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 1); let m; try { m = JSON.parse(line); } catch (_) { continue; } msgs.push(m); waiters.slice().forEach((w) => { if (w.t(m)) { waiters.splice(waiters.indexOf(w), 1); w.r(m); } }); } });
+buf = Buffer.alloc(0);   // (10.4: lines can carry raw bytes after them: "B<n> {json}\n" + n bytes -> m.bin)
+p.stdout.on("data", (c) => { buf = Buffer.concat([buf, c]); for (;;) { const i = buf.indexOf(10); if (i < 0) break; let line = buf.slice(0, i).toString("utf8"), bin = null, used = i + 1;
+  const b = /^B(\d+) /.exec(line); if (b) { const n = +b[1]; if (buf.length < used + n) break; bin = buf.slice(used, used + n); used += n; line = line.slice(b[0].length); }
+  buf = buf.slice(used); let m; try { m = JSON.parse(line); } catch (_) { continue; } if (bin) m.bin = Buffer.from(bin); msgs.push(m); waiters.slice().forEach((w) => { if (w.t(m)) { waiters.splice(waiters.indexOf(w), 1); w.r(m); } }); } });
 const send = (m) => p.stdin.write(JSON.stringify(m) + "\n");
 const next = (t, ms = 6000) => new Promise((r, j) => { waiters.push({ t, r }); setTimeout(() => j(new Error("timeout")), ms); });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -215,6 +218,17 @@ if (havePlugins) {
     send(electric([plugFx("pg2", { stateFrom: "pg1" })])); await sleep(500); near((await meters()).out, 0.3 * 3.98, 0.1, "a new slot started from pg1's state");
     send({ action: "pluginCopyState", from: "pg1", to: "board1" }); const cp = await next((m) => m.type === "pluginCopyState"); assert.equal(cp.ok, true);
   });
+  if (haveSf2) await check("(10.4) a keyboard through a track's plugins, lowest delay: the app's keys config plays a SoundFont layer into the plugin chain, and a knob turns it", async () => {
+    const { keysOf } = (await import("node:module")).createRequire(import.meta.url)(path.join(here, "..", "studio.js"));
+    const s0 = msgs.slice().reverse().find((m) => m.type === "instrumentStatus" && (m.keysCatalog || []).length), bank = s0 && s0.keysCatalog.find((b) => /Test Sine/.test(b.name)); assert.ok(bank, "the test bank");
+    const layer = { file: bank.file, bank: bank.presets[0].bank, prog: bank.presets[0].prog, lo: 0, hi: 127 };
+    const level = async (gain) => { send({ action: "pluginSet", uid: "dkgain1", id: 1, value: gain }); await sleep(150); send({ action: "midi", data: [0x90, 69, 110] }); await sleep(450); await meters(); await sleep(250); const m = await meters(); send({ action: "midi", data: [0x80, 69, 0] }); await sleep(700); return m.out; };
+    send(keysOf({ layers: [layer], plugins: [Object.assign({ slot: "dkgain1", stateFrom: "" }, gainPlug)], levelDb: 0 }));
+    const st = await next((m) => m.type === "instrumentStatus" && m.kind === "keys"); assert.ok(!st.pluginErrors || !st.pluginErrors.dkgain1, JSON.stringify(st.pluginErrors));
+    const loud = await level(0.75), plain = await level(0.5);
+    assert.ok(plain > 0.01, "the note sounds: " + plain); near(loud / plain, 3.98, 0.6, "+12 dB on the plugin's knob = 4 times as loud (" + loud.toFixed(3) + " / " + plain.toFixed(3) + ")");
+    send({ action: "apply", config: { kind: "off" } }); await sleep(200);
+  });
   await check("(10.3) the DAW's native plugins, live: a chain with its latency, blocks streamed through it, automation inside a block, a reset plays out what's left", async () => {
     const dly = { slot: "dwlive1", format: "clap", id: "audio.motion.test-delay", path: testClap, name: "Central Test Delay" }, gn = { slot: "dwlive2", format: "clap", id: "audio.motion.test-gain", path: testClap, name: "Central Test Gain" };
     send({ action: "dawChain", stream: 3, rate: 48000, plugins: [dly, Object.assign({ params: [[1, 0.75]] }, gn)] });
@@ -231,9 +245,29 @@ if (havePlugins) {
     const o2 = dec((await next((m) => m.type === "dawProcessed" && m.seq === 2, 20000)).streams[0].d);
     near(o2[2 * 1000], 0.1 * 3.98, 0.02, "before the automation point"); near(o2[2 * (2048 + 480 + 200)], 0.1, 0.01, "after it (0 dB), the delay's latency later");
     send({ action: "dawProcess", seq: 3, frames: F, streams: [{ s: 3, d: enc(new Float32Array(F * 2)), reset: true }] });
-    const o3 = dec((await next((m) => m.type === "dawProcessed" && m.seq === 3, 20000)).streams[0].d); let mx = 0; for (let i = 0; i < F; i++) mx = Math.max(mx, Math.abs(o3[2 * i]));
-    assert.ok(mx < 1e-6, "after a reset nothing old comes out: " + mx);
-    send({ action: "dawDrop", stream: 3 });
+    const r3 = await next((m) => m.type === "dawProcessed" && m.seq === 3, 20000);
+    assert.equal(r3.streams[0].z, 1, "after a reset nothing old comes out: the block comes back as silence (z), with no sound sent");
+    // (10.4) the same as binary lines: raw float32 after the line, both ways; silent input marked z; a quiet chain isn't processed
+    const sendBin = (hdr, parts) => { const b = Buffer.concat(parts.map((f) => Buffer.from(f.buffer, f.byteOffset, f.byteLength))); p.stdin.write("B" + b.length + " " + JSON.stringify(hdr) + "\n"); p.stdin.write(b); };
+    const binOf = (m, k) => { let at = 0; for (let j = 0; j < k; j++) if (!m.streams[j].z) at += F * 8; return new Float32Array(m.bin.buffer.slice(m.bin.byteOffset + at, m.bin.byteOffset + at + F * 8)); };
+    sendBin({ action: "dawProcess", seq: 4, frames: F, streams: [{ s: 3, reset: true }, { s: 9 }] }, [imp, sine]);
+    const r4 = await next((m) => m.type === "dawProcessed" && m.seq === 4, 20000); assert.ok(r4.bin && r4.bin.length === F * 16, "binary answer: " + (r4.bin && r4.bin.length));
+    const b4 = binOf(r4, 0); let at4 = -1; for (let i = 0; i < F; i++) if (Math.abs(b4[2 * i]) > 0.05) { at4 = i; break; }
+    assert.equal(at4, 580, "binary: the impulse 480 samples later"); near(binOf(r4, 1)[2 * 100], 0.1, 1e-6, "binary: the second stream after the first");
+    let t0 = performance.now(); for (let q = 5; q < 5 + 30; q++) sendBin({ action: "dawProcess", seq: q, frames: F, streams: [{ s: 3, z: 1 }] }, []);
+    const last = await next((m) => m.type === "dawProcessed" && m.seq === 34, 20000); assert.equal(last.streams[0].z, 1); assert.equal(last.bin.length, 0, "silence in, silence out: nothing sent back");
+    sendBin({ action: "dawProcess", seq: 40, frames: F, streams: [{ s: 3 }] }, [imp]);
+    const r40 = await next((m) => m.type === "dawProcessed" && m.seq === 40, 20000); let at40 = -1; const b40 = binOf(r40, 0); for (let i = 0; i < F; i++) if (Math.abs(b40[2 * i]) > 0.05) { at40 = i; break; }
+    assert.equal(at40, 580, "after skipping quiet blocks the chain plays again, still in step");
+    // a keyboard's stream (48-63) has a worker of its own: it answers while the other worker is busy
+    send({ action: "dawChain", stream: 50, rate: 48000, plugins: [Object.assign({}, gn, { slot: "dklive2", stateFrom: "dwlive2", params: [[1, 0.75]] })] }); const c50 = await next((m) => m.type === "dawChain" && m.stream === 50, 20000); assert.ok(c50.ok, JSON.stringify(c50));
+    const small = new Float32Array(256 * 2).fill(0.1); t0 = performance.now();
+    sendBin({ action: "dawProcess", seq: 60, frames: 256, streams: [{ s: 50 }] }, [small]);
+    const r60 = await next((m) => m.type === "dawProcessed" && m.seq === 60, 5000), rtMs = performance.now() - t0; near(new Float32Array(r60.bin.buffer.slice(r60.bin.byteOffset, r60.bin.byteOffset + 8))[0], 0.1 * 3.98, 0.02, "the keyboard's chain has the same knobs as the playing one (+12 dB)");
+    console.log("    keyboard block round trip: " + rtMs.toFixed(2) + " ms");
+    send({ action: "dawParam", stream: 50, plug: 0, id: 1, value: 0.5 }); sendBin({ action: "dawProcess", seq: 61, frames: 256, streams: [{ s: 50 }] }, [small]);
+    const r61 = await next((m) => m.type === "dawProcessed" && m.seq === 61, 5000); near(new Float32Array(r61.bin.buffer.slice(r61.bin.byteOffset, r61.bin.byteOffset + 8))[0], 0.1, 0.01, "a knob reaches the keyboard's chain on the fast path");
+    send({ action: "dawDrop", stream: 3 }); send({ action: "dawDrop", stream: 50 });
   });
   await check("(10.2) the DAW's native inserts, offline: --process plays a sound through the slot's saved state, lines it up and reports the latency", async () => {
     send({ action: "pluginSave" }); await sleep(200);
@@ -247,6 +281,12 @@ if (havePlugins) {
     fs.writeFileSync(job, JSON.stringify({ rate, frames: n, in: inF, out: outF, plugins: [{ slot: "zz", format: "clap", id: "no.such", path: testClap, name: "Nothing" }] }));
     const bad = JSON.parse(spawnSync(bin, ["--data", path.join(tmp, "data"), "--process", job], { encoding: "utf8", timeout: 60000 }).stdout.trim().split("\n").pop());
     assert.equal(bad.ok, false); assert.match(bad.error, /Nothing didn't load/);
+    // (10.4) the plugins' automation goes into the export: the gain from +12 dB to 0 dB half way through
+    fs.writeFileSync(job, JSON.stringify({ rate, frames: n, in: inF, out: outF, tail: 0, plugins: [Object.assign({ slot: "pg1" }, gainPlug)], auto: [[0, 0, 1, 0.75], [rate / 2, 0, 1, 0.5]] }));
+    const ra = JSON.parse(spawnSync(bin, ["--data", path.join(tmp, "data"), "--process", job], { encoding: "utf8", timeout: 60000 }).stdout.trim().split("\n").pop()); assert.ok(ra.ok, JSON.stringify(ra));
+    const oa = new Float32Array(fs.readFileSync(outF).buffer.slice(0)); let p1 = 0, p2 = 0; for (let i = 1000; i < rate / 2 - 100; i++) p1 = Math.max(p1, Math.abs(oa[2 * i])); for (let i = rate / 2 + 100; i < n - 1000; i++) p2 = Math.max(p2, Math.abs(oa[2 * i]));
+    near(p1, 0.25 * 3.98, 0.05, "+12 dB before the automation point"); near(p2, 0.25, 0.02, "0 dB after it");
+    const ratio = (i) => oa[2 * i] / buf[2 * i]; near(ratio(rate / 2 - 7), 3.98, 0.05, "7 frames before the point: still +12 dB"); near(ratio(rate / 2 + 7), 1, 0.02, "7 frames after: 0 dB (it lands on its frame)");
   });
   await check("a plugin that is missing says why, and the rest of the board still plays", async () => {
     send(electric([plugFx("pgx", { plugin: { format: "clap", id: "no.such.plugin", path: testClap } }), item("ts9", {}, { uid: "drv" })]));

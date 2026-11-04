@@ -4,7 +4,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { config, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS, RENEWAL, MAIN_ADMINS_MAX, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PACKAGE_DEVICES, TRACK_KINDS, ITEM_KINDS, DEMO_MAX_SECONDS } from "./config.js";
+import { config, SITE_VERSION, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS, RENEWAL, MAIN_ADMINS_MAX, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PACKAGE_DEVICES, TRACK_KINDS, ITEM_KINDS, DEMO_MAX_SECONDS } from "./config.js";
 import { q, one, migrate } from "./db.js";
 import { hashPassword, checkPassword, makeToken, attachUser, requireUser, isAdmin } from "./auth.js";
 import * as store from "./storage.js";
@@ -390,7 +390,7 @@ api.post("/admin/tracks/:id/status", requireUser, wrap(async (req, res) => {
 
 app.use("/v1", api);
 getfile.routes(app, { wrap });   // (10.0: /download/<app>/<platform>, /download/library/<id>, /install.sh - our address, GitHub behind it)
-app.get("/health", (_req, res) => { res.setHeader("Access-Control-Allow-Origin", "*"); res.json({ ok: true, payments: !!pay.stripe, storage: store.usingR2 ? "r2" : "local" }); });   // (the apps' "is the internet there?")
+app.get("/health", (_req, res) => { res.setHeader("Access-Control-Allow-Origin", "*"); res.json({ ok: true, version: SITE_VERSION, payments: !!pay.stripe, storage: store.usingR2 ? "r2" : "local" }); });   // (the apps' "is the internet there?")
 // the home page with the site's own address filled in (the picture a shared link shows needs a full address)
 // (10.3: every page of the site, not only the home page - each has its own title, description and picture to share)
 const pubDir = path.join(here, "..", "public"), pageCache = new Map();

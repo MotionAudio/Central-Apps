@@ -83,7 +83,7 @@
   }
   function clipHtml(t, c) {
     var sel = U.clips.indexOf(c.id) >= 0, col = c.color || t.color, tk = c.takes && c.takes.length > 1 ? '<span class="cd-takes">' + (c.takes.findIndex(function (k) { return k.id === c.take; }) + 1) + "/" + c.takes.length + "</span>" : "";
-    return '<div class="cd-clip ' + c.kind + (sel ? " sel" : "") + (c.mute ? " muted" : "") + '" data-c="' + c.id + '" style="left:' + bx(c.start) + "px;width:" + Math.max(3, bx(c.len)) + "px;--cc:" + col + '"><span class="cd-cname">' + esc(c.name || t.name || (c.kind === "audio" ? "Audio" : "MIDI")) + (c.audio && c.audio.loop || c.loopLen ? " ↻" : "") + "</span>" + tk + '<canvas class="cd-ccv"></canvas><i class="cd-hl"></i><i class="cd-hr"></i>' + (c.kind === "audio" ? '<i class="cd-fi" title="Fade in"></i><i class="cd-fo" title="Fade out"></i>' : "") + "</div>";
+    return '<div class="cd-clip ' + c.kind + (sel ? " sel" : "") + (c.mute ? " muted" : "") + '" data-c="' + c.id + '" style="left:' + bx(c.start) + "px;width:" + Math.max(3, bx(c.len)) + "px;--cc:" + col + '"><span class="cd-cname">' + esc(c.name || t.name || (c.kind === "audio" ? "Audio" : "MIDI")) + (c.audio && c.audio.loop || c.loopLen ? " ↻" : "") + "</span>" + tk + '<i class="cd-ccv"></i><i class="cd-hl"></i><i class="cd-hr"></i>' + (c.kind === "audio" ? '<i class="cd-fi" title="Fade in"></i><i class="cd-fo" title="Fade out"></i>' : "") + "</div>";
   }
   function peaksOf(id) {
     var b = D.buffers[id]; if (!b) return null; if (peaks[id] && peaks[id].b === b) return peaks[id];
@@ -92,14 +92,24 @@
     for (var i = 0; i < n; i++) { var lo = 0, hi = 0; for (var k = i * per; k < Math.min(b.length, (i + 1) * per); k += 2) { var v = 0; for (var q = 0; q < ch.length; q++) v += ch[q][k]; v /= ch.length; if (v < lo) lo = v; if (v > hi) hi = v; } mn[i] = lo; mx[i] = hi; }
     return (peaks[id] = { b: b, mn: mn, mx: mx, per: per, rate: b.sampleRate });
   }
+  // (10.4) a clip's picture (waveform or notes) is drawn once into a shared canvas and shown as an image: hundreds of
+  // canvases on the timeline made the browser rebuild its layers every frame while playing (most of the app's CPU)
+  var scratch = document.createElement("canvas"), clipImg = {}, clipOrder = [];
+  function clipPic(holder, url, w, h) { holder.style.width = w + "px"; holder.style.height = h + "px"; holder.style.backgroundImage = url ? "url(" + url + ")" : "none"; holder.style.backgroundSize = w + "px " + h + "px"; }
+  function keepPic(key, url) { clipImg[key] = url; clipOrder.push(key); while (clipOrder.length > 3000) { var old = clipOrder.shift(); if (clipImg[old]) { URL.revokeObjectURL(clipImg[old]); delete clipImg[old]; } } }
   function paintClip(div) {
     var f = D.findClip(div.dataset.c); if (!f) return;
-    var c = f.clip, cv = $(".cd-ccv", div), w = Math.min(8000, div.clientWidth), h = div.clientHeight - 16, dpr = Math.min(2, window.devicePixelRatio || 1);
-    if (w < 2 || h < 4) return; cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + "px"; cv.style.height = h + "px";
-    var g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.fillStyle = "rgba(255,255,255,.82)";
+    var c = f.clip, holder = $(".cd-ccv", div), w = Math.min(8000, div.clientWidth), h = div.clientHeight - 16, dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (w < 2 || h < 4 || !holder) return;
+    var pk0 = c.kind === "audio" ? peaksOf(D.clipSrc(c)) : null, key = [w, h, dpr, U.zoom, c.kind === "audio" ? !!pk0 + ":" + D.tempo.beatToSec(c.start) + ":" + D.tempo.beatToSec(c.start + c.len) : "", JSON.stringify([c.start, c.len, c.audio, c.notes, c.loopLen, c.take])].join("|");
+    if (holder.dataset.k === key) { paintFades(div, c, w); return; }
+    holder.dataset.k = key; if (clipImg[key]) { clipPic(holder, clipImg[key], w, h); paintFades(div, c, w); return; }
+    var cv = scratch; cv.width = w * dpr; cv.height = h * dpr;
+    var g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h); g.fillStyle = "rgba(255,255,255,.82)";
+    var done = function () { if (!cv.toBlob) { clipPic(holder, cv.toDataURL(), w, h); return; } cv.toBlob(function (b) { if (!b) return; var u = URL.createObjectURL(b); keepPic(key, u); if (holder.dataset.k === key) clipPic(holder, u, w, h); }); };
     var scale = div.clientWidth / w;
     if (c.kind === "audio") {
-      var pk = peaksOf(D.clipSrc(c)); if (!pk) { g.fillText("missing audio", 4, 12); return; }
+      var pk = pk0; if (!pk) { g.fillText("missing audio", 4, 12); done(); return; }
       var gain = D.dbToGain(c.audio.gain || 0), mid = h / 2, s0 = D.tempo.beatToSec(c.start), loopLen = pk.mn.length * pk.per / pk.rate - (c.audio.offset || 0);
       for (var x = 0; x < w; x++) {
         var beat = c.start + xb(x * scale), into = D.tempo.beatToSec(beat) - s0; if (c.audio.loop && loopLen > 0) into = into % loopLen;
@@ -109,13 +119,19 @@
       // the fades
       var fi = (c.audio.fadeIn || 0), fo = (c.audio.fadeOut || 0), fiX = (D.tempo.secToBeat(s0 + fi) - c.start) * U.zoom / scale, foX = w - (c.start + c.len - D.tempo.secToBeat(D.tempo.beatToSec(c.start + c.len) - fo)) * U.zoom / scale;
       g.fillStyle = "rgba(0,0,0,.35)"; g.beginPath(); g.moveTo(0, 0); g.lineTo(fiX, 0); g.lineTo(0, h); g.fill(); g.beginPath(); g.moveTo(w, 0); g.lineTo(foX, 0); g.lineTo(w, h); g.fill();
-      $(".cd-fi", div).style.left = Math.max(0, fiX * scale - 5) + "px"; $(".cd-fo", div).style.left = Math.min(div.clientWidth - 10, foX * scale - 5) + "px";
+      paintFades(div, c, w);
     } else {
-      var notes = c.notes || [], L = c.loopLen > 0 ? c.loopLen : c.len, lo = 127, hi = 0; notes.forEach(function (n) { lo = Math.min(lo, n.p); hi = Math.max(hi, n.p); }); if (lo > hi) return; lo -= 2; hi += 2;
+      var notes = c.notes || [], L = c.loopLen > 0 ? c.loopLen : c.len, lo = 127, hi = 0; notes.forEach(function (n) { lo = Math.min(lo, n.p); hi = Math.max(hi, n.p); }); if (lo > hi) { done(); return; } lo -= 2; hi += 2;
       var rowH = Math.max(1.5, Math.min(6, h / (hi - lo + 1)));
       for (var r = 0; r * L < c.len; r++) { if (r > 0) { g.fillStyle = "rgba(0,0,0,.25)"; g.fillRect(bx(r * L) / scale, 0, 1, h); g.fillStyle = "rgba(255,255,255,.82)"; } notes.forEach(function (n) { if (n.s >= L) return; var s = r * L + n.s; if (s >= c.len) return; g.globalAlpha = 0.45 + n.v / 254; g.fillRect(bx(s) / scale, (hi - n.p) / (hi - lo + 1) * h, Math.max(1.5, bx(Math.min(n.d, c.len - s)) / scale), rowH); }); }
       g.globalAlpha = 1;
     }
+    done();
+  }
+  function paintFades(div, c, w) {   // the fade handles of an audio clip, where its fades end
+    if (c.kind !== "audio") return; var scale = div.clientWidth / w, s0 = D.tempo.beatToSec(c.start), fi = (c.audio.fadeIn || 0), fo = (c.audio.fadeOut || 0);
+    var fiX = (D.tempo.secToBeat(s0 + fi) - c.start) * U.zoom / scale, foX = w - (c.start + c.len - D.tempo.secToBeat(D.tempo.beatToSec(c.start + c.len) - fo)) * U.zoom / scale, a = $(".cd-fi", div), b = $(".cd-fo", div);
+    if (a) a.style.left = Math.max(0, fiX * scale - 5) + "px"; if (b) b.style.left = Math.min(div.clientWidth - 10, foX * scale - 5) + "px";
   }
   UI.paintClips = function () { if (el) $$(".cd-clip", el).forEach(paintClip); };
   function paintGrid() {

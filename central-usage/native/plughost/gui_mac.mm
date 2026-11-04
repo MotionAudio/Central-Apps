@@ -60,12 +60,7 @@ extern "C" int ph_run(void (*onLine)(char *), void (*onQuit)(void)) {
     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];   // windows, but no Dock icon or menu bar of its own
     gQuit = onQuit;
     std::thread([onLine] {
-      std::string acc; char buf[65536];
-      while (fgets(buf, sizeof buf, stdin)) {
-        acc += buf; if (acc.empty() || acc.back() != '\n') continue;
-        std::string line = acc; acc.clear();
-        post([onLine, line] { std::string t = line; while (!t.empty() && (t.back() == '\n' || t.back() == '\r')) t.pop_back(); if (!t.empty()) onLine(&t[0]); });
-      }
+      readStdin([onLine](const std::string &line) { post([onLine, line] { std::string t = line; onLine(&t[0]); }); });   // (10.4)
       dispatch_async(dispatch_get_main_queue(), ^{ runPosted(); if (gQuit) gQuit(); exit(0); });   // stdin closed: the app quit
     }).detach();
     NSTimer *t = [NSTimer timerWithTimeInterval:0.015 repeats:YES block:^(NSTimer *timer) { (void)timer; ph::safeRun(); }];

@@ -24,6 +24,9 @@ typedef struct { uint8_t d[3]; } PhMidi;   /* a 3-byte MIDI message, at the star
 void ph_init(const char *dataDir, void (*emit)(const char *json));
 int  ph_run(void (*onLine)(char *line), void (*onQuit)(void));
 void ph_post(void (*fn)(void *), void *arg);
+/* (10.4) a line handled on the stdin thread itself, before it would go to the main thread: fn returns 1 when it took
+ * the line. A line "B<n> <json>" is followed by n raw bytes (bin); those lines only go to fn. Set before ph_run. */
+void ph_set_fast(int (*fn)(char *line, const unsigned char *bin, long n));
 /* `cu-rig --scan-one <format> <path>`: the child process that loads one plugin file and prints what is in it
  * (a crash or hang there only loses that plugin) */
 int  ph_scan_one_main(const char *format, const char *path);

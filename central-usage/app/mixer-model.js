@@ -27,7 +27,24 @@
   function defaultFx() { return { rev: { on: true, decay: 2.2, pre: 20, damp: 0.5, lowcut: 150, width: 1, ret: 0 }, dly: { on: true, sync: "1/4", ms: 375, bpm: 0, fb: 0.3, hicut: 6000, lowcut: 150, ping: false, ret: 0 } }; }
   function defaultStream() { return { name: "Stream mix", level: 0, mute: false, outL: -1, outR: -1, comp: { on: true, thr: -18, ratio: 3, att: 10, rel: 150, makeup: 3 }, rRev: 0, rDly: 0, sends: {}, record: true }; }   // (where it goes online and the virtual device are the audio host's own settings: stream.json, with the stream keys)
   // the delay's time: from the song's tempo (a note value) or in ms
-  var NOTE_BEATS = { "1/2": 2, "1/4d": 1.5, "1/4": 1, "1/4t": 2 / 3, "1/8d": 0.75, "1/8": 0.5, "1/8t": 1 / 3, "1/16": 0.25 };
+  var NOTE_BEATS = { "1/1": 4, "1/2d": 3, "1/2": 2, "1/2t": 4 / 3, "1/4d": 1.5, "1/4": 1, "1/4t": 2 / 3, "1/8d": 0.75, "1/8": 0.5, "1/8t": 1 / 3, "1/16d": 0.375, "1/16": 0.25, "1/16t": 1 / 6, "1/32": 0.125 };   // (10.4: every note value)
+  // (10.4) a channel insert (a Central FX plugin) follows the song's tempo: its tempo knob (syncTempo, on unless false) and a
+  // delay's time knob on a note (syncNote: the same note names as everywhere else, "1/8." dotted, "1/8T" triplet)
+  var INS_NOTES = { "1/1": 4, "1/2.": 3, "1/2": 2, "1/2T": 4 / 3, "1/4.": 1.5, "1/4": 1, "1/4T": 2 / 3, "1/8.": 0.75, "1/8": 0.5, "1/8T": 1 / 3, "1/16.": 0.375, "1/16": 0.25, "1/16T": 1 / 6, "1/32": 0.125 };
+  function insTempoParam(def) { return ((def && def.params) || []).filter(function (q) { return q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"; })[0] || null; }
+  function insTimeParam(def) {
+    var ps = (def && def.params) || [], f = ps.filter(function (q) { return q.tempoSync === true; })[0]; if (f) return f;
+    if (!((def && def.graph && def.graph.blocks) || []).some(function (b) { return b.type === "delay"; })) return null;
+    return ps.filter(function (q) { return q.tempoSync !== false && String(q.unit || "").toLowerCase() === "ms" && /^(time|delay|delaytime|delay_time|echo)$/i.test(q.id); })[0] || null;
+  }
+  // the knob values an insert plays with at a BPM (def: its .cmfx.json)
+  function insertValues(q, def, bpm) {
+    var v = {}; Object.keys((q && q.values) || {}).forEach(function (k) { v[k] = q.values[k]; }); if (!(bpm > 0) || !def) return v;
+    var tq = insTempoParam(def), mq = insTimeParam(def), lim = function (x, a, b) { return x < a ? a : x > b ? b : x; };
+    if (tq && q.syncTempo !== false) v[tq.id] = lim(bpm, tq.min != null ? +tq.min : 20, tq.max != null ? +tq.max : 300);
+    if (mq && INS_NOTES[q.syncNote]) v[mq.id] = lim(INS_NOTES[q.syncNote] * 60000 / bpm, mq.min != null ? +mq.min : 1, mq.max != null ? +mq.max : 4000);
+    return v;
+  }
   function delayMs(d) { d = d || {}; var beats = NOTE_BEATS[d.sync], bpm = Number(d.bpm) || 0; var ms = beats && bpm >= 30 ? 60000 / bpm * beats : Number(d.ms) || 375; return Math.max(1, Math.min(2900, Math.round(ms * 10) / 10)); }
   // starting points for a channel (the sound desk can change everything after)
   var PRESETS = [
@@ -111,7 +128,7 @@
       if (!admin) return false; var xi = s.inputs[op.i | 0]; if (!xi || op.i < 0 || !Array.isArray(op.list)) return false;
       var list = op.list.slice(0, 4).filter(function (q) { return q && /^[a-z0-9-]{1,60}$/.test(String(q.id || "")); }).map(function (q) {
         var v = {}; Object.keys(q.values || {}).slice(0, 32).forEach(function (k) { var n = Number(q.values[k]); if (/^[A-Za-z_]\w{0,30}$/.test(k) && isFinite(n)) v[k] = n; });
-        var o = { id: String(q.id), on: q.on !== false, values: v }; if (q.lapsed) o.lapsed = true; return o;
+        var o = { id: String(q.id), on: q.on !== false, values: v }; if (q.lapsed) o.lapsed = true; if (q.syncTempo === false) o.syncTempo = false; if (INS_NOTES[q.syncNote]) o.syncNote = q.syncNote; return o;
       });
       if (JSON.stringify(list) === JSON.stringify(xi.ins || [])) return false; xi.ins = list; return true;
     }
@@ -189,5 +206,5 @@
   // fader position (0..1) <-> dB: a console-like curve, 0 dB at 75 %
   function faderToDb(p) { p = clamp(p, 0, 1); if (p <= 0) return -90; if (p >= 0.75) return (p - 0.75) / 0.25 * 10; var x = p / 0.75; return -60 * Math.pow(1 - x, 1.6); }
   function dbToFader(db) { if (db <= -90) return 0; if (db >= 0) return 0.75 + clamp(db, 0, 10) / 10 * 0.25; var x = 1 - Math.pow(Math.min(1, -db / 60), 1 / 1.6); return x * 0.75; }
-  return { MAXIN: MAXIN, MAXMIX: MAXMIX, MAXOUT: MAXOUT, STREAMTAP: MAXMIX + 1, PRESETS: PRESETS, NOTE_BEATS: NOTE_BEATS, delayMs: delayMs, defaultFx: defaultFx, defaultStream: defaultStream, create: create, normalize: normalize, apply: apply, visibleTo: visibleTo, activeInputs: activeInputs, forUser: forUser, defaultInput: defaultInput, dbToLin: dbToLin, linToDb: linToDb, faderToDb: faderToDb, dbToFader: dbToFader };
+  return { MAXIN: MAXIN, MAXMIX: MAXMIX, MAXOUT: MAXOUT, STREAMTAP: MAXMIX + 1, PRESETS: PRESETS, NOTE_BEATS: NOTE_BEATS, INS_NOTES: INS_NOTES, insertValues: insertValues, insTempoParam: insTempoParam, insTimeParam: insTimeParam, delayMs: delayMs, defaultFx: defaultFx, defaultStream: defaultStream, create: create, normalize: normalize, apply: apply, visibleTo: visibleTo, activeInputs: activeInputs, forUser: forUser, defaultInput: defaultInput, dbToLin: dbToLin, linToDb: linToDb, faderToDb: faderToDb, dbToFader: dbToFader };
 });

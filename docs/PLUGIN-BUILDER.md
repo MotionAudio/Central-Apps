@@ -35,6 +35,16 @@ Because every app plays it with the same engine, a plugin sounds the same on the
   - knob: sends one of your knobs into the wiring
 - **Code:** your own code, as one block in the wiring
 
+**A delay in time with the song (10.4):** select a Delay block and pick a note under **Sync to tempo** (a quarter, a dotted
+eighth, an eighth triplet and so on). The builder adds a Tempo knob to the plugin (or uses the one it has) and wires a
+Maths block into the delay's time: the note's length × 60000 ÷ the Tempo knob, in ms. The apps turn every knob with the
+unit BPM to the song's tempo, so the repeats stay on the note wherever the plugin plays. Pick Off and the two blocks go
+again. Those are ordinary blocks, so the plugin plays the same on the Central Pedal, in the rig and in a browser.
+
+A knob in ms that sets a delay's time can follow the tempo too: give it `"tempoSync": true` (the collection's Delay, Tape
+Echo and Ping-Pong do), or call it `time` or `delay` with the unit `ms`. The apps then show **Sync to tempo** with a note
+next to the plugin, and set that knob from the song's tempo when it's on.
+
 **Rules the builder enforces for you:**
 - A wire can't go round in a loop. For repeats, use a delay's feedback.
 - A plugin needs a Sound out.
@@ -120,7 +130,7 @@ Motion Audio's own effects are built on the same engine: 32 of them, in `product
 | Kind | Free | With Central Plugins |
 |---|---|---|
 | Reverb | Room Reverb | Vocal Plate, Lush Hall, Worship Shimmer |
-| Delay | Delay | Dotted Eighth (follows the song's tempo), Ping-Pong, Tape Echo |
+| Delay | Delay (its time can follow the tempo) | Dotted Eighth (follows the song's tempo), Ping-Pong and Tape Echo (their time can follow the tempo) |
 | Compressor | Compressor | FET (1176-style), Opto Leveler (LA-2A-style), Bus Glue, Multiband, De-esser Pro |
 | Dynamics | Gate | Transient Shaper |
 | EQ | 4-Band EQ, Low & High Cut | 8-Band Parametric, Tilt EQ |

@@ -1,6 +1,8 @@
 // ph.hpp - inside the plugin host: what every plugin format implements, the editor window, the main loop's timers.
 #pragma once
 #include <atomic>
+#include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -102,4 +104,31 @@ bool endsWith(const std::string &s, const std::string &suf);
 std::string baseName(const std::string &p);
 std::string exePath();
 void log(const char *fmt, ...);    // to stderr
+
+// ---- (10.4) stdin, read on its own thread: each line to post(), unless the fast hook takes it there and then.
+// "B<n> <json>" lines carry n raw bytes after them (the DAW's audio, without base64) and only go to the hook.
+extern int (*gFast)(char *line, const unsigned char *bin, long n);
+template <class Post> void readStdin(Post post) {
+#ifdef _WIN32
+#define PH_GETC _getc_nolock
+#else
+#define PH_GETC getc_unlocked
+#endif
+  std::string acc; std::vector<unsigned char> bin; int c = 0;
+  for (;;) {
+    acc.clear();
+    while ((c = PH_GETC(stdin)) != EOF && c != '\n') acc.push_back((char)c);
+    while (!acc.empty() && acc.back() == '\r') acc.pop_back();
+    if (!acc.empty() && acc[0] == 'B' && acc.size() > 1 && acc[1] >= '0' && acc[1] <= '9') {
+      char *e = nullptr; long n = strtol(acc.c_str() + 1, &e, 10); size_t at = (size_t)(e - acc.c_str()); while (at < acc.size() && acc[at] == ' ') at++;
+      if (n < 0 || n > (64L << 20)) break;
+      bin.resize((size_t)n + 1); size_t got = n ? fread(bin.data(), 1, (size_t)n, stdin) : 0; if ((long)got < n) break;
+      std::string js = acc.substr(at); if (gFast && !js.empty()) gFast(&js[0], bin.data(), n);
+    } else if (!acc.empty()) {
+      if (!(gFast && gFast(&acc[0], nullptr, 0))) post(acc);
+    }
+    if (c == EOF) break;
+  }
+#undef PH_GETC
+}
 }  // namespace ph

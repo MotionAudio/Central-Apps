@@ -183,6 +183,41 @@
       ]
     },
     {
+      "slug": "production-plugins",
+      "title": "VST3 and CLAP plugins in Central Production",
+      "category": "Central Production",
+      "summary": "Put your own plugins on a track, hear a knob change straight away, play a keyboard through them and export with their automation.",
+      "body": [
+        { "t": "steps", "items": [
+          "Open the mixer, press + Effect on a track and choose Your VST3 / CLAP plugins…, then the plugin. The first time, it looks for the plugins on this computer.",
+          "Press play: the track plays through its plugins, lined up with every other track. Turn a knob in the panel, or press Open its window to use the plugin's own controls.",
+          "To set how soon a knob is heard while the song plays, open Settings → Audio → Plugin response: Fast (about 100 ms, for a quick computer), Balanced (about 200 ms) or Safe (about 400 ms). If the computer can't keep up, it gives the plugins more time by itself and tells you.",
+          "Play a MIDI keyboard on an instrument track that has plugins and you hear them on every note. Settings → Audio → Keyboard through plugins chooses Lowest delay (a few milliseconds: the SoundFont sound and the track's plugins straight to your sound card) or Through the whole track (everything on the track, about 10 to 20 ms more).",
+          "Automate a plugin knob from the track's automation lanes (A). Exports, stems and freezing all include the automation.",
+          "On a slower computer, right-click a track's name and choose Freeze to play it from a rendered copy. It frees the computer's power; change anything on the track and it plays live again."
+        ] },
+        { "t": "p", "text": "VST3 and CLAP plugins play in the Central Production and Central Usage apps on Mac, Windows and Linux. In the website version, Central FX plugins (including the ones you build) play, and a track frozen in the app plays its frozen sound." }
+      ]
+    },
+    {
+      "slug": "delays-in-time",
+      "title": "Delays that stay in time with the song",
+      "category": "Sound and effects",
+      "summary": "Every delay can follow the song's tempo on a note you pick, or keep its own time.",
+      "body": [
+        { "t": "p", "text": "Every delay in the apps has a Sync to tempo switch. Turn it on and pick a note (a quarter, a dotted eighth, an eighth triplet and so on). The repeats then land on that note at the song's tempo, and they move with it when the next song is faster or slower. Turn it off and the delay keeps the time you set in milliseconds." },
+        { "t": "steps", "items": [
+          "Pedal boards (the Central Pedal, Central Control and Central Usage): select a delay pedal, turn on Sync to tempo and pick the note. The pedal's time knob follows the song's tempo from then on.",
+          "Tracks, pads and the buses (the Central Pedal): open FX, then under Delay pick the note. With Central Plugins you can turn Sync to tempo off and set the time in milliseconds instead.",
+          "Central Control's shared delay (Mix → Reverb & delay): pick a note, or Free (ms). Channel inserts that are delays have their own Sync to tempo.",
+          "Central Production and the Central Usage Studio: the Delay effect has Sync to tempo, a note and a time. It follows tempo changes in the song, and exports keep them.",
+          "Central FX delays (Delay, Tape Echo, Ping-Pong) have Sync to tempo with a note. The Dotted Eighth Delay follows the tempo by itself; switch Sync to song tempo off to set its tempo by hand.",
+          "Building your own plugin: select a Delay block and pick a note under Sync to tempo. The plugin gets a Tempo knob, and the apps turn it to the song's tempo."
+        ] },
+        { "t": "p", "text": "Delays saved before version 10.4 keep the sound they had. A few third-party pedals (the multiband delays, Zyn Echo, mda Delay, the Tape Delay, Delayorama and TAP Echo) have no time knob the apps can set exactly, so set those by ear." }
+      ]
+    },
+    {
       "slug": "keys-devices-renewals",
       "title": "Keys, devices and renewals",
       "category": "Keys, plans and billing",

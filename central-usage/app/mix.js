@@ -124,10 +124,20 @@
         (p.presets && p.presets.length ? '<select data-mxi="preset" data-k="' + k + '"><option value="">Starting point…</option>' + p.presets.map(function (pr, j) { return '<option value="' + j + '">' + esc(pr.name) + "</option>"; }).join("") + "</select>" : "") +
         '<button data-mxi="del" data-k="' + k + '">Remove</button></div>' + (err ? '<p class="warn small">' + esc(err) + "</p>" : "") +
         (q.lapsed ? '<p class="warn small" data-lapsed>' + esc(needsLine(p.tier)) + ": it's bypassed until the plan is active.</p>" : "") +
-        p.params.map(function (pa) { var v = q.values && q.values[pa.id] != null ? q.values[pa.id] : pa.default, step = (pa.max - pa.min) / 200;
-          return '<label class="mx-sl"><span>' + esc(pa.name) + '</span><input type="range" min="' + pa.min + '" max="' + pa.max + '" step="' + step + '" data-mxi="val" data-k="' + k + '" data-id="' + esc(pa.id) + '" value="' + v + '"><output>' + insFmt(v, pa.unit) + "</output></label>"; }).join("") + "</div>";
+        insSync(q, p, k) +
+        p.params.map(function (pa) { var v = q.values && q.values[pa.id] != null ? q.values[pa.id] : pa.default, step = (pa.max - pa.min) / 200, follows = insFollows(q, p, pa);
+          return '<label class="mx-sl' + (follows ? " off" : "") + '"><span>' + esc(pa.name) + '</span><input type="range" min="' + pa.min + '" max="' + pa.max + '" step="' + step + '" data-mxi="val" data-k="' + k + '" data-id="' + esc(pa.id) + '" value="' + v + '"' + (follows ? " disabled" : "") + '><output>' + (follows ? "follows the tempo" : insFmt(v, pa.unit)) + "</output></label>"; }).join("") + "</div>";
     }).join("") + add + "</div>";
   }
+  // (10.4) an insert that follows the song's tempo (the Central Pedal's BPM): its tempo knob, or a delay's time on a note
+  function insFollows(q, p, pa) { var tq = M.insTempoParam && M.insTempoParam(p), mq = M.insTimeParam && M.insTimeParam(p); return !!((tq && tq.id === pa.id && q.syncTempo !== false) || (mq && mq.id === pa.id && q.syncNote)); }
+  function insSync(q, p, k) {
+    var tq = M.insTempoParam && M.insTempoParam(p), mq = M.insTimeParam && M.insTimeParam(p), out = "";
+    if (tq) out += '<label class="toggle"><input type="checkbox" data-mxi="synctempo" data-k="' + k + '"' + (q.syncTempo !== false ? " checked" : "") + "> Sync to song tempo</label>";
+    if (mq) out += '<label class="mx-sl"><span>Sync to tempo</span><select data-mxi="syncnote" data-k="' + k + '"><option value="">Off (its own time)</option>' + INS_NOTE_NAMES.map(function (n) { return '<option value="' + n[0] + '"' + (q.syncNote === n[0] ? " selected" : "") + ">" + n[1] + "</option>"; }).join("") + "</select></label>";
+    return out;
+  }
+  var INS_NOTE_NAMES = [["1/1", "Whole"], ["1/2.", "Dotted half"], ["1/2", "Half"], ["1/2T", "Half triplet"], ["1/4.", "Dotted quarter"], ["1/4", "Quarter"], ["1/4T", "Quarter triplet"], ["1/8.", "Dotted eighth"], ["1/8", "Eighth"], ["1/8T", "Eighth triplet"], ["1/16.", "Dotted sixteenth"], ["1/16", "Sixteenth"], ["1/16T", "Sixteenth triplet"], ["1/32", "Thirty-second"]];
   function insFmt(v, u) { v = Number(v); var a = Math.abs(v), t = u === "Hz" && a >= 1000 ? (v / 1000).toFixed(1) + " kHz" : (a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2)) + (u && u !== "Hz" ? " " + u : u === "Hz" ? " Hz" : ""); return t; }
   function insList() { return JSON.parse(JSON.stringify((S().inputs[sel] && S().inputs[sel].ins) || [])); }
   function insOp(list) { X.op({ op: "inserts", i: sel, list: list }); }
@@ -258,6 +268,7 @@
     if (t.dataset.mxListen === "tap") { if (listen.tap != null) startListen(tapOf(t.value)); return; }
     if (t.dataset.mxd === "preset") { var pr = (M.PRESETS || []).find(function (q) { return q.id === t.value; }); if (pr && sel >= 0) X.op({ op: "input", i: sel, patch: JSON.parse(JSON.stringify(pr.patch)) }); t.value = ""; return; }
     if (t.dataset.mxi === "add") { var ad = collOf(t.value); if (ad && !insLocked(ad) && sel >= 0) { var la = insList(); la.push({ id: ad.id, on: true, values: {} }); insOp(la); } t.value = ""; return; }
+    if (t.dataset.mxi === "synctempo" || t.dataset.mxi === "syncnote") { var ls = insList(), qs = ls[Number(t.dataset.k)]; if (qs) { if (t.dataset.mxi === "synctempo") { if (t.checked) delete qs.syncTempo; else qs.syncTempo = false; } else if (t.value) qs.syncNote = t.value; else delete qs.syncNote; insOp(ls); } return; }   // (10.4)
     if (t.dataset.mxi === "on") { var lo = insList(), qo = lo[Number(t.dataset.k)]; if (qo) { qo.on = t.checked; insOp(lo); } return; }
     if (t.dataset.mxi === "preset") { var lp = insList(), qp = lp[Number(t.dataset.k)], pp2 = qp && collOf(qp.id), pr2 = pp2 && pp2.presets[Number(t.value)]; if (pr2) { qp.values = JSON.parse(JSON.stringify(pr2.values)); insOp(lp); } t.value = ""; return; }
     if (t.dataset.mxd === "ss.on") { X.op({ op: "streamSend", i: sel, patch: { on: t.checked } }); return; }

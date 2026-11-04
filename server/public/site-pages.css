@@ -258,3 +258,15 @@ ul.hl li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-wei
 .edit-how p{font-size:.88rem;color:var(--ink-2)}
 @media (max-width:860px){.edit-how{grid-template-columns:1fr}}
 .cart-added{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:60}
+
+/* (10.4) the home page's Central Production section */
+
+.prod-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:2.5rem;align-items:center}
+.prod-split h2{margin:.3rem 0 .6rem}
+.prod-pts{margin:1rem 0 1.4rem;padding-left:1.1rem;display:grid;gap:.4rem}
+.prod-split .ctas{display:flex;flex-wrap:wrap;gap:.5rem}
+.prod-shot{margin:0}.prod-shot img{width:100%;height:auto;display:block;border-radius:12px;box-shadow:0 18px 40px rgba(0,0,0,.25)}
+@media (max-width:860px){.prod-split{grid-template-columns:1fr;gap:1.5rem}}
+.pl-row .pl-btns{display:flex;gap:.4rem;flex-wrap:wrap}
+.pl-row .what h3 a{color:inherit;text-decoration:none}
+.prod-split .prod-more{align-self:center;margin-left:.4rem}

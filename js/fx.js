@@ -34,7 +34,7 @@
       eq: { on: true, lowCut: 0, low: 0, mid: 0, midFreq: 1000, high: 0, highCut: 20000, bands: [{ on: false, freq: 250, gain: 0, q: 1 }, { on: false, freq: 2500, gain: 0, q: 1 }] },
       comp: { on: false, amount: 35, mode: "basic", threshold: -18, ratio: 3, attack: 10, release: 150, knee: 6, makeup: 0 },
       reverb: { on: false, type: "room", send: 15, size: 0 },
-      delay: { on: false, time: "1/8", send: 12, feedback: 25, pingpong: false, tone: 6000 }, plugins: [] };
+      delay: { on: false, time: "1/8", sync: true, ms: 375, send: 12, feedback: 25, pingpong: false, tone: 6000 }, plugins: [] };   // (10.4: sync off = its own time in ms)
   }
   function merge(base, over) {
     if (!over || typeof over !== "object") return base;
@@ -97,8 +97,8 @@
   }
 
   // ------------------------------------------------------------- pads: the quick panel <-> the pad's own chain
-  var DIV_VALUE = { "1/2": "2", "1/4": "1", "1/8": ".5", "1/16": ".25", "1/4.": "1.5", "1/8.": ".75" };
-  function divName(v) { var k = Object.keys(DIV_VALUE).filter(function (n) { return Number(DIV_VALUE[n]) === Number(v); })[0]; return k || "1/8"; }
+  var DIV_VALUE = { "1/1": "4", "1/2.": "3", "1/2": "2", "1/2T": "1.3333", "1/4.": "1.5", "1/4": "1", "1/4T": "0.6667", "1/8.": ".75", "1/8": ".5", "1/8T": "0.3333", "1/16.": ".375", "1/16": ".25", "1/16T": "0.1667", "1/32": ".125" };   // (10.4: every note value)
+  function divName(v) { var k = Object.keys(DIV_VALUE).filter(function (n) { return Math.abs(Number(DIV_VALUE[n]) - Number(v)) < 0.002; })[0]; return k || "1/8"; }
   function padToFx(pad) {
     var e = pad.effects || {}, b = (e.eq && e.eq.bands) || [], c = e.compressor || {}, r = e.reverb || {}, d = e.delay || {};
     var fx = defaultFx(); fx.on = true;
@@ -106,7 +106,7 @@
       highCut: b[5] && b[5].enabled ? b[5].freq : 20000, bands: [{ on: !!(b[2] && b[2].enabled && Math.abs(b[2].gain || 0) > 0.05), freq: b[2] ? b[2].freq : 430, gain: b[2] ? b[2].gain || 0 : 0, q: b[2] ? b[2].q : 1.1 }] };
     fx.comp = { on: !!c.enabled, amount: c.amount == null ? 35 : c.amount, mode: c.quick === "full" ? "full" : "basic", threshold: c.threshold, ratio: c.ratio, attack: c.attack, release: c.release, makeup: c.makeup || 0, knee: c.knee };
     fx.reverb = { on: !!r.enabled, type: r.type || "hall", send: r.wet == null ? 30 : r.wet, size: Math.round(((r.decay || 4.2) - 4.5) / 3.5 * 50) };
-    fx.delay = { on: !!d.enabled, time: divName(d.division), send: d.send == null ? 25 : d.send, feedback: d.feedback == null ? 30 : d.feedback, pingpong: d.type === "pingpong", tone: d.tone || 6000 };
+    fx.delay = { on: !!d.enabled, time: divName(d.division), sync: d.sync !== false, ms: d.sync === false ? Math.round(60000 / clamp(d.bpm || 72, 40, 240) * Number(d.division || 0.5)) : 375, send: d.send == null ? 25 : d.send, feedback: d.feedback == null ? 30 : d.feedback, pingpong: d.type === "pingpong", tone: d.tone || 6000 };
     var g = e.gate || {};
     fx.gate = { on: !!g.enabled, threshold: g.threshold == null ? -45 : g.threshold, mode: g.mode === "full" ? "full" : "basic", range: g.range == null ? -80 : g.range, attack: g.attack == null ? 1 : g.attack, hold: g.hold == null ? 40 : g.hold, release: g.release == null ? 120 : g.release };
     fx.preset = pad.fxPreset || "";
@@ -132,8 +132,9 @@
     r.decay = Math.round(clamp(4.5 + fx.reverb.size / 50 * 3.5, 1, 8) * 10) / 10;
     if (fx.reverb.shimmer != null && isPro) r.shimmer = fx.reverb.shimmer;
     var d = e.delay, okTime = isPro || fx.delay.time === "1/4" || fx.delay.time === "1/8";
-    d.enabled = !!fx.delay.on; d.send = clamp(fx.delay.send, 0, 100); d.feedback = clamp(fx.delay.feedback, 0, isPro ? 90 : 60); d.sync = true;
+    d.enabled = !!fx.delay.on; d.send = clamp(fx.delay.send, 0, 100); d.feedback = clamp(fx.delay.feedback, 0, isPro ? 90 : 60); d.sync = !(isPro && fx.delay.sync === false);
     if (okTime) d.division = DIV_VALUE[fx.delay.time] || ".5";
+    if (!d.sync) d.bpm = Math.round(clamp(60000 * Number(d.division || 0.5) / clamp(fx.delay.ms || 375, 20, 2500), 40, 240) * 10) / 10;   // (a pad not synced keeps its own tempo: the time in ms becomes that)
     if (isPro) { d.type = fx.delay.pingpong ? "pingpong" : "regular"; d.tone = clamp(fx.delay.tone, 800, 16000); }
     if (extra && isPro) {
       if (extra.width != null) { e.width.enabled = true; e.width.width = extra.width; }
@@ -308,6 +309,7 @@
   // (10.3) a plugin with a "tempo" knob follows the song's tempo unless its "Sync to song tempo" switch is off
   function tempoParam(pl) { return ((pl && pl.params) || []).filter(function (q) { return (q.id === "tempo" || q.id === "bpm" || String(q.unit || "").toUpperCase() === "BPM"); })[0] || null; }
   function withTempo(x, bpm) {
+    if (window.PPPedals && window.PPPedals.tempo) return window.PPPedals.tempo.pluginValues(x.plugin, x.values || {}, x, bpm);   // (10.4: the tempo knob, and a delay's time knob on a note)
     var v = Object.assign({}, x.values || {}), q = tempoParam(x.plugin);
     if (q && x.syncTempo !== false && bpm > 0) v[q.id] = Math.max(q.min != null ? +q.min : 20, Math.min(q.max != null ? +q.max : 300, +bpm));
     return v;
@@ -463,7 +465,8 @@
         select("Type", "reverb.type", [["room", "Room"], ["hall", "Hall", true], ["plate", "Plate", true], ["cathedral", "Cathedral", true]]) +
         row(kind === "pad" ? "Wet" : "Send", "reverb.send", 0, 100, 1, "%") + row(kind === "pad" ? "Length" : "Size", "reverb.size", -50, 50, 1, "", { pro: kind !== "pad" }) + "</section>" +
       '<section><header>' + toggle("Delay", "delay.on") + "</header>" +
-        select("Time (follows the tempo)", "delay.time", [["1/4", "1/4"], ["1/8", "1/8"], ["1/4.", "1/4 dotted", true], ["1/8.", "1/8 dotted", true], ["1/2", "1/2", true], ["1/16", "1/16", true]]) +
+        (isPro ? toggle("Sync to tempo", "delay.sync") : '<span class="fx-lockline">' + LOCK + "Its own time in ms</span>") +
+        (fx.delay.sync !== false || !isPro ? select("Note (follows the tempo)", "delay.time", TIMES) : row("Time", "delay.ms", 20, 2500, 1, "ms", { pro: true })) +
         row("Send", "delay.send", 0, 100, 1, "%") + row("Repeats", "delay.feedback", 0, isPro ? 90 : 60, 1, "%") +
         (isPro ? toggle("Ping-pong", "delay.pingpong") : '<span class="fx-lockline">' + LOCK + "Ping-pong</span>") + row("Repeat tone", "delay.tone", 800, 16000, 100, "Hz", { pro: true }) + "</section>" +
       (kind !== "bus" ? cmSection(fx) : "") +
@@ -480,6 +483,8 @@
         var pre = Array.isArray(pl.presets) && pl.presets.length ? ' <select data-fx-cm-preset="' + i + '" aria-label="Starting point"><option value="">Starting point…</option>' + pl.presets.map(function (p, k) { return '<option value="' + k + '">' + esc(p.name) + "</option>"; }).join("") + "</select>" : "";
         if (tempoParam(pl) && x.syncTempo === undefined) x.syncTempo = true;   // (10.3) on by default
         var sync = tempoParam(pl) ? toggle("Sync to song tempo", "plugins." + i + ".syncTempo") : "";
+        var TP = window.PPPedals && window.PPPedals.tempo, tq = TP && TP.pluginTime(pl);   // (10.4) a delay's time knob on a note value
+        if (tq) sync += '<label class="fx-row"><span>Sync to tempo</span><select data-fx="plugins.' + i + '.syncNote"><option value="">Off (its own time)</option>' + TP.NOTES.map(function (n) { return '<option value="' + n[0] + '"' + (x.syncNote === n[0] ? " selected" : "") + ">" + esc(n[1]) + "</option>"; }).join("") + "</select></label>";
         if (cmLapsed(x)) sync += '<p class="muted small">' + esc((window.PPPedals && PPPedals.needsText ? PPPedals.needsText(pl.tier) : "needs its plan").replace(/^n/, "N")) + ": it's bypassed until the plan is active.</p>";
         return '<div class="fx-band">' + toggle(x.name || pl.name || "Plugin", "plugins." + i + ".on") + pre + ' <button class="link" data-fx-cm-del="' + i + '">Remove</button>' + sync +
           ps.map(function (q) { var lo = q.min != null ? +q.min : 0, hi = q.max != null ? +q.max : 1; return row(q.name || q.id, "plugins." + i + ".values." + q.id, lo, hi, (hi - lo) / 200, q.unit === "dB" || q.unit === "Hz" || q.unit === "ms" || q.unit === "%" ? q.unit : ""); }).join("") + "</div>";
@@ -589,7 +594,8 @@
   // The same effects without the panel: which tracks / pads have them, and for one of them its presets, every effect
   // on / off and the main amount of each (the basic versions; the better ones keep their lock).
   var REVERBS = [["room", "Room"], ["hall", "Hall", true], ["plate", "Plate", true], ["cathedral", "Cathedral", true]];
-  var TIMES = [["1/4", "1/4"], ["1/8", "1/8"], ["1/4.", "1/4 dotted", true], ["1/8.", "1/8 dotted", true], ["1/2", "1/2", true], ["1/16", "1/16", true]];
+  var TIMES = [["1/4", "Quarter"], ["1/8", "Eighth"], ["1/8.", "Dotted eighth", true], ["1/4.", "Dotted quarter", true], ["1/2", "Half", true], ["1/16", "Sixteenth", true], ["1/8T", "Eighth triplet", true], ["1/4T", "Quarter triplet", true],
+    ["1/16.", "Dotted sixteenth", true], ["1/16T", "Sixteenth triplet", true], ["1/2.", "Dotted half", true], ["1/2T", "Half triplet", true], ["1/1", "Whole", true], ["1/32", "Thirty-second", true]];   // (10.4: every note value)
   function miniTarget(id) {
     var m = /^(stem|pad|bus):(.+)$/.exec(String(id || "")); if (!m) return null;
     if (m[1] === "stem") return stemTarget(m[2]);

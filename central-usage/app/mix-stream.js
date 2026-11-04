@@ -35,7 +35,7 @@
   // ------------------------------------------------------------------ reverb & delay
   function sl(label, key, min, max, step, v, fmt) { return '<label class="mx-sl"><span>' + label + '</span><input type="range" min="' + min + '" max="' + max + '" step="' + step + '" data-fxk="' + key + '" value="' + v + '"><output>' + fmt(v) + "</output></label>"; }
   var F = { s: function (v) { return Number(v).toFixed(1) + " s"; }, ms: function (v) { return Math.round(v) + " ms"; }, pct: function (v) { return Math.round(v * 100) + " %"; }, hz: function (v) { return v >= 1000 ? (v / 1000).toFixed(1) + " kHz" : Math.round(v) + " Hz"; }, db: dbs };
-  var NOTES = [["1/4", "Quarter"], ["1/8d", "Dotted eighth"], ["1/8", "Eighth"], ["1/4d", "Dotted quarter"], ["1/4t", "Quarter triplet"], ["1/8t", "Eighth triplet"], ["1/16", "Sixteenth"], ["1/2", "Half"], ["ms", "Free (ms)"]];
+  var NOTES = [["1/4", "Quarter"], ["1/8d", "Dotted eighth"], ["1/8", "Eighth"], ["1/4d", "Dotted quarter"], ["1/4t", "Quarter triplet"], ["1/8t", "Eighth triplet"], ["1/16", "Sixteenth"], ["1/16d", "Dotted sixteenth"], ["1/16t", "Sixteenth triplet"], ["1/32", "Thirty-second"], ["1/2", "Half"], ["1/2d", "Dotted half"], ["1/2t", "Half triplet"], ["1/1", "Whole"], ["ms", "Free (ms)"]];   // (10.4: every note value)
   function fxCard() {
     var r = S().fx.rev, d = S().fx.dly, ms = M.delayMs(d), synced = d.sync !== "ms";
     var used = S().mixes.map(function (q, m) { return { q: q, m: m }; }).filter(function (o) { return o.q.ownerId || o.q.wired || Object.keys(o.q.sends).length || o.q.rRev > -90 || o.q.rDly > -90; });

@@ -83,9 +83,8 @@ extern "C" int ph_run(void (*onLine)(char *), void (*onQuit)(void)) {
   if (pipe(wakeFd) == 0) { fcntl(wakeFd[0], F_SETFL, O_NONBLOCK); fcntl(wakeFd[1], F_SETFL, O_NONBLOCK); }
   static std::atomic<bool> quit{ false };
   std::thread([onLine] {
-    char *line = nullptr; size_t cap = 0; ssize_t n;
-    while ((n = getline(&line, &cap, stdin)) >= 0) { std::string s(line, (size_t)n); post([onLine, s] { std::string t = s; while (!t.empty() && (t.back() == '\n' || t.back() == '\r')) t.pop_back(); if (!t.empty()) onLine(&t[0]); }); }
-    free(line); post([] { quit = true; });
+    readStdin([onLine](const std::string &line) { post([onLine, line] { std::string t = line; onLine(&t[0]); }); });   // (10.4: binary DAW lines and the fast path)
+    post([] { quit = true; });
   }).detach();
   while (!quit) {
     std::vector<pollfd> fds; fds.push_back({ wakeFd[0], POLLIN, 0 });

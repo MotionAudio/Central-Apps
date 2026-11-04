@@ -253,6 +253,9 @@ svg.notation .n-tab { font: bold 11px sans-serif; fill: #111; } svg.notation .n-
 .sc-cue { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* ---------- instrument: pedal mix / level, IR, keys layers, looper ---------- */
 .in-mixlevel { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 8px 0; padding: 8px; border-radius: 10px; background: rgba(0,0,0,.18); }
+.in-sync { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 8px 0; }   /* (10.4) a delay's Sync to tempo and its note */
+.in-sync .in-syncnote { display: flex; align-items: center; gap: 8px; }
+.in-sync .in-syncnote select { min-height: 40px; }
 .in-ir { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin: 6px 0 10px; }
 .kl-wrap { margin: 10px 0; } .kl-list { display: grid; gap: 6px; margin-top: 6px; }
 .kl-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }

@@ -17,5 +17,5 @@ contextBridge.exposeInMainWorld("CU", {
   studio: { catalog: inv("studio-catalog"), read: inv("studio-read"), exportFiles: inv("studio-export"),
     monitor: { start: inv("studio-monitor-start"), send: (m) => ipcRenderer.send("studio-monitor-send", m), stop: inv("studio-monitor-stop"), on: (fn) => ipcRenderer.on("studio-monitor", (_e, m) => fn(m)) },
     native: { stream: { chain: inv("studio-daw-chain"), process: inv("studio-daw-process"), param: (i, k, id, v) => ipcRenderer.send("studio-daw-param", i, k, id, v), drop: (i) => ipcRenderer.send("studio-daw-drop", i), params: inv("studio-daw-params") },
-      plugins: inv("studio-native-plugins"), process: inv("studio-native-process"), monitor: (m) => ipcRenderer.send("studio-native-monitor", m), editor: inv("studio-native-editor"), on: (fn) => ipcRenderer.on("studio-native", (_e, m) => fn(m)) } }
+      plugins: inv("studio-native-plugins"), process: inv("studio-native-process"), monitor: (m) => ipcRenderer.send("studio-native-monitor", m), keys: inv("studio-native-keys"), midi: (d) => ipcRenderer.send("studio-native-midi", d), set: (slot, id, v) => ipcRenderer.send("studio-native-set", slot, id, v), editor: inv("studio-native-editor"), on: (fn) => ipcRenderer.on("studio-native", (_e, m) => fn(m)) } }
 });
