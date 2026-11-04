@@ -72,9 +72,31 @@ if (process.env.LOAD_NOPLAY) { await browser.close(); srv.close(); process.exit(
 const cdp = await browser.newBrowserCDPSession();
 const cpu = async () => { const l = (await cdp.send("SystemInfo.getProcessInfo")).processInfo; const by = {}; l.forEach((p) => { by[p.type] = (by[p.type] || 0) + p.cpuTime; }); return by; };
 const before = await page.evaluate(() => { const c = CDaw.ctx(), s = c.playbackStats; return { under: s ? s.underrunEvents : null, underDur: s ? s.underrunDuration : null, total: s ? s.totalDuration : null }; });
-const c0 = await cpu(), w0 = Date.now();
+if (process.env.LOAD_HIDE) await page.evaluate((w) => { if (w === "ui") document.querySelector(".cdaw").style.display = "none"; if (w === "meters") document.querySelectorAll(".cd-hmeter").forEach((c) => c.remove()); const css = { phlayer: ".cd-playhead{will-change:transform}", phhide: ".cd-playhead{visibility:hidden}", posfix: ".cd-pos,.cd-time{contain:strict;width:9ch;height:1.4em;display:inline-block}", all: ".cd-playhead{visibility:hidden}.cd-pos,.cd-time,.cd-hmeter{visibility:hidden}", combo: ".cd-playhead{will-change:transform}.cd-pos,.cd-time{visibility:hidden}", "phl-nopos-nometer": ".cd-playhead{will-change:transform}", "phl-nometer": ".cd-playhead{will-change:transform}", "phl-nopos": ".cd-playhead{will-change:transform}", cv: ".cd-row{content-visibility:auto;contain-intrinsic-size:auto 58px}", noccv: ".cd-ccv{display:none}", nohm: ".cd-hmeter{display:none}", nosticky: ".cd-head{position:relative!important}" }[w]; if (w === "combo") document.querySelectorAll(".cd-hmeter").forEach((c) => c.remove()); if (w === "all") document.querySelectorAll(".cd-hmeter").forEach((c) => c.remove()); if (w === "raf") { window.requestAnimationFrame = () => 0; } if (w === "half") { const r0 = window.requestAnimationFrame.bind(window); window.requestAnimationFrame = (fn) => setTimeout(() => r0(fn), 20); } const U2 = window.CDawUI; if (/noph/.test(w)) U2.parts.arrange.playhead = () => { }; if (/nopos/.test(w)) { U2.posText = () => "x"; U2.timeText = () => "x"; } if (/nometer/.test(w)) U2.parts.arrange.meters = () => { }; if (/noed/.test(w) && U2.parts.editors) U2.parts.editors.playhead = () => { }; if (/nomix/.test(w) && U2.parts.mixer) U2.parts.mixer.meters = () => { }; window.__dock = [U2.U.dockOpen, U2.U.dock]; if (css) { const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st); } }, process.env.LOAD_HIDE);   // (10.4: what the screen costs)
+const c0 = await cpu(), w0 = Date.now(); if (process.env.LOAD_HIDE) console.log("  dock", await page.evaluate(() => JSON.stringify(window.__dock)));
 await page.evaluate(() => { window.__clk = []; CDaw.setPos(0); CDaw.play(); const c = CDaw.ctx(), t0 = performance.now(), a0 = c.currentTime; window.__clkT = setInterval(() => { window.__clk.push((c.currentTime - a0) - (performance.now() - t0) / 1000); }, 500); });
+let prof = null, met = null, m0 = null;
+if (process.env.LOAD_METRICS) { met = await page.context().newCDPSession(page); await met.send("Performance.enable"); m0 = Object.fromEntries((await met.send("Performance.getMetrics")).metrics.map((x) => [x.name, x.value])); }
+if (process.env.LOAD_PROFILE) {   // (10.4) where the page's own time goes while it plays: the top functions by self time
+  prof = await page.context().newCDPSession(page); await prof.send("Profiler.enable"); await prof.send("Profiler.setSamplingInterval", { interval: 500 }); await prof.send("Profiler.start");
+}
+if (process.env.LOAD_TRACE) {   // (10.4) what the page's main thread does each frame
+  const tr = await page.context().newCDPSession(page), events = []; tr.on("Tracing.dataCollected", (e) => events.push(...e.value));
+  await page.waitForTimeout(2000); await tr.send("Tracing.start", { categories: "devtools.timeline,disabled-by-default-devtools.timeline,blink,cc,gpu,viz", transferMode: "ReportEvents" }); await page.waitForTimeout(3000);
+  const done = new Promise((r) => tr.once("Tracing.tracingComplete", r)); await tr.send("Tracing.end"); await done;
+  const names = {}; events.forEach((e) => { if (e.ph === "M" && e.name === "thread_name") names[e.pid + ":" + e.tid] = e.args.name; });
+  const agg = {}; events.forEach((e) => { if (e.ph !== "X" || !e.dur) return; const th = names[e.pid + ":" + e.tid] || "?"; if (!/CrRendererMain|Compositor|Raster|AudioOutput|VizCompositor/.test(th)) return; const k = th.replace(/\d+/g, "") + " | " + e.name; agg[k] = (agg[k] || 0) + e.dur / 1000; });
+  Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, 30).forEach(([k, v]) => console.log("    " + v.toFixed(0).padStart(6) + " ms  " + k));
+}
 await page.waitForTimeout(secs * 1000);
+if (met) { const m1 = Object.fromEntries((await met.send("Performance.getMetrics")).metrics.map((x) => [x.name, x.value])); console.log("  page metrics over the playback: " + ["TaskDuration", "ScriptDuration", "LayoutDuration", "RecalcStyleDuration", "LayoutCount", "RecalcStyleCount", "Nodes", "JSEventListeners"].map((k) => k + " " + (/Duration/.test(k) ? ((m1[k] - m0[k]) * 1000).toFixed(0) + " ms" : Math.round(m1[k] - (/Count/.test(k) ? m0[k] : 0)))).join(", ")); }
+if (prof) {
+  const { profile } = await prof.send("Profiler.stop"), self = {}, byId = {}; profile.nodes.forEach((n) => { byId[n.id] = n; });
+  const dt = profile.timeDeltas, total = (profile.endTime - profile.startTime) / 1000; const cnt = {}; profile.samples.forEach((id, i) => { cnt[id] = (cnt[id] || 0) + (dt[i] || 0); });
+  Object.keys(cnt).forEach((id) => { const n = byId[id], cf = n.callFrame, k = (cf.functionName || "(anon)") + " " + (cf.url || "").split("/").pop() + ":" + (cf.lineNumber + 1); self[k] = (self[k] || 0) + cnt[id] / 1000; });
+  const top = Object.entries(self).sort((a, b) => b[1] - a[1]).slice(0, 30);
+  console.log("  main thread over " + (total / 1000).toFixed(1) + " s (ms of self time):"); top.forEach(([k, v]) => console.log("    " + v.toFixed(0).padStart(6) + "  " + k));
+}
 const after = await page.evaluate(() => { clearInterval(window.__clkT); CDaw.stop(); const c = CDaw.ctx(), s = c.playbackStats; return { under: s ? s.underrunEvents : null, underDur: s ? s.underrunDuration : null, total: s ? s.totalDuration : null, lat: s ? s.averageLatency : null, drift: window.__clk, base: c.baseLatency, out: c.outputLatency }; });
 const c1 = await cpu(), wall = (Date.now() - w0) / 1000, cores = os.cpus().length;
 const d = (k) => (c1[k] || 0) - (c0[k] || 0), total = Object.keys(c1).reduce((a, k) => a + d(k), 0);

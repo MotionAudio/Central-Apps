@@ -144,10 +144,14 @@
   function frameLoop() {
     if (!U.root || !U.root.isConnected) { U.rafOn = false; return; }
     var st = D.state(), r = U.root;
-    $(".cd-pos", r).textContent = st.countingIn ? "Count-in" : UI.posText(st.pos); $(".cd-time", r).textContent = UI.timeText(st.pos);
+    var pt = st.countingIn ? "Count-in" : UI.posText(st.pos), tt = UI.timeText(st.pos), pe = $(".cd-pos", r), te = $(".cd-time", r);
+    if (pe && pe.textContent !== pt) pe.textContent = pt; if (te && te.textContent !== tt) te.textContent = tt;
     if (UI.parts.arrange) UI.parts.arrange.playhead(st);
-    if (UI.parts.mixer && U.dockOpen && U.dock === "mixer") UI.parts.mixer.meters();
-    if (UI.parts.arrange && UI.parts.arrange.meters) UI.parts.arrange.meters();
+    U.frameN = (U.frameN || 0) + 1;
+    if (U.frameN % 2 === 0) {   // (10.4) the meters 30 times a second: smooth to the eye, half the work
+      if (UI.parts.mixer && U.dockOpen && U.dock === "mixer") UI.parts.mixer.meters();
+      if (UI.parts.arrange && UI.parts.arrange.meters) UI.parts.arrange.meters();
+    }
     if (UI.parts.editors && UI.parts.editors.playhead && U.dockOpen && U.dock === "editor") UI.parts.editors.playhead(st);
     requestAnimationFrame(frameLoop);
   }
@@ -161,10 +165,14 @@
     return { peak: pk, rms: Math.sqrt(sum / mbuf.length), hold: h.v, clip: h.clip, reset: function () { h.clip = false; h.v = 0; } };
   };
   UI.meterDraw = function (cv, lv, vertical) {
-    var w = cv.clientWidth, h = cv.clientHeight; if (cv.width !== w) cv.width = w; if (cv.height !== h) cv.height = h; var g = cv.getContext("2d"); g.clearRect(0, 0, w, h);
+    var w = cv.clientWidth, h = cv.clientHeight;
     function pos(v) { var db = 20 * Math.log10(Math.max(1e-6, v)); return D.clamp((db + 60) / 66, 0, 1); }
     var L = vertical ? h : w, a = pos(lv.rms) * L, pk = pos(lv.peak) * L, hd = pos(lv.hold) * L;
-    var grad = vertical ? g.createLinearGradient(0, h, 0, 0) : g.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, "#4FA36B"); grad.addColorStop(0.75, "#9BCB86"); grad.addColorStop(0.9, "#E8C25A"); grad.addColorStop(1, "#E5484D");
+    // (10.4) lighter: nothing is drawn when the meter wouldn't move by a pixel (a quiet track costs nothing)
+    var sig = w + "," + h + "," + Math.round(a) + "," + Math.round(pk) + "," + Math.round(hd) + "," + (lv.clip ? 1 : 0); if (cv.__sig === sig) return; cv.__sig = sig;
+    if (cv.width !== w) cv.width = w; if (cv.height !== h) cv.height = h; var g = cv.getContext("2d"); g.clearRect(0, 0, w, h);
+    var gk = (vertical ? "v" : "h") + w + "x" + h, grad = cv.__grad && cv.__gk === gk ? cv.__grad : null;
+    if (!grad) { grad = vertical ? g.createLinearGradient(0, h, 0, 0) : g.createLinearGradient(0, 0, w, 0); grad.addColorStop(0, "#4FA36B"); grad.addColorStop(0.75, "#9BCB86"); grad.addColorStop(0.9, "#E8C25A"); grad.addColorStop(1, "#E5484D"); cv.__grad = grad; cv.__gk = gk; }
     g.fillStyle = "#0B0D10"; g.fillRect(0, 0, w, h); g.fillStyle = grad; g.globalAlpha = 0.45;
     if (vertical) g.fillRect(0, h - pk, w, pk); else g.fillRect(0, 0, pk, h); g.globalAlpha = 1;
     if (vertical) g.fillRect(0, h - a, w, a); else g.fillRect(0, 0, a, h);
