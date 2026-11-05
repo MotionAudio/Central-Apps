@@ -197,5 +197,27 @@ def t_jack_buffer():
 
 
 check("the headphone jack gets a bigger buffer (safe by default, low / max by setting) and never suspends - crackles with no sound", t_jack_buffer)
+
+
+def t_direct():
+    """(10.4.1) Only the headphone jack: it plays straight as padpedal_out (no combine-stream); with the DAC too, the
+    combined output stays; "direct": false keeps it."""
+    own = [("jack", "padpedal_jack", "Headphone jack", "Headphones", 0)]
+    planned, pos = cfgmod.plan([("padpedal_jack", "Headphone jack", 2, "Headphones"), HDMI0], {"hdmi": False})
+    p2, pos2, own2, direct = cfgmod.direct_plan(planned, pos, own, {"hdmi": False})
+    assert direct and p2[0][1] == "padpedal_out" and pos2 == ["FL", "FR"] and own2[0][1] == "padpedal_out" and own2[0][3] == "Headphones", (p2, own2)
+    text = cfgmod.config_text(p2, pos2, own2, {})
+    assert "combine-stream" not in text and 'node.name = "padpedal_out"' in text and "hw:CARD=Headphones" in text and "api.alsa.period-size = 1024" in text, text
+    assert cfgmod.channel_names(p2, pos2) == ["Headphone jack L", "Headphone jack R"], cfgmod.channel_names(p2, pos2)
+    wp = cfgmod.wp_conf(own2, {})
+    assert "device.disabled = true" in wp and "Headphones" in wp
+    assert not cfgmod.direct_plan(planned, pos, own, {"direct": False})[3]
+    own_both = own + [("i2s", "padpedal_dac", "DAC board", "sndrpihifiberry", 3)]
+    pb, posb = cfgmod.plan([("padpedal_jack", "Headphone jack", 2, "Headphones"), ("padpedal_dac", "DAC board", 2, "sndrpihifiberry")], {"dac": True})
+    assert not cfgmod.direct_plan(pb, posb, own_both, {})[3], "two cards: the combined output stays"
+    assert "combine-stream" in cfgmod.config_text(pb, posb, own_both, {})
+
+
+check("only the headphone jack: it plays straight as padpedal_out, no combined output in between (two cards keep it)", t_direct)
 print("%d passed, %d failed" % (passed, failed))
 sys.exit(1 if failed else 0)

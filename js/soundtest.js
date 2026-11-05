@@ -14,7 +14,7 @@
   function send(m) { return bridge() && bridge().send ? bridge().send(m) : false; }
   function project() { return PP.project(); }
 
-  var check = null, cards = [], cardsBusy = false, playing = 0, inputs = [];
+  var check = null, cards = [], cardsBusy = false, playing = 0, inputs = [], trace = null;
 
   function channels() {
     var st = F.systemStatus ? F.systemStatus() : null, list = st && st.audio && st.audio.channels;
@@ -37,12 +37,29 @@
     return '<ul class="st-check">' + lines.join("") + "</ul>";
   }
 
+  // (10.4.1) on the Central Pedal a tone is followed along the way: did it reach the outputs, and the sound card?
+  function traceHtml() {
+    if (!trace) return "";
+    if (trace.busy) return '<ul class="st-check"><li>▶ Output ' + trace.channel + ": listening for the tone along the way…</li></ul>";
+    var lines = [];
+    if (trace.ok) lines.push("<li>✓ Output " + trace.channel + ": the tone reached the outputs and the " + esc(trace.card || "sound card") + ". Still nothing? Check the headphones, the cable and the volume of what they're plugged into.</li>");
+    else {
+      lines.push("<li>Output " + trace.channel + ": the app's sound " + (trace.appReached ? "reached the outputs" : "<b>didn't reach the outputs</b>") + "; the outputs " + (trace.cardReached ? "reach" : "<b>don't reach</b>") + " the " + esc(trace.card || "sound card") + ".</li>");
+    }
+    (trace.found || []).forEach(function (f) { lines.push('<li class="warn-line">' + esc(f) + "</li>"); });
+    (trace.fixed || []).forEach(function (f) { lines.push("<li>✓ " + esc(f) + "</li>"); });
+    if (!trace.ok && (trace.fixed || []).length) lines.push("<li>Press the output again to hear whether it's fixed.</li>");
+    return '<ul class="st-check">' + lines.join("") + "</ul>";
+  }
+  function playTone(ch) { if (PP.engine && PP.engine.testChannel) { PP.engine.testChannel(ch); playing = ch; rerender(); setTimeout(function () { if (playing === ch) { playing = 0; rerender(); } }, 1300); } }
+
   function html() {
     var chs = channels(), on = connected();
     var src = project().inputSource || {};
     return '<section data-st="audio" id="soundTest"><h3>Test sound</h3>' +
       '<p class="muted">Play a short tone on each output. If you hear these but not a pad, it\'s the routing above. If you don\'t hear these either, try the sound cards straight from the Pi.</p>' +
       '<div class="row st-tones">' + chs.map(function (name, i) { return '<button data-stt="ch" data-ch="' + (i + 1) + '"' + (playing === i + 1 ? ' class="on"' : "") + ">▶ " + (i + 1) + " · " + esc(name) + "</button>"; }).join("") + "</div>" +
+      traceHtml() +
       (on ? '<div class="row"><button data-stt="check">Check where the sound goes</button><button data-stt="cards"' + (cardsBusy ? " disabled" : "") + ">" + (cardsBusy ? "Playing…" : "Play on each sound card") + "</button></div>" + checkHtml() +
         (cards.length ? '<ul class="st-check">' + cards.map(function (c) { return "<li>" + (c.busy ? "▶ " : c.ok ? "✓ " : "✗ ") + esc(c.desc) + (c.ok === false ? " - " + esc(c.error || "didn't play") : "") + "</li>"; }).join("") + "</ul>" : "") : "") +
       "</section>" +
@@ -65,7 +82,9 @@
   document.addEventListener("click", function (e) {
     var b = e.target.closest && e.target.closest("[data-stt]"); if (!b || b.tagName === "SELECT") return;
     var what = b.dataset.stt;
-    if (what === "ch") { var ch = Number(b.dataset.ch) || 1; if (PP.engine && PP.engine.testChannel) { PP.engine.testChannel(ch); playing = ch; rerender(); setTimeout(function () { if (playing === ch) { playing = 0; rerender(); } }, 900); } }
+    if (what === "ch") { var ch = Number(b.dataset.ch) || 1;
+      if (connected() && !(trace && trace.busy)) { trace = { busy: true, channel: ch }; playing = ch; rerender(); send({ type: "system", action: "audioTrace", channel: ch }); setTimeout(function () { if (trace && trace.busy && trace.channel === ch) { trace = null; playTone(ch); } }, 6000); }   // (the pedal says when to play: "listen")
+      else if (!connected()) playTone(ch); }
     else if (what === "check") { check = { found: [], fixed: [], planned: [], appStreams: [] }; send({ type: "system", action: "audioCheck" }); }
     else if (what === "cards") { cards = []; cardsBusy = true; rerender(); send({ type: "system", action: "audioCardTest" }); }
   });
@@ -79,6 +98,10 @@
     if (PP.engine && PP.engine.inputVoice && PP.engine.setInput) { PP.engine.setInput(false).then(function () { return PP.engine.setInput(true); }); }   // (the Audio input on: switch over now)
   });
   F.on("audioCheck", function (m) { check = m; rerender(); });
+  F.on("audioTrace", function (m) {
+    if (m.stage === "listen") { playTone(m.channel || 1); if (trace) trace.busy = true; return; }
+    if (m.stage === "done") { trace = m; playing = 0; rerender(); }
+  });
   F.on("audioCardTest", function (m) {
     if (m.done) { cardsBusy = false; if (!m.count) cards = [{ desc: "No sound cards found", ok: false, error: "" }]; rerender(); return; }
     var c = cards.filter(function (x) { return x.sink === m.sink; })[0]; if (!c) { c = { sink: m.sink }; cards.push(c); }

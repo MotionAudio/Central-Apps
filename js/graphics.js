@@ -13,7 +13,10 @@
   var gctx = null, apPool = [];
 
   function css(name, fallback) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback; }
-  function colors() { return { accent: css("--accent", "#e2c27e"), blue: css("--blue", "#8db5de"), text: css("--text", "#ece7dd"), muted: css("--muted", "#9aa1ab"), grid: "rgba(151,184,209,.16)", label: "rgba(185,210,230,.7)", danger: css("--danger", "#ff7878") }; }
+  // (10.4.1) the colours are read once and again only when the look changes (reading them every frame kept the Pi busy)
+  var colorCache = null, colorAt = 0;
+  function colors() { var now = performance.now(); if (!colorCache || now - colorAt > 3000) { colorCache = readColors(); colorAt = now; } return colorCache; }
+  function readColors() { return { accent: css("--accent", "#e2c27e"), blue: css("--blue", "#8db5de"), text: css("--text", "#ece7dd"), muted: css("--muted", "#9aa1ab"), grid: "rgba(151,184,209,.16)", label: "rgba(185,210,230,.7)", danger: css("--danger", "#ff7878") }; }
   function graphCtx() { if (!gctx) { try { gctx = new OfflineAudioContext(1, 128, 48000); } catch (_) { gctx = null; } } return gctx; }
   function liveVoice() { var p = PP.currentPad(); if (p.isInput) return engine.inputVoice; return engine.voices().filter(function (v) { return v.pad.id === p.id; })[0] || null; }
   function voicePhase(voice, rate) { if (!voice || !engine.ctx) return (performance.now() / 1000 * rate) % 1; return (((engine.ctx.currentTime - voice.startedAt) * rate) % 1 + 1) % 1; }
@@ -25,7 +28,7 @@
   function freqAxis(ctx, w, h, xFor, c) { ctx.strokeStyle = c.grid; ctx.lineWidth = 1; [50, 100, 200, 500, 1000, 2000, 5000, 10000].forEach(function (f) { var x = xFor(f); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); text(ctx, fmtHz(f), x + 2, h - 5, c.label); }); }
   function logX(w, lo, hi) { return function (f) { return 8 + Math.log(f / lo) / Math.log(hi / lo) * (w - 16); }; }
   function dbY(h, top, bottom) { return function (db) { return 8 + (top - clamp(db, bottom, top)) / (top - bottom) * (h - 26); }; }
-  function rmsDb(analyser) { if (!analyser) return -90; var buf = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(buf); var sum = 0, peak = 0; for (var i = 0; i < buf.length; i++) { sum += buf[i] * buf[i]; peak = Math.max(peak, Math.abs(buf[i])); } return { rms: 10 * Math.log10(sum / buf.length + 1e-12), peak: 20 * Math.log10(peak + 1e-12), peakLin: peak }; }
+  function rmsDb(analyser) { if (!analyser) return -90; var buf = analyser.__buf && analyser.__buf.length === analyser.fftSize ? analyser.__buf : (analyser.__buf = new Float32Array(analyser.fftSize)); analyser.getFloatTimeDomainData(buf); var sum = 0, peak = 0; for (var i = 0; i < buf.length; i++) { sum += buf[i] * buf[i]; peak = Math.max(peak, Math.abs(buf[i])); } return { rms: 10 * Math.log10(sum / buf.length + 1e-12), peak: 20 * Math.log10(peak + 1e-12), peakLin: peak }; }
 
   var drawers = {
     // Compressor: static curve (what the settings do) + live dot (where the signal is now)
@@ -180,24 +183,36 @@
     var L = rmsDb(engine.postL), R = rmsDb(engine.postR), pre = Math.max(rmsDb(engine.preL).peakLin, rmsDb(engine.preR).peakLin), post = Math.max(L.peakLin, R.peakLin);
     var now = { L: L, R: R };
     ["L", "R"].forEach(function (ch) { peakHold[ch] = Math.max(now[ch].peak, peakHold[ch] - .6); });
-    meters.forEach(function (m) { var bar = document.getElementById(m[0]), pk = document.getElementById(m[1]); if (!bar) return; bar.style.width = (100 - dbPct(now[m[2]].rms + 3)) + "%"; if (pk) pk.style.left = dbPct(peakHold[m[2]]) + "%"; });
+    var tnow = performance.now(); if (!meterEls || tnow - meterElsAt > 500) { meterElsAt = tnow; meterEls = meters.map(function (m) { var bar = document.getElementById(m[0]); return bar && bar.offsetParent ? [bar, document.getElementById(m[1])] : null; }); }   // (which meters are on screen: checked twice a second, not every frame)
+    meters.forEach(function (m, i) { var e = meterEls[i], bar = e && e[0], pk = e && e[1]; if (!bar) return; setStyle(bar, "width", (100 - dbPct(now[m[2]].rms + 3)).toFixed(1) + "%"); if (pk) setStyle(pk, "left", dbPct(peakHold[m[2]]).toFixed(1) + "%"); });
     if (post >= .985) clipState = 2; else if (pre >= 1 && clipState < 1) clipState = 1;
-    document.querySelectorAll(".clip").forEach(function (el) { el.classList.toggle("hot", clipState === 1); el.classList.toggle("over", clipState === 2); el.textContent = clipState === 2 ? "CLIP" : clipState === 1 ? "HOT" : "OK"; el.title = clipState === 2 ? "Output hit 0 dB. Turn the Volume knob down, then tap to reset." : clipState === 1 ? "The limiter is working hard. Lower Volume or pad levels, then tap to reset." : "Output level is safe"; });
+    var nowMs = performance.now(); if (!clipList || nowMs - clipListAt > 1000) { var fresh = document.getElementsByClassName("clip"); if (fresh.length !== clipEls) shownClip = -1; clipList = fresh; clipEls = fresh.length; clipListAt = nowMs; }
+    if (clipState !== shownClip) { shownClip = clipState;   // (10.4.1: only when it changes)
+      Array.prototype.forEach.call(clipList, function (el) { el.classList.toggle("hot", clipState === 1); el.classList.toggle("over", clipState === 2); el.textContent = clipState === 2 ? "CLIP" : clipState === 1 ? "HOT" : "OK"; el.title = clipState === 2 ? "Output hit 0 dB. Turn the Volume knob down, then tap to reset." : clipState === 1 ? "The limiter is working hard. Lower Volume or pad levels, then tap to reset." : "Output level is safe"; }); }
+    lastLevel = Math.max(L.peakLin || 0, R.peakLin || 0, pre || 0);
   }
-  document.addEventListener("click", function (e) { if (e.target.closest && e.target.closest(".clip")) clipState = 0; });
+  var meterEls = null, meterElsAt = 0, shownClip = -1, clipEls = -1, clipList = null, clipListAt = 0, lastLevel = 0, quietDrawn = false;
+  function setStyle(el, k, v) { if (el.__v === undefined) el.__v = {}; if (el.__v[k] !== v) { el.__v[k] = v; el.style[k] = v; } }   // (10.4.1: a style is only written when it changes)
+  document.addEventListener("click", function (e) { if (e.target.closest && e.target.closest(".clip")) { clipState = 0; shownClip = -1; } });
 
   function frame(t) {
     requestAnimationFrame(frame);
     if (t - lastFrame < 33) return;
     lastFrame = t;
+    if (document.hidden) return;
     sampleGainReduction(); updateMeters();
     if (PP.isPerforming()) return;
+    // (10.4.1) with nothing playing, the graphs are drawn once and then left alone (a knob turned redraws them: refresh)
+    var sounding = lastLevel > 1e-4 || engine.voices().length > 0 || !!engine.inputVoice;
+    if (!sounding && quietDrawn) return;
+    quietDrawn = !sounding;
     var active = document.querySelector(".panel.active"), name = active ? active.id.replace("panel-", "") : "";
     if (name === "eq" && engine.voices().length && window.PP.redrawEq) window.PP.redrawEq();
     if (name) drawPanel(name);
     drawSpectrumBox();
   }
   function refresh() {
+    quietDrawn = false;
     var desc = document.getElementById("compDesc"), type = PP.currentPad().effects.compressor.type;
     if (desc) desc.textContent = (PP.COMP_TYPES[type] || PP.COMP_TYPES.VCA).desc;
     var active = document.querySelector(".panel.active"); if (active) drawPanel(active.id.replace("panel-", ""));
@@ -205,6 +220,7 @@
   document.addEventListener("input", function (e) { if (e.target.dataset && e.target.dataset.path) refresh(); });
   document.addEventListener("change", function (e) { if (e.target.dataset && e.target.dataset.path) refresh(); });
   document.getElementById("tabs").addEventListener("click", function () { setTimeout(refresh, 0); });
+  document.addEventListener("pp-theme", function () { colorCache = null; quietDrawn = false; });
 
   window.PPGraphics = { refresh: refresh, drawers: drawers, drawPanel: drawPanel, clipState: function () { return clipState; } };
   refresh();
