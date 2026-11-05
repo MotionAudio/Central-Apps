@@ -270,3 +270,4 @@ ul.hl li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-wei
 .pl-row .pl-btns{display:flex;gap:.4rem;flex-wrap:wrap}
 .pl-row .what h3 a{color:inherit;text-decoration:none}
 .prod-split .prod-more{align-self:center;margin-left:.4rem}
+.free-list .chip{white-space:normal;max-width:100%}   /* (a long one wraps on a phone) */
