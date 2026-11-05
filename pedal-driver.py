@@ -826,6 +826,172 @@ def card_tone(sink, seconds=0.7, freq=660):
     return False, "no pw-play / paplay"
 
 
+# ---------------------------------------------------------------- (10.4.1) Test sound: where the sound stops
+# Settings → Audio → Test sound plays a tone on one output. When it can't be heard, this finds out where it got lost
+# by listening along the way (the "monitor" of each output, what PipeWire is sending to it):
+#   1. the Pi's own tone into the combined output (padpedal_out) on that channel: does it reach the sound card?
+#   2. the app's tone: does it reach the combined output at all, and on which channel?
+# and fixes what it can on the way (the app's sound on the wrong device, the combined output not linked to the card).
+def monitor_peaks(sink, seconds, channels, started=None):
+    """Listen to what's sent to a sink for a while: the peak of each channel (0..1), or None when it can't listen."""
+    channels = max(1, int(channels or 2))
+    cmd = None
+    if shutil.which("parec"):
+        cmd = ["parec", "-d", sink + ".monitor", "--raw", "--format=s16le", "--rate=48000", "--channels=%d" % channels, "--latency-msec=20"]
+    elif shutil.which("pw-record"):
+        cmd = ["pw-record", "--target", sink, "-P", "{ stream.capture.sink = true }", "--rate", "48000", "--channels", str(channels), "--format", "s16", "-"]
+    if not cmd:
+        return None
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, env=pulse_env())
+    except OSError:
+        return None
+    if started:
+        started()
+    data = bytearray()
+    end = time.time() + seconds
+    try:
+        import select
+        while time.time() < end:
+            ready, _, _ = select.select([proc.stdout], [], [], 0.1)
+            if ready:
+                chunk = os.read(proc.stdout.fileno(), 65536)
+                if not chunk:
+                    break
+                data += chunk
+    finally:
+        try:
+            proc.kill()
+            proc.wait(timeout=2)
+        except Exception:
+            pass
+    if cmd[0] == "pw-record" and data[:4] == b"RIFF":
+        data = data[44:]
+    peaks = [0.0] * channels
+    n = len(data) // (2 * channels)
+    for i in range(n):
+        for c in range(channels):
+            v = abs(struct.unpack_from("<h", data, 2 * (i * channels + c))[0]) / 32768.0
+            if v > peaks[c]:
+                peaks[c] = v
+    return [round(p, 4) for p in peaks]
+
+
+def channel_tone_file(channels, channel, seconds=0.9, freq=660):
+    """A WAV with a tone on one channel of `channels` (the order is the combined output's: FL FR, RL RR, ...)."""
+    import wave
+    path = "/tmp/pad-pedal-ch%d-of-%d.wav" % (channel, channels)
+    if os.path.exists(path):
+        return path
+    rate, n = 48000, int(48000 * seconds)
+    frames = bytearray()
+    for i in range(n):
+        env = min(1.0, i / 960.0, (n - i) / 960.0)
+        v = int(0.3 * env * 32767 * math.sin(2 * math.pi * freq * i / rate))
+        for c in range(channels):
+            frames += struct.pack("<h", v if c == channel - 1 else 0)
+    with wave.open(path, "wb") as w:
+        w.setnchannels(channels)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(bytes(frames))
+    return path
+
+
+def card_for_channel(planned, channel):
+    """Which sound card (its sink name) and which of its channels plays output `channel` (1-based)."""
+    at = 0
+    for c in planned or []:
+        n = int(c.get("channels") or 2)
+        if channel <= at + n:
+            return c.get("name"), channel - at
+        at += n
+    return None, None
+
+
+def pi_tone_reaches(planned, total, channel):
+    """The Pi's own tone into the combined output on `channel`: does it come out of the card's sink? (peak, card)"""
+    card, cch = card_for_channel(planned, channel)
+    if not card or not shutil.which("pw-play") and not shutil.which("paplay"):
+        return None, card
+    wav = channel_tone_file(total, channel)
+    box = {}
+    def play():
+        cmd = ["pw-play", "--target", "padpedal_out", wav] if shutil.which("pw-play") else ["paplay", "-d", "padpedal_out", wav]
+        threading.Thread(target=lambda: run(cmd, timeout=10, env=pulse_env()), daemon=True).start()
+    peaks = monitor_peaks(card, 1.6, 2, started=lambda: threading.Timer(0.25, play).start())
+    if peaks is None:
+        return None, card
+    return peaks[min(len(peaks), max(1, cch)) - 1], card
+
+
+def audio_trace(data_root, channel, emit, fix=True):
+    """Settings → Audio → Test sound, one output: listens along the way and fixes what it can. emit() gets
+    {"type": "audioTrace", "stage": "listen"} when the app should play its tone now, then the result."""
+    found, fixed = [], []
+    chans = read_json(os.path.join(data_root, "audio-channels.json"), {}) or {}
+    planned = chans.get("cards") or []
+    names = chans.get("channels") or []
+    total = max(2, sum(int(c.get("channels") or 2) for c in planned) or len(names) or 2)
+    sinks = [x[1] for x in pactl_short("sinks") if len(x) > 1]
+    if "padpedal_out" not in sinks:
+        found.append("The combined output isn't there.")
+        if fix:
+            ok, _t = reapply_audio()
+            if ok:
+                fixed.append("Made the outputs again. The app restarts its sound by itself.")
+                emit({"type": "audioReapplied", "ok": True, "reload": True})
+        emit({"type": "audioTrace", "stage": "done", "channel": channel, "found": found, "fixed": fixed, "ok": False})
+        return
+    # 1. the app's sound: on the combined output?
+    if fix and steer_app_audio():
+        fixed.append("The app's sound was going to another device: moved it to the outputs.")
+    streams = app_sink_inputs()
+    # 2. the app's tone, heard on the combined output (the app plays it when told "listen")
+    app_peaks = monitor_peaks("padpedal_out", 1.6, total, started=lambda: emit({"type": "audioTrace", "stage": "listen", "channel": channel}))
+    app_ok = bool(app_peaks) and max(app_peaks) > 0.02
+    on_ch = [i + 1 for i, v in enumerate(app_peaks or []) if v > 0.02]
+    if app_peaks is None:
+        found.append("The pedal couldn't listen to its outputs (parec / pw-record is missing).")
+    elif not streams:
+        found.append("The app has no sound going to the Pi at all.")
+    elif not app_ok:
+        found.append("The app's sound isn't reaching the outputs (it plays into %s)." % ", ".join(sorted(set(x["sinkName"] or "?" for x in streams))))
+    if app_peaks is not None and not app_ok and fix:   # (a sound engine left on an output that's gone: it starts again, on the outputs)
+        fixed.append("Restarted the app's sound (the page reloads when nothing is playing).")
+        emit({"type": "audioReapplied", "ok": True, "reload": True})
+    elif channel not in on_ch:
+        found.append("The app's tone came out on output %s, not %d." % (", ".join(str(c) for c in on_ch), channel))
+    # 3. the Pi's own tone into the combined output: does it reach the card?
+    peak, card = pi_tone_reaches(planned, total, channel)
+    card_desc = next((c.get("desc") for c in planned if c.get("name") == card), card or "the sound card")
+    card_ok = peak is not None and peak > 0.02
+    if peak is not None and not card_ok:
+        found.append("Sound sent to output %d doesn't get through to the %s." % (channel, card_desc))
+        if fix:
+            ok, _t = reapply_audio()
+            if ok:
+                peak2, _c = pi_tone_reaches((read_json(os.path.join(data_root, "audio-channels.json"), {}) or {}).get("cards") or planned, total, channel)
+                if peak2 is not None and peak2 > 0.02:
+                    fixed.append("Linked the outputs to the %s again." % card_desc)
+                    card_ok = True
+                else:
+                    acfg = read_json(os.path.join(data_root, "audio.json"), {}) or {}
+                    if len(planned) == 1 and acfg.get("direct") is False:   # (one card: played straight, without the combined layer)
+                        acfg["direct"] = True
+                        write_json(os.path.join(data_root, "audio.json"), acfg)
+                        ok2, _t2 = reapply_audio()
+                        if ok2:
+                            fixed.append("Switched to playing the %s straight (no combined output in between)." % card_desc)
+                emit({"type": "audioReapplied", "ok": True, "reload": True})
+    jm = jack_mixer()
+    if jm and jm.get("muted") and fix:
+        if run(["amixer", "-q", "-c", str(jm["card"]), "sset", jm["control"] or "PCM", "0dB", "unmute"], timeout=5)[0] == 0:
+            fixed.append("The headphone jack was muted: turned it on.")
+    emit({"type": "audioTrace", "stage": "done", "channel": channel, "appReached": app_ok, "appPeaks": app_peaks, "appChannels": on_ch,
+          "cardReached": card_ok, "card": card_desc, "streams": len(streams), "found": found, "fixed": fixed, "ok": app_ok and card_ok and channel in on_ch})
+
+
 def sound_cards():
     cards = []
     try:
@@ -10991,9 +11157,14 @@ class PedalDriver:
             elif action == "audioCheck":   # Settings → Audio → Test sound: where the app's sound goes (and fix what's off)
                 self.emit(audio_path_check(self.config["data_root"], fix=message.get("fix", True) is not False))
                 return
+            elif action == "audioTrace":   # (10.4.1) one output's tone: where the sound stops, and fix it
+                ch = int(message.get("channel") or 1)
+                threading.Thread(target=lambda: audio_trace(self.config["data_root"], ch, self.emit), daemon=True).start()
+                return
             elif action == "audioCardTest":   # a tone straight on each sound card, one after the other
                 planned = (read_json(os.path.join(self.config["data_root"], "audio-channels.json"), {}) or {}).get("cards") or []
-                sinks = [s[1] for s in pactl_short("sinks") if len(s) > 1 and (s[1].startswith("alsa_output") or s[1] in ("padpedal_jack", "padpedal_dac"))]
+                direct = any(c.get("name") == "padpedal_out" for c in planned)   # (10.4.1: one card played straight is padpedal_out itself)
+                sinks = [s[1] for s in pactl_short("sinks") if len(s) > 1 and (s[1].startswith("alsa_output") or s[1] in ("padpedal_jack", "padpedal_dac") or (direct and s[1] == "padpedal_out"))]
                 for name in sinks:
                     desc = next((c.get("desc") for c in planned if c.get("name") == name), None) or name
                     self.emit({"type": "audioCardTest", "sink": name, "desc": desc, "busy": True})

@@ -2549,6 +2549,56 @@ async def main():
           moved == [["pactl", "move-sink-input", "101", "padpedal_out"]] and ["pactl", "set-default-sink", "padpedal_out"] in calls
           and any("HDMI" in f or "hdmi" in f for f in chk["found"]) and len(chk["fixed"]) == 2 and chk["ok"] is False, (moved, chk))
 
+    # ---- 10.4.1: Test sound follows one output's tone along the way. A stand-in parec "hears" whatever the test says.
+    fakebin = tempfile.mkdtemp(prefix="fakebin-")
+    heard = os.path.join(fakebin, "heard.json")
+    with open(os.path.join(fakebin, "parec"), "w") as fh:   # parec -d <sink>.monitor ... --channels=N: a tone on the channels heard.json gives that sink
+        fh.write("#!/usr/bin/env python3\nimport json, math, struct, sys, time\n"
+                 "a = sys.argv; dev = a[a.index('-d') + 1].replace('.monitor', ''); ch = int([x for x in a if x.startswith('--channels=')][0].split('=')[1])\n"
+                 "on = json.load(open(%r)).get(dev, [])\nout = sys.stdout.buffer\n"
+                 "for blk in range(40):\n"
+                 "    b = bytearray()\n"
+                 "    for i in range(480):\n"
+                 "        v = int(9000 * math.sin(i / 7.0))\n"
+                 "        for c in range(ch): b += struct.pack('<h', v if (c + 1) in on else 0)\n"
+                 "    out.write(bytes(b)); out.flush(); time.sleep(0.01)\n" % heard)
+    os.chmod(os.path.join(fakebin, "parec"), 0o755)
+    with open(os.path.join(fakebin, "pw-play"), "w") as fh:
+        fh.write("#!/bin/sh\nexit 0\n")
+    os.chmod(os.path.join(fakebin, "pw-play"), 0o755)
+    data_dir = os.path.join(root, "data")
+    with open(os.path.join(data_dir, "audio-channels.json"), "w") as fh:
+        json.dump({"channels": ["Headphone jack L", "Headphone jack R", "DAC board L", "DAC board R"], "cards": [{"kind": "jack", "name": "padpedal_jack", "desc": "Headphone jack", "channels": 2}, {"kind": "i2s", "name": "padpedal_dac", "desc": "DAC board", "channels": 2}]}, fh)
+    fake2 = {"sinks": [["50", "padpedal_jack"], ["51", "padpedal_dac"], ["55", "padpedal_out"]], "clients": [["7", "protocol-native.c", "Chromium"]], "sink-inputs": [["101", "55", "7", "protocol-native.c", "float32le 4ch"]]}
+    saved = (driver_mod.pactl_short, driver_mod.run, driver_mod.reapply_audio, driver_mod.jack_mixer, os.environ["PATH"])
+    driver_mod.pactl_short = lambda what: fake2.get(what, [])
+    reapplied = []
+    driver_mod.reapply_audio = lambda app_root=None: (reapplied.append(1) or (True, "ok"))
+    driver_mod.jack_mixer = lambda: None
+    driver_mod.run = lambda cmd, timeout=20, **kw: (0, "", "")
+    os.environ["PATH"] = fakebin + os.pathsep + os.environ["PATH"]
+    try:
+        def trace(where):
+            with open(heard, "w") as fh:
+                json.dump(where, fh)
+            got = []
+            driver_mod.audio_trace(data_dir, 2, got.append)
+            return got
+        good = trace({"padpedal_out": [2], "padpedal_jack": [2]})
+        app_lost = trace({"padpedal_out": [], "padpedal_jack": [2]})
+        card_lost = trace({"padpedal_out": [2], "padpedal_jack": []})
+        wrong_ch = trace({"padpedal_out": [1], "padpedal_jack": [2]})
+    finally:
+        driver_mod.pactl_short, driver_mod.run, driver_mod.reapply_audio, driver_mod.jack_mixer, os.environ["PATH"] = saved
+        shutil.rmtree(fakebin, ignore_errors=True)
+    done = lambda got: [m for m in got if m.get("stage") == "done"][0]
+    check("sound (10.4.1): Test sound on output 2 - the app is told when to play ('listen'), the tone is heard on the outputs and on the jack: all good",
+          [m.get("stage") for m in good if m.get("type") == "audioTrace"] == ["listen", "done"] and done(good)["ok"] and done(good)["appChannels"] == [2] and done(good)["card"] == "Headphone jack", good)
+    check("...the app's tone not on the outputs: said plainly, and the app's sound restarts", not done(app_lost)["ok"] and not done(app_lost)["appReached"] and done(app_lost)["cardReached"] and any("isn't reaching the outputs" in f for f in done(app_lost)["found"]) and any(m.get("type") == "audioReapplied" for m in app_lost), app_lost)
+    check("...the outputs not reaching the jack: the outputs are made again, the app is told to restart its sound",
+          not done(card_lost)["cardReached"] and any("doesn't get through to the Headphone jack" in f for f in done(card_lost)["found"]) and reapplied and any(m.get("type") == "audioReapplied" and m.get("reload") for m in card_lost), card_lost)
+    check("...the app's tone on the wrong output: says which", any("came out on output 1, not 2" in f for f in done(wrong_ch)["found"]), wrong_ch)
+
     stop_event.set()
     await asyncio.wait_for(server_task, 5)
     print("\n%s" % ("ALL DRIVER CHECKS PASSED" if not failures else "%d CHECK(S) FAILED: %s" % (len(failures), failures)))

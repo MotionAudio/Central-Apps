@@ -40,11 +40,13 @@
     if (clocks.length >= 25 && clocks.length % 24 === 1) { var per = (clocks[clocks.length - 1] - clocks[0]) / (clocks.length - 1); setTempo(60000 / (per * 24), "MIDI clock"); }
   }
   function clockFollowing() { return tempoSource === "MIDI clock" && performance.now() - lastClockAt < 3000; }
-  (function beatLight() {
+  var beatOn = null, beatAt = 0;
+  (function beatLight(t) {
     requestAnimationFrame(beatLight);
-    var btn = $("#pfTap"); if (!btn) return;
-    var phase = (performance.now() / 1000 * project().tempo.bpm / 60) % 1;
-    btn.classList.toggle("beat", phase < .12);
+    if (t - beatAt < 30) return; beatAt = t || 0;
+    var btn = $("#pfTap"); if (!btn || !btn.offsetParent) return;   // (10.4.1: only while it's on screen, and only when it changes)
+    var on = (performance.now() / 1000 * project().tempo.bpm / 60) % 1 < .12;
+    if (on !== beatOn || btn.classList.contains("beat") !== on) { beatOn = on; btn.classList.toggle("beat", on); }
   })();
 
   // ------------------------------------------------------------- songs

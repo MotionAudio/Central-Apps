@@ -686,7 +686,11 @@ await check("Settings → Audio → Test sound: a tone on each output, 'Check wh
     const out = {}, tones = [...document.querySelectorAll('#soundTest [data-stt="ch"]')];
     out.tones = tones.map((x) => x.textContent);
     const tc = PP.engine.testChannel, played = []; PP.engine.testChannel = function (ch) { played.push(ch); return tc.call(this, ch); };
-    tones[1].click(); await new Promise((ok) => setTimeout(ok, 30)); out.played = played; PP.engine.testChannel = tc;
+    tones[1].click(); await new Promise((ok) => setTimeout(ok, 30)); out.beforeListen = played.slice();
+    out.traceAsked = sent.filter((m) => m.action === "audioTrace").map((m) => m.channel);   // (10.4.1: the pedal listens along the way, then says "listen")
+    PPFeatures.handleHardware({ type: "audioTrace", stage: "listen", channel: 2 }); await new Promise((ok) => setTimeout(ok, 30)); out.played = played; PP.engine.testChannel = tc;
+    PPFeatures.handleHardware({ type: "audioTrace", stage: "done", channel: 2, appReached: true, cardReached: false, card: "Headphone jack", found: ["Sound sent to output 2 doesn't get through to the Headphone jack."], fixed: ["Switched to playing the Headphone jack straight (no combined output in between)."], ok: false });
+    out.trace = document.querySelector("#soundTest").textContent;
     document.querySelector('#soundTest [data-stt="check"]').click();
     PPFeatures.handleHardware({ type: "audioCheck", planned: [{ kind: "jack", name: "alsa_output.x", desc: "Headphone jack", channels: 2 }], default: "padpedal_out", appStreams: [{ id: "101", sinkName: "padpedal_out" }],
       jack: { muted: false, text: "0.00dB" }, found: ["The app was playing into alsa_output.platform-fef00700.hdmi.hdmi-stereo."], fixed: ["Moved the app's sound to the combined output."], ok: false });
@@ -701,7 +705,9 @@ await check("Settings → Audio → Test sound: a tone on each output, 'Check wh
     PP.project().inputSource = {}; PPShell.showTab("pads"); return out;
   });
   assert.deepEqual(r.tones, ["▶ 1 · Headphone jack L", "▶ 2 · Headphone jack R"]);
+  assert.deepEqual(r.traceAsked, [2], "the pedal is asked to follow output 2"); assert.deepEqual(r.beforeListen, [], "the tone waits for the pedal to listen");
   assert.deepEqual(r.played, [2], "the tone goes to output 2");
+  assert.match(r.trace, /the outputs don't reach the Headphone jack/); assert.match(r.trace, /✓ Switched to playing the Headphone jack straight/); assert.match(r.trace, /Press the output again/);
   assert.ok(r.sent.includes("audioCheck") && r.sent.includes("audioCardTest"), JSON.stringify(r.sent));
   assert.match(r.check, /The app plays into: the combined output/); assert.match(r.check, /playing into alsa_output.platform-fef00700/); assert.match(r.check, /✓ Moved the app's sound/);
   assert.match(r.cards, /✓ Headphone jack/);
