@@ -70,15 +70,15 @@ export async function sendDownloadsEmail(userId, orderId) {
   const d = await downloadsFor(user, orderId);
   if (!d.apps.length && !d.pedals.length) return { sent: false };
   const page = config.publicUrl + "/#purchases", t = [], h = [];
-  t.push("Hi" + (user.name ? " " + user.name : "") + ",\n\nThanks for your order! Here's everything you need. You can always find it again on the website: your account icon, then Purchases: " + page + "\n");
-  h.push('<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:560px"><p>Hi' + (user.name ? " " + escHtml(user.name) : "") + ',</p><p>Thanks for your order! Here\'s everything you need. You can always find it again on the website: your account icon, then <a href="' + escHtml(page) + '">Purchases</a>.</p>');
+  t.push("Hi" + (user.name ? " " + user.name : "") + ",\n\nThanks for your order. Your keys and downloads are below. If you lose this email, they're on the website too, under your account icon → Purchases: " + page + "\n");
+  h.push('<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:560px"><p>Hi' + (user.name ? " " + escHtml(user.name) : "") + ',</p><p>Thanks for your order. Your keys and downloads are below. If you lose this email, they\'re on the website too, under your account icon → <a href="' + escHtml(page) + '">Purchases</a>.</p>');
   for (const p of d.pedals) {
     t.push("CENTRAL PEDAL\n" + (p.shipsTo ? "It ships to " + p.shipsTo + "." : "We'll ship it to the address you gave.") + " When it arrives:\n" + d.pedalSetup.map((s, i) => "  " + (i + 1) + ". " + s).join("\n") + "\n");
     h.push("<h3 style=\"margin:1.2em 0 .3em\">Central Pedal</h3><p>" + (p.shipsTo ? "It ships to <b>" + escHtml(p.shipsTo) + "</b>." : "We'll ship it to the address you gave.") + " When it arrives:</p><ol>" + d.pedalSetup.map((s) => "<li>" + escHtml(s) + "</li>").join("") + "</ol>");
   }
   for (const a of d.apps) {
     const keys = a.keys.map((k) => k.key);
-    t.push(a.name.toUpperCase() + " (" + a.runsOn + ")\nYour key" + (keys.length > 1 ? "s" : "") + ": " + keys.join(", ") + " - type it when the app first opens (" + a.devices + ").\nDownload: " + Object.entries(a.links).map(([p, u]) => PLATFORM_NAMES[p] + " " + u).join("\n  ") +
+    t.push(a.name.toUpperCase() + " (" + a.runsOn + ")\nYour key" + (keys.length > 1 ? "s" : "") + ": " + keys.join(", ") + ". Type it in when the app first opens (" + a.devices + ").\nDownload: " + Object.entries(a.links).map(([p, u]) => PLATFORM_NAMES[p] + " " + u).join("\n  ") +
       "\n  Windows: " + a.steps.windows.join(" ") + "\n  Mac: " + a.steps.mac.join(" ") + "\n  Linux: " + a.linuxCommand + (a.steps.android ? "\n  Android: " + a.steps.android.join(" ") : "") + (a.phone ? "\n  " + a.phone : "") + "\nThe full guide: " + a.guide + "\n");
     h.push("<h3 style=\"margin:1.2em 0 .3em\">" + escHtml(a.name) + "</h3><p>Your key" + (keys.length > 1 ? "s" : "") + ': <code style="font:600 17px ui-monospace,monospace">' + keys.map(escHtml).join("</code>, <code style=\"font:600 17px ui-monospace,monospace\">") + "</code><br>Type it when the app first opens (" + escHtml(a.devices) + ").</p>" +
       '<p><a href="' + escHtml(a.download) + '" style="display:inline-block;background:#12161C;color:#fff;padding:10px 18px;border-radius:6px;font-weight:600;text-decoration:none">Download ' + escHtml(a.name) + "</a> <span style=\"color:#555\">" + escHtml(a.runsOn) + "</span></p>" +

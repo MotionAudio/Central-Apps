@@ -2,43 +2,43 @@
  {
   "id": "apps",
   "title": "The Central apps for worship teams",
-  "kicker": "Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Production: what each does, who it's for and which ones a church needs.",
+  "kicker": "What each of the six Central apps does, who it's for, and which ones a church actually needs.",
   "shot": "cc-lights"
  },
  {
   "id": "app-pedal",
   "title": "Central Pedal: the pedal at the worship leader's feet",
-  "kicker": "Pads, multitracks, chord charts, lyrics, a looper and a guitar and keys rig, in one floor unit with 12 footswitches, knobs, a touch screen and two HDMI por",
+  "kicker": "A floor unit that plays your pads and multitracks, shows the chart and lyrics, and runs a looper and a guitar or keys rig. It has 12 footswitches, knobs, a",
   "shot": "pedal-live"
  },
  {
   "id": "app-pedal-control",
   "title": "Central Pedal Control: get the pedal ready from home",
-  "kicker": "Build setlists, add songs and tracks, set up pads, effects and the instrument, and choose what every button does. Then press Upload and it's all on the ped",
+  "kicker": "This is where the week's prep happens. Build the setlist, add songs and tracks, set up the pads and the instrument, and decide what each button on the peda",
   "shot": "pc-tracks"
  },
  {
   "id": "app-control",
   "title": "Central Control: the desk runs the whole service",
-  "kicker": "Lights, lyrics, slides, cameras, the stream, in-ears, the mix and the run sheet, from the computers at the desk. Each computer picks its jobs, and they sha",
+  "kicker": "Central Control runs the room from the desk: lights, lyrics, slides, cameras, the stream, in-ears and the run sheet. If you have more than one computer bac",
   "shot": "cc-lights"
  },
  {
   "id": "app-usage",
   "title": "Central Usage: each musician's chart, sound and mix",
-  "kicker": "Every musician and singer gets their own chord chart, the lyrics, their instrument sound and their own in-ear mix, at church and at home.",
+  "kicker": "Central Usage is the app for the people on stage. Each musician and singer gets their own chord chart, the lyrics, their instrument sound and their own in-",
   "shot": "cu-chart"
  },
  {
   "id": "app-services",
   "title": "Central Services: who's serving, sorted",
-  "kicker": "The schedule for the whole church: services, who's asked, who said yes, who's away and what's being played, on everyone's phone.",
+  "kicker": "Central Services is the church's schedule. It shows the services, who's been asked, who said yes, who's away and what's being played, and everyone has it o",
   "shot": "cs-schedule"
  },
  {
   "id": "app-production",
   "title": "Central Production: make tracks, pads, sounds and plugins",
-  "kicker": "A free studio and sampler. Make tracks, loops, samples, pads, instruments, plugins and pedal boards, then put them in your own apps or sell them on Make & ",
+  "kicker": "Central Production is a free studio for making your own sounds. Record a song, build a pad or an instrument from a few samples, or put together your own re",
   "shot": "production"
  },
  {
@@ -50,49 +50,49 @@
  {
   "id": "sounds-keys",
   "title": "Central Keys: pianos, organs, mallets, pads and synths",
-  "kicker": "Two grand pianos, an upright and FM pianos; pipe, quiet and positive organs; vibraphone, marimba and bells; fifteen stereo pads with their own character, a",
+  "kicker": "Two grand pianos, an upright and some FM pianos. Pipe organs and quieter organs. Vibraphone, marimba and bells. Fifteen stereo pads that each have their ow",
   "shot": "cu-instrument"
  },
  {
   "id": "sounds-instrument",
   "title": "Central Instrument: bass, guitar, strings, brass, drums and loops",
-  "kicker": "Instrument sounds beyond keys, for every musician: basses, guitars, strings, brass, woodwinds and drum kits, plus 20 drum grooves and 8 ambient loops in ev",
+  "kicker": "For the musicians who don't play keys. Basses, guitars, strings, brass, woodwinds and drum kits, plus 20 drum grooves and 8 ambient loops in every key. Cen",
   "shot": "cu-instrument"
  },
  {
   "id": "sounds-pads",
   "title": "Central Pads: pads in every key for the pad pedal",
-  "kicker": "82 pads in all 12 keys: 41 in Central Pads, and 35 more plus six moving pads in Central Pads Extra. Every one is in real stereo and loops without a seam, w",
+  "kicker": "82 pads in all 12 keys. There are 41 in Central Pads, and Central Pads Extra adds 35 more plus six that move in time with the song. They're all true stereo",
   "shot": "pedal-pads"
  },
  {
   "id": "sounds-plugins",
   "title": "Central Plugins: better effects on every track, pad and bus",
-  "kicker": "32 plugins: EQ, compressors, reverbs, delays and more for every stem, every pad, both buses and the mixer's channels, in every app. A basic one of each kin",
+  "kicker": "32 plugins, including EQs, compressors, reverbs and delays, for the stems, the pads, both buses and the mixer's channels. They work in all the apps. You ge",
   "shot": "pc-pads"
  },
  {
   "id": "sounds-pedals",
   "title": "Central Pedals: guitar pedals and amp cabinets",
-  "kicker": "Guitar pedals for anything with a 1/4\" or 1/8\" input, including 55 new pedals of our own, and 68 ready-made boards, with real cabinet impulse responses for",
+  "kicker": "Guitar pedals for anything you can plug in with a 1/4\" or 1/8\" cable. You get 55 pedals of our own and 68 ready-made boards, with real cabinet impulse resp",
   "shot": "pc-io"
  },
  {
   "id": "sounds-utility",
   "title": "Central Utility: backgrounds, slide themes, clicks and looks",
-  "kicker": "118 seasonal and Christian backgrounds with 51 matching slide themes and lower thirds, 14 click sounds, 24 lighting looks, countdowns and stream overlays. ",
+  "kicker": "118 backgrounds for the church year, with 51 slide themes and lower thirds to match. It also has 14 click sounds, 24 lighting looks, countdowns and stream ",
   "shot": "cc-lyrics"
  },
  {
   "id": "sounds-tracks",
   "title": "Central Tracks Unlimited: every track, every month",
-  "kicker": "Pads, multitracks, Prime tracks and our own arrangements of 20 hymns, plus other teams' sounds, pedal boards and clicks. Everything lands in your setlist w",
+  "kicker": "The whole library: pads, multitracks and Prime tracks, the 20 hymns we've arranged, and the sounds, pedal boards and clicks other teams have shared. Whatev",
   "shot": "pc-tracks"
  },
  {
   "id": "pricing",
   "title": "Pricing: church packs, sound plans and Central Tracks",
-  "kicker": "Church packs and app keys you buy once, sound plans by the year and Central Tracks Unlimited by the month. Every price includes tax.",
+  "kicker": "Church packs and app keys are a one-time payment, sound plans are yearly and Central Tracks Unlimited is monthly. Tax is included.",
   "shot": "cc-service"
  },
  {

@@ -143,11 +143,11 @@ const packs = [
   { id: "pack-ultra", name: "Ultra", who: "Large churches and production companies", addon: "ultra-plus10" },
 ];
 const products = [
-  { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", icon: "central-pedal", desc: "This is the heart of it. Your pads, multitracks and click play from the floor, and every other app follows along.", pts: ["Built and tested by us, footswitches and knobs included", "Its software is already on it (no key needed), plus a P key for Central Pedal Control", "Ships to the US and Canada"] },
-  { id: "admin", tag: "A key", name: "Central Control", per: "per admin computer", icon: "central-control", pts: ["For whoever runs the desk: lights, slides, lyrics, cameras, in-ears, tracks and the mix, all in one place. Windows, macOS and Linux."] },
-  { id: "user", tag: "U key", name: "Central Usage", per: "per musician", icon: "central-usage", pts: ["For each musician: their chart, the lyrics, their instrument and their own in-ear mix, at church and at home. Works on everything.", "On a computer, bring the plugins you already own: VST3, Audio Units, CLAP and LV2."] },
-  { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", icon: "central-pedal-control", pts: ["Build your songs, pads and setlists at home, then send it all to the pedal. Windows, macOS, Linux, iPad, iPhone and Android."] },
-  { id: "services-slot", tag: "Slot", name: "Central Services", per: "per person, once", icon: "central-services", pts: ["Who's serving, who's away and what you're playing, on everyone's phone. Each person on your teams takes a slot; take someone off and theirs is free for the next."] },
+  { id: "pedal", tag: "Built pedal", name: "Central Pedal", per: "one-time", icon: "central-pedal", desc: "Your pads, multitracks and click play from the pedal on the floor, and the other apps follow it.", pts: ["We build and test it before it ships", "The software is already on it, so it needs no key. It also comes with a P key for Central Pedal Control", "Ships to the US and Canada"] },
+  { id: "admin", tag: "A key", name: "Central Control", per: "per admin computer", icon: "central-control", pts: ["For whoever's at the desk. It runs the lights, lyrics and slides, the cameras and the in-ear mixes. Windows, macOS and Linux."] },
+  { id: "user", tag: "U key", name: "Central Usage", per: "per musician", icon: "central-usage", pts: ["One for each musician. They get their chart, the lyrics, an instrument and their own in-ear mix, at church or at home. It runs on computers, phones and tablets.", "On a computer it'll load the plugins you already own, in VST3, Audio Units, CLAP or LV2."] },
+  { id: "pedal-control", tag: "P key", name: "Central Pedal Control", per: "per device", icon: "central-pedal-control", pts: ["Get the songs, pads and setlist ready at home, then send them to the pedal. Windows, macOS, Linux, iPad, iPhone and Android."] },
+  { id: "services-slot", tag: "Slot", name: "Central Services", per: "per person, once", icon: "central-services", pts: ["Everyone sees who's serving, who's away and what you're playing, on their phone. A person on your teams takes one slot. Take them off a team and the slot is free for someone else."] },
 ];
 const P_ = (id) => (cfg.products && cfg.products[id]) || null;
 const priceOf = (id) => (P_(id) ? P_(id).cents / 100 : 0);
@@ -611,7 +611,7 @@ on("#pubForm", "submit", async (e) => {
     grade = r.grade.stars; $("#gLabel").textContent = "Quality grade · final"; $("#gStars").innerHTML = starHtml(grade); showChecks(r.grade.checks, "text"); renderTiers(); calc();
     $("#pPrice").value = money(r.track.price);
     msg.textContent = (r.waiting ? "Sent for review: " + r.track.title + " · " + grade + "★ for now (the reviewer sets the final stars and price) · we'll email you when it's live" : "Published: " + r.track.title + " · " + grade + "★ · " + money(r.track.price)) + (me.payoutsReady ? "" : " · set up payouts to get paid");
-    toast(r.waiting ? "Sent! A reviewer checks every upload before it goes into Central Tracks." : "You're published! Your track is in Central Tracks.");   // (10.1: when staff hold new uploads for review) e.target.reset(); $("#pKind").dispatchEvent(new Event("change")); grade = 0; $("#pubBtn").disabled = true; loadTracks(); refreshMe();
+    toast(r.waiting ? "Sent. Someone listens to it before it goes into Central Tracks." : "You're published! Your track is in Central Tracks.");   // (10.1: when staff hold new uploads for review) e.target.reset(); $("#pKind").dispatchEvent(new Event("change")); grade = 0; $("#pubBtn").disabled = true; loadTracks(); refreshMe();
   } catch (err) { msg.textContent = err.message; $("#pubBtn").disabled = false; }
 });
 on("#payoutBtn", "click", async () => {
@@ -628,7 +628,7 @@ function renderPayout() {
   const needId = !!(me && me.idRequired), idOk = !!(me && me.idStatus === "verified");
   box.hidden = !needId;
   if (needId) {
-    it.textContent = idOk ? "✓ Verified. You can publish." : me.idStatus === "processing" ? "Stripe is checking your ID. It usually takes a minute or two." : me.idStatus === "requires_input" ? "Stripe couldn't confirm your ID. Try again with a clear photo." : "Once, before your first upload: a photo of your ID and a selfie, through Stripe. It keeps Central Tracks honest.";
+    it.textContent = idOk ? "✓ Verified. You can publish." : me.idStatus === "processing" ? "Stripe is checking your ID. It usually takes a minute or two." : me.idStatus === "requires_input" ? "Stripe couldn't confirm your ID. Try again with a clear photo." : "You only do this once, before your first upload. Stripe asks for a photo of your ID and a selfie, so we know who's selling.";
     ib.hidden = idOk || me.idStatus === "processing"; ib.textContent = me.idStatus === "requires_input" ? "Try again" : "Verify my ID";
   }
   if (!me) { t.textContent = "Sign in to publish. Earnings are paid monthly to your bank through Stripe."; b.hidden = true; return; }
@@ -1214,7 +1214,7 @@ async function renderTeams() {
 }
 // ---------------------------------------------------------------- forgot password: an emailed link (an hour, once)
 function forgotPassword(email, back) {
-  modal(`<h3>Forgot your password?</h3><p class="muted" style="margin:0">It happens to all of us. Type your account's email and we'll send you a link to set a new one.</p>
+  modal(`<h3>Forgot your password?</h3><p class="muted" style="margin:0">Type your account's email and we'll send you a link to set a new one.</p>
     <form id="fpForm" style="background:none;border:0;padding:0"><label>Email<input id="fpEmail" type="email" autocomplete="username" required value="${esc(email || "")}"></label>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn">Send the link</button><button class="btn ghost" type="button" data-close>Cancel</button></div><div class="err" id="fpErr"></div></form>`);
   $("#fpForm").onsubmit = async (e) => {
