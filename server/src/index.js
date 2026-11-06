@@ -166,7 +166,7 @@ api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
   const c = await lic.churchOf(u.id);
   const payoutsReady = u.connect_account && !u.connect_ready ? await pay.refreshConnect(u) : !!u.connect_ready;   // (back from Stripe's payout setup)
-  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), reviewer: await creators.isReviewer(u), payoutsReady, payoutsStarted: !!u.connect_account,
+  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), reviewer: await creators.isReviewer(u), reviewUrl: (await creators.isReviewer(u)) ? config.publicUrl + creators.reviewPath() + "/" : undefined, reviewerDiscount: await creators.reviewerStatus(u), payoutsReady, payoutsStarted: !!u.connect_account,
     idStatus: u.id_status, idRequired: !!(config.stripe.requireIdToPublish && pay.stripe),
     emailConfirmed: !!u.email_confirmed, phone: u.phone ? signin.maskPhone(u.phone) : null, phoneConfirmed: u.phone_confirmed, twoStep: await signin.needsCode(u),
     church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, owned: await pay.ownedCounts(c.id), hasServices: (c.services_slots || 0) > 0 || lic.trialActive(c), servicesSlots: c.services_slots || 0, subscribed: c.subscribed, trialUntil: lic.trialActive(c) ? c.trial_until : null, trialUsed: !!c.trial_code } : null });

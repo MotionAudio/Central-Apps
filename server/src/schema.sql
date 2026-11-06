@@ -781,3 +781,20 @@ CREATE TABLE IF NOT EXISTS status_incidents (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   resolved_at  TIMESTAMPTZ
 );
+
+-- the review log: what each reviewer did, so "10 different uploads in 30 days" can be counted
+CREATE TABLE IF NOT EXISTS review_log (
+  id         BIGSERIAL PRIMARY KEY,
+  email      TEXT NOT NULL,
+  what       TEXT NOT NULL,
+  item_id    BIGINT NOT NULL,
+  action     TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS review_log_email_at ON review_log (email, created_at);
+-- the reviewer discount: which of a reviewer's own subscriptions have it on Stripe right now
+CREATE TABLE IF NOT EXISTS reviewer_discounts (
+  sub_id   TEXT PRIMARY KEY,
+  user_id  BIGINT NOT NULL,
+  added_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

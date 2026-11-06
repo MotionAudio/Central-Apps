@@ -54,6 +54,15 @@ export async function isReviewer(user) {
   if (user.email_confirmed === false) return false;
   return !!(await one("SELECT 1 FROM review_admins WHERE email=$1", [user.email.toLowerCase()]));
 }
+// the reviewer discount: 10% off a reviewer's own subscriptions while they've reviewed 10 different uploads in 30 days
+export const REVIEWER_DISCOUNT = { percent: 10, reviews: 10, days: 30 };
+export async function reviewerStatus(user) {
+  const rev = await isReviewer(user), { percent, reviews: needed, days } = REVIEWER_DISCOUNT;
+  if (!rev) return { reviewer: false, reviews: 0, needed, days, percent, active: false };
+  const r = await one("SELECT COUNT(DISTINCT what || ':' || item_id)::int AS n FROM review_log WHERE email=$1 AND created_at > now() - ($2 || ' days')::interval", [user.email.toLowerCase(), String(days)]);
+  return { reviewer: true, reviews: r.n, needed, days, percent, active: r.n >= needed };
+}
+const logReview = (req, what, id, action) => q("INSERT INTO review_log (email,what,item_id,action) VALUES ($1,$2,$3,$4)", [req.user.email.toLowerCase(), what, id, action]);
 async function reviewer(req) { if (!(await isReviewer(req.user))) throw bad("Review admins only.", 403); await requireStep(req); }
 async function staff(req) { if (!isAdmin(req.user)) throw bad("Only the website's main admin can do that.", 403); await requireStep(req); }
 export function reviewPath() {
@@ -421,6 +430,7 @@ export function routes(api, app, { wrap, requireUser }) {
     if (!(await one("SELECT 1 FROM community_files WHERE item_id=$1 AND role='package'", [it.id]))) throw bad("It has no package to install (the creator hasn't sent it in).");
     await q("UPDATE community_items SET status='live', stars=$1, reason=NULL, reviewed_by=$2, reviewed_at=now() WHERE id=$3", [s, req.user.email, it.id]);
     await tellCreator(it, "“" + it.title + "” is live", "“" + it.title + "” passed review with " + s + " star" + (s === 1 ? "" : "s") + ". It's now part of " + PLANS[it.pack].name + ": everyone with that plan can download it, and each download counts toward your share of the plan's money.");
+    await logReview(req, "item", it.id, "approve");
     res.json({ ok: true });
   }));
   api.post("/review/items/:id/reject", requireUser, wrap(async (req, res) => {
@@ -428,6 +438,7 @@ export function routes(api, app, { wrap, requireUser }) {
     if (it.status !== "waiting") throw bad("Only something waiting for review can be rejected (pull a live one instead).");
     await q("UPDATE community_items SET status='rejected', reason=$1, reviewed_by=$2, reviewed_at=now() WHERE id=$3", [reason, req.user.email, it.id]);
     await tellCreator(it, "“" + it.title + "” needs changes", "We couldn't accept “" + it.title + "” yet. The reviewer said:\n\n" + reason + "\n\nFix it and send it in again from your creator page.");
+    await logReview(req, "item", it.id, "reject");
     res.json({ ok: true });
   }));
   api.post("/review/items/:id/pull", requireUser, wrap(async (req, res) => {
@@ -436,11 +447,13 @@ export function routes(api, app, { wrap, requireUser }) {
     await q("UPDATE community_items SET status='pulled', reason=$1, reviewed_by=$2, reviewed_at=now() WHERE id=$3", [reason, req.user.email, it.id]);
     if (req.body && req.body.block) for (const f of await filesOf(it.id, "package")) for (const b of f.binaries || []) await q("INSERT INTO blocked_hashes (sha256,why,added_by) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING", [b.sha256, "pulled item " + it.id + ": " + reason, req.user.email]);
     await tellCreator(it, "“" + it.title + "” was taken down", "We took “" + it.title + "” down, so it's no longer in " + PLANS[it.pack].name + " and comes off the devices it was installed on. The reason:\n\n" + reason);
+    await logReview(req, "item", it.id, "pull");
     res.json({ ok: true });
   }));
   api.post("/review/items/:id/stars", requireUser, wrap(async (req, res) => {
     await reviewer(req); const it = await reviewedItem(req), s = stars(req.body && req.body.stars);
     await q("UPDATE community_items SET stars=$1, reviewed_by=$2, reviewed_at=now() WHERE id=$3", [s, req.user.email, it.id]);
+    await logReview(req, "item", it.id, "stars");
     res.json({ ok: true });
   }));
   // Central Tracks: approve (with stars: they set the price), reject, change stars, take down
@@ -450,17 +463,20 @@ export function routes(api, app, { wrap, requireUser }) {
     await reviewer(req); const t = await reviewedTrack(req), s = stars(req.body && req.body.stars);
     await q("UPDATE tracks SET status='live', stars=$1, price_cents=$2, reviewed_by=$3, reviewed_at=now(), review_note=NULL WHERE id=$4", [s, STAR_PRICE_CENTS[s], req.user.email, t.id]);
     if (t.status === "review") await tellPublisher(t, "“" + t.title + "” is live on Central Tracks", "“" + t.title + "” passed review with " + s + " star" + (s === 1 ? "" : "s") + " ($" + STAR_PRICE_CENTS[s] / 100 + ").");
+    await logReview(req, "track", t.id, "approve");
     res.json({ ok: true });
   }));
   api.post("/review/tracks/:id/stars", requireUser, wrap(async (req, res) => {
     await reviewer(req); const t = await reviewedTrack(req), s = stars(req.body && req.body.stars);
     await q("UPDATE tracks SET stars=$1, price_cents=$2, reviewed_by=$3, reviewed_at=now() WHERE id=$4", [s, STAR_PRICE_CENTS[s], req.user.email, t.id]);
+    await logReview(req, "track", t.id, "stars");
     res.json({ ok: true });
   }));
   api.post("/review/tracks/:id/reject", requireUser, wrap(async (req, res) => {
     await reviewer(req); const t = await reviewedTrack(req), reason = reasonOf(req.body);
     await q("UPDATE tracks SET status=$1, review_note=$2, reviewed_by=$3, reviewed_at=now() WHERE id=$4", [t.status === "review" ? "removed" : "hidden", reason, req.user.email, t.id]);
     await tellPublisher(t, "“" + t.title + "” " + (t.status === "review" ? "needs changes" : "was taken down"), (t.status === "review" ? "We couldn't put “" + t.title + "” on Central Tracks yet." : "We took “" + t.title + "” off Central Tracks.") + " The reviewer said:\n\n" + reason);
+    await logReview(req, "track", t.id, "reject");
     res.json({ ok: true });
   }));
   api.get("/review/reports", requireUser, wrap(async (req, res) => {

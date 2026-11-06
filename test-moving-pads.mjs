@@ -45,6 +45,7 @@ const errors = []; page.on("pageerror", (e) => errors.push(String(e)));
 await page.addInitScript(() => {   // (no driver: the app's socket goes nowhere; Central Pedal Control's key is the default one)
   const Real = window.WebSocket; window.WebSocket = function (url, p) { return new Real(/:876[56]/.test(String(url)) ? "ws://127.0.0.1:1/" : url, p); }; window.WebSocket.prototype = Real.prototype;
   try { localStorage.setItem("cc-license", JSON.stringify({ key: "PDEF-AULT-KEY0-2026", kind: "P", app: "pedal-control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { }
+  try { localStorage.setItem("cc-packages", JSON.stringify([{ key: "SDEF-AULT-KEY0-2026", okAt: Date.now(), plans: { pads: "2099-12-31T00:00:00.000Z" } }])); } catch (_) { }   // (the website checks plans now: this pedal has Central Pads)
 });
 await page.route(/^https?:\/\/(127\.0\.0\.1|localhost):876[56]\//, (r) => {
   const u = new URL(r.request().url()); asked.push(u.pathname + u.search);

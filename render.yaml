@@ -33,6 +33,8 @@ services:
         sync: false
       - key: LIBRARIES_BASE_URL  # the sound libraries' zips (empty: the GitHub release "libraries"; later the R2 bucket's public address)
         sync: false
+      - key: HYMNS_BASE_URL      # the Central Tracks hymns (empty: the GitHub release "central-tracks"; later the R2 bucket's public address + /central-tracks)
+        sync: false
       - key: RESEND_API_KEY      # email (Teams invites, schedule requests): resend.com → API Keys
         sync: false
       - key: MAIL_FROM           # Motion Audio <noreply@motionaudio.org> (motionaudio.org verified in Resend; docs/DOMAIN-AND-EMAIL.md)

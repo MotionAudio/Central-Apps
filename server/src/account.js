@@ -10,7 +10,7 @@ import { q, one, pool } from "./db.js";
 import { config } from "./config.js";
 import { hashPassword, checkPassword, requireUser, isAdmin } from "./auth.js";
 import { issue, requireStep } from "./signin.js";
-import { stripe } from "./payments.js";
+import { stripe, syncReviewerDiscounts } from "./payments.js";
 import { sendMail, mailOn, escHtml } from "./mail.js";
 import { remindInvites, churchOf, acceptInvite, isMain, newKey } from "./licenses.js";
 import { remindServices } from "./services.js";
@@ -114,7 +114,7 @@ export async function runReminders() {
   try {
     const got = (await client.query("SELECT pg_try_advisory_lock(80612) AS ok")).rows[0].ok;
     if (!got) return { invites: 0, services: 0, skipped: "another server" };
-    try { return { invites: await remindInvites(), services: await remindServices(), trials: await remindTrials() }; }
+    try { return { invites: await remindInvites(), services: await remindServices(), trials: await remindTrials(), reviewerDiscounts: await syncReviewerDiscounts() }; }
     finally { await client.query("SELECT pg_advisory_unlock(80612)"); }
   } finally { client.release(); running = false; }
 }

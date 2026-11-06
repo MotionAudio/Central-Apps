@@ -19,7 +19,7 @@ import { churchOf, createChurch, personalChurch, issueKeys, canon, pretty } from
 import { sendDownloadsEmail } from "./downloads.js";
 import { fmt, COVER_RELEASES } from "./versions.js";
 import { PLAN_LIVE, PLAN_END, issuePackages } from "./plans.js";
-import { recordPlanPayment, reversePlanPayment } from "./creators.js";
+import { recordPlanPayment, reversePlanPayment, reviewerStatus, REVIEWER_DISCOUNT } from "./creators.js";
 
 function err(msg, status = 400, extra) { const e = new Error(msg); e.status = status; return Object.assign(e, extra || {}); }
 const S = config.stripe;
@@ -197,6 +197,41 @@ export async function renewCheckout(user, church, keys, code, personal) {
   return remember(s, "renew", { user, church, items: { keys: rows.map((l) => l.key) }, code: disc && disc.code });
 }
 
+// ---------------------------------------------------------------- the reviewer discount
+// 10% off a reviewer's own subscriptions (Central Tracks Unlimited, their own sound plans) while they're active: never a
+// church's. Put on or taken off within the hour, so whichever is true when a subscription renews sets that renewal's price.
+const REVIEWER_COUPON = "MA-REVIEWER-" + REVIEWER_DISCOUNT.percent;
+async function reviewerCoupon() {
+  try { await stripe.coupons.create({ id: REVIEWER_COUPON, percent_off: REVIEWER_DISCOUNT.percent, duration: "forever", name: "Reviewer: " + REVIEWER_DISCOUNT.percent + "% off" }); }
+  catch (e) { if (!(e.code === "resource_already_exists" || /already exists/i.test(e.message || ""))) throw e; }
+  return REVIEWER_COUPON;
+}
+async function reviewerDiscounts(user) { return (await reviewerStatus(user)).active ? [{ coupon: await reviewerCoupon() }] : undefined; }
+const couponOf = (d) => { const c = (d && d.source && d.source.coupon) || (d && d.coupon); return c && typeof c === "object" ? c.id : c; };
+export async function syncReviewerDiscounts() {
+  if (!stripe) return { added: 0, removed: 0 };
+  const rows = await q(`SELECT sub, user_id FROM (
+      SELECT subscription_id AS sub, id AS user_id FROM users WHERE subscribed AND subscription_id IS NOT NULL
+      UNION SELECT stripe_sub, user_id FROM plan_subs WHERE kind='person' AND stripe_sub IS NOT NULL AND ${PLAN_LIVE}
+      UNION SELECT sub_id, user_id FROM reviewer_discounts) s`);
+  const has = new Set((await q("SELECT sub_id FROM reviewer_discounts")).map((r) => r.sub_id)), wanted = new Map(), done = { added: 0, removed: 0 };
+  for (const { sub, user_id } of rows) {
+    try {
+      if (!wanted.has(user_id)) { const u = await one("SELECT * FROM users WHERE id=$1", [user_id]); wanted.set(user_id, u ? (await reviewerStatus(u)).active : false); }
+      const want = wanted.get(user_id); if (want === has.has(sub)) continue;
+      const s = await stripe.subscriptions.retrieve(sub, { expand: ["discounts"] });
+      if (s.status === "canceled" || s.status === "incomplete_expired") { await q("DELETE FROM reviewer_discounts WHERE sub_id=$1", [sub]); continue; }
+      const coupon = want ? await reviewerCoupon() : REVIEWER_COUPON, list = s.discounts || [], on = list.some((d) => couponOf(d) === coupon);
+      if (want !== on) {
+        const keep = list.filter((d) => couponOf(d) !== coupon).map((d) => ({ discount: d.id })).concat(want ? [{ coupon }] : []);
+        await stripe.subscriptions.update(sub, { discounts: keep.length ? keep : "", proration_behavior: "none" });
+      }
+      if (want) { await q("INSERT INTO reviewer_discounts (sub_id,user_id) VALUES ($1,$2) ON CONFLICT (sub_id) DO NOTHING", [sub, user_id]); done.added++; }
+      else { await q("DELETE FROM reviewer_discounts WHERE sub_id=$1", [sub]); done.removed++; }
+    } catch (e) { console.error("reviewer discount " + sub + ":", e.message); }
+  }
+  return done;
+}
 export async function subscriptionCheckout(user) {
   needStripe();
   if (await isSubscribed(user)) throw err("You're already subscribed.");
@@ -206,6 +241,7 @@ export async function subscriptionCheckout(user) {
     customer: forChurch ? await churchCustomer(church) : await customerFor(user),
     line_items: [{ quantity: 1, price_data: { currency: "usd", unit_amount: SUBSCRIPTION.cents, tax_behavior: "inclusive", recurring: { interval: SUBSCRIPTION.interval },
       product_data: { name: SUBSCRIPTION.name + (forChurch ? " - " + church.name : ""), tax_code: TAX_CODES.subscription } } }],
+    discounts: forChurch ? undefined : await reviewerDiscounts(user),
     metadata: { kind: "subscription" },
     subscription_data: { metadata: { kind: "tracks", user_id: String(user.id), church_id: forChurch ? String(church.id) : "" } },
     return_url: back("subscribed"),
@@ -270,7 +306,7 @@ export async function planCheckout(user, want, code, only) {
     ...STUDIO, mode: "subscription", payment_method_collection: "always",
     customer: await customerFor(user),
     line_items: all ? [yearLine(PLAN_ALL.name, PLAN_ALL.cents, allNames())] : ids.map((id) => yearLine(PLANS[id].name, PLANS[id].cents, PLANS[id].what)),
-    discounts: disc ? [{ coupon: await planCoupon(disc) }] : undefined,
+    discounts: disc ? [{ coupon: await planCoupon(disc) }] : await reviewerDiscounts(user),
     metadata: { kind: "plans" },
     subscription_data: { metadata: { kind: "plans", plan_sub_id: String(row.id), user_id: String(user.id), plans: ids.join(",") } },
     return_url: back("plans-done"),

@@ -694,10 +694,11 @@ async function renderAccount(note) {
     <div class="card" id="libCard"><h3>Your storage</h3><div id="myLib" class="muted">Loading…</div></div>
     <div class="card" id="pubCard"><h3>Publishing</h3><div id="myPub" class="muted">Loading…</div></div>
     ${me.admin ? `<div class="card wide" id="staffCard"><h3>Keys · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
-    ${me.reviewer ? `<div class="card wide" id="reviewCard"><h3>Review site · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
+    ${me.reviewer ? `<div class="card wide" id="reviewCard"><h3>Review</h3><div class="muted">Loading…</div></div>` : ""}
+    ${me.admin ? `<div class="card wide" id="reviewersCard"><h3>Reviewers</h3><div class="muted">Loading…</div></div>` : ""}
     ${me.admin ? `<div class="card wide" id="opsCard"><h3>Errors, support, backups · Motion Audio staff</h3><div class="muted">Loading…</div></div>` : ""}
     <div class="card wide" id="meCard"></div></div>`;
-  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); renderMyRenewals(); if (window.MAWorship) window.MAWorship.render(); if (me.reviewer) renderReviewCard(); if (me.admin) { renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); renderDefaultKeys(); }
+  renderChurch(); renderTeams(); renderMe(); renderSlots(); renderPackages(); renderMyRenewals(); if (window.MAWorship) window.MAWorship.render(); if (me.reviewer) renderReviewCard(); if (me.admin) { renderReviewers(); renderSaleStaff(); renderStaff(); renderOps(); renderPrices(); renderCodes(); renderReleases(); renderEditors(); renderDefaultKeys(); }
   if ($("#cfAgain")) $("#cfAgain").onclick = async () => { try { const x = await api("POST", "/account/confirm/resend"); toast(x.already ? "You're already confirmed." : "Sent! Check your inbox, and your spam folder just in case."); } catch (e) { toast(e.message); } };
   try {
     const lib = (await api("GET", "/library")).tracks;
@@ -1275,8 +1276,22 @@ async function renderReviewCard() {
   const el = $("#reviewCard"); if (!el) return;
   try {
     const r = await api("GET", "/review/link");
-    el.innerHTML = `<h3>Review site · Motion Audio staff</h3><p class="muted" style="margin:0">Listen to, check and grade everything people upload (samples, loops, pads, instruments, boards, plugins and Central Tracks), approve or reject it, and take things down.${me.admin ? " As the main admin you also choose the review admins, the creators' share of each sound plan and the payout settings there." : ""} Keep this address to yourself: it isn't linked anywhere public.</p><div class="row" style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn small" href="${esc(r.url)}">Open the review site</a></div>`;
-  } catch (e) { el.innerHTML = `<h3>Review site · Motion Audio staff</h3><p class="muted" style="margin:0">${esc(e.message)}</p>`; }
+    el.innerHTML = `<h3>Review</h3><p class="muted" style="margin:0">Listen to, check and grade everything people upload (samples, loops, pads, instruments, boards, plugins and Central Tracks), approve or reject it, and take things down.${me.admin ? " As the main admin you also choose the review admins, the creators' share of each sound plan and the payout settings there." : ""} Keep this address to yourself: it isn't linked anywhere public.</p>${reviewerDiscountText()}<div class="row" style="display:flex;gap:.5rem;flex-wrap:wrap"><a class="btn small" href="${esc(r.url)}">Open the review site</a></div>`;
+  } catch (e) { el.innerHTML = `<h3>Review</h3><p class="muted" style="margin:0">${esc(e.message)}</p>`; }
+}
+function reviewerDiscountText() {
+  const d = me.reviewerDiscount; if (!d || !d.reviewer) return "";
+  return `<p style="margin:.6rem 0 0"><b>${d.reviews} of ${d.needed}</b> uploads reviewed in the last ${d.days} days. ${d.active ? `Your ${d.percent}% off is on for your own Central Tracks Unlimited and sound plans.` : `Reach ${d.needed} to get ${d.percent}% off your own Central Tracks Unlimited and sound plans.`}</p>`;
+}
+async function renderReviewers() {
+  const host = $("#reviewersCard"); if (!host) return;
+  let r; try { r = await api("GET", "/review/admins"); } catch (e) { host.innerHTML = `<h3>Reviewers</h3><div class="err">${esc(e.message)}</div>`; return; }
+  host.innerHTML = `<h3>Reviewers</h3><p class="muted" style="margin:0;font-size:.92rem">Reviewers get a Review tab on their Account page. They can listen to, grade, approve, reject and take down uploads, and nothing else.</p>
+    <div>${r.admins.length ? r.admins.map((a) => `<div class="tm"><span>${esc(a.email)}</span><button class="btn small ghost" data-rvrm="${esc(a.email)}">Remove</button></div>`).join("") : '<span class="muted">No reviewers yet.</span>'}</div>
+    <form id="rvForm" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><label style="flex:1 1 220px">Their email (the one they sign in with)<input id="rvEmail" type="email" required></label><button class="btn small">Add reviewer</button></form><div class="err" id="rvErr"></div>`;
+  const save = async (body) => { try { await api("POST", "/review/admins", body); renderReviewers(); toast("Saved"); } catch (e) { $("#rvErr").textContent = e.message; } };
+  host.querySelectorAll("[data-rvrm]").forEach((b) => (b.onclick = () => save({ email: b.dataset.rvrm, remove: true })));
+  $("#rvForm").onsubmit = (e) => { e.preventDefault(); save({ email: $("#rvEmail").value.trim() }); };
 }
 async function renderStaff(qs) {
   const el = $("#staffCard"); if (!el) return;

@@ -4,7 +4,7 @@ The short version of what changed in each release, newest first. Most versions a
 
 ### 10.4.3
 
-The apps now check their license keys at motionaudio.org. The default keys still work.
+The apps now check their license keys and sound plans at motionaudio.org. The default keys still work, and paid sounds now need a sound plan key.
 
 ### 10.4.2
 

@@ -20,7 +20,8 @@
     ["tracks", "Central Tracks & publishing", ["tracksCard", "libCard", "pubCard", "connectBox"]],
     ["billing", "Billing", ["billingCard"]],
     ["help", "Help & tickets", ["helpCard"]],   // (10.3)
-    ["staff", "Staff", ["editHowCard", "supportDeskCard", "statusCard", "staffCard", "reviewCard", "opsCard", "saleCard", "pricesCard", "codesCard", "relCard", "editorsCard", "defKeysCard"]],
+    ["review", "Review", ["reviewCard"]],
+    ["staff", "Staff", ["editHowCard", "supportDeskCard", "statusCard", "staffCard", "reviewersCard", "opsCard", "saleCard", "pricesCard", "codesCard", "relCard", "editorsCard", "defKeysCard"]],
   ];
   const home = {}; SECTIONS.forEach(([k, , ids]) => ids.forEach((id) => (home[id] = k)));
   // app.js's own helpers (it's a classic script, so its top-level names are shared with this one)
@@ -59,7 +60,8 @@
     for (const [k, title] of SECTIONS) {
       const sec = $("#acct-" + k), has = !!(sec && sec.querySelector(".card"));
       if (sec) sec.hidden = !has;
-      if (has) links.push('<a href="#acct-' + k + '" data-sec="' + k + '">' + escH(title) + "</a>");
+      const reviewUrl = k === "review" && signedIn() && signedIn().reviewUrl;
+      if (has) links.push(reviewUrl ? '<a href="' + escH(reviewUrl) + '">' + escH(title) + "</a>" : '<a href="#acct-' + k + '" data-sec="' + k + '">' + escH(title) + "</a>");
     }
     const html = links.join("");
     if (side.dataset.html !== html) { side.innerHTML = html; side.dataset.html = html; }
