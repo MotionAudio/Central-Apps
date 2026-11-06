@@ -78,12 +78,16 @@ await check("what comes out pulses: loud on the open steps, near silent between 
   const r = await page.evaluate(async () => {
     const a = window.__test.engine.active, ctx = a.ctx, an = ctx.createAnalyser(); an.fftSize = 512; a.moveGain.connect(an);
     const d = new Float32Array(an.fftSize), rms = [];
-    for (let i = 0; i < 70; i++) { an.getFloatTimeDomainData(d); let s = 0; for (const x of d) s += x * x; rms.push(Math.sqrt(s / d.length)); await new Promise((ok) => setTimeout(ok, 25)); }
+    for (let i = 0; i < 70; i++) { window.__pulseAt = i; an.getFloatTimeDomainData(d); let s = 0; for (const x of d) s += x * x; rms.push(Math.sqrt(s / d.length)); await new Promise((ok) => setTimeout(ok, 25)); }
     a.moveGain.disconnect(an); return rms;
   });
   const hi = Math.max(...r), lo = Math.min(...r.slice(10));
   assert.ok(hi > 0.02, "it sounds: " + hi.toFixed(4)); assert.ok(lo < hi * 0.15, "it pulses: quietest " + lo.toFixed(4) + " vs loudest " + hi.toFixed(4));
 });
+if (failures) {   // (what the page was doing, if that check didn't answer)
+  const state = await Promise.race([page.evaluate(() => { const a = window.__test.engine.active, c = a && a.ctx; return { step: window.__pulseAt, hidden: document.hidden, ctx: c && c.state, time: c && c.currentTime, active: !!a, open: [...document.querySelectorAll("dialog[open]")].map((d) => d.id) }; }), new Promise((ok) => setTimeout(() => ok("the page itself isn't answering"), 5000))]);
+  console.log("      page state: " + JSON.stringify(state));
+}
 await check("a new tempo: the gate follows (90 BPM: 2.67 s a bar)", async () => {
   const dur = await page.evaluate(() => { PP.project().tempo.bpm = 90; window.__test.engine.refreshAll(); return window.__test.engine.active.gateSrc.buffer.duration; });
   assert.ok(Math.abs(dur - 240 / 90) < 0.01, String(dur));
