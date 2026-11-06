@@ -36,7 +36,7 @@ export function routes(api, { wrap, brake }) {
         await q("INSERT INTO password_resets (token_hash,user_id,expires_at) VALUES ($1,$2,now() + ($3 || ' minutes')::interval)", [hash(token), u.id, String(RESET_MINUTES)]);
         await sendMail(u.email, "Reset your Motion Audio password",
           (u.name ? "Hi " + u.name + ",\n\n" : "Hi,\n\n") + "Set a new password for your Motion Audio account here (the link works once, for an hour):\n" + link +
-            "\n\nThe same account signs in to Central Pedal, Central Pedal Control, Central Control, Central Usage and Central Services.\nDidn't ask for this? Ignore this email - your password stays the same.\n\nMotion Audio\n",
+            "\n\nThis is the same account you use in Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Production.\nIf you didn't ask for this, you can ignore this email. Your password won't change.\n\nMotion Audio\n",
           '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px"><p>' + (u.name ? "Hi " + escHtml(u.name) + "," : "Hi,") + "</p><p>Set a new password for your Motion Audio account (the link works once, for an hour):</p>" +
             '<p><a href="' + escHtml(link) + '" style="display:inline-block;background:#12161C;color:#fff;padding:12px 20px;border-radius:6px;font-weight:600;text-decoration:none">Set a new password</a></p>' +
             "<p style=\"color:#555\">The same account signs in to all the Central apps. Didn't ask for this? Ignore this email - your password stays the same.</p><p>Talk soon,<br>The Motion Audio team</p></div>");
@@ -129,7 +129,7 @@ export async function sendConfirm(user) {
   const token = crypto.randomBytes(24).toString("base64url"), link = config.publicUrl + "/#confirm-" + token;
   await q("INSERT INTO email_confirms (token_hash,user_id,email,expires_at) VALUES ($1,$2,$3,now() + interval '7 days')", [hash(token), user.id, user.email]);
   return sendMail(user.email, "Confirm your email - Motion Audio",
-    (user.name ? "Hi " + user.name + ",\n\n" : "Hi,\n\n") + "Confirm this is your email (the link works for 7 days):\n" + link + "\n\nYour receipts, keys, invites and password resets come here.\n\nMotion Audio\n",
+    (user.name ? "Hi " + user.name + ",\n\n" : "Hi,\n\n") + "Confirm this is your email (the link works for 7 days):\n" + link + "\n\nThis is where we'll send your receipts, keys, invites and password resets.\n\nMotion Audio\n",
     '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px"><p>' + (user.name ? "Hi " + escHtml(user.name) + "," : "Hi,") + '</p><p>Confirm this is your email:</p><p><a href="' + escHtml(link) + '" style="display:inline-block;background:#12161C;color:#fff;padding:12px 20px;border-radius:6px;font-weight:600;text-decoration:none">Confirm my email</a></p><p style="color:#555">Your receipts, keys, invites and password resets come here. The link works for 7 days.</p><p>Talk soon,<br>The Motion Audio team</p></div>');
 }
 
@@ -177,8 +177,8 @@ export async function deleteAccount(u, c) {
     try { if (u.stripe_customer) await stripe.customers.del(u.stripe_customer); } catch (_) { }
     try { if (closes && c.stripe_customer) await stripe.customers.del(c.stripe_customer); } catch (_) { }
   }
-  await sendMail(email, "Your Motion Audio account is deleted", "Your Motion Audio account (" + email + ") is deleted" + (closes ? ", and " + c.name + " is closed" : "") + ". Its keys are free again and your details are gone.\n\nMotion Audio\n",
-    "<p style=\"font:15px/1.5 system-ui,sans-serif\">Your Motion Audio account (" + escHtml(email) + ") is deleted" + (closes ? ", and " + escHtml(c.name) + " is closed" : "") + ". Its keys are free again and your details are gone.</p>");
+  await sendMail(email, "Your Motion Audio account is deleted", "Your Motion Audio account (" + email + ") is deleted" + (closes ? ", and " + c.name + " is closed" : "") + ". Its keys are free again and we've removed your details.\n\nMotion Audio\n",
+    "<p style=\"font:15px/1.5 system-ui,sans-serif\">Your Motion Audio account (" + escHtml(email) + ") is deleted" + (closes ? ", and " + escHtml(c.name) + " is closed" : "") + ". Its keys are free again and we've removed your details.</p>");
   return { ok: true, closedChurch: closes };
 }
 

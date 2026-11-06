@@ -2,263 +2,347 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<script>
-// (10.0) This page is only a stand-in until the Motion Audio website is online. When it is, put its address here (the
-// same one as SERVER in js/license.js) and everyone who opens this page goes straight to the website's Downloads page.
-var SITE = "";
-if (SITE) location.replace(SITE.replace(/\/+$/, "") + "/#downloads");
-</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Central apps downloads</title>
-<meta name="description" content="Download the five Central apps: Central Pedal (Raspberry Pi), Central Pedal Control (Mac, Windows, Linux, iPad, iPhone, Android), Central Control (Windows, Mac, Linux), Central Services and Central Usage (Mac, Windows, Linux, Android, iPhone, iPad).">
+<title>Download Central</title>
+<meta name="description" content="Download the Central apps for Windows, Mac, Linux and Android: Central Pedal Control, Central Control, Central Usage, Central Services and Central Production, plus how to start a new Central Pedal.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="central-tokens.css">
 <style>
-  /* Motion Audio downloads: light paper, a graphite stage for the five apps, brass. Archivo throughout. */
-  :root { --paper:#F4F5F6; --card:#FFFFFF; --ink:#12161C; --ink-2:#434C59; --muted:#69717D; --line:#E1E4E8; --line-2:#CBD1D8;
-    --brass:#A8823A; --brass-ink:#7E6026; --brass-hi:#E2C27E; --stage:#15181D; --stage-2:#1D2128; --stage-line:#343A44; --on-stage:#ECE7DD; --on-stage-2:#A2A9B3;
-    --font: Archivo, "Helvetica Neue", Arial, system-ui, sans-serif; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color-scheme: light; }
+  /* The GitHub Pages download page. It uses the shared tokens (central-tokens.css, copied by tools/sync-tokens.sh)
+     so it looks like the website and the apps: graphite, brass for the one thing to press, Archivo. */
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  body { margin: 0; background: var(--paper); color: var(--ink); font: 400 16.5px/1.6 var(--font); -webkit-font-smoothing: antialiased; }
-  .wrap { max-width: 1120px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
-  h1, h2, h3 { font-weight: 600; margin: 0; text-wrap: balance; }
-  h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); line-height: 1.04; font-stretch: 116%; letter-spacing: -.022em; }
-  h2 { font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.12; font-stretch: 112%; letter-spacing: -.015em; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/1.55 var(--font); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h1, h2, h3 { font-weight: 600; margin: 0; text-wrap: balance; font-stretch: var(--wide); }
+  h1 { font-size: clamp(2.1rem, 5vw, 3.3rem); line-height: 1.05; letter-spacing: -.02em; }
+  h2 { font-size: clamp(1.45rem, 3vw, 1.9rem); line-height: 1.15; letter-spacing: -.012em; }
   h3 { font-size: 1rem; font-stretch: 104%; }
-  p { margin: 0 0 10px; } .muted { color: var(--muted); } small { font-size: 13.5px; }
-  a { color: var(--brass-ink); text-underline-offset: .18em; }
-  :focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
-  header.top { background: var(--card); border-bottom: 1px solid var(--line); }
-  header.top .wrap { display: flex; align-items: center; gap: 1rem; min-height: 64px; flex-wrap: wrap; }
-  .logo { display: flex; align-items: center; gap: .6rem; font-weight: 650; font-size: 1.08rem; font-stretch: 122%; color: var(--ink); text-decoration: none; }
-  .logo svg { width: 30px; height: 30px; color: var(--brass); }
-  header.top nav { margin-left: auto; display: flex; gap: 1.3rem; font-size: .95rem; flex-wrap: wrap; }
-  header.top nav a { color: var(--ink-2); text-decoration: none; }
-  header.top nav a:hover { color: var(--ink); text-decoration: underline; }
-  .stage { background: radial-gradient(90% 120% at 80% 0%, #232933 0%, var(--stage) 62%); color: var(--on-stage); padding: clamp(2.6rem, 6vw, 4.5rem) 0 clamp(2.4rem, 5vw, 3.5rem); }
-  .lead { color: var(--on-stage-2); max-width: 64ch; margin-top: 1rem; font-size: 1.08rem; }
-  .lead b { color: var(--on-stage); font-weight: 600; }
-  .ver { display: inline-block; margin-top: 1.1rem; padding: .2rem .75rem; border-radius: 99px; border: 1px solid var(--stage-line); color: var(--brass-hi); font-size: .88rem; font-variant-numeric: tabular-nums; }
-  .hero { display: grid; grid-template-columns: repeat(5, 1fr); margin: 2.4rem 0 0; border: 1px solid var(--stage-line); border-radius: 16px; overflow: hidden; background: var(--stage-2); }
-  .hero .card { display: flex; flex-direction: column; padding: 1.3rem 1.2rem; border-right: 1px solid var(--stage-line); background: none; border-radius: 0; box-shadow: none; border-top: 0; border-bottom: 0; border-left: 0; }
-  .hero .card:last-child { border-right: 0; }
-  .hero .card h2 { font-size: 1.08rem; line-height: 1.2; font-stretch: 106%; color: var(--on-stage); letter-spacing: -.005em; }
-  .hero .card p { flex: 1; font-size: .87rem; color: var(--on-stage-2); margin: .35rem 0 1rem; }
-  .who { font-size: .8rem; font-weight: 500; font-stretch: 90%; color: var(--brass-hi); margin-bottom: .7rem; }
-  .app-icon { display: block; width: 56px; height: 56px; margin: 0 0 .9rem -4px; }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: 44px; padding: .55rem 1rem; border-radius: 6px; border: 1px solid var(--line-2); background: var(--card); color: var(--ink); text-decoration: none; font-weight: 600; font-size: .92rem; font-stretch: 104%; cursor: pointer; transition: border-color .15s, background .15s; }
-  .btn:hover { border-color: var(--ink); }
-  .btn.primary { background: var(--brass-hi); border-color: var(--brass-hi); color: var(--stage); }
-  .btn.primary:hover { background: #EED39A; border-color: #EED39A; }
-  .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
-  .btn small { font-weight: 400; opacity: .7; font-size: .82rem; }
-  .hero .btn { width: 100%; font-size: .86rem; padding: .5rem .6rem; }
-  main { padding-bottom: 3rem; }
-  section { padding: clamp(2.6rem, 6vw, 4rem) 0 0; }
-  section > .muted { max-width: 70ch; margin-top: .6rem; color: var(--ink-2); }
-  .sechead { display: flex; align-items: center; gap: .9rem; }
-  .sechead img { width: 44px; height: 44px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-top: 1.4rem; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-  .grid > .card { box-shadow: 1px 0 0 var(--line), 0 1px 0 var(--line); }
-  .card { background: var(--card); padding: 1.15rem 1.2rem; }
-  .plat { display: flex; flex-direction: column; gap: .5rem; }
-  .plat .btn { width: 100%; }
-  .plat p { font-size: .9rem; color: var(--muted); margin: 0 0 auto; padding-bottom: .4rem; }
-  .grid > .linux-line { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: .6rem 1.2rem; align-items: center; background: var(--paper); }
-  .linux-line b { display: block; } .linux-line span { display: block; font-size: .88rem; color: var(--muted); margin-top: .15rem; }
-  .linux-line code { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: .55rem .7rem; font-size: 12.5px; word-break: break-all; user-select: all; }
-  .linux-line .copy { min-width: 96px; }
-  .lapp { display: flex; align-items: center; gap: .75rem; } .lapp img { width: 36px; height: 36px; flex: none; }
-  @media (max-width: 760px) { .grid > .linux-line { grid-template-columns: minmax(0, 1fr); } }
-  section > .card { border: 1px solid var(--line); border-radius: 14px; margin-top: 1rem; }
-  details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.2rem; margin: .7rem 0; }
-  details[open] { border-color: var(--line-2); }
-  summary { cursor: pointer; font-weight: 600; font-stretch: 104%; }
-  ol { padding-left: 1.3rem; margin: .7rem 0 0; } li { margin: .35rem 0; color: var(--ink-2); }
+  p { margin: 0 0 var(--s3); }
+  a { color: var(--accent); text-underline-offset: .18em; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   code, pre { font-family: var(--mono); font-size: 13.5px; }
-  pre { background: var(--paper); border: 1px solid var(--line); padding: .9rem 1rem; border-radius: 8px; overflow-x: auto; margin: .8rem 0 0; white-space: pre; }
-  .note { border-left: 2px solid var(--brass); padding: .2rem 0 .2rem .9rem; color: var(--ink-2); font-size: .94rem; margin-top: .9rem; }
-  footer { background: var(--stage); color: var(--on-stage-2); font-size: .92rem; padding: 2rem 0 calc(2rem + env(safe-area-inset-bottom, 0px)); }
-  footer a { color: var(--on-stage); }
-  @media (max-width: 1060px) { .hero { grid-template-columns: repeat(3, 1fr); } .hero .card { border-bottom: 1px solid var(--stage-line); } }
-  @media (max-width: 760px) { .hero { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 520px) { .hero { grid-template-columns: 1fr; } .hero .card { border-right: 0; } header.top nav { margin-left: 0; } }
+  .muted { color: var(--muted); }
+  small, .small { font-size: var(--fs-sm); }
+
+  header.top { border-bottom: 1px solid var(--line); background: var(--bg2); }
+  header.top .wrap { display: flex; align-items: center; gap: var(--s4); min-height: 60px; flex-wrap: wrap; }
+  .logo { display: flex; align-items: center; gap: .55rem; font-weight: 650; font-size: 1.05rem; font-stretch: 122%; color: var(--text); text-decoration: none; }
+  .logo svg { width: 28px; height: 28px; color: var(--accent); }
+  header.top nav { margin-left: auto; display: flex; gap: var(--s5); font-size: .94rem; flex-wrap: wrap; }
+  header.top nav a { color: var(--muted); text-decoration: none; }
+  header.top nav a:hover { color: var(--text); text-decoration: underline; }
+
+  .intro { padding: clamp(2.4rem, 6vw, 4rem) 0 var(--s6); background: radial-gradient(90% 130% at 85% 0%, #222730 0%, var(--bg) 60%); }
+  .lede { color: var(--muted); max-width: 62ch; margin-top: var(--s4); font-size: 1.07rem; }
+  .ver { display: inline-block; margin-top: var(--s4); padding: .2rem .75rem; border-radius: var(--r-pill); border: 1px solid var(--line); color: var(--accent); font-size: .88rem; font-variant-numeric: tabular-nums; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: var(--hit); padding: .5rem 1rem; border-radius: var(--r-sm); border: 1px solid var(--line2); background: var(--panel2); color: var(--text); text-decoration: none; font: 600 .92rem/1.2 var(--font); font-stretch: 104%; cursor: pointer; text-align: center; transition: border-color var(--dur), background var(--dur); }
+  .btn:hover { border-color: var(--muted); background: var(--panel3); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accentText); }
+  .btn.primary:hover { background: var(--accentHi); border-color: var(--accentHi); }
+  .btn small { font-weight: 400; opacity: .75; font-size: .82rem; }
+
+  .apps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--s6); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--panel); }
+  .app { display: flex; flex-direction: column; padding: var(--s5); box-shadow: 1px 0 0 var(--line), 0 1px 0 var(--line); }
+  .app img { width: 52px; height: 52px; margin: 0 0 var(--s3) -3px; }
+  .app .who { font-size: var(--fs-sm); font-stretch: var(--narrow); color: var(--accent); margin-bottom: var(--s1); }
+  .app h2 { font-size: 1.12rem; line-height: 1.2; letter-spacing: 0; }
+  .app p { color: var(--muted); font-size: .92rem; margin: var(--s2) 0 0; }
+  .app .runs { font-size: var(--fs-sm); color: var(--dim); margin: var(--s2) 0 var(--s4); flex: 1; }
+  .app .btn { width: 100%; }
+  .app .more { margin-top: var(--s2); font-size: var(--fs-sm); text-align: center; }
+
+  main { padding-bottom: var(--s7); }
+  section { padding: clamp(2.4rem, 6vw, 3.6rem) 0 0; scroll-margin-top: var(--s4); }
+  section > p { max-width: 70ch; color: var(--muted); }
+  .sechead { display: flex; align-items: center; gap: var(--s3); margin-bottom: var(--s3); }
+  .sechead img { width: 44px; height: 44px; flex: none; }
+  .key { display: inline-block; font-size: var(--fs-sm); color: var(--text); border: 1px solid var(--line); border-radius: var(--r-pill); padding: .1rem .6rem; margin-left: .2rem; white-space: nowrap; }
+
+  .plats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); margin-top: var(--s4); background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+  .plat { display: flex; flex-direction: column; gap: var(--s2); padding: var(--s4) var(--s4) var(--s5); box-shadow: 1px 0 0 var(--line), 0 1px 0 var(--line); }
+  .plat p { font-size: .9rem; color: var(--muted); margin: 0 0 auto; padding-bottom: var(--s2); }
+  .plat .btn { width: 100%; }
+  .plat.wide { grid-column: 1 / -1; background: var(--bg2); }
+  .cmd { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2); align-items: center; }
+  .cmd code { display: block; background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-sm); padding: .55rem .7rem; font-size: 12.5px; word-break: break-all; user-select: all; color: var(--text); }
+  .cmd .btn { min-width: 88px; width: auto; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: var(--s4) var(--s5); margin-top: var(--s4); }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: var(--s4) var(--s5); margin: var(--s3) 0 0; }
+  details[open] { border-color: var(--line2); }
+  summary { cursor: pointer; font-weight: 600; font-stretch: 104%; }
+  ol { padding-left: 1.3rem; margin: var(--s3) 0 0; } li { margin: .35rem 0; color: var(--muted); } li b { color: var(--text); font-weight: 600; }
+  pre { background: var(--bg2); border: 1px solid var(--line); padding: var(--s3) var(--s4); border-radius: var(--r-sm); overflow-x: auto; margin: var(--s3) 0 0; white-space: pre; color: var(--text); }
+  .note { border-left: 2px solid var(--accent); padding: .2rem 0 .2rem var(--s3); color: var(--muted); font-size: .94rem; margin-top: var(--s3); }
+
+  footer { border-top: 1px solid var(--line); background: var(--bg2); color: var(--muted); font-size: .92rem; padding: var(--s6) 0 calc(var(--s6) + env(safe-area-inset-bottom, 0px)); }
+  footer p { max-width: 70ch; }
+
+  @media (max-width: 900px) { .apps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) {
+    .apps { grid-template-columns: minmax(0, 1fr); }
+    header.top nav { margin-left: 0; gap: var(--s4); }
+    .cmd { grid-template-columns: minmax(0, 1fr); }
+    .cmd .btn { width: 100%; }
+    .app, .plat { padding-left: var(--s4); padding-right: var(--s4); }
+  }
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap"><a class="logo" href="./"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg>Motion Audio</a><nav><a href="#linux">Install on Linux</a><a href="#first-run">Opening it the first time</a><a href="#pi">Raspberry Pi</a></nav></div></header>
-<div class="stage"><div class="wrap">
-  <div>
-    <h1>Download the Central apps</h1>
-    <p class="lead">Five apps for a worship team. <b>Central Pedal</b> is the Raspberry Pi on stage: pads, multitracks, click, the guitar and keys rig. <b>Central Pedal Control</b> gets it ready from any computer, tablet or phone. <b>Central Control</b> runs the team from the main admin's computer: lights, slides, lyrics, cameras, in-ears, tracks and mixing. <b>Central Usage</b> is the musicians' app: the chord chart, the instrument, the lyrics and your in-ear mix. <b>Central Services</b> is the church's schedule: who serves when, and everyone's yes or no.</p>
-    <span class="ver" id="ver">Finding the newest version…</span>
-  </div>
+<header class="top"><div class="wrap">
+  <a class="logo" href="./"><svg viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M6,80 C24,80 22.2,20 36,20 C49.8,20 48,80 66,80"/><path d="M34,80 C52,80 50.2,20 64,20 C77.8,20 76,80 94,80"/></g></svg>Motion Audio</a>
+  <nav><a href="#apps">The apps</a><a href="#first-run">Opening it the first time</a><a href="#pedal">Central Pedal</a><a class="site" data-site="/" href="https://motion-audio.onrender.com/">Buy keys</a></nav>
+</div></header>
 
-  <div class="hero" id="hero">
-    <div class="card"><div class="who">On stage</div><img class="app-icon" src="brand/tile/central-pedal.svg" alt="" width="56" height="56"><h2>Central Pedal</h2><p class="muted">Raspberry Pi</p><a class="btn primary" href="#pi">Raspberry Pi steps</a></div>
-    <div class="card"><div class="who">Getting ready</div><img class="app-icon" src="brand/tile/central-pedal-control.svg" alt="" width="56" height="56"><h2>Central Pedal Control</h2><p class="muted" id="heroPcText">Mac · Windows · Linux · iPad · iPhone · Android</p><a class="btn primary" id="heroPc" href="#pedal-control">Download</a></div>
-    <div class="card"><div class="who">Admins</div><img class="app-icon" src="brand/tile/central-control.svg" alt="" width="56" height="56"><h2>Central Control</h2><p class="muted" id="heroCuText">Windows · Mac · Linux</p><a class="btn primary" id="heroCu" href="#control">Download</a></div>
-    <div class="card"><div class="who">Musicians</div><img class="app-icon" src="brand/tile/central-usage.svg" alt="" width="56" height="56"><h2>Central Usage</h2><p class="muted" id="heroUsText">Mac · Windows · Linux · Android · iPhone · iPad</p><a class="btn primary" id="heroUs" href="#usage">Download</a></div>
-    <div class="card"><div class="who">Everyone</div><img class="app-icon" src="brand/tile/central-services.svg" alt="" width="56" height="56"><h2>Central Services</h2><p class="muted" id="heroCsText">Mac · Windows · Linux · Android · iPhone · iPad</p><a class="btn primary" id="heroCs" href="#central-services">Download</a></div>
+<div class="intro"><div class="wrap">
+  <h1>Download Central</h1>
+  <p class="lede">These are the apps that go with the pedal. They're free to download, so grab whichever ones your team needs. If an app needs a key, it'll ask the first time you open it. Your keys are in your email and on your account page on the <a class="site" data-site="/" href="https://motion-audio.onrender.com/">Motion Audio website</a>.</p>
+  <span class="ver" id="ver">Looking for the newest version…</span>
+
+  <div class="apps" id="apps">
+    <div class="app">
+      <img src="brand/tile/central-pedal.svg" alt="" width="52" height="52">
+      <div class="who">On the floor</div><h2>Central Pedal</h2>
+      <p>There's nothing to download for the pedal. It arrives with its software on it and updates itself.</p>
+      <div class="runs">Raspberry Pi inside the pedal</div>
+      <a class="btn primary" href="#pedal">Setting up a new pedal</a>
+    </div>
+    <div class="app">
+      <img src="brand/tile/central-pedal-control.svg" alt="" width="52" height="52">
+      <div class="who">Getting ready at home</div><h2>Central Pedal Control</h2>
+      <p>Build the setlist and the pads, then send it all to the pedal.</p>
+      <div class="runs" id="runs-pedal-control">Windows, Mac, Linux and Android</div>
+      <a class="btn primary" id="hero-pedal-control" href="#pedal-control">Download</a>
+      <a class="more" href="#pedal-control">Other downloads</a>
+    </div>
+    <div class="app">
+      <img src="brand/tile/central-control.svg" alt="" width="52" height="52">
+      <div class="who">At the desk</div><h2>Central Control</h2>
+      <p>Runs the lights, lyrics, cameras and in-ear mixes from the computer at the back.</p>
+      <div class="runs" id="runs-control">Windows, Mac and Linux</div>
+      <a class="btn primary" id="hero-control" href="#control">Download</a>
+      <a class="more" href="#control">Other downloads</a>
+    </div>
+    <div class="app">
+      <img src="brand/tile/central-usage.svg" alt="" width="52" height="52">
+      <div class="who">For each musician</div><h2>Central Usage</h2>
+      <p>Your chart and your own in-ear mix, plus an instrument if you play one through it.</p>
+      <div class="runs" id="runs-usage">Windows, Mac, Linux, Android, iPhone and iPad</div>
+      <a class="btn primary" id="hero-usage" href="#usage">Download</a>
+      <a class="more" href="#usage">Other downloads</a>
+    </div>
+    <div class="app">
+      <img src="brand/tile/central-services.svg" alt="" width="52" height="52">
+      <div class="who">For the whole team</div><h2>Central Services</h2>
+      <p>See who's serving this week and say yes or no from your phone.</p>
+      <div class="runs" id="runs-services">Windows, Mac, Linux and Android</div>
+      <a class="btn primary" id="hero-services" href="#services">Download</a>
+      <a class="more" href="#services">Other downloads</a>
+    </div>
+    <div class="app">
+      <img src="brand/tile/central-production.svg" alt="" width="52" height="52">
+      <div class="who">Making your own sounds</div><h2>Central Production</h2>
+      <p>A free studio for recording songs and building pads and instruments.</p>
+      <div class="runs" id="runs-production">Windows, Mac and Linux</div>
+      <a class="btn primary" id="hero-production" href="#production">Download</a>
+      <a class="more" href="#production">Other downloads</a>
+    </div>
   </div>
 </div></div>
+
 <main class="wrap">
-  <section id="linux">
-    <h2>Install on Linux</h2>
-    <p class="muted">Open Terminal, paste the line for the app you want, and press Enter. It finds the newest version, checks the download, and installs it with everything it needs. The app then appears in your app menu and updates itself. Ubuntu, Debian, Mint and Pop!_OS get the .deb; any other Linux gets the AppImage. Central Pedal itself goes on the Raspberry Pi: see the <a href="#pi">Raspberry Pi steps</a>.</p>
-    <div class="grid">
-      <div class="card linux-line"><div class="lapp"><img src="brand/tile/central-pedal-control.svg" alt="" width="36" height="36"><div><b>Central Pedal Control</b><span>Getting the pedal ready</span></div></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control">Copy</button></div>
-      <div class="card linux-line"><div class="lapp"><img src="brand/tile/central-control.svg" alt="" width="36" height="36"><div><b>Central Control</b><span>The main admin and admins</span></div></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control">Copy</button></div>
-      <div class="card linux-line"><div class="lapp"><img src="brand/tile/central-usage.svg" alt="" width="36" height="36"><div><b>Central Usage</b><span>Musicians and singers</span></div></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage">Copy</button></div>
-      <div class="card linux-line"><div class="lapp"><img src="brand/tile/central-services.svg" alt="" width="36" height="36"><div><b>Central Services</b><span>The church's schedule</span></div></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services">Copy</button></div>
-    </div>
-  </section>
 
   <section id="pedal-control">
     <div class="sechead"><img src="brand/tile/central-pedal-control.svg" alt="" width="44" height="44"><h2>Central Pedal Control</h2></div>
-    <p class="muted">The Central Pedal app away from the pedal. Make the setlist and add songs: your own stems, a whole song split by the stem splitter, MultiTracks.com and Loop Community downloads, or Central Tracks. Set up the pads, footswitches, knobs and the instrument at home or in the office. Then press <b>⇪ Upload</b> and type the pedal's PIN, and it all goes to the Central Pedal on the church Wi-Fi. <b>⇩ Download</b> brings the pedal's setup back.</p>
-    <div class="grid">
-      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-pedal-control-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-pedal-control-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-pedal-control-*-win-x64.exe">Download <small>.exe</small></a></div>
-      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-pedal-control-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-pedal-control-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
-      <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="central-pedal-control-*-android.apk">Download <small>.apk</small></a></div>
-      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Coming to TestFlight and the App Store</p><a class="btn" aria-disabled="true">Soon</a></div>
-      <div class="card linux-line"><div><b>Linux, the easy way</b><span>Open Terminal, paste this, press Enter. It installs the newest version and everything it needs; then the app is in your app menu.</span></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control">Copy</button></div>
+    <p>This is where the week's prep happens, away from the pedal. Make the setlist and add songs, whether that's your own stems, a song you've split with the stem splitter, or tracks from Central Tracks. Set up the pads, the footswitches and the instrument. When you're done, press <b>Upload</b>, type the pedal's PIN, and it all goes to the pedal over the church Wi-Fi. <span class="key">Asks for a P key</span></p>
+    <div class="plats">
+      <div class="plat"><h3>Mac with Apple silicon</h3><p>M1 and newer</p><a class="btn" data-file="central-pedal-control-*-mac-arm64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat"><h3>Mac with Intel</h3><p>Most Macs from before 2021</p><a class="btn" data-file="central-pedal-control-*-mac-x64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-pedal-control-*-win-x64.exe" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.exe</small></a></div>
+      <div class="plat"><h3>Android</h3><p>Phones and tablets on Android 6 or newer</p><a class="btn" data-file="central-pedal-control-*-android.apk" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.apk</small></a></div>
+      <div class="plat"><h3>iPhone and iPad</h3><p>I haven't got it into the App Store yet. Until then, use it on a computer or an Android tablet.</p></div>
+      <div class="plat wide"><h3>Linux</h3><p>The easiest way is to open Terminal, paste this line and press Enter. It installs the newest version with what it needs, and the app shows up in your app menu.</p>
+        <div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control</code><button class="btn copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s pedal-control">Copy</button></div>
+        <p class="small">Or download it yourself: <a data-file="central-pedal-control-*-amd64.deb" href="https://github.com/MotionAudio/Central-Apps/releases/latest">.deb</a> for Ubuntu, Debian and Mint, or the <a data-file="central-pedal-control-*-x86_64.AppImage" href="https://github.com/MotionAudio/Central-Apps/releases/latest">AppImage</a> for any other Linux.</p></div>
     </div>
-    <p class="muted"><small>The stem splitter and MP3 practice mixes run on a computer (or on the Central Pedal); on a phone or tablet everything else works.</small></p>
+    <p class="small">The stem splitter and the MP3 practice mixes need a computer. Everything else works on a phone or tablet too.</p>
   </section>
 
   <section id="control">
     <div class="sechead"><img src="brand/tile/central-control.svg" alt="" width="44" height="44"><h2>Central Control</h2></div>
-    <p class="muted">For the main admin (usually the sound desk) and the admins: lighting, cameras, slides and lyrics, in-ear mixes, the tracks, mixing and talkback. The main admin's copy is the center of the team, and with no Central Pedal it plays the tracks, charts and lyrics itself (its player window).</p>
-    <div class="grid">
-      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="CentralControl-*-win-x64.exe">Download <small>.exe</small></a></div>
-      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="CentralControl-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="CentralControl-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="CentralControl-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="CentralControl-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
-      <div class="card linux-line"><div><b>Linux, the easy way</b><span>Open Terminal, paste this, press Enter. It installs the newest version and everything it needs; then the app is in your app menu.</span></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control">Copy</button></div>
+    <p>Central Control runs the room from the desk. It handles lighting, cameras, slides and lyrics, the in-ear mixes, the tracks and talkback. The main admin's computer is the hub the other apps connect to. If you don't have a Central Pedal, it plays the tracks, charts and lyrics itself from its player window. <span class="key">Asks for an A key</span></p>
+    <div class="plats">
+      <div class="plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="CentralControl-*-win-x64.exe" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.exe</small></a></div>
+      <div class="plat"><h3>Mac with Apple silicon</h3><p>M1 and newer</p><a class="btn" data-file="CentralControl-*-mac-arm64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat"><h3>Mac with Intel</h3><p>Most Macs from before 2021</p><a class="btn" data-file="CentralControl-*-mac-x64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat wide"><h3>Linux</h3><p>Open Terminal, paste this line and press Enter. The app shows up in your app menu when it's done.</p>
+        <div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control</code><button class="btn copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s control">Copy</button></div>
+        <p class="small">Or download it yourself: <a data-file="CentralControl-*-amd64.deb" href="https://github.com/MotionAudio/Central-Apps/releases/latest">.deb</a> for Ubuntu, Debian and Mint, or the <a data-file="CentralControl-*-x86_64.AppImage" href="https://github.com/MotionAudio/Central-Apps/releases/latest">AppImage</a> for any other Linux.</p></div>
     </div>
   </section>
 
   <section id="usage">
     <div class="sechead"><img src="brand/tile/central-usage.svg" alt="" width="44" height="44"><h2>Central Usage</h2></div>
-    <p class="muted">For the musicians and singers (User 1 / User 2): the chord chart for your instrument, the lyrics, the instrument rig (with your own VST3, CLAP, Audio Unit and LV2 plugins) and your own in-ear mix. It all comes from the main admin's computer on the Wi-Fi.</p>
-    <div class="grid">
-      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="CentralUsage-*-win-x64.exe">Download <small>.exe</small></a></div>
-      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="CentralUsage-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="CentralUsage-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="CentralUsage-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="CentralUsage-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
-      <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="CentralUsage-*.apk">Download <small>.apk</small></a></div>
-      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Add it from Safari today; the App Store app is coming</p><a class="btn" href="#ios">How to add it</a></div>
-      <div class="card linux-line"><div><b>Linux, the easy way</b><span>Open Terminal, paste this, press Enter. It installs the newest version and everything it needs; then the app is in your app menu.</span></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage">Copy</button></div>
+    <p>Central Usage is the musicians' app. Each person gets the chart for their instrument, the lyrics, and their own in-ear mix. On a computer it can also run an instrument rig with the plugins you already own, in VST3, CLAP, Audio Units or LV2. It all comes from the main admin's computer over the Wi-Fi. <span class="key">Asks for a U key</span></p>
+    <div class="plats">
+      <div class="plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="CentralUsage-*-win-x64.exe" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.exe</small></a></div>
+      <div class="plat"><h3>Mac with Apple silicon</h3><p>M1 and newer</p><a class="btn" data-file="CentralUsage-*-mac-arm64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat"><h3>Mac with Intel</h3><p>Most Macs from before 2021</p><a class="btn" data-file="CentralUsage-*-mac-x64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat"><h3>Android</h3><p>Phones and tablets on Android 6 or newer</p><a class="btn" data-file="CentralUsage-*.apk" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.apk</small></a></div>
+      <div class="plat"><h3>iPhone and iPad</h3><p>It's not in the App Store yet, but you can add it from Safari.</p><a class="btn" href="#ios">How to add it</a></div>
+      <div class="plat wide"><h3>Linux</h3><p>Open Terminal, paste this line and press Enter. The app shows up in your app menu when it's done.</p>
+        <div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage</code><button class="btn copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s usage">Copy</button></div>
+        <p class="small">Or download it yourself: <a data-file="CentralUsage-*-amd64.deb" href="https://github.com/MotionAudio/Central-Apps/releases/latest">.deb</a> for Ubuntu, Debian and Mint, or the <a data-file="CentralUsage-*-x86_64.AppImage" href="https://github.com/MotionAudio/Central-Apps/releases/latest">AppImage</a> for any other Linux.</p></div>
     </div>
   </section>
 
-  <section id="central-services">
+  <section id="services">
     <div class="sechead"><img src="brand/tile/central-services.svg" alt="" width="44" height="44"><h2>Central Services</h2></div>
-    <p class="muted">The church's schedule. Sign in with the account from your church's invite and the app knows who you are: the main admin and admins open on the whole schedule (and the schedulers make services and ask people), users open on their own requests and tap yes or no. Everyone sees every worship and production team, each person's role, and who said yes. Your church gets it on the Motion Audio website: every pack comes with slots for your team, or add them for $5 a person, once.</p>
-    <div class="grid">
-      <div class="card plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-services-*-win-x64.exe">Download <small>.exe</small></a></div>
-      <div class="card plat"><h3>Mac · Apple Silicon</h3><p>M1, M2, M3, M4 and newer</p><a class="btn" data-file="central-services-*-mac-arm64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Mac · Intel</h3><p>Macs from before 2021</p><a class="btn" data-file="central-services-*-mac-x64.dmg">Download <small>.dmg</small></a></div>
-      <div class="card plat"><h3>Linux</h3><p>Ubuntu / Debian, or any Linux</p><a class="btn" data-file="central-services-*-amd64.deb">Download <small>.deb</small></a><a class="btn" data-file="central-services-*-x86_64.AppImage">Download <small>AppImage</small></a></div>
-      <div class="card plat"><h3>Android</h3><p>Phones and tablets, Android 6 or newer</p><a class="btn" data-file="central-services-*-android.apk">Download <small>.apk</small></a></div>
-      <div class="card plat"><h3>iPhone &amp; iPad</h3><p>Coming to TestFlight and the App Store</p><a class="btn" aria-disabled="true">Soon</a></div>
-      <div class="card linux-line"><div><b>Linux, the easy way</b><span>Open Terminal, paste this, press Enter. It installs the newest version and everything it needs; then the app is in your app menu.</span></div><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services</code><button class="btn primary copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services">Copy</button></div>
+    <p>This is your church's schedule. Sign in with the account from your church's invite. Admins open on the whole schedule, where schedulers make services and ask people to serve. Everyone else opens on their own requests and taps yes or no. Your church gets it through the website, and each person on your teams takes one slot. <span class="key">No key, just your account</span></p>
+    <div class="plats">
+      <div class="plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-services-*-win-x64.exe" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.exe</small></a></div>
+      <div class="plat"><h3>Mac with Apple silicon</h3><p>M1 and newer</p><a class="btn" data-file="central-services-*-mac-arm64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat"><h3>Mac with Intel</h3><p>Most Macs from before 2021</p><a class="btn" data-file="central-services-*-mac-x64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat"><h3>Android</h3><p>Phones and tablets on Android 6 or newer</p><a class="btn" data-file="central-services-*-android.apk" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.apk</small></a></div>
+      <div class="plat"><h3>iPhone and iPad</h3><p>Not in the App Store yet. Your schedule is on the website in the meantime.</p><a class="btn site" data-site="/services/" href="https://motion-audio.onrender.com/services/">Open it on the website</a></div>
+      <div class="plat wide"><h3>Linux</h3><p>Open Terminal, paste this line and press Enter. The app shows up in your app menu when it's done.</p>
+        <div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services</code><button class="btn copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s services">Copy</button></div>
+        <p class="small">Or download it yourself: <a data-file="central-services-*-amd64.deb" href="https://github.com/MotionAudio/Central-Apps/releases/latest">.deb</a> for Ubuntu, Debian and Mint, or the <a data-file="central-services-*-x86_64.AppImage" href="https://github.com/MotionAudio/Central-Apps/releases/latest">AppImage</a> for any other Linux.</p></div>
+    </div>
+  </section>
+
+  <section id="production">
+    <div class="sechead"><img src="brand/tile/central-production.svg" alt="" width="44" height="44"><h2>Central Production</h2></div>
+    <p>Central Production is a free studio for making your own sounds. Record a song, build a pad or an instrument from a few samples, or put together your own reverb. Then use it in your apps, or sell it on Make &amp; sell. If you have a sound plan, the better sounds show up inside it. <span class="key">Free, no key</span></p>
+    <div class="plats">
+      <div class="plat"><h3>Windows</h3><p>Windows 10 or 11, 64-bit</p><a class="btn" data-file="central-production-*-win-x64.exe" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.exe</small></a></div>
+      <div class="plat"><h3>Mac with Apple silicon</h3><p>M1 and newer</p><a class="btn" data-file="central-production-*-mac-arm64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat"><h3>Mac with Intel</h3><p>Most Macs from before 2021</p><a class="btn" data-file="central-production-*-mac-x64.dmg" href="https://github.com/MotionAudio/Central-Apps/releases/latest">Download <small>.dmg</small></a></div>
+      <div class="plat"><h3>In your browser</h3><p>There's a studio on the website too, if you can't install anything.</p><a class="btn site" data-site="/studio/" href="https://motion-audio.onrender.com/studio/">Open the browser studio</a></div>
+      <div class="plat wide"><h3>Linux</h3><p>Open Terminal, paste this line and press Enter. The app shows up in your app menu when it's done.</p>
+        <div class="cmd"><code>curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s production</code><button class="btn copy" type="button" data-copy="curl -fsSL https://motionaudio.github.io/Central-Apps/install.sh | bash -s production">Copy</button></div>
+        <p class="small">Or download it yourself: <a data-file="central-production-*-amd64.deb" href="https://github.com/MotionAudio/Central-Apps/releases/latest">.deb</a> for Ubuntu, Debian and Mint, or the <a data-file="central-production-*-x86_64.AppImage" href="https://github.com/MotionAudio/Central-Apps/releases/latest">AppImage</a> for any other Linux.</p></div>
     </div>
   </section>
 
   <section id="first-run">
     <h2>Opening it the first time</h2>
-    <p class="muted">The apps are free and not signed with a paid Apple / Microsoft / Google certificate, so the device asks once.</p>
-    <details open><summary>Windows: “Windows protected your PC”</summary>
+    <p>The apps aren't signed with a paid Apple or Microsoft certificate yet, so your computer will ask once before it opens one. Here's what to press.</p>
+    <details open><summary>Windows says "Windows protected your PC"</summary>
       <ol><li>Click <b>More info</b>.</li><li>Click <b>Run anyway</b>. It installs and opens by itself.</li></ol>
     </details>
-    <details><summary>Mac: “can't be opened” / “Apple could not verify…”</summary>
+    <details><summary>Mac says it can't be opened, or Apple couldn't check it</summary>
       <ol><li>Open the <code>.dmg</code> and drag the app into <b>Applications</b>.</li>
-        <li>Open the app once - the Mac refuses. Click <b>Done</b>.</li>
-        <li>Open <b>System Settings → Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b> next to the app's name, then confirm.</li>
-        <li>When it asks to use the microphone, allow it (the audio interface, the in-ears, the tuner and the instrument need it).</li></ol>
-      <p class="note">If the Mac says the app “is damaged”, open Terminal and run the line for that app:</p>
-      <pre>xattr -dr com.apple.quarantine "/Applications/Central Control.app"         # Central Control
-xattr -dr com.apple.quarantine "/Applications/CentralUsage.app"            # Central Usage
-xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"   # Central Pedal Control</pre>
+        <li>Open the app. The Mac will refuse the first time, so click <b>Done</b>.</li>
+        <li>Go to <b>System Settings → Privacy &amp; Security</b>, scroll down, click <b>Open Anyway</b> next to the app's name and confirm.</li>
+        <li>When it asks to use the microphone, say yes. Your audio interface, the tuner and the instrument need it.</li></ol>
+      <p class="note">If the Mac says the app is damaged, open Terminal and run the line for that app.</p>
+      <pre>xattr -dr com.apple.quarantine "/Applications/Central Control.app"
+xattr -dr com.apple.quarantine "/Applications/CentralUsage.app"
+xattr -dr com.apple.quarantine "/Applications/Central Pedal Control.app"
+xattr -dr com.apple.quarantine "/Applications/Central Services.app"
+xattr -dr com.apple.quarantine "/Applications/Central Production.app"</pre>
     </details>
-    <details><summary>Android: “install unknown apps”</summary>
-      <ol><li>Open the downloaded <code>.apk</code> (Downloads, or the browser's notification).</li>
-        <li>Android asks to allow installs from your browser: <b>Settings</b> → turn on <b>Allow from this source</b> → back → <b>Install</b>.</li>
-        <li>Open the app on the church Wi-Fi. <b>Central Usage</b>: tap <b>Find the main admin</b>. <b>Central Pedal Control</b>: set up your songs, then <b>⇪ Upload</b> to the pedal.</li></ol>
+    <details><summary>Android asks about installing unknown apps</summary>
+      <ol><li>Open the <code>.apk</code> you downloaded, from Downloads or the browser's notification.</li>
+        <li>Android asks if your browser can install apps. Tap <b>Settings</b>, turn on <b>Allow from this source</b>, go back and tap <b>Install</b>.</li>
+        <li>Open the app while you're on the church Wi-Fi. In Central Usage, tap <b>Find the main admin</b>.</li></ol>
     </details>
     <details><summary>Linux</summary>
-      <ol><li><b>The easy way</b>: open <b>Terminal</b>, paste the line from the app's Linux card above, press Enter and type your password when it asks. It installs the newest version with everything the app needs, and the app is in your app menu. Run the same line again any time to reinstall. (Ubuntu, Debian, Mint, Pop!_OS and the like get the .deb; any other Linux gets the AppImage with a menu entry.)</li>
-        <li><b>.deb by hand</b>: <code>sudo apt install ./&lt;the file&gt;.deb</code> (the <code>./</code> matters). Each app installs next to the others.</li>
-        <li><b>AppImage by hand</b>: right-click → Properties → Permissions → <b>Allow executing file as program</b>, then double-click.</li></ol>
+      <ol><li>The one-line install under each app is the easy way. Type your password when it asks. You can run the same line again later to reinstall.</li>
+        <li>To install a .deb yourself, run <code>sudo apt install ./&lt;the file&gt;.deb</code>. The <code>./</code> matters.</li>
+        <li>For an AppImage, right-click it, go to Properties → Permissions, turn on <b>Allow executing file as program</b>, then double-click it.</li></ol>
     </details>
+    <p class="small">Once they're installed, the apps keep themselves up to date. You don't need to come back here for new versions.</p>
   </section>
 
   <section id="ios">
-    <h2>iPhone &amp; iPad (Central Usage)</h2>
-    <div class="card">
+    <h2>Central Usage on iPhone and iPad</h2>
+    <p>The App Store app isn't out yet. You can still use Central Usage from Safari, and it opens full screen like an app.</p>
+    <div class="panel">
       <ol><li>Join the same Wi-Fi as the main admin's computer.</li>
-        <li>In <b>Safari</b>, open <code>http://&lt;main admin&gt;:8095/cu/</code>. The address is in the main admin's Central Control → Settings → This computer. (With a Central Pedal, <code>http://padpedal.local:8080/cu/</code> works too.)</li>
+        <li>In <b>Safari</b>, go to <code>http://&lt;main admin&gt;:8095/cu/</code>. The main admin can find the address in Central Control under Settings → This computer. If you have a Central Pedal, <code>http://padpedal.local:8080/cu/</code> works too.</li>
         <li>Pick <b>User 1</b> or <b>User 2</b> and type the main admin's pairing PIN.</li>
-        <li>Tap <b>Share</b> → <b>Add to Home Screen</b>. It opens full screen like an app and always has the newest version.</li></ol>
-      <p class="muted"><small>The Central Usage and Central Pedal Control apps for iPhone / iPad come through TestFlight and the App Store once the church's Apple Developer account is set up.</small></p>
+        <li>Tap <b>Share</b> → <b>Add to Home Screen</b>. It'll always open the newest version.</li></ol>
     </div>
   </section>
 
-  <section id="pi">
-    <div class="sechead"><img src="brand/tile/central-pedal.svg" alt="" width="44" height="44"><h2>Raspberry Pi (Central Pedal)</h2></div>
-    <details open><summary>Already running Central Pedal</summary>
-      <p>Nothing to download: connect it to the internet, open <b>Settings</b>, and press <b>Install</b> when <b>Update ready</b> appears. Your songs and settings stay. No internet there? Put <a data-file="central-control-source.zip" class="inline">central-control-source.zip</a> on a USB stick and use <b>Settings → Update software from USB…</b>.</p>
+  <section id="pedal">
+    <div class="sechead"><img src="brand/tile/central-pedal.svg" alt="" width="44" height="44"><h2>Central Pedal</h2></div>
+    <p>We test each pedal before it ships, and it arrives with its card in and its software on it. You don't need to download or flash anything.</p>
+    <details open><summary>Starting a new pedal</summary>
+      <ol><li>Plug in the power and your audio outputs.</li>
+        <li>On your phone, join the Wi-Fi called <b>Central Pedal Setup</b>. The setup page opens by itself. If it doesn't, go to <code>http://10.42.0.1</code>.</li>
+        <li>Pick the church Wi-Fi and type its password.</li>
+        <li>Type a 4-digit code. If you use Central Control, use the main admin's code. If not, any 4 digits will do, and Central Pedal Control will use the same one.</li>
+        <li>Tap <b>Upload</b>. The pedal joins your Wi-Fi and it's ready to play.</li></ol>
     </details>
-    <details open><summary>Starting a new Central Pedal</summary>
-      <p>It arrives with its card in, tested. Plug in the power and your outputs, then on your phone connect to the Wi-Fi <b>Central Pedal Setup</b>: the setup page opens by itself (or go to <code>http://10.42.0.1</code>). Pick the church Wi-Fi, type its password and a 4-digit code (the main admin's if you use Central Control, otherwise any 4 digits - Central Pedal Control uses the same code), then <b>Upload</b>. The pedal joins the Wi-Fi and is ready.</p>
+    <details><summary>Updating a pedal you already have</summary>
+      <p>Connect it to the internet and open <b>Settings</b>. When <b>Update ready</b> shows up, press <b>Install</b>. Your songs and settings stay as they are.</p>
+      <p>If there's no internet where the pedal is, download <a data-file="central-control-source.zip" href="https://github.com/MotionAudio/Central-Apps/releases/latest">central-control-source.zip</a>, put it on a USB stick and use <b>Settings → Update software from USB…</b>.</p>
     </details>
   </section>
 
 </main>
 <footer><div class="wrap">
-    <p>Installed apps keep themselves up to date. Questions? Write to Motion Audio support from any app (Help → Contact technical support).</p>
+  <p>Keys, packs, the pedal and sound plans are on the <a class="site" data-site="/" href="https://motion-audio.onrender.com/">Motion Audio website</a>, along with the <a class="site" data-site="/help/" href="https://motion-audio.onrender.com/help/">help guides</a>. If something isn't working, write to us from any app under Help → Contact technical support, or <a class="site" data-site="/#support" href="https://motion-audio.onrender.com/#support">from the website</a>.</p>
 </div></footer>
 <script>
 (function () {
   "use strict";
+  // The Motion Audio website. Every "buy" and help link on this page points there (the hrefs above are the same address,
+  // so the page still works with JavaScript off). If the website moves, change it here and in the hrefs.
+  var SITE = "https://motion-audio.onrender.com";
   var REPO = "MotionAudio/Central-Apps", RELEASES = "https://github.com/" + REPO + "/releases/latest";
+  document.querySelectorAll("[data-site]").forEach(function (a) { a.href = SITE.replace(/\/+$/, "") + a.dataset.site; });
+
   var ua = navigator.userAgent, plat = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? "ios" : /Android/.test(ua) ? "android" : /Windows/.test(ua) ? "win" : /Macintosh|Mac OS X/.test(ua) ? "mac" : /Linux|X11/.test(ua) ? "linux" : "other";
   function match(names, pattern) { var re = new RegExp("^" + pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*") + "$"); return names.filter(function (n) { return re.test(n); })[0] || null; }
-  function setHero(id, textId, href, label, text) { var a = document.getElementById(id); a.href = href; a.removeAttribute("aria-disabled"); a.innerHTML = label; if (text) document.getElementById(textId).textContent = text; }
-  async function macArch() {   // Apple Silicon or Intel: the browser can tell through WebGL's renderer name (Safari / Chrome)
+  async function macArch() {   // Apple silicon or Intel: the browser can tell through WebGL's renderer name (Safari, Chrome)
     try { if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) { var h = await navigator.userAgentData.getHighEntropyValues(["architecture"]); if (h.architecture) return h.architecture === "arm" ? "arm64" : "x64"; } } catch (_) { }
     try { var gl = document.createElement("canvas").getContext("webgl"), ext = gl && gl.getExtension("WEBGL_debug_renderer_info"), r = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ""; if (/Apple M\d|Apple GPU/i.test(r)) return "arm64"; if (/Intel|AMD|Radeon|NVIDIA/i.test(r)) return "x64"; } catch (_) { }
     return "arm64";
   }
   document.querySelectorAll("[data-copy]").forEach(function (b) { b.addEventListener("click", function () { var t = b.dataset.copy, done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1800); }; if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () {}); else { var r = document.createRange(); r.selectNodeContents(b.previousElementSibling); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } }); });
+
+  // the six cards at the top: the file each app has for this device. prefix: the start of its file names; apk: its Android file
+  var APPS = [
+    { id: "pedal-control", prefix: "central-pedal-control-", apk: "central-pedal-control-*-android.apk" },
+    { id: "control", prefix: "CentralControl-", old: "central-usage-" },   // releases before 9.2.1 have Central Control as central-usage-*
+    { id: "usage", prefix: "CentralUsage-", apk: "CentralUsage-*.apk", ios: "#ios" },
+    { id: "services", prefix: "central-services-", apk: "central-services-*-android.apk" },
+    { id: "production", prefix: "central-production-" }
+  ];
+  function hero(id, href, label, runs) { var a = document.getElementById("hero-" + id); a.href = href; a.textContent = label; if (runs) document.getElementById("runs-" + id).textContent = runs; }
+
   fetch("https://api.github.com/repos/" + REPO + "/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
     .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(async function (rel) {
       var urls = {}; (rel.assets || []).forEach(function (a) { urls[a.name] = a.browser_download_url; }); var names = Object.keys(urls);
-      var v = (rel.tag_name || "").replace(/^v/, ""), ver = function (pat, re) { return (match(names, pat) || "").replace(re, "$1"); };
-      var cu = ver("CentralControl-*-win-x64.exe", /^CentralControl-([\d.]+)-.*$/) || ver("central-usage-*-win-x64.exe", /^central-usage-([\d.]+)-.*$/), us = ver("CentralUsage-*-win-x64.exe", /^CentralUsage-([\d.]+)-.*$/), cs = ver("central-services-*-amd64.deb", /^central-services-([\d.]+)-.*$/);
-      var same = [cu, us, cs].every(function (x) { return !x || x === v; });   // (from 9.0 every app has the same version)
-      document.getElementById("ver").textContent = (same ? "Version " + v : "Central Pedal " + v + (cu ? " · Central Control " + cu : "") + (us ? " · Central Usage " + us : "") + (cs ? " · Central Services " + cs : "")) + (rel.published_at ? " · " + new Date(rel.published_at).toLocaleDateString() : "");
-      // (releases before 9.2.1 have Central Control under its old file names, central-usage-*)
-      document.querySelectorAll("[data-file]").forEach(function (a) { var n = match(names, a.dataset.file) || (/^CentralControl-/.test(a.dataset.file) ? match(names, a.dataset.file.replace(/^CentralControl-/, "central-usage-")) : null); if (n) { a.href = urls[n]; a.title = n; a.removeAttribute("aria-disabled"); } else { a.setAttribute("aria-disabled", "true"); a.title = "Not in this release yet"; } });
-      var arch = plat === "mac" ? await macArch() : "x64", pc = "Download for Mac (" + (arch === "arm64" ? "Apple Silicon" : "Intel") + ")";
-      var pick = { win: ["*-win-x64.exe", "Download for Windows"], mac: ["*-mac-" + arch + ".dmg", pc], linux: ["*-amd64.deb", "Download for Linux (.deb)"] }[plat];
-      var cuFile = pick && (match(names, "CentralControl-" + pick[0]) || match(names, "central-usage-" + pick[0])); if (cuFile) setHero("heroCu", "heroCuText", urls[cuFile], pick[1]);
-      var usFile = plat === "android" ? match(names, "CentralUsage-*.apk") : pick && match(names, "CentralUsage-" + pick[0]);
-      if (usFile) setHero("heroUs", "heroUsText", urls[usFile], plat === "android" ? "Download for Android" : pick[1]);
-      else if (plat === "ios") setHero("heroUs", "heroUsText", "#ios", "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "From the main admin's computer on your Wi-Fi");
-      var pcFile = plat === "android" ? match(names, "central-pedal-control-*-android.apk") : pick && match(names, "central-pedal-control-" + pick[0]);
-      var csFile = plat === "android" ? match(names, "central-services-*-android.apk") : pick && match(names, "central-services-" + pick[0]);
-      if (csFile) setHero("heroCs", "heroCsText", urls[csFile], plat === "android" ? "Download for Android" : pick[1]); else if (plat === "ios") setHero("heroCs", "heroCsText", "#central-services", "Coming to the App Store");
-      if (pcFile) setHero("heroPc", "heroPcText", urls[pcFile], plat === "android" ? "Download for Android" : pick[1]); else if (plat === "ios") setHero("heroPc", "heroPcText", "#pedal-control", "Coming to the App Store");
+      var v = (rel.tag_name || "").replace(/^v/, "");
+      document.getElementById("ver").textContent = "Version " + v + (rel.published_at ? ", released " + new Date(rel.published_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : "");
+      document.querySelectorAll("[data-file]").forEach(function (a) {
+        var n = match(names, a.dataset.file) || (/^CentralControl-/.test(a.dataset.file) ? match(names, a.dataset.file.replace(/^CentralControl-/, "central-usage-")) : null);
+        if (n) { a.href = urls[n]; a.title = n; } else { a.href = RELEASES; a.title = "Not in this release. This opens the list of files."; }
+      });
+      var arch = plat === "mac" ? await macArch() : "x64";
+      var pick = { win: ["win-x64.exe", "Download for Windows"], mac: ["mac-" + arch + ".dmg", "Download for Mac (" + (arch === "arm64" ? "Apple silicon" : "Intel") + ")"], linux: ["amd64.deb", "Download for Linux (.deb)"] }[plat];
+      APPS.forEach(function (app) {
+        var file = null, label = "";
+        if (plat === "android") { file = app.apk ? match(names, app.apk) : null; label = "Download for Android"; }
+        else if (pick) { file = match(names, app.prefix + "*-" + pick[0]) || (app.old ? match(names, app.old + "*-" + pick[0]) : null); label = pick[1]; }
+        if (file) hero(app.id, urls[file], label);
+        else if (plat === "ios" && app.ios) hero(app.id, app.ios, "Add it to this " + (/iPad/.test(ua) || navigator.maxTouchPoints > 1 ? "iPad" : "iPhone"), "From Safari, on the same Wi-Fi as the desk");
+        else if (plat === "ios" || plat === "android") hero(app.id, "#" + app.id, "See the downloads");
+      });
     })
-    .catch(function (e) {
-      document.getElementById("ver").textContent = "We couldn't find the newest version just now. Please refresh the page in a minute.";
+    .catch(function () {
+      document.getElementById("ver").textContent = "Couldn't check for the newest version just now. The buttons below still work.";
+      APPS.forEach(function (app) { hero(app.id, RELEASES, "All downloads on GitHub"); });
+      document.querySelectorAll("[data-file]").forEach(function (a) { a.href = RELEASES; });
     });
 })();
 </script>

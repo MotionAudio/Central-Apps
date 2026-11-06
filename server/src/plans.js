@@ -72,10 +72,10 @@ async function insertKey(client, row) {
 export async function sendPackage(key, how) {
   const k = await findKey(key); if (!k || !k.holder_email) return { sent: false, why: "nobody to send it to" };
   const name = k.holder_name, what = planNames(k.plans), link = config.publicUrl + "/#purchases";
-  const lead = how === "bought" ? "Thanks for getting " + what + "! Here's your package key."
+  const lead = how === "bought" ? "Thanks for getting " + what + ". Here's your package key."
     : k.trial ? (k.church || "Your church") + "'s free trial includes " + what + " until " + day(k.ends) + ". Here's your package key."
     : (k.church || "Your church") + " gave you " + what + ". Here's your package key.";
-  const steps = "On any of your devices - Central Pedal, Central Pedal Control, Central Control or Central Usage - open Settings → Packages → Add a package, and paste it. It works on " + devicesRule() + ".";
+  const steps = "To use it, open Settings → Packages → Add a package and paste it in. That works in Central Pedal, Central Pedal Control, Central Control and Central Usage, on " + devicesRule() + ".";
   const text = "Hi" + (name ? " " + name : "") + ",\n\n" + lead + "\n\n    " + pretty(k.key) + "\n\n" + steps + "\n\n" + (k.trial ? "" : "It's yours until " + day(k.ends) + (k.sub_kind === "person" && !k.cancel_at_period_end ? ", and it renews by itself every year" : "") + ". ") + "It's always under your account icon → Purchases on the website, with the plan's sound library to download: " + link + "\n\nTalk soon,\nThe Motion Audio team\n";
   const html = '<div style="font:15px/1.5 system-ui,sans-serif;color:#10202e;max-width:520px"><p>Hi' + (name ? " " + escHtml(name) : "") + ",</p><p>" + escHtml(lead) + "</p>" +
     '<p><code style="font:600 20px ui-monospace,monospace;letter-spacing:.05em">' + escHtml(pretty(k.key)) + "</code></p><p>" + escHtml(steps) + "</p>" +

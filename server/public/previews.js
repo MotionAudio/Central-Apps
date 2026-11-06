@@ -35,7 +35,7 @@
       var txt = state === "load" ? "Loading…" : state === "on" ? "Stop " + clock(left) : state === "err" ? (b.getAttribute("data-pv-why") || "No preview yet") : label;
       b.innerHTML = '<span class="pv-ico" aria-hidden="true"></span><span>' + esc(txt) + '</span><span class="pv-bar" style="width:' + Math.round((frac || 0) * 100) + '%"></span>';
       b.setAttribute("aria-pressed", state === "on" || state === "load" ? "true" : "false");
-      b.title = state === "on" ? "Stop the preview" : "Hear 30 seconds of it (streams - nothing is downloaded)";
+      b.title = state === "on" ? "Stop the preview" : "Play 30 seconds. It streams, so nothing is downloaded";
     });
   }
   function stop() {
@@ -74,7 +74,7 @@
     if (!p || !p.url) return "";
     css();
     var playing = cur === p.url;
-    return '<button type="button" class="pv-btn ' + esc(cls || "small") + (playing ? " pv-on" : "") + '" data-pv="' + esc(p.url) + '" data-pv-label="' + esc(label || "Listen") + '" aria-pressed="' + (playing ? "true" : "false") + '" title="Hear 30 seconds of it (streams - nothing is downloaded)">' +
+    return '<button type="button" class="pv-btn ' + esc(cls || "small") + (playing ? " pv-on" : "") + '" data-pv="' + esc(p.url) + '" data-pv-label="' + esc(label || "Listen") + '" aria-pressed="' + (playing ? "true" : "false") + '" title="Play 30 seconds. It streams, so nothing is downloaded">' +
       '<span class="pv-ico" aria-hidden="true"></span><span>' + esc(playing ? "Stop" : (label || "Listen")) + '</span><span class="pv-bar"></span></button>';
   }
   // (a SoundFont keeps 19-20 characters of a preset name: "Concert Grand (Steinway B)" is "Concert Grand (Stei")

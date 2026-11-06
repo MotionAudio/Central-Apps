@@ -130,7 +130,7 @@ try {
     await p.evaluate(async () => { const all = [...document.querySelectorAll("#utilBgs img, #utilThemes img")]; all.forEach((i) => (i.loading = "eager")); await Promise.all(all.map((i) => i.decode().catch(() => {}))); });
     ok(await p.$$eval("#utilBgs img", (x) => x.length >= 8 && x.every((i) => i.complete && i.naturalWidth > 0)) && await p.$$eval("#utilThemes img", (x) => x.length >= 4 && x.every((i) => i.naturalWidth > 0)), "Central Utility's page shows its backgrounds and slide themes");
     await p.goto(base + "/sounds/keys/", { waitUntil: "networkidle" });
-    ok(await p.$$eval(".item", (x) => x.length) >= 8 && /Central Keys/.test(await p.textContent(".item .chip.plan")) && /Free/.test(await p.textContent(".free-list")), "Central Keys' page: its best sounds with a plan badge, and what's free");
+    ok(await p.$$eval(".item", (x) => x.length) >= 8 && /Central Keys/.test(await p.textContent(".item .chip.plan")) && await p.$eval(".free-list", (l) => /^Free/.test(l.previousElementSibling.textContent) && l.querySelectorAll(".chip.free").length >= 1), "Central Keys' page: its best sounds with a plan badge, and what's free");
     await p.goto(base + "/status/", { waitUntil: "networkidle" }); await p.waitForSelector(".svc");
     ok(await p.$$eval(".svc", (x) => x.length) === 5 && await p.$$eval(".svc .hist i", (x) => x.length) === 5 * 48, "the status page: five services, each with 24 hours of history");
     // phone: the Menu button opens the menus

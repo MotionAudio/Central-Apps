@@ -83,7 +83,7 @@ def footer():
     col = lambda title, links: f'<div><h4>{E(title)}</h4><ul>' + "".join(f'<li><a href="{h}">{E(t)}</a></li>' for t, h in links) + "</ul></div>"
     return f'''<footer class="on-stage site-foot"><div class="wrap">
   <div class="about"><a class="logo" href="/"><span style="color:var(--brass-hi)">{LOGO_SVG}</span>Motion Audio</a>
-    <p class="apps" data-edit="footer.about">Made for worship teams, by Motion Audio. Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services, Central Production and Central Tracks.</p>
+    <p class="apps" data-edit="footer.about">I make Central for church worship and production teams. If you've got a question or something isn't working, email us and we'll write back.</p>
     <a class="mail" href="mailto:{E(C.SUPPORT_EMAIL)}">{E(C.SUPPORT_EMAIL)}</a></div>
   {col("Apps", [(a["name"], app_href(a)) for a in C.APPS] + [("Compare the apps", "/apps/")])}
   {col("Sounds", [(p["name"], "/sounds/" + p["id"] + "/") for p in C.PLANS] + [(C.TRACKS["name"], "/sounds/tracks/")])}
@@ -163,7 +163,7 @@ def app_page(a):
     b = a["buy"]
     priced = not b.get("free")
     dl = "/production/" if a["slug"] == "production" else ("/apps/pedal/#buy" if a["slug"] == "pedal" else "/#downloads")
-    dl_text = {"pedal": "It ships ready, with its software on it. Updates install themselves.", "production": "Open it in your browser, or download it for Mac, Windows and Linux from Downloads."}.get(a["slug"], "Free to download for " + ", ".join(C.PLATFORMS[p] for p in a["platforms"]) + ". Type your key the first time it opens.")
+    dl_text = {"pedal": "It comes with its software already on it, and it updates itself.", "production": "Use it in your browser, or download it for Mac, Windows or Linux."}.get(a["slug"], "Free to download for " + ", ".join(C.PLATFORMS[p] for p in a["platforms"]) + ". The first time it opens, it asks for your key.")
     others = [x for x in C.APPS if x["slug"] != a["slug"]][:5]
     body = f'''<section class="page-hero on-stage"><div class="wrap hero2">
   <div>
@@ -172,25 +172,25 @@ def app_page(a):
     <h1 data-edit="app.{a["slug"]}.title">{E(a["tag"])}</h1>
     <p class="lede" data-edit="app.{a["slug"]}.lede">{E(a["lede"])}</p>
     <div class="chips" aria-label="Who it's for">{who}</div>
-    <div class="ctas">{"<span class=buybar>" + price_of(b["add"], PER.get(b["add"], "")) + "</span>" if priced else ""}{buy_button(a)}<a class="btn ghost" href="#features">Every feature</a></div>
+    <div class="ctas">{"<span class=buybar>" + price_of(b["add"], PER.get(b["add"], "")) + "</span>" if priced else ""}{buy_button(a)}<a class="btn ghost" href="#features">What it does</a></div>
     <p class="muted" style="margin-top:.8rem;font-size:.9rem">{E(b["note"])}</p>
   </div>
   <figure>{shot_img(a["shot"], lazy=False, priority=True)}</figure>
 </div></section>
 <section class="pg" id="features"><div class="wrap">
-  <div class="pg-head"><h2>Everything {E(a["name"])} does</h2><div class="toc" style="margin-top:0">{toc}</div></div>
+  <div class="pg-head"><h2>What {E(a["name"])} does</h2><div class="toc" style="margin-top:0">{toc}</div></div>
   <div class="feat-groups">{groups}</div>
 </div></section>
-{('<section class="pg band"><div class="wrap"><div class="pg-head"><h2>See it</h2><p>Screenshots from the real app.</p></div><div class="gallery" tabindex="0" aria-label="Screenshots">' + gallery + '</div></div></section>') if len(a["shots"]) > 1 else ""}
+{('<section class="pg band"><div class="wrap"><div class="pg-head"><h2>Screenshots</h2><p>These are from the real app, not mock-ups.</p></div><div class="gallery" tabindex="0" aria-label="Screenshots">' + gallery + '</div></div></section>') if len(a["shots"]) > 1 else ""}
 <section class="pg" id="buy"><div class="wrap">
   <div class="facts">
     <div class="fact"><h3>Who it's for</h3><div class="chips" style="margin:0">{"".join(f'<span class="chip">{E(w)}</span>' for w in a["who"])}</div><p class="muted">{E(WHO_LINE.get(a["slug"], ""))}</p></div>
     <div class="fact"><h3>Where it runs</h3><div class="chips" style="margin:0">{plats}</div><p class="muted">{E(dl_text)}</p><a class="btn ghost small" href="{dl}">{"Open it" if a["slug"] == "production" else "Downloads"}</a></div>
     <div class="fact"><h3>{"Get it" if priced else "It's free"}</h3>{("<div class=buybar>" + price_of(b["add"], PER.get(b["add"], "")) + "</div>") if priced else ""}<p class="muted">{E(b["note"])}</p><div style="display:flex;gap:.5rem;flex-wrap:wrap">{buy_button(a, "btn")}{'<a class="btn ghost" href="/pricing/#packsTop">Church packs</a>' if a["slug"] in ("control", "usage", "pedal-control", "services") else ""}</div></div>
   </div>
-  {f'<p class="muted" style="margin-top:1.4rem">The full manual: <a href="{a["manual"]}">{E(a["name"])} manual</a>. Questions? <a href="/help/">Help Center</a>.</p>' if a["manual"] else '<p class="muted" style="margin-top:1.4rem">Questions? <a href="/help/">Help Center</a>.</p>'}
+  {f'<p class="muted" style="margin-top:1.4rem">If you want every detail, there\'s a full <a href="{a["manual"]}">{E(a["name"])} manual</a>. Stuck on something? Try the <a href="/help/">Help Center</a>.</p>' if a["manual"] else '<p class="muted" style="margin-top:1.4rem">Stuck on something? Try the <a href="/help/">Help Center</a>.</p>'}
 </div></section>
-<section class="pg band"><div class="wrap"><div class="pg-head"><h2>The rest of the team</h2><p>Each app does one job well, and they work together on the same Wi-Fi.</p></div>
+<section class="pg band"><div class="wrap"><div class="pg-head"><h2>The other apps</h2><p>They're separate apps, but on the same Wi-Fi they find each other and share the work.</p></div>
   <div class="app-grid">{"".join(app_card(x) for x in others[:3])}</div><p style="margin-top:1rem"><a href="/apps/">Compare all six apps</a></p></div></section>'''
     OG_SHOT["app-" + a["slug"]] = a["shot"]
     page(f"apps/{a['slug']}/index.html", "app-" + a["slug"], f'{a["name"]}: {a["tag"].lower()} | Motion Audio', a["lede"][:155], body,
@@ -199,12 +199,12 @@ def app_page(a):
 
 
 WHO_LINE = {
-    "pedal": "Whoever plays pads and tracks: usually the worship leader or the keys player.",
+    "pedal": "Whoever plays the pads and tracks. That's usually the worship leader or the keys player.",
     "pedal-control": "Whoever gets the songs ready during the week, at home or at church.",
-    "control": "The main admin sets up the church; admins and production volunteers run the desk on Sunday.",
-    "usage": "Every musician and singer, on their own phone, tablet or computer.",
-    "services": "Everyone who serves: schedulers make the services and everyone answers on their phone.",
-    "production": "Anyone making tracks, pads, sounds or plugins, for your church or to sell.",
+    "control": "The main admin sets the church up. On Sunday, admins and production volunteers run the desk.",
+    "usage": "The musicians and singers, each on their own phone, tablet or computer.",
+    "services": "Anyone who serves. Schedulers set up the services, and everyone else answers from their phone.",
+    "production": "Anyone who wants to make tracks, pads, sounds or plugins, whether for your own church or to sell.",
 }
 
 
@@ -212,7 +212,7 @@ def slug(s): return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
 
 def app_card(a):
-    return f'''<a class="app-card" href="{app_href(a)}"><div class="shot">{shot_img(a["shot"])}</div><div class="in"><h3><img src="/brand/{a["icon"]}.svg" alt="">{E(a["name"])}</h3><span class="label">{E(a["tag"])}</span></div><p>{E(a["lede"])}</p><span class="go">See everything it does →</span></a>'''
+    return f'''<a class="app-card" href="{app_href(a)}"><div class="shot">{shot_img(a["shot"])}</div><div class="in"><h3><img src="/brand/{a["icon"]}.svg" alt="">{E(a["name"])}</h3><span class="label">{E(a["tag"])}</span></div><p>{E(a["lede"])}</p><span class="go">See what it does</span></a>'''
 
 
 def apps_hub():
@@ -221,24 +221,24 @@ def apps_hub():
     rows = "".join(f'<tr><th scope="row">{E(r[0])}</th>{"".join(f"<td>{mark(m)}</td>" for m in r[1])}</tr>' for r in C.COMPARE)
     body = f'''<section class="page-hero on-stage"><div class="wrap">
   <div class="crumbs"><span>Apps</span></div>
-  <h1 data-edit="apps.title">Six apps. One worship team.</h1>
-  <p class="lede" data-edit="apps.lede">The pedal plays, the desk runs the room, every musician has their own chart and mix, and everyone knows who's serving. Pick an app to see everything it does.</p>
+  <h1 data-edit="apps.title">The Central apps</h1>
+  <p class="lede" data-edit="apps.lede">There are six of them. The pedal plays the music and the desk runs the room. Musicians get their own chart and mix, Central Services keeps track of who's serving, and Central Production is where you make your own sounds. Pick one to see what it does.</p>
   <div class="ctas"><a class="btn brass" href="#compare">Which apps do we need?</a><a class="btn ghost" href="/pricing/">Pricing</a></div>
 </div></section>
 <section class="pg"><div class="wrap"><div class="app-grid">{"".join(app_card(a) for a in C.APPS)}</div></div></section>
 <section class="pg band" id="compare"><div class="wrap">
-  <div class="pg-head"><h2>Which apps does a church need?</h2><p>Most churches start with a church pack: Central Control for the desk, Central Usage for each musician, Central Pedal Control and Central Services slots. Add the pedal if you want pads and tracks at your feet.</p></div>
+  <div class="pg-head"><h2>Which apps does a church need?</h2><p>Most churches start with a church pack. It has Central Control for the desk, Central Usage for the musicians, a Central Pedal Control key and Central Services slots. If you want pads and tracks at your feet, add the pedal.</p></div>
   <div class="cmp-wrap" tabindex="0" role="region" aria-label="The apps compared"><table class="cmp"><thead><tr><th scope="col">What it does</th>{head}</tr></thead><tbody>{rows}</tbody></table></div>
   <div class="need" style="margin-top:1.5rem">
-    <div><h3>A small team</h3><p class="muted">A worship leader, a few musicians and one person at the desk.</p><ul><li>The Lite church pack</li><li>A Central Pedal for pads and tracks</li><li>Central Keys or Central Pads</li></ul><a class="btn ghost small" href="/pricing/#packsTop">See Lite</a></div>
-    <div><h3>A full band and production</h3><p class="muted">A band, singers, lights, lyrics, cameras and a stream.</p><ul><li>The Regular church pack</li><li>A Central Pedal</li><li>A church bundle of sound plans with Central Utility</li></ul><a class="btn ghost small" href="/pricing/#packsTop">See Regular</a></div>
-    <div><h3>More than one service</h3><p class="muted">Several teams, several services, a production company.</p><ul><li>The Plus or Ultra church pack</li><li>A pedal for each stage</li><li>Central Tracks Unlimited</li></ul><a class="btn ghost small" href="/pricing/#packsTop">See Plus and Ultra</a></div>
+    <div><h3>A small team</h3><p class="muted">A worship leader, a few musicians and someone at the desk.</p><ul><li>The Lite church pack</li><li>A Central Pedal for pads and tracks</li><li>Central Keys or Central Pads</li></ul><a class="btn ghost small" href="/pricing/#packsTop">See Lite</a></div>
+    <div><h3>A full band and production</h3><p class="muted">A full band and singers, with lights, cameras and a stream to run.</p><ul><li>The Regular church pack</li><li>A Central Pedal</li><li>A church bundle of sound plans with Central Utility</li></ul><a class="btn ghost small" href="/pricing/#packsTop">See Regular</a></div>
+    <div><h3>More than one service</h3><p class="muted">Several teams and services, or a production company working for more than one church.</p><ul><li>The Plus or Ultra church pack</li><li>A pedal for each stage</li><li>Central Tracks Unlimited</li></ul><a class="btn ghost small" href="/pricing/#packsTop">See Plus and Ultra</a></div>
   </div>
 </div></section>
-<section class="pg"><div class="wrap"><div class="pg-head"><h2>Manuals</h2><p>Every button, every screen, in plain words.</p></div>
-  <div class="hc-cats">{"".join(f'<a class="hc-cat" href="{a["manual"]}" style="text-decoration:none"><h3>{E(a["name"])} manual</h3><span class="muted">{E(a["tag"])}</span></a>' for a in C.APPS if a["manual"])}<a class="hc-cat" href="/help/install.html" style="text-decoration:none"><h3>Install the apps</h3><span class="muted">Every computer, phone and tablet</span></a></div></div></section>'''
+<section class="pg"><div class="wrap"><div class="pg-head"><h2>Manuals</h2><p>If you like to read the whole thing before you start, the manuals go through each screen.</p></div>
+  <div class="hc-cats">{"".join(f'<a class="hc-cat" href="{a["manual"]}" style="text-decoration:none"><h3>{E(a["name"])} manual</h3><span class="muted">{E(a["tag"])}</span></a>' for a in C.APPS if a["manual"])}<a class="hc-cat" href="/help/install.html" style="text-decoration:none"><h3>Install the apps</h3><span class="muted">Computers, phones and tablets</span></a></div></div></section>'''
     OG_SHOT["apps"] = "cc-lights"
-    page("apps/index.html", "apps", "The Central apps for worship teams | Motion Audio", "Central Pedal, Central Pedal Control, Central Control, Central Usage, Central Services and Central Production: what each does, who it's for and which ones a church needs.", body)
+    page("apps/index.html", "apps", "The Central apps for worship teams | Motion Audio", "What each of the six Central apps does, who it's for, and which ones a church actually needs.", body)
 
 
 # ------------------------------------------------------------------------------------------------------------- sounds
@@ -252,17 +252,17 @@ def pick_html(plan, k):
 def plan_page(p):
     pid = p["id"]
     hi = "".join(f"<li>{E(x)}</li>" for x in p["highlights"])
-    free = "".join(f'<span class="chip free">Free · {E(x)}</span>' for x in C.FREE.get(pid, []))
+    free = "".join(f'<span class="chip free">{E(x)}</span>' for x in C.FREE.get(pid, []))
     picks = "".join(pick_html(pid, k) for k in C.PICKS.get(pid, []))
     extra = ""
     if pid == "utility":
         bgs = json.load(open(os.path.join(PUB, "img", "utility", "utility.json"))) if os.path.exists(os.path.join(PUB, "img", "utility", "utility.json")) else {"backgrounds": [], "themes": []}
         th = lambda lst: "".join(f'<figure><img src="/img/utility/{E(x["file"])}" alt="{E(x["alt"])}" width="640" height="360" loading="lazy" decoding="async"><figcaption>{E(x["name"])}</figcaption></figure>' for x in lst)
         parts = "".join(f'<div class="fact"><h3>{E(t)}</h3><p class="muted">{E(d)}</p></div>' for t, d in C.UTILITY_PARTS)
-        extra = f'''<section class="pg band"><div class="wrap"><div class="pg-head"><h2>Backgrounds for the whole church year</h2><p>Moving and still, for lyrics, slides and the stream. These are drawn by the apps themselves, so they look sharp on any screen.</p></div><div class="thumbs" id="utilBgs">{th(bgs["backgrounds"])}</div></div></section>
-<section class="pg"><div class="wrap"><div class="pg-head"><h2>Slide themes and lower thirds</h2><p>Each season's background with a title, a verse and its reference, ready for Sunday.</p></div><div class="thumbs" id="utilThemes">{th(bgs["themes"])}</div></div></section>
+        extra = f'''<section class="pg band"><div class="wrap"><div class="pg-head"><h2>Backgrounds for the church year</h2><p>Put them behind lyrics, slides and the stream. The apps draw them as they play, so they stay sharp on any size of screen.</p></div><div class="thumbs" id="utilBgs">{th(bgs["backgrounds"])}</div></div></section>
+<section class="pg"><div class="wrap"><div class="pg-head"><h2>Slide themes and lower thirds</h2><p>Each one pairs a season's background with a title, a verse and its reference.</p></div><div class="thumbs" id="utilThemes">{th(bgs["themes"])}</div></div></section>
 <section class="pg band"><div class="wrap"><div class="pg-head"><h2>What's in Central Utility</h2></div><div class="facts">{parts}</div></div></section>'''
-    best = f'''<section class="pg"><div class="wrap"><div class="pg-head"><h2>Hear the best of it</h2><p>Each one plays 30 seconds, straight from the library. Nothing downloads.</p></div>
+    best = f'''<section class="pg"><div class="wrap"><div class="pg-head"><h2>Have a listen</h2><p>Each one plays a 30-second preview. Nothing gets downloaded.</p></div>
   <div class="items" data-plan-items="{E(pid)}">{picks}</div>
   <div class="listen-more" data-listall="{E(pid)}"></div></div></section>''' if picks else ""
     body = f'''<section class="page-hero on-stage"><div class="wrap">
@@ -270,12 +270,12 @@ def plan_page(p):
   <h1 data-edit="plan.{pid}.title">{E(p["name"])}</h1>
   <p class="lede" data-edit="plan.{pid}.lede">{E(p["lede"])}</p>
   <div class="ctas"><span class="buybar"><span class="price"><span data-price-of="plan-{E(pid)}">&nbsp;</span><small>a year</small></span></span><button class="btn brass" type="button" data-plan="{E(pid)}">Add to cart</button><a class="btn ghost" href="/pricing/#plans">Compare plans</a></div>
-  <p class="muted" style="margin-top:.8rem;font-size:.9rem">One package key by email. It works on three of your devices, each a different app.{" Every sound plan includes Central Pads." if pid not in ("pads", "utility") else ""}</p>
+  <p class="muted" style="margin-top:.8rem;font-size:.9rem">You get one package key by email. Use it on up to three of your devices, as long as each one is a different app.{" Central Pads comes with every sound plan." if pid not in ("pads", "utility") else ""}</p>
 </div></section>
 <section class="pg band"><div class="wrap"><div class="pg-head"><h2>What you get</h2></div><ul class="hl">{hi}</ul>
-  <h3 style="margin-top:1.8rem">Free in every app, no plan needed</h3><div class="free-list" style="margin-top:.7rem">{free}</div></div></section>
+  <h3 style="margin-top:1.8rem">Free, without a plan</h3><div class="free-list" style="margin-top:.7rem">{free}</div></div></section>
 {best}{extra}
-<section class="pg{" band" if not extra else ""}"><div class="wrap"><div class="buybar"><div><h2 style="font-size:1.5rem">{E(p["name"])}</h2><p class="muted">Or every plan, with Central Pads and Central Utility: <a href="/pricing/#plans">All plans</a>. For your whole team: <a href="/pricing/#bundlesTop">church bundles</a>.</p></div>
+<section class="pg{" band" if not extra else ""}"><div class="wrap"><div class="buybar"><div><h2 style="font-size:1.5rem">{E(p["name"])}</h2><p class="muted">Want more than one? <a href="/pricing/#plans">All plans</a> gets you every plan plus Central Pads and Central Utility, and <a href="/pricing/#bundlesTop">church bundles</a> cover your whole team.</p></div>
   <span class="price"><span data-price-of="plan-{E(pid)}">&nbsp;</span><small>a year</small></span><button class="btn" type="button" data-plan="{E(pid)}">Add to cart</button></div></div></section>'''
     OG_SHOT["sounds-" + pid] = {"keys": "cu-instrument", "instrument": "cu-instrument", "pads": "pedal-pads", "plugins": "pc-pads", "pedals": "pc-io", "utility": "cc-lyrics"}.get(pid, "")
     page(f"sounds/{pid}/index.html", "sounds-" + pid, f'{p["name"]}: {p["tag"].lower()} | Motion Audio', p["lede"][:155], body, scripts=["/sounds.js"])
@@ -288,14 +288,14 @@ def tracks_page():
   <h1 data-edit="tracksplan.title">{E(t["name"])}</h1>
   <p class="lede" data-edit="tracksplan.lede">{E(t["lede"])}</p>
   <div class="ctas"><span class="buybar"><span class="price"><span data-price-of="subscription">&nbsp;</span><small>a month</small></span></span><button class="btn brass" type="button" data-subscribe>Subscribe</button><a class="btn ghost" href="/#tracks">Search the library</a></div>
-  <p class="muted" style="margin-top:.8rem;font-size:.9rem">Cancel any time. Or buy only the tracks you need, from $5.</p>
+  <p class="muted" style="margin-top:.8rem;font-size:.9rem">Cancel whenever you like. If you only need a few songs, you can buy them one at a time from $5.</p>
 </div></section>
-<section class="pg"><div class="wrap"><div class="pg-head"><h2>Hymns we've arranged ourselves</h2><p>Multitracks with click and cues, in the keys congregations sing. Hear 30 seconds of each.</p></div>
+<section class="pg"><div class="wrap"><div class="pg-head"><h2>Hymns we've arranged</h2><p>Full multitracks with a click and cues, in keys a congregation can sing. Press play to hear 30 seconds of any of them.</p></div>
   <div class="hymns" id="hymnList"><p class="muted">Loading the hymns…</p></div></div></section>
 <section class="pg band"><div class="wrap"><div class="facts">
-  <div class="fact"><h3>Everything in the library</h3><p class="muted">Pads, multitracks, Prime tracks, sounds, pedal boards and click sets made by worship teams, each graded for sound quality.</p></div>
-  <div class="fact"><h3>Straight into your setlist</h3><p class="muted">In the apps: + Add songs → Central Tracks. It arrives with its chart and lyrics.</p></div>
-  <div class="fact"><h3>Made a great track?</h3><p class="muted">Publish it and keep 75% of every sale, plus a share of the subscriber pool.</p><a class="btn ghost small" href="/#publish">Publish a track</a></div>
+  <div class="fact"><h3>The whole library</h3><p class="muted">Pads, multitracks and Prime tracks from other worship teams, along with their sounds, pedal boards and click sets. We grade each one for sound quality.</p></div>
+  <div class="fact"><h3>Straight into your setlist</h3><p class="muted">In any of the apps, go to + Add songs → Central Tracks. The song arrives with its chart and lyrics.</p></div>
+  <div class="fact"><h3>Publish your own</h3><p class="muted">If you've recorded something good, publish it. You keep 75% of each sale, plus a share of the subscriber pool.</p><a class="btn ghost small" href="/#publish">Publish a track</a></div>
 </div></div></section>'''
     OG_SHOT["sounds-tracks"] = "pc-tracks"
     page("sounds/tracks/index.html", "sounds-tracks", f'{t["name"]}: every track, every month | Motion Audio', t["lede"][:155], body, scripts=["/sounds.js"])
@@ -303,45 +303,45 @@ def tracks_page():
 
 def sounds_hub():
     cards = "".join(f'<a class="plan-card" href="/sounds/{p["id"]}/"><span class="label">{E(p["tag"])}</span><h3>{E(p["name"])}</h3><span class="price"><span data-price-of="plan-{p["id"]}">&nbsp;</span> <small class="muted">a year</small></span><p>{E(p["lede"][:140].rsplit(" ", 1)[0])}…</p></a>' for p in C.PLANS)
-    cards += f'<a class="plan-card" href="/sounds/tracks/"><span class="label">{E(C.TRACKS["tag"])}</span><h3>{E(C.TRACKS["name"])}</h3><span class="price"><span data-price-of="subscription">&nbsp;</span> <small class="muted">a month</small></span><p>Pads, multitracks, Prime tracks and our own hymns, as many as you like.</p></a>'
+    cards += f'<a class="plan-card" href="/sounds/tracks/"><span class="label">{E(C.TRACKS["tag"])}</span><h3>{E(C.TRACKS["name"])}</h3><span class="price"><span data-price-of="subscription">&nbsp;</span> <small class="muted">a month</small></span><p>Add as many pads, multitracks and hymns as you like.</p></a>'
     cards += '<a class="plan-card" href="/pricing/#plans" style="background:var(--stage);color:var(--on-stage);border-color:var(--stage)"><span class="label" style="color:var(--brass-hi)">Best value</span><h3>All plans</h3><span class="price"><span data-price-of="plan-all">&nbsp;</span> <small style="color:var(--on-stage-2)">a year</small></span><p style="color:var(--on-stage-2)">Every sound plan with Central Pads and Central Utility, on one package key.</p></a>'
     sample = [("keys", C.PICKS["keys"][0]), ("pads", C.PICKS["pads"][0]), ("instrument", C.PICKS["instrument"][6]), ("pedals", C.PICKS["pedals"][0]), ("keys", C.PICKS["keys"][6]), ("pads", C.PICKS["pads"][4])]
     body = f'''<section class="page-hero on-stage"><div class="wrap">
   <div class="crumbs"><span>Sounds</span></div>
-  <h1 data-edit="sounds.title">Sounds and packs for every app</h1>
-  <p class="lede" data-edit="sounds.lede">Pianos, pads, instruments, effects, guitar pedals, backgrounds and a whole library of tracks. Every plan works in Central Usage, Central Control, Central Pedal Control and on the pedal. Hear them first.</p>
+  <h1 data-edit="sounds.title">Sounds and packs</h1>
+  <p class="lede" data-edit="sounds.lede">Better pianos, pads, instruments, effects and guitar pedals for the apps, plus backgrounds for the screens and a library of tracks. The plans work in Central Usage, Central Control, Central Pedal Control and on the pedal, and you can listen before you buy.</p>
   <div class="ctas"><a class="btn brass" href="#plans">See the plans</a><a class="btn ghost" href="/pricing/#helper">Which plan do I need?</a></div>
 </div></section>
 <section class="pg" id="plans"><div class="wrap"><div class="plan-grid">{cards}</div></div></section>
-<section class="pg band"><div class="wrap"><div class="pg-head"><h2>A few to hear</h2><p>30 seconds each, straight from the libraries.</p></div><div class="items">{"".join(pick_html(pl, k) for pl, k in sample)}</div></div></section>'''
+<section class="pg band"><div class="wrap"><div class="pg-head"><h2>A few to try</h2><p>Each one plays for 30 seconds.</p></div><div class="items">{"".join(pick_html(pl, k) for pl, k in sample)}</div></div></section>'''
     OG_SHOT["sounds"] = "cu-instrument"
     page("sounds/index.html", "sounds", "Sounds and packs: keys, instruments, pads, plugins, pedals | Motion Audio", "Central Keys, Central Instrument, Central Pads, Central Plugins, Central Pedals, Central Utility and Central Tracks Unlimited, with 30-second previews.", body, scripts=["/sounds.js"])
 
 
 # ------------------------------------------------------------------------------------------------------------- pricing
 STORE = '''<section id="store" class="pg" data-section="store"><div class="wrap">
-  <div class="pg-head"><h2 data-edit="store.title">Everything your team needs, nothing it doesn&rsquo;t</h2>
-    <p data-edit="store.lede">We build every pedal and ship it ready to play. Each app runs on a key you buy once, and every price includes tax. Got a discount or free-trial code? Pop it in the cart.</p></div>
+  <div class="pg-head"><h2 data-edit="store.title">Buying for a church</h2>
+    <p data-edit="store.lede">We build each pedal and send it out ready to play. The apps run on keys you buy once, and tax is included in the prices. If you have a discount or trial code, put it in the cart.</p></div>
   <nav class="store-nav" aria-label="Pricing">
     <a href="#packsTop">Church packs</a><a href="#plans">Sound plans</a><a href="#bundlesTop">Plans for your team</a><a href="#pedalTop">The pedal</a><a href="#rackTop">Apps one at a time</a><a href="#helper">Which plan?</a><a href="#faq">Questions</a>
   </nav>
-  <div class="packs-head" id="packsTop" data-section="packs"><div><h3 style="font-size:1.5rem" data-edit="packs.title">Packs for your whole team</h3><p style="margin-top:.35rem" data-edit="packs.lede">Your church's account holds every key and slot, and you hand them out from the Teams page. Each pack has a main admin, admins, users, Central Pedal Control and Central Services slots. The pedal is separate, so you can start with what you already have.</p></div></div>
+  <div class="packs-head" id="packsTop" data-section="packs"><div><h3 style="font-size:1.5rem" data-edit="packs.title">Packs for your whole team</h3><p style="margin-top:.35rem" data-edit="packs.lede">Your church's account holds the keys and slots, and you hand them out from the Teams page. Each pack has keys for a main admin, admins and musicians, a Central Pedal Control key and Central Services slots. The pedal is sold separately, so you can start with the gear you already have.</p></div></div>
   <div class="packs" id="packs"></div>
   <details class="keyhelp"><summary data-edit="keys.summary">How keys and slots work</summary>
   <dl class="keydefs" data-section="keys">
-    <div><dt>P</dt><dd><b data-edit="keys.p.title">Central Pedal Control</b></dd><dd data-edit="keys.p.body">Yours for good, on two devices, with every update we ever make. The pedal itself needs no key.</dd></div>
-    <div><dt>A</dt><dd><b data-edit="keys.a.title">Main admins and admins, Central Control</b></dd><dd data-edit="keys.a.body">One computer per key, with ten releases of updates (buy during 10.0 and you're covered up to 11.0). Renew for $20 whenever you like. Up to 2 main admins per church.</dd></div>
-    <div><dt>U</dt><dd><b data-edit="keys.u.title">Musicians, Central Usage</b></dd><dd data-edit="keys.u.body">Two devices per key, so players can have one at church and one at home. Your apps keep working even if you never renew.</dd></div>
-    <div><dt>S</dt><dd><b data-edit="keys.pkg.title">Sound plans, package keys</b></dd><dd data-edit="keys.pkg.body">Paste one in any app's Settings &rarr; Packages. Three of your devices, each a different app, for as long as the plan.</dd></div>
-    <div><dt>Slots</dt><dd><b data-edit="keys.s.title">Central Services slots</b></dd><dd data-edit="keys.s.body">One per person on your teams, no key to type. Take someone off a team and their slot is free for the next person.</dd></div>
+    <div><dt>P</dt><dd><b data-edit="keys.p.title">Central Pedal Control</b></dd><dd data-edit="keys.p.body">Yours for good on two devices, with all future updates. The pedal itself doesn't need a key.</dd></div>
+    <div><dt>A</dt><dd><b data-edit="keys.a.title">Main admins and admins, Central Control</b></dd><dd data-edit="keys.a.body">One computer per key. It includes the next ten releases of updates, and you can renew for $20 whenever you like. A church can have up to 2 main admins.</dd></div>
+    <div><dt>U</dt><dd><b data-edit="keys.u.title">Musicians, Central Usage</b></dd><dd data-edit="keys.u.body">Two devices per key, so a player can have one at church and one at home. The app keeps working even if you never renew.</dd></div>
+    <div><dt>S</dt><dd><b data-edit="keys.pkg.title">Sound plans, package keys</b></dd><dd data-edit="keys.pkg.body">Paste it into any app under Settings &rarr; Packages. It works on three of your devices, each a different app, for as long as the plan lasts.</dd></div>
+    <div><dt>Slots</dt><dd><b data-edit="keys.s.title">Central Services slots</b></dd><dd data-edit="keys.s.body">One per person on your teams, with no key to type. Take someone off a team and their slot is free for someone else.</dd></div>
   </dl>
   </details>
-  <div class="packs-head" id="plans" data-section="plans"><div><h3 style="font-size:1.5rem" data-edit="plans.title">Sound plans</h3><p style="margin-top:.35rem" data-edit="plans.lede">More pianos, synths, instruments, plugins, pedals and pads for every app, a year at a time. Every plan includes Central Pads. Each plan comes as a package key by email: paste it in any app's Settings &rarr; Packages &rarr; Add a package. It works on three of your devices, each a different app (say Central Usage, Central Control and your Central Pedal). The starter sounds stay free.</p></div></div>
+  <div class="packs-head" id="plans" data-section="plans"><div><h3 style="font-size:1.5rem" data-edit="plans.title">Sound plans</h3><p style="margin-top:.35rem" data-edit="plans.lede">Better pianos, synths, instruments, plugins, pedals and pads for the apps, a year at a time. Every plan comes with Central Pads. You get a package key by email and paste it into any app under Settings &rarr; Packages &rarr; Add a package. One key works on three of your devices if each is a different app, say Central Usage, Central Control and your Central Pedal. The starter sounds stay free either way.</p></div></div>
   <div class="packs" id="planCards"></div>
   <div id="planAll"></div>
-  <div class="bundles-head" id="bundlesTop"><h4 data-edit="bundles.title">For your church: every plan for your team</h4><p data-edit="bundles.lede">A package key with every plan (Central Pads too) for each person, a year. Hand them out on the Teams page; take one back any time and give it to someone else.</p></div>
+  <div class="bundles-head" id="bundlesTop"><h4 data-edit="bundles.title">Every plan for your whole team</h4><p data-edit="bundles.lede">Each person gets a package key with every plan, Central Pads included, for a year. Hand them out on the Teams page. If someone leaves, take their key back and give it to someone else.</p></div>
   <div class="bundles" id="planBundles"></div>
-  <div class="store-sub" id="pedalTop"><h3 data-edit="pedal.title">The pedal</h3><p class="muted" data-edit="pedal.lede">Built, tested and shipped ready to play. The software on it needs no key.</p></div>
+  <div class="store-sub" id="pedalTop"><h3 data-edit="pedal.title">The pedal</h3><p class="muted" data-edit="pedal.lede">We build and test each one before it ships. The software on it doesn't need a key.</p></div>
   <div id="pedalBuy"></div>
   <div class="store-sub" id="rackTop"><h3 data-edit="rack.title">Apps one at a time</h3><p class="muted" data-edit="rack.lede">For a church that already has a pack, or a team of one.</p></div>
   <div class="pricelist" id="rack"></div>
@@ -356,7 +356,7 @@ def pricing():
     body = f'''<section class="page-hero on-stage"><div class="wrap">
   <div class="crumbs"><span>Pricing</span></div>
   <h1 data-edit="pricing.title">Plans and prices</h1>
-  <p class="lede" data-edit="pricing.lede">Church packs and app keys you buy once, sound plans by the year, Central Tracks by the month. Every price includes tax.</p>
+  <p class="lede" data-edit="pricing.lede">Church packs and app keys are a one-time payment. Sound plans are yearly, and Central Tracks is monthly. Tax is included.</p>
   <div class="ctas"><a class="btn brass" href="#packsTop">Church packs</a><a class="btn ghost" href="#plans">Sound plans</a><a class="btn ghost" href="#helper">Which plan do I need?</a></div>
 </div></section>
 {STORE}
@@ -369,9 +369,9 @@ def pricing():
     <div class="answer" id="helperAnswer" aria-live="polite"></div>
   </form></div></section>
 <section class="pg" id="faq"><div class="wrap"><div class="pg-head"><h2>Questions</h2></div><div class="faq">{faq}</div>
-  <p class="muted" style="margin-top:1.2rem">Something else? <a href="/help/">The Help Center</a> or <a href="/help/#contact">contact support</a>.</p></div></section>'''
+  <p class="muted" style="margin-top:1.2rem">Didn't see your question? Look in the <a href="/help/">Help Center</a> or <a href="/help/#contact">get in touch</a>.</p></div></section>'''
     OG_SHOT["pricing"] = "cc-service"
-    page("pricing/index.html", "pricing", "Pricing: church packs, sound plans and Central Tracks | Motion Audio", "Church packs and app keys you buy once, sound plans by the year and Central Tracks Unlimited by the month. Every price includes tax.", body, scripts=["/pricing.js"],
+    page("pricing/index.html", "pricing", "Pricing: church packs, sound plans and Central Tracks | Motion Audio", "Church packs and app keys are a one-time payment, sound plans are yearly and Central Tracks Unlimited is monthly. Tax is included.", body, scripts=["/pricing.js"],
          jsonld={"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": qq, "acceptedAnswer": {"@type": "Answer", "text": a}} for qq, a in C.PRICING_FAQ]})
 
 
@@ -422,7 +422,7 @@ def help_center():
 
 
 def status_page():
-    body = '''<section class="page-hero on-stage"><div class="wrap"><div class="crumbs"><span>Status</span></div><h1>Status</h1><p class="lede">The website, sign-in, downloads, payments and Central Tracks storage, checked every few minutes. The apps keep working offline either way.</p><div class="overall" id="stOverall" aria-live="polite"><span class="dot"></span><span>Checking…</span></div></div></section>
+    body = '''<section class="page-hero on-stage"><div class="wrap"><div class="crumbs"><span>Status</span></div><h1>Status</h1><p class="lede">This page checks the website, sign-in, downloads, payments and Central Tracks storage every few minutes. If something here is down, the apps on your devices still keep working.</p><div class="overall" id="stOverall" aria-live="polite"><span class="dot"></span><span>Checking…</span></div></div></section>
 <section class="pg"><div class="wrap"><div id="stIncidents" style="display:grid;gap:.6rem;margin-bottom:1.4rem"></div><div class="svc-list" id="stList"></div><p class="muted" style="margin-top:1rem;font-size:.9rem" id="stWhen"></p><div id="stStaff"></div></div></section>'''
     OG_SHOT["status"] = "cc-devices"
     page("status/index.html", "status", "Status | Motion Audio", "Is the Motion Audio website, sign-in, downloads, payments or Central Tracks storage working? Checked every few minutes.", body, scripts=["/status-page.js"])
@@ -430,12 +430,12 @@ def status_page():
 
 # ------------------------------------------------------------------------------------------------------------- the other pages
 HOME_START = '''<section id="start" class="pg" data-section="start"><div class="wrap">
-  <div class="pg-head"><h2 data-edit="start.title">Start with what you need</h2><p data-edit="start.lede">A church pack has the apps for your whole team. Add the pedal for pads and tracks at your feet, and a sound plan for better sounds in every app.</p></div>
+  <div class="pg-head"><h2 data-edit="start.title">Start with what you need</h2><p data-edit="start.lede">A church pack covers the apps for your team. If you want pads and tracks at your feet, add the pedal. A sound plan gets you better sounds in the apps.</p></div>
   <div id="pedalBuy"></div>
   <div class="need" style="margin-top:1.2rem">
-    <div><span class="label">One-time</span><h3>Church packs</h3><p class="muted">Central Control, Central Usage, Central Pedal Control and Central Services slots for your team.</p><a class="btn ghost small" href="/pricing/#packsTop">See the packs</a></div>
-    <div><span class="label">A year</span><h3>Sound plans</h3><p class="muted">Pianos, pads, instruments, effects and guitar pedals for every app. Hear them first.</p><a class="btn ghost small" href="/sounds/">Hear the sounds</a></div>
-    <div><span class="label">Not sure?</span><h3>Which apps do we need?</h3><p class="muted">Compare the six apps, and see what churches like yours start with.</p><a class="btn ghost small" href="/apps/#compare">Compare the apps</a></div>
+    <div><span class="label">One-time</span><h3>Church packs</h3><p class="muted">Keys for the desk and the musicians, plus Central Services slots for everyone who serves.</p><a class="btn ghost small" href="/pricing/#packsTop">See the packs</a></div>
+    <div><span class="label">A year</span><h3>Sound plans</h3><p class="muted">Better pianos, pads, instruments and effects. You can listen to them first.</p><a class="btn ghost small" href="/sounds/">Hear the sounds</a></div>
+    <div><span class="label">Not sure?</span><h3>Which apps do we need?</h3><p class="muted">See what each app does and where most churches start.</p><a class="btn ghost small" href="/apps/#compare">Compare the apps</a></div>
   </div>
 </div></section>'''
 

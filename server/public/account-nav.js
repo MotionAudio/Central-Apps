@@ -88,7 +88,7 @@
   function billingCard(u) {
     const main = u.church && (u.church.role === "church" || u.church.role === "owner");
     return "<h3>Billing</h3>" +
-      '<p class="muted" style="margin:0">Cards, receipts and renewals are handled by Stripe. Every price includes tax.</p>' +
+      '<p class="muted" style="margin:0">Stripe handles cards, receipts and renewals. Prices include tax.</p>' +
       '<div class="sum-links">' + (main ? '<button class="btn small" type="button" data-bill="church">Church card and receipts</button>' : "") +
       '<button class="btn small ghost" type="button" data-bill="me">My plans and subscriptions</button></div><div class="err" id="billErr"></div>';
   }
