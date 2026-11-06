@@ -1,7 +1,7 @@
 {
   "name": "central-production",
   "productName": "Central Production",
-  "version": "10.4.2",
+  "version": "10.4.3",
   "description": "Central Production: make tracks, loops, samples, pads, instruments, plugins and pedal boards for your church's apps.",
   "homepage": "https://motionaudio.github.io/Central-Apps/",
   "main": "main.js",

@@ -2,6 +2,14 @@
 
 The short version of what changed in each release, newest first. Most versions also have their own page in this folder with the full notes.
 
+### 10.4.3
+
+The apps now check their license keys at motionaudio.org. The default keys still work.
+
+### 10.4.2
+
+The website, help guides, in-app help and manuals rewritten in plain language. Nothing about how the apps work changed.
+
 ### 10.4.1
 
 Test sound on the Central Pedal follows the tone and says where the sound stops (and fixes what it can); a pedal with only its headphone jack plays it straight; the pedal's screen is quicker (its meters and graphs only redraw when they change).
