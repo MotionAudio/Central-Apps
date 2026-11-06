@@ -16,7 +16,7 @@ import path from "node:path"; import fs from "node:fs"; import http from "node:h
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 let failures = 0;
-async function check(label, fn) { try { await fn(); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 8).join("\n      ")); } }
+async function check(label, fn) { try { await Promise.race([fn(), new Promise((_, no) => setTimeout(() => no(new Error("no answer after 45 s")), 45000))]); console.log("  ✓ " + label); } catch (e) { failures++; console.error("  ✗ " + label + "\n      " + String(e && e.message || e).split("\n").slice(0, 8).join("\n      ")); } }
 
 // a 4-second bed: a steady chord (so any pulsing comes from the gate)
 function wav(seconds, freq) {
@@ -55,6 +55,7 @@ await page.route(/^https?:\/\/(127\.0\.0\.1|localhost):876[56]\//, (r) => {
   if (u.pathname === "/libraries/loop") return r.fulfill({ status: 200, headers: cors, contentType: "audio/wav", body: wav(4, 196) });
   return r.abort("connectionrefused");
 });
+await page.route(/motionaudio\.org/, (r) => r.abort("connectionrefused"));   // (the test never depends on the live website)
 await page.goto("http://127.0.0.1:" + site.address().port + "/index.html");
 await page.waitForFunction(() => window.__test && window.PP && window.PPShell, null, { timeout: 15000 });
 await page.evaluate(() => { if (window.__pedalBridge) window.__pedalBridge.connect = function () { }; PPShell.showTab("pads"); });
