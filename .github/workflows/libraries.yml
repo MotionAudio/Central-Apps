@@ -78,6 +78,21 @@ jobs:
       HYMNS_BASE_URL: ${{ vars.R2_UPLOAD == 'on' && vars.R2_HYMNS_URL || 'https://github.com/MotionAudio/central-apps/releases/download/central-tracks' }}
     steps:
       - uses: actions/checkout@v4
+      - name: Check Cloudflare R2 access (before hours of building)
+        if: ${{ vars.R2_UPLOAD == 'on' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          echo check > r2-check.txt
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp r2-check.txt "s3://${R2_BUCKET}/r2-check.txt" --endpoint-url "$ENDPOINT"
+          aws s3 rm "s3://${R2_BUCKET}/r2-check.txt" --endpoint-url "$ENDPOINT"
       - name: Tools
         run: sudo apt-get update -qq && sudo apt-get install -y -qq python3-numpy fluidsynth ffmpeg libmp3lame0 >/dev/null
       - name: Cache the VCSL downloads and built sounds
@@ -174,6 +189,8 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
