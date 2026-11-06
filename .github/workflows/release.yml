@@ -79,8 +79,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES=release-notes/$VER.md; [ -f "$NOTES" ] || { echo "Central Control $VER" > /tmp/notes.md; NOTES=/tmp/notes.md; }
-          gh release create "v$VER" release/$VER/* --title "Central Pedal $VER" --notes-file "$NOTES" --target "$GITHUB_SHA"
+          # The release page: this version's notes, then which file is for which computer (release-notes/DOWNLOADS.md)
+          if [ -f "release-notes/$VER.md" ]; then cp "release-notes/$VER.md" /tmp/notes.md; else echo "Central $VER" > /tmp/notes.md; fi
+          printf '\n\n' >> /tmp/notes.md
+          sed "s/{VER}/$VER/g" release-notes/DOWNLOADS.md >> /tmp/notes.md
+          gh release create "v$VER" release/$VER/* --title "Central $VER" --notes-file /tmp/notes.md --target "$GITHUB_SHA"
       - name: Copy to Google Drive (when set up - DRIVE-SETUP.md)
         if: env.RCLONE_CONF != ''
         run: |

@@ -1,1050 +1,421 @@
 <div align="center">
 
-<img src="docs/brand/central-pedal.png" width="104" alt="Central Pedal">
+<img src="docs/brand/motion-audio.png" width="104" alt="Motion Audio">
 
-# Central Pedal
+# Central
 
-**Tracks, pads, the instrument rig, lights, lyrics and in-ears for worship teams: one system on every device.**
+**A pedal for your pads and tracks, and apps for the rest of the worship team.**
 
 [![Latest release](https://img.shields.io/github/v/release/MotionAudio/Central-Apps?label=release&color=5de6b0)](https://github.com/MotionAudio/Central-Apps/releases/latest)
 [![Build](https://img.shields.io/github/actions/workflow/status/MotionAudio/Central-Apps/release.yml?branch=main&label=build)](https://github.com/MotionAudio/Central-Apps/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-75adff)](LICENSE)
 
-[**Download**](https://motionaudio.github.io/Central-Apps/) · [Install guide](INSTALL.md) · [Release notes](release-notes/) · [Central Tracks API](docs/CENTRAL-TRACKS-API.md)
+[**Download the apps**](https://motionaudio.github.io/Central-Apps/) · [All releases](https://github.com/MotionAudio/Central-Apps/releases/latest) · [Install guide](INSTALL.md) · [What's new](release-notes/HISTORY.md)
 
 </div>
 
 ---
 
+I make Central for worship teams. The Central Pedal sits at the worship leader's feet and plays the pads, the multitracks and the click. Central Control runs the lights, slides, lyrics and in-ear mixes from the desk. Every musician gets their own chart and their own mix in Central Usage. This repository has all of it: the pedal's software, the six apps, the website and the tools that build them.
+
+If you just want to install something, go to the [download page](https://motionaudio.github.io/Central-Apps/). It works out which file your computer or phone needs. Every file is also on the [latest release](https://github.com/MotionAudio/Central-Apps/releases/latest).
+
+Sam
+
 ## The apps
 
-| | App | Who it's for | What it does |
+| | App | Who uses it | What it's for |
 |:-:|---|---|---|
-| <img src="docs/brand/central-pedal.png" width="44" alt=""> | **Central Pedal** | The stage | A Raspberry Pi 4 that boots straight into the pedal. It has ambient pads, a multitrack player (stems, click, spoken cues, chord charts, lyrics) and a guitar / keys rig, played from a touch screen, 12 footswitches, knobs, an expression pedal, MIDI and a Stream Deck. |
-| <img src="docs/brand/central-pedal-control.png" width="44" alt=""> | **Central Pedal Control** | Whoever gets the songs ready | The same Central Pedal app on your computer, tablet or phone. You build the setlist, add songs and tracks, and set up pads, controls and the instrument anywhere. Then **⇪ Upload** it all to the pedal. |
-| <img src="docs/brand/central-control.png" width="44" alt=""> | **Central Control** | The main admin and admins | Lights, slides, lyrics, cameras, in-ear mixes, the tracks and the mix, for the whole team. |
-| <img src="docs/brand/central-usage.png" width="44" alt=""> | **Central Usage** | Musicians and singers | Your chord chart, your instrument, the lyrics and your own in-ear mix. |
-| <img src="docs/brand/central-services.png" width="44" alt=""> | **Central Services** | Everyone in the church | The schedule: services, who's asked to serve, and everyone's yes or no. Admins see the whole schedule; users see their own requests. |
-| <img src="docs/brand/central-production.png" width="44" alt=""> | **Central Production** | Anyone who makes sounds | A DAW and sampler: make tracks, loops, samples, pads, instruments, plugins and pedal boards for your own apps, or sell them through Make & sell. Free; your sound plan opens the better sounds. On a computer or in the browser, with the same projects. |
+| <img src="docs/brand/central-pedal.png" width="44" alt=""> | **Central Pedal** | The worship leader, on stage | A Raspberry Pi 4 that starts straight into the pedal. It plays ambient pads and multitracks with the click, spoken cues, charts and lyrics, and it can be the guitar or keys rig. You play it with 12 footswitches, knobs, a touch screen, an expression pedal, MIDI or a Stream Deck. |
+| <img src="docs/brand/central-pedal-control.png" width="44" alt=""> | **Central Pedal Control** | Whoever gets the songs ready | The pedal's app on your computer, tablet or phone. Build the setlist at home, set up the pads and the controls, then press **⇪ Upload** and it all goes to the pedal. |
+| <img src="docs/brand/central-control.png" width="44" alt=""> | **Central Control** | The main admin and admins | The desk. Lights, slides, lyrics, cameras, in-ear mixes, the tracks and the mix, for the whole service. |
+| <img src="docs/brand/central-usage.png" width="44" alt=""> | **Central Usage** | Musicians and singers | Your chord chart, the lyrics, your instrument and your own in-ear mix. |
+| <img src="docs/brand/central-services.png" width="44" alt=""> | **Central Services** | Everyone in the church | The schedule. Who's playing which Sunday, and whether they said yes. |
+| <img src="docs/brand/central-production.png" width="44" alt=""> | **Central Production** | Anyone who makes sounds | A studio for recording tracks and making loops, pads, instruments, plugins and pedal boards. Use what you make in your own apps or sell it through Make & sell. It's free, and it runs on a computer or in the browser with the same projects. |
 
 ## Versions and updates
 
-All the apps share one version number: **9.0, 9.1 … 9.9, then 10.0**. A fix is the third number (9.1.1).
-- **Central Pedal and Central Pedal Control:** updates forever.
-- **Central Control and Central Usage:** each key gets ten full releases of updates from when it was bought (bought at
-  9.4, through 10.4). Renew a key for $20 for ten more. The apps never stop working without it.
-- **Central Services:** a monthly plan, always up to date.
-- **Central Production:** free, updates forever.
+All six apps share one version number. The second number is a full release (10.3, 10.4) and the third is a fix (10.4.1).
 
-## Platforms
+Central Pedal, Central Pedal Control and Central Production get updates for good. A Central Control or Central Usage key gets the next ten releases from when it was bought, so a key bought at 9.4 is covered through 10.4. Renewing costs $20 and covers ten more. Nobody has to renew; the apps keep working on the version they have. Central Services is a monthly plan and is always current.
+
+Each app checks for a new version when it opens and once a day, and installs it by itself unless something is playing, in which case it asks first. Updates never touch songs, setlists, settings, keys or sign-ins. Every download is checked against the release's `SHA256SUMS` before anything is replaced.
+
+## What runs where
 
 | | Central Pedal | Central Pedal Control | Central Control | Central Usage | Central Services | Central Production |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | **Raspberry Pi 4** | ✅ | | | | | |
-| **macOS** (Apple Silicon, Intel) | | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Windows** 10 / 11 | | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Linux** (.deb, AppImage) | | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **iPadOS** | | ✅ ¹ | | ✅ ¹ | ✅ ¹ | ✅ ² |
-| **iOS** (iPhone) | | ✅ ¹ | | ✅ ¹ | ✅ ¹ | |
+| **macOS** (Apple Silicon and Intel) | | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Windows** 10 and 11 | | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Linux** (.deb and AppImage) | | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Android** | | ✅ | | ✅ | ✅ | |
+| **iPhone and iPad** | | ¹ | | ¹ | ¹ | ² |
 
-¹ iPhone and iPad: through TestFlight and the App Store once the Apple developer account is set up ([IOS-APP-STORE.md](IOS-APP-STORE.md)).
-Central Usage also runs in Safari today, served by the main admin's computer.
-² Central Production in the browser (the website's /production/ page), with the same projects as the app.
+¹ The App Store versions are waiting on the Apple developer account ([IOS-APP-STORE.md](IOS-APP-STORE.md)). Until then, Central Usage runs in Safari from the main admin's computer, and Central Pedal Control runs in Safari from the pedal (`http://padpedal.local:8080/control/`, then Add to Home Screen).
+² In the browser, on the website's Central Production page.
 
-Every release is built and tested for every system by GitHub Actions. Every installed app looks for a new version
-every time it opens and installs it by itself after a 10-second notice (Android: it downloads, then one tap on
-**Update**). Songs, setlists, settings, keys and sign-ins are never touched by an update.
+GitHub Actions builds and tests every release on every system before it's published.
 
 ## How it fits together
 
 ```mermaid
 flowchart LR
   CT[("☁️ Central Tracks<br/>Motion Audio library")]
-  PC["🧰 Central Pedal Control<br/>Mac · Windows · Linux · iPad · iPhone · Android"]
+  PR["🎚️ Central Production<br/>computer · browser"]
+  PC["🧰 Central Pedal Control<br/>Mac · Windows · Linux · Android"]
   CP["🎛️ Central Pedal<br/>Raspberry Pi 4"]
   CC["🖥️ Central Control<br/>main admin · admins"]
   CU["🎸 Central Usage<br/>musicians · singers"]
   OUT["Lights · slides · lyrics<br/>cameras · in-ear mixes"]
+  PR -- "pads, sounds, tracks you make" --> PC
   CT -- "songs and tracks" --> PC
   CT -- "songs and tracks" --> CP
-  PC -- "⇪ Upload: songs, tracks, pads, controls, instrument" --> CP
-  CP -- "each track, the click, pads, instrument, MIDI hits<br/>on their own channels (Wi-Fi / Ethernet)" --> CC
+  PC -- "⇪ Upload" --> CP
+  CP -- "every track, the click, pads, the instrument<br/>on their own channels over the network" --> CC
   CC --> OUT
   CC <-->|"chart, lyrics, your in-ear mix"| CU
 ```
 
-## Highlights
+## What it does
 
-**Songs and tracks**
-- **Add a song** in four ways:
-  1. your own stems
-  2. the whole song split into stems
-  3. a MultiTracks.com / Loop Community (Prime) download, with its Ableton sections
-  4. **Central Tracks**
+**Songs and tracks.** You can add a song from your own stems, from one WAV of the whole song (the stem splitter separates it on your computer into vocals, drums, bass, guitars, keys and the rest), from a MultiTracks.com or Loop Community download with its Ableton sections, or from Central Tracks. Planning Center plans come in with their songs, keys and arrangements. The pedal finds the tempo, key, beat grid and sections for you, and makes a click and a spoken guide from them. Key and tempo change on the fly without the stems drifting apart.
 
-  Planning Center plans come in too.
-- **Stem splitter, Studio mode.** One WAV of the whole song becomes the tracks a band plays with, on your own computer:
-  Lead Vox, BGVs, Drums, Perc, Bass, Guitars, Keys, Synth & Pads, plus a Click and a Guide.
-  - Several RoFormer vocal models vote on the vocals; Demucs FT and the 6-stem model split the band.
-  - A clean-up pass takes the reverb off the vocals, removes the bleed between the tracks, trims the silence, writes
-    mono tracks as mono and leaves out silent ones.
-  - Check the tracks before adding them: play, solo, rename, merge, or split one again.
-  - The drum hits (kick, snare, hi-hat, crash) still go to Central Control for the lights, as MIDI notes and on its
-    timeline, with the tempo.
-- **Sections are found for you.** Intro, verse, pre-chorus, chorus, bridge and outro come from the vocals, the harmony
-  and the loudness. Tempo, key, the beat grid and big hits are found too. A click and a spoken guide come from the
-  grid.
-- **Practice mixes** for every musician:
-  - their part up, alone or left out
-  - slower without changing the pitch, or in another key
-  - a count-in
+**On stage.** The Live screen shows the whole service. Safe Stop fades everything out over a couple of seconds if something goes wrong, the service lock stops anyone changing set-up mid-song, and a Ready check before the service catches a missing track or a click that would leak into the house. A second pedal can follow along silently as a backup and take over mid-song.
 
-  The band plays them on their phones.
-- A full mixer, scenes, segues (gapless or crossfaded), live arrangement, key and tempo changes.
+**The rig.** Guitar and bass pedalboards, with hundreds of free plugins on the Pi and a built-in rig on Windows and macOS. Keys from SoundFonts or your own plugins, with up to eight layers and splits. A tuner, an IR loader and a looper. On a computer you can use your own VST3, CLAP, Audio Unit and LV2 plugins, Kontakt and Keyscape included.
 
-**Live**
-- The **LIVE** screen:
-  - the whole service on one screen
-  - **Safe Stop**
-  - the service lock
-  - a **Ready check** before the service
-  - a **service report** afterwards
-- **Backup player:** a second pedal follows in step, silently, and takes over mid-song if the first one stops.
+**The team.** Central Control pairs every device and gives each pedal its job. It runs DMX lights with 2,272 fixture profiles, slides and lyrics, NDI cameras, up to 64 in-ear mixes and talkback. Central Usage gives each musician their chart and mix, and practice mixes they can play at home.
 
-**Control**
-- Footswitches, knobs, sliders, an expression pedal, USB foot pedals and MIDI.
-- **Elgato Stream Deck**, with your own keys and pages.
-- Ableton Link, MIDI clock and hits out, and ProPresenter.
+**Making sounds.** Central Production records and mixes tracks with your own plugins, makes pads and instruments from samples, and has a plugin builder where you wire up your own effects. Everything you make can go straight into the other apps.
 
-**Instrument**
-- Guitar and bass pedalboards (600+ free plugins on the Pi, a built-in rig on Windows and macOS).
-- Studio compressor, 7-band EQ, limiter and de-esser on every instrument.
-- Your own plugins on computers: VST3 and CLAP (Windows, macOS, Linux), Audio Units (macOS) and LV2 (Linux), effects
-  and instruments (Kontakt, Keyscape…), with their own windows.
-- Keys from SoundFonts or your instrument plugins, with layers and splits.
-- A tuner, an IR loader and a looper.
+## Getting started
 
-**The team**
-- With Central Control, the main admin pairs every device, gives each pedal its job (track player, controller,
-  instrument rig, backup) and runs:
-  - lights (DMX, fixture library, timecode)
-  - slides, lyrics and cameras (NDI)
-  - 64 in-ear mixes
-  - talkback
-- With Central Usage, musicians get their own chart, lyrics and in-ear mix.
+1. **Install the apps.** The [download page](https://motionaudio.github.io/Central-Apps/) picks the right file. [INSTALL.md](INSTALL.md) has the step-by-step for each system.
+2. **Set up the pedal.** It arrives with its card in. Plug it in and set it up from your phone (below).
+3. **Get your songs ready** in Central Pedal Control, then press **⇪ Upload** and type the pedal's name and code.
+4. **Bring in the team.** The main admin installs Central Control, and the pedals and the musicians' devices pair with it.
 
-## Get started
-
-1. **Install the apps.** The [download page](https://motionaudio.github.io/Central-Apps/) picks the right file for
-   your device. Step-by-step help and Linux commands are in [INSTALL.md](INSTALL.md).
-2. **Set up the Central Pedal.** It arrives with its card in: plug it in and set it up from your phone
-   ([details below](#the-raspberry-pi-image)).
-3. **Get your songs ready** anywhere in Central Pedal Control, then press **⇪ Upload** with the pedal's name and PIN.
-4. **Bring in the team.** The main admin installs Central Control, and the pedals and every musician's device pair
-   with it.
-
-### The Raspberry Pi image
-
-**Starting a Central Pedal** (it arrives with its card in, tested):
+### Setting up a Central Pedal
 
 1. Plug in the power and your outputs. A screen on HDMI 1 is optional.
-2. On your phone, connect to the Wi-Fi **Central Pedal Setup**. The setup page opens by itself (or go to
-   http://10.42.0.1).
+2. On your phone, join the Wi-Fi called **Central Pedal Setup**. The setup page opens by itself. If it doesn't, go to http://10.42.0.1.
 3. Pick the church Wi-Fi and type its password.
-4. Type a 4-digit code: with Central Control, the main admin's code (that pairs the pedal with it); otherwise any
-   4 digits. Central Pedal Control uses the same code.
-5. Press **Upload**. The pedal joins the Wi-Fi and is ready. A wrong password? *Central Pedal Setup* comes back in
-   about a minute and the page says what happened.
+4. Type a 4-digit code. If you use Central Control, use the main admin's code, which pairs the pedal with it. Otherwise any four digits will do. Central Pedal Control uses the same code.
+5. Press **Upload**. The pedal joins the Wi-Fi and it's ready. If the password was wrong, Central Pedal Setup comes back after about a minute and the page tells you what happened.
 
-Later (a new building), **Settings → Wi-Fi → Turn the setup Wi-Fi on** runs it again.
+When you move to a new building, **Settings → Network & devices → Turn the setup Wi-Fi on** runs it again.
 
-**Building a card by hand** (for the people who build the pedals), from this folder:
+### Building a card by hand
 
-1. **Build it** on your Ubuntu PC. The first build takes 40–60 minutes and needs internet and about 15 GB free:
+This is for people who build pedals. On an Ubuntu or Debian PC, from the folder you unzipped the newest `central-control-source.zip` into:
 
-   ```bash
-   sudo WIFI_SSID="Church WiFi" WIFI_PASS="password" bash build-image.sh
-   ```
-   - You get `central-pedal-<version>.img`. Always build from the folder you unzipped the newest
-     `central-control-source.zip` into. Delete older images so they can't be flashed by mistake.
-   - Options:
-     - `PI_PASS=...`, `PI_HOSTNAME=...`
-     - The common blue 3.5" touch screen (XPT2046) is on from the first boot, and HDMI 1 still shows the full app
-       (change either in Settings). `TFT=none` for no small screen, or another screen's id from `screens.json`
-       (for example `TFT=waveshare35b`).
-     - No `WIFI_SSID`: the pedal makes its own Wi-Fi, **Central Pedal Setup**, for a phone.
-     - `FACTORY=0`: no factory test on the first start (see below).
-     - `I2S_DAC=off`, `SAFE_MODE=off`, `WIFI_COUNTRY=US`, `COMPRESS=1`
-     - `SOUNDS=small` skips the 1.2 GB grand piano; `SOUNDS=none` leaves out the keys sound banks.
-   - Use a 16 GB card or bigger.
-2. **Flash it** with Raspberry Pi Imager: *Choose OS → Use custom*, then pick the `.img`. Answer **No** to *OS
-   customisation*.
-3. **Boot.** The first boot takes about a minute longer and restarts once, then opens the factory test.
-4. **Wire the controls** with `wiring.html`. Every part is optional, and the Learn tab can move any button or knob to
-   any pin. A guitar needs a USB audio interface; a keyboard needs a USB MIDI port.
+```bash
+sudo WIFI_SSID="Church WiFi" WIFI_PASS="password" bash build-image.sh
+```
 
-**The factory test.** A card built with `build-image.sh` starts in the factory test: plug a screen into HDMI 1, a
-keyboard and a mouse. It checks every footswitch (its LED blinks), knob, slider and the expression pedal, the small
-touch screen (a test pattern, its 4 corners, calibration), the outputs, the instrument input, MIDI, Wi-Fi,
-temperature, power, storage and the sound banks, and you can pick a different touch screen there (the pedal restarts
-and comes back into the test). **Save report** keeps `factory-report.json` on the pedal; **Finish**, then unplug it.
-The next start is the customer's first start: the Wi-Fi used in the test is forgotten, the touch screen stays, and it
-asks for the church Wi-Fi on their phone (**Central Pedal Setup**). `FACTORY=0` builds a card without the test.
+The first build takes 40 to 60 minutes and needs the internet and about 15 GB free. You get `central-pedal-<version>.img`. Delete older images so nobody flashes one by mistake, and use a 16 GB card or bigger.
 
-**Other Wi-Fi later:** put `pad-pedal-wifi.txt` (the network name on line 1, the password on line 2) on the card's
-`bootfs` partition, or use Settings → Wi-Fi on the screen. Maintenance login: `ssh pi@padpedal.local`.
+A few options you can set in front of the command:
+
+- `PI_PASS=...` and `PI_HOSTNAME=...`
+- `TFT=none` if there's no small screen, or another screen's id from `screens.json` (for example `TFT=waveshare35b`). The common blue 3.5" touch screen is on by default, and HDMI 1 still shows the full app.
+- Leave out `WIFI_SSID` and the pedal makes its own **Central Pedal Setup** Wi-Fi for a phone.
+- `FACTORY=0` skips the factory test.
+- `I2S_DAC=off`, `SAFE_MODE=off`, `WIFI_COUNTRY=US`, `COMPRESS=1`
+- `SOUNDS=small` leaves out the 1.2 GB grand piano, and `SOUNDS=none` leaves out the keys sound banks.
+
+Flash it with Raspberry Pi Imager (*Choose OS → Use custom*, pick the `.img`, and answer **No** to *OS customisation*). The first start takes about a minute longer and restarts once. Wire the controls with `wiring.html`. Every part is optional, and the Learn tab can move any button or knob to any pin. A guitar needs a USB audio interface and a keyboard needs a USB MIDI port.
+
+**The factory test.** A card from `build-image.sh` starts in a factory test. Plug a screen into HDMI 1 with a keyboard and mouse. It walks through every footswitch (its LED blinks), knob, slider, the expression pedal, the touch screen (a test pattern, its corners, calibration), the outputs, the instrument input, MIDI, Wi-Fi, temperature, power, storage and the sound banks. You can switch to a different touch screen there too. **Save report** keeps `factory-report.json` on the pedal. Press **Finish** and unplug it. The next start is the customer's: the test's Wi-Fi is forgotten, the touch screen setting stays, and it asks for the church Wi-Fi on their phone.
+
+To add a Wi-Fi network later, put `pad-pedal-wifi.txt` on the card's `bootfs` partition (the network name on the first line, the password on the second), or use Settings on the pedal. To log in for maintenance: `ssh pi@padpedal.local`.
 
 ## Central Tracks
 
-The Motion Audio community library, built into **Add a song → Central Tracks** in Central Pedal and Central Pedal
-Control:
-- Search by song, artist or key.
-- With **Central Tracks Unlimited**, add any track.
-- Otherwise, buy the tracks you need. Prices come from each track's audio-quality grade.
-
-Teams publish tracks on the Motion Audio website. Songs you import yourself never leave your devices. The server
-API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
+Central Tracks is the Motion Audio library, built into **Add a song → Central Tracks** on the pedal and in Central Pedal Control. You can search by song, artist or key. With Central Tracks Unlimited you can add anything; otherwise you buy the tracks you need, priced by each track's sound-quality grade. Teams publish their tracks on the Motion Audio website, and there are 20 hymns we arranged ourselves. Songs you import yourself never leave your devices. The server API is in [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md).
 
 ## Documentation
 
 | | |
 |---|---|
-| [INSTALL.md](INSTALL.md) | Installing every app on every system, updating, Linux commands |
-| [IOS-APP-STORE.md](IOS-APP-STORE.md) | iPhone and iPad builds: TestFlight and App Store |
-| [DRIVE-SETUP.md](DRIVE-SETUP.md) | A copy of every release in Google Drive |
+| [INSTALL.md](INSTALL.md) | Installing and updating every app on every system |
+| [IOS-APP-STORE.md](IOS-APP-STORE.md) | iPhone and iPad builds through TestFlight and the App Store |
+| [DRIVE-SETUP.md](DRIVE-SETUP.md) | Keeping a copy of every release in Google Drive |
+| [docs/SIGNING.md](docs/SIGNING.md) | Signing the Windows and Mac installers |
+| [docs/DOMAIN-AND-EMAIL.md](docs/DOMAIN-AND-EMAIL.md) | Moving the website and email to motionaudio.org |
+| [docs/PLANNING-CENTER-AND-CCLI.md](docs/PLANNING-CENTER-AND-CCLI.md) | Planning Center and CCLI |
+| [docs/SHORTS.md](docs/SHORTS.md) | Automatic shorts and posting to social media |
+| [docs/VIDEO.md](docs/VIDEO.md), [docs/VIDEO-INTEGRATION.md](docs/VIDEO-INTEGRATION.md) | Cameras, streaming and the video computer |
+| [docs/PLUGIN-BUILDER.md](docs/PLUGIN-BUILDER.md) | Building plugins in Central Production |
+| [docs/COMMUNITY-PLUGINS.md](docs/COMMUNITY-PLUGINS.md) | How community sounds, pedals and plugins are checked and paid for |
 | [docs/CENTRAL-TRACKS-API.md](docs/CENTRAL-TRACKS-API.md) | The Central Tracks server API |
-| [release-notes/](release-notes/) | What changed in each version |
-| [docs/brand/](docs/brand/) | The Motion Audio mark and the five app icons (PNG and SVG) |
+| [docs/DESIGN-SYSTEM.md](docs/DESIGN-SYSTEM.md), [docs/VOICE.md](docs/VOICE.md) | How the apps look, and how the words are written |
 | [central-usage/README.md](central-usage/README.md) | Central Control and Central Usage in depth |
-| [The user guide below](#the-tabs) | Every tab of the Central Pedal, the hardware, screens, MIDI and safe mode |
+| [docs/brand/](docs/brand/) | The Motion Audio mark and the six app icons |
+| [release-notes/](release-notes/) | The notes for every release |
+| [The pedal's user guide](#the-pedals-user-guide) | Every tab of the Central Pedal, the hardware, the screens, MIDI and safe mode |
 
-## Release history
+## What's new
 
-<details>
-<summary><b>What's new in each version</b> (9.3.4 and earlier)</summary>
+**New in version 10.4.1:** On the pedal, Test sound now listens along the way and tells you where the sound stops, and fixes what it can. A pedal with only the headphone jack plays it directly. The pedal's screen is quicker.
 
-**New in version 10.4.1:** Test sound on the Central Pedal follows the tone and says where the sound stops (and fixes what it can); a pedal with only its headphone jack plays it straight; the pedal's screen is quicker (its meters and graphs only redraw when they change).
+**New in version 10.4.0:** In Central Production, a plugin knob is heard in about a fifth of a second, a MIDI keyboard plays through the track's plugins, exports keep plugin automation, and it uses noticeably less of the computer. Any delay in any app can follow the song's tempo.
 
-**New in version 10.4.0:** Central Production's plugins answer a knob in about 0.2 s (Plugin response: Fast, Balanced, Safe), MIDI keyboards play through a track's VST3 / CLAP plugins, exports keep plugin automation, and it's about 40% lighter while playing; every delay in every app can follow the song's tempo on a note you pick; Central Production on the website's home page and Pricing.
+**New in version 10.3.0:** Plugins play live on Central Production tracks without freezing. Shorts learn from what your church approves and post on a schedule. About twice as many pads, plugins, pedals, hymns, backgrounds and slide themes. A new website with pages for every app and sound pack, checkout, My products, Help and a status page.
 
-**New in version 10.3.0:** Plugins play live on every Central Production track; shorts that learn your church, post on a schedule with a link to the stream, and full worship and sermon videos; 82 pads, 32 plugins, 55 new pedals (68 boards), 20 hymns, 118 Utility backgrounds and 51 slide themes; a new website with app and sound pages, cart and checkout, My products, Help with support tickets and a status page; signed installers ready to switch on.
+**New in version 10.2.0:** Central Production arrived, along with the plugin builder, run sheets, the pre-service check, the band's screen, the slide designer, automatic shorts, Planning Center and CCLI, real light profiles and the Central Utility pack.
 
-**New in version 10.2.0:** Central Production (a free studio for tracks, loops, samples, pads, instruments and plugins, on computers and the website); make your own plugins; 41 pads, swells and modern worship hymn tracks; 30-second previews; run sheets, a pre-service check, the band's screen, a slide designer and scripture in seconds; automatic shorts; Planning Center and CCLI; 2,272 real lights, a scene programmer, screens, rooms and seats on the 3D stage; the Central Utility pack; and one new look across every app with Ctrl+K search.
-
-**New in version 10.1.1:** Sound on the Pi's headphone jack without crackles (a bigger buffer, chosen under Settings → Output device; Test sound steps it up by itself); Central Services says plainly when the website isn't reachable.
-
-**New in version 10.1.0:** A new lighting page with the stage full width, Pause, quick slots and setlists; Talk into the in-ears from Central Control and Central Usage; libraries download from inside the apps; an admin code for changing a computer's job; sounds, plugins and pedals made by the community, checked by Motion Audio and included in the yearly packs, with their makers paid.
-
-**New in version 10.0.1:** Sound on the Central Pedal's headphone jack (always outputs 1-2); settings apply without turning the pedal off; the pedal updates itself; each HDMI port shows its own choice; Settings one group at a time; the 3.5" screen follows mouse clicks; Linux updates wait instead of failing; Central Usage is back to its normal size.
-
-**New in version 10.0.0:** Setlists (load, create with your team, add songs from the website) with the computer running the tracks; charts and lyrics that follow the tracks, read your way; a Central Control setup window with jobs per computer and smarter lights; a Studio in Central Usage; learn any control and change every colour in all four apps; hymn tracks and more sounds, pads, loops and pedals; Purchases on the website.
-
-**New in version 9.9.1:** The 3.5" Effects pages show the effects at once; the Pad tab no longer goes blank when you scroll; the headphone jack gets the sound, with a Test sound page; a USB audio interface works for inputs and outputs.
-
-**New in version 9.9.0:** A loop pedal - a LOOPER tab on the pedal, in Central Pedal Control and on the 3.5" screen, with three loops (record, overdub, undo, redo, reverse, half speed, level, pan) worked from one footswitch and in time with the song; the 3.5" touch takes light taps, lands where you touch (5-point calibration with a check) and has smooth sliders; the setlist, effects and scenes from the 3.5" screen.
-
-**New in version 9.8.0:** Central Pads ($40 a year, in every other plan for $20 more) and a package key on 3 of your devices (each a different app); Central Pedal Control keeps the songs and uploads one set to the pedal (only that set's tracks, pads and sounds); gate, EQ, compressor, reverb and delay on every track, pad and bus (basics free, the better ones with Central Plugins); a volume on every pad; buttons, knobs and sliders switch tabs, move around the screen and set or mute each bus; much more on the 3.5" screen and quicker touch; sound on the headphone jack fixed; a clean, quicker start-up; bigger sound libraries.
-
-**New in version 9.7.0:** A factory test on the first start of a card built by hand (every switch, knob, screen, output and input, Pass / Fail, a report); unplugging it makes the next start the customer's phone setup, without the screen step; outputs: 1–2 the jack, 3–4 the DAC, 5+ a USB interface, each bus mono or stereo, several on one output.
-
-**New in version 9.6.2:** A Central Pedal that doesn't start writes a report to its SD card (central-pedal-log.txt, readable on any computer) and its screen says why instead of showing a login prompt.
-
-**New in version 9.6.1:** The SD card built by hand starts with the blue 3.5" screen on (HDMI 1 stays the full app).
-
-**New in version 9.6.0:** A labelled PAN on every track and channel (pedal, small screen, Pedal Control, Central Control) and stereo in-ears with pan for everyone; Central Control gets a gate, 4-band EQ, compressor and reverb / delay sends on every channel, and a live Stream mix (interface outputs, a virtual device for OBS, straight to YouTube / Facebook, or with the video); smarter auto lighting (intimate / mid / upbeat per song and section, following the music live); play any sound (a guitar or bass plays any sound); an orchestra and 22 new pedals.
-
-**New in version 9.5.0:** Sound plans (Central Keys, Plugins, Instrument and Pedals, yearly, a package key pasted in Settings → Packages; church bundles) with a free starter set and more sounds; Central Tracks sells sounds, pedal boards and click sounds; Central Pedal needs no key; a new pedal is set up from a phone (Wi-Fi "Central Pedal Setup"); the website's Downloads page after you buy, and emails with keys for everyone a church adds.
-
-**New in version 9.4.2:** Steadier taps on the small 3.5" screen; HDMI 1 always shows the full app; the image is now named central-pedal.
-
-**New in version 9.4.1:** The small 3.5" screen's Settings get a Touch page: pick which touch screen it is, calibrate the touch, and flip it 180°.
-
-**New in version 9.4.0:** The small 3.5" touch screen gets Pads, Tracks (play, mixer, setlist), Instrument (sound, pedals, EQ and compressor, tuner) and Settings (inputs and outputs, screens, system) tabs in the app's look, and the HDMI copy has them too; Central Pedal Control gets ● Live (work the pedal over the network, every change right away) and runs on the iPad from the pedal (`http://padpedal.local:8080/control/`, Add to Home Screen).
-
-**New in version 9.3.6:** Touch works on the small 3.5" screen (each tap lands where you touch); HDMI 1 keeps the Central Pedal app when a small screen is picked; Central Usage's Settings no longer shows admin (lighting) settings.
-
-**New in version 9.3.5:** Central Pedal stops multiplying MIDI ports (it opened its own ports as devices) and shows devices by name; Settings packs its cards on a big HDMI screen; the Touch screen list always shows the screens (it was empty on some Pis), with one tap for the common 3.5" screen.
-
-**New in version 9.3.4:** Central Control's lighting gets a 3D stage (real stage size, trusses, beams, place and aim every light), light bars with every cell its own colour, and strobes (hold-to-strobe button, rate fader, beat-locked, bursts on the hits); no overlapping text anywhere; the mouse pointer always shows in Central Pedal Control; a white 3.5" touch screen is turned on by itself.
-
-**New in version 9.3.3:** A layout clean-up across Central Control (top bar, Lighting, Service, Devices, I/O, Settings, Mix, In-ears, Video), the website (phones, store, Central Tracks, Teams, account) and Central Services; same look.
-
-**New in version 9.3.2:** Central Control's Service tab lays out the running item properly, the Slides Live screen shows the slide full width, and the on-air song and look in Lighting keep their layout.
-
-**New in version 9.3.1:** Central Control opens on Linux again (old launchers are pointed at the app) and is `central-control` everywhere on Linux; Central Pedal Control shows the mouse pointer on computers; on the website a church signs up with its own church account, which pays, adds the main admins, admins and users, and uses no Central Services slot; new app pages, manuals and install guides.
-
-**New in version 9.3.0:** The second main admin's computer stays in sync with the hub (songs, tracks, lighting, slides, the mixer, cameras, paired devices and PINs) and can take over as the hub with the role PIN, planned or when the hub is broken; Central Services shows the church's slots on the Teams screen.
-
-**New in version 9.2.2:** On Linux, every app shows its logo in the app menu and the dock, and Central Control installs over the retired Central Pedal desktop app (the old central-control package) instead of stopping.
-
-**New in version 9.2.1:** Central Control is called Central Control everywhere (its files, the Mac app, the Linux folder; old copies keep updating), Central Control is admins only and Central Usage musicians only, and a one-line install on Linux.
-
-**New in version 9.2.0:** your own plugins in the Instrument tab of Central Usage: VST3 and CLAP (Windows, macOS, Linux), Audio Units (macOS) and LV2 (Linux), effects on the board and instruments as keys layers (Kontakt, Keyscape…), with their own windows, quick controls and saved settings; a plugin that crashes is set aside instead of taking the rig down.
-
-**New in version 9.1.4:** studio compressor (with a gain-reduction meter on computers), 7-band parametric EQ with a live curve, limiter and de-esser for every instrument, on the Central Pedal and computers; three studio channel-strip boards.
-
-**New in version 9.1.3:** lit-stage lighting graphics, a polished tracks timeline, console-style in-ear mixing, backlit pads; edit the website yourself (words, prices, pictures, sections, editors); a warmer voice everywhere.
-
-**New in version 9.1.2:** Central Pedal, Central Pedal Control and Central Services in the new look (Studio is the standard look); link previews for the website.
-
-**New in version 9.1.1:**
-- **A new look:** the Motion Audio mark, new icons for all five apps, one typeface (Archivo).
-- **The website** is redesigned: light pages, a dark stage at the top, a clearer store.
-- **Central Control and Central Usage** are in the dark studio look.
-- Pad swells keep the balance between layers.
-
-**New in version 9.1:** the BETATEST code, trial keys made as they're needed, the staff codes page, Release to all devices.
-
-**New in version 9.0:**
-- **One version number for all five apps.** Full releases 9.1 … 9.9, then 10.0; fixes 9.x.1.
-- **Updates per key:** Pedal and Pedal Control forever; admin and user keys ten releases (renew $20 for ten more). Apps never stop working.
-- **Codes in the cart:** USAGE10 (10%), 2026 (50%) off the software; 7FREE (7 days) and TESTRUN (6 months) free trials.
-- **Central Services monthly** by church size; **packs without the pedal** ($300 / $500 / $750); a **price page** for staff.
-
-**New in version 8.13:**
-- **Admins sign in with email, password and a code to their phone** (once per device, 30 days).
-- The main admin changes roles, hands the main admin role over, and manages **billing in the church's name**.
-- **Confirm email**, **Delete my account**, **privacy policy / terms / refunds** pages.
-- **Central Services:** away dates and song lists. **Contact support**, **error alerts** and **nightly backups**.
-
-**New in version 8.12:**
-- **Forgot password** on the website, in every app's sign-in and in Central Services (an emailed link, once, for an hour).
-- **Invite reminders** after 3 and 7 days; **Move to…** another team (new key and app by email, old key freed).
-- **Central Services** emails everyone serving the day before, and nudges anyone who hasn't answered.
-
-**New in version 8.11:**
-- **Teams:** the main admin adds Admins, Users and Pedal Control people (name, email, role); each gets an email with
-  the link to make their account, their app's download link and their key. The church page shows the keys left.
-- **Keys:** an admin key on one device; a user key or Pedal Control key on two (church and home), same account only.
-  Settings follow the account, so both devices match.
-- **Updates on open** for every app, Android included. The Wi-Fi step is skipped when already online.
-- **Central Services** (new): the church's schedule; it knows whether the account is an admin or a user.
-
-**New in version 8.10:**
-- **License keys and church accounts:** the first-open setup (internet, production, key, account). Keys work one device
-  at a time: P keys for Central Pedal and Pedal Control, A keys for admins, U keys for users. Release key in Settings
-  or on the website. Church packs and new prices on the website. The apps ask for keys once the website is live.
-
-**New in version 8.9:**
-- **Stem splitter, Studio mode:** vocal models voting together, Demucs FT and the 6-stem model for the band, then lead
-  and backing vocals, the reverb off the vocals and the drum kit piece by piece.
-- **Clean-up pass:** bleed removal (the tracks add up to the song again), Perc, the kit as Drums or Cymbals, the
-  silence trimmed, mono tracks written mono, silent tracks left out.
-- **MultiTracks-style tracks:** Lead Vox, BGVs, Drums, Perc, Bass, Guitars, Keys, Synth & Pads, with a Click track and
-  a Guide track made from the beat grid and the sections.
-- **Check before adding:** play, solo and mute, rename, set the role, merge, or split one track again.
-- **Drum hits for the lights:** kick, snare, hi-hat and crash from a split song go to Central Control as MIDI notes
-  and on its lighting timeline, with the tempo. Each has its own note and preset.
-
-**New in version 8.8:**
-- **Central Pedal Control on every system:** macOS, Windows, Linux, iPadOS, iOS and Android.
-  **Central Usage on Linux** (.deb, AppImage).
-- **Add a song:** your songs first, or a new one, then four ways to bring its tracks in:
-  1. your own stems
-  2. the whole song split
-  3. MultiTracks.com / Prime
-  4. Central Tracks
-- **Stem splitter, best quality:** the RoFormer vocal model with Demucs for the band. It can also split lead from
-  backing vocals, and the drums into kick, snare, toms, hi-hat, ride and crash. Each step shows its progress and the
-  time left.
-- **Sections found from the tracks:** intro, verse, pre-chorus, chorus, bridge, instrumental, tag and outro, from the
-  vocals, the harmony and the loudness. After a split, the click and the spoken guide are switched on.
-
-**New in version 8.6:**
-- **Backup player:** a second Central Pedal (or the main admin's player window) plays along silently, in step, and
-  fades in where the song is if the track player stops mid-song - automatic or with a TAKE OVER button.
-- **Elgato Stream Deck** (Original, MK.2, XL, Mini, Neo, +): any action on any key, your own labels, icons and
-  colours, pages, keys that light with what they control.
-- **Practice mixes** (Tracks → 🎧): a file of each song for each musician - their part up, alone or out, click and
-  guide on or off, slower without changing the pitch, another key, a count-in - kept on the Central Pedal for the
-  band's phones (`http://<pedal>.local:8080/practice/`), a USB stick, a download or a folder on the Mac.
-- **Stem splitter** (Tracks → ✂): a stereo song becomes drums, bass, vocals and the rest (or 6 stems) with Demucs,
-  on your own computer, installed only when you ask; every Demucs setting is there.
-- **Each track, the click, the pads and the instrument go to the main admin on their own channels** as soon as a
-  Central Pedal is the track player or the instrument rig (Ethernet or Wi-Fi), with the MIDI hits; set it up in
-  Central Pedal Control and Upload it.
-
-**New in version 8.5:**
-- **Four apps.** **Central Pedal Control** (new, Mac and iPad): the Central Pedal app away from the pedal - build the
-  setlist, import tracks, set up pads, controls and the instrument at home, then **⇪ Upload** them to the pedal with
-  its PIN (the pedal asks before it applies them, never while it plays); **⇩ Download** brings the pedal's setup back.
-  **Central Usage** (new, Mac, Windows, Android; iPhone / iPad): the musicians' app - User 1 / User 2 only.
-  **Central Control** (Windows, Mac, Linux) is now the main admin's and admins' app.
-- **Android:** Central Usage as an `.apk` on the download page; it finds the main admin's computer on the Wi-Fi.
-- The main admin's Devices tab shows which devices run Central Usage; they can't be made admins.
-
-**New in version 8.4:**
-- **LIVE screen** (the first tab): the whole service on one screen - the setlist, the song (key, BPM, time left, what
-  comes next), its sections to jump to, big Play / Pause, Vamp, **Safe Stop** (fades out instead of cutting), next
-  song, the pads, the instrument with its tuner, meters, and the Pi's temperature (°F).
-- **Service lock:** while the service runs only playing works - the other tabs, the mixer and tracks mode are locked
-  until the Central Pedal's PIN unlocks it (it stays locked through a restart).
-- **Service report:** LIVE → 📋 Report - what played on a day and when, how long, how each song ended, its
-  sections, safe stops, audio dropouts and the hottest temperature (°F); download it as text.
-- **Ready check** before the service: the sound, the outputs (the click only to the in-ears), every song's tracks and
-  sections, the Pi's temperature, power, storage and memory, the pairing - green "Ready" or a list of what to fix.
-- **MultiTracks.com / Loop Community (Prime) downloads:** the WAV stems become a song with its **sections read from the
-  Ableton set or MIDI file** in the download, an option to **combine** stems of the same kind (fewer tracks to mix,
-  less memory), a memory check, and **several songs at once** (a folder of downloads or zips).
-
-**New in version 8.3:**
-- **The main admin is the center:** pairing, roles, the Devices tab, locks, services and the in-ear host live in the
-  main admin's Central Control - so everything works **without a Raspberry Pi**.
-- **Tracks, charts and lyrics** come from the main admin's **player window** (the Central Pedal app, built into Central Control on that
-  computer) - or from a **Central Pedal**: add as many as you like with the pairing PIN, and on the Devices tab
-  pick each one's job: **Track player**, **Foot controller** (drives the track player) or **Instrument rig**.
-  Every device follows the track player; songs are copied to every pedal.
-- **Talkback groups:** the main admin talks to the **Band** or to **Production** (each device's group is set on the
-  Devices tab); everyone else's talkback goes only to the main admin's headphones.
-- **Central Pedal is Raspberry Pi only**; Central Control runs on Windows, Mac (Apple Silicon / Intel) and Linux,
-  with the user side on iPhone and iPad.
-- **Raspberry Pi:** Wi-Fi fixed (hidden networks, WPA3, the country, clear errors); **touch screens by size** (2.2" -
-  10.1": GPIO, HDMI and ribbon-cable screens, the maker's driver downloaded when needed); HDMI 1 shows a copy of the
-  touch screen (or lyrics / chord charts / the app), HDMI 2 lyrics or chord charts; the touch panel no longer
-  moves the mouse.
-
-**New in version 8.2:**
-- **New names:** the Pi (and its PC version) is **Central Pedal**; the companion app (Central Usage until now) is
-  **Central Control**. Settings, songs and updates carry on - the installer files keep their old names.
-- **Pairing:** the main admin is set up first (its inputs and outputs, a 4-digit **pairing PIN**, and its own
-  **role PIN**). Every other device - Admin, User 1, User 2, and the Central Pedal on its own screen - pairs with
-  that one pairing PIN. An admin without the role PIN waits for the main admin to allow it.
-- **Devices tab** (main admin): every device, its role and jobs, and how its connection is doing (round trip,
-  in-ear buffer and dropouts, CPU, battery, version), with Change role, Jobs, Lock / Unlock, Rename, Remove.
-  The main admin picks its own job too (everything = production manager, or e.g. lighting).
-- **Locks:** the main admin's **service lock** (everyone, or one device) closes the I/O tab, settings and set-up
-  pages during the service; anyone can **manual-lock** their own computer (hold 🔒 for 2 seconds to unlock).
-- **Services:** up to 4 (day, time, run order with minutes, the roles each item uses). Every computer counts down
-  to **its own next part**; the stage display shows the service countdown.
-- **Talkback:** admins talk into everyone's in-ears or chosen ones (hold, or tap to latch; music dims);
-  musicians can talk to the sound desk.
-- **Recording:** every input, the tracks and a stereo program mix (plus an MP3 for the podcast) on the audio
-  host - by hand, or automatically with a service.
-- **Faster boot** on the Raspberry Pi.
-
-**New in version 8.1:**
-- **More sounds:** 40 more pads (121), 30 more pedals (239) and 17 more keys
-  banks: an old piano, a bright upright, synth brass, synth and electric basses,
-  harp, clarinet, tenor sax, recorder, glass, hang, xylophone, kalimba. Every
-  pedal's knobs were checked against its plugin: 85 pedals had knobs pointing at
-  controls the plugin doesn't have (they showed up only under *more*) and the
-  board presets that used them (Clean Worship, Edge Dotted-Eighth, Modern High
-  Gain) didn't set their delay; all fixed.
-- **The same songs and setlists on every Central Pedal.** Link the Pi and
-  Central Pedal on your computers once (Setlist → *Setlists · Song library ·
-  Devices* → *Link…* with the other one's code). After that, a setlist made on the
-  PC shows up on the Pi to open, and every song with its stems, chart and light
-  show copies both ways by itself; the newest edit wins. The Pi keeps the tracks of
-  songs that are in a setlist (cards are small); computers keep everything.
-  Deleting asks: *from this setlist*, *on this device*, or *everywhere*.
-- **Parts for every instrument** (song editor → *Parts for every instrument*):
-  guitar (chart with capo and chord diagrams, or tab), bass, keys (both hands),
-  vocals (melody with words), trumpet / clarinet / alto and tenor sax / horn in F /
-  trombone in their keys, violin, cello and a drum chart, plus the chord chart and
-  Nashville numbers. *Listen to every track* writes down what each track plays
-  (drums too: kick, snare, hats, crash), so the parts are the real ones; songs
-  without tracks get parts written from the chords. The bass track also makes the
-  heard chord chart more accurate.
-- **Lyrics + chords from the vocal** (Central Pedal on a PC, and Central Control):
-  an offline speech model hears the words in the vocal track and writes the lyric
-  chart with the chords on the right words.
-- **Central Control roles**: one main admin with a PIN and a pairing code, admins
-  with jobs (lighting, production, mix, in-ears, slides), User 1 and User 2.
-- **Touch select**: give any knob, slider or the encoder the *Touch select* job
-  (Configure). Tap any setting on the screen - a pedal's knob, a fader, the pad
-  sound - and that knob changes it. It picks up from where the setting is (an
-  arrow says which way to turn), stays until you tap something else, and the
-  3.5-inch screen shows what it holds.
-- **Saved setups**: save the buttons / knobs jobs, volume / tone / reverb /
-  fade, the instrument (boards, pedals, keys), textures, colours and projector
-  look under a name ("Sunday", "Youth night") and bring them back with one tap;
-  each song can have its own setup. Setups stay on that device - songs, tracks
-  and setlists are what sync.
-- **Pairing PIN**: the first time a Central Pedal starts, you pick its 4-digit
-  pairing PIN (Settings → Wi-Fi & devices changes it). It is separate from the
-  main admin's PIN in Central Control.
-- **Tuner** on the Instrument tab: one button (or a footswitch, which opens the
-  tab), mute or keep playing while tuning, and it shows on the 3.5-inch screen.
-- **iPhone and iPad**: Central Control opens from the Central Pedal at
-  `http://padpedal.local:8080/cu/` (Add to Home Screen).
-
-**New in version 8:**
-- **The Central Pedal's audio goes to Central Control.** Every track goes on its
-  own channel, plus the click, pads, the tracks mix and the instrument. It travels
-  over **Ethernet** or **Wi-Fi**, or through the **audio interface**; you pick which
-  on the new **I/O tab**, which lists every input and output.
-- **Learn has one layout.** It covers 12 buttons, 6 knobs and 2 sliders, and every
-  function can go on any of them: play all, stop all, the next song, sections,
-  rehearsal and more.
-- **Pads follow the tracks.** They follow the song's key and tempo, start and stop
-  with the tracks, swell by section, and each song can have its own pad.
-- **The Tracks tab has a mixer** right on the page. It also shows **one combined
-  waveform** with every section in its standard colour.
-- **Settings → Colours of everything:** the screen, the section colours and the pad
-  colours.
-- **Rehearsal tools:** A–B loop, loop a section, back or next section, and slow down.
-- A big **guitar tuner**, and song notes and cues on the stage display.
-- **More sounds:** 81 pads, 59 more pedals, a bass board, a piano bank, and an
-  on / off **live looper** under the instrument.
-- **Slides on HDMI 2:** pictures, videos and lyrics sent from Central Control.
-
-**In Central Control 2.0:**
-- **The Mix tab** gives every track its fader, pan, mute, high-pass, 3-band EQ and
-  compressor. The tracks go out of the USB interface summed (L/R) or each on its
-  own output.
-- **The In-ears tab** handles up to 128 channels and 64 mixes (48 in 8.0). People on stage pick
-  a free mix and set their own levels from Central Control or a phone. Their mix
-  plays on that device over Wi-Fi (local), or leaves the audio host's interface for
-  a pack (cloud).
-- On the audio host you can **listen to any mix** and **record the service**.
-- **Lighting** runs in Auto, Semi-auto or Manual mode. It shows the waveform with
-  the hit lines, takes plain-word orders ("back blue 30% for the verse…"), and
-  records what you press so you can record over any part later. You can change
-  every light's colour in a list, edit presets, keep songs with any number of
-  scenes (with or without tracks) that follow any tempo, use more than one
-  universe, and run a click that you can hear, that the lights follow, and that
-  can go to an audio output. The lights also react to the music.
-- **Slides:** pictures, video and lyrics go to a second screen, the Central
-  Pedal's HDMI 2 and NDI.
-- **The Instrument tab** is the same guitar / bass / keys rig as on the Pi. It is in Central Usage, the musicians'
-  app, and also plays your own VST3, CLAP, Audio Unit (macOS) and LV2 (Linux) plugins, effects and instruments,
-  with their windows.
-
-**New in version 7.1:** the HDMI picture is right on any monitor - its own
-native resolution (sharp, not stretched), the whole app on screen, a monitor
-that wakes up late or gets swapped mid-service is picked up by itself without
-stopping the sound, and Settings → Screens can pick the resolution, the zoom
-and pull the picture in on screens that cut the edges off · the Inter typeface
-built in, so the app looks the same everywhere · the version shown on the
-start-up screen and in the top bar · it starts on the tab you used last
-(the very first time: Tracks) · proper text boxes everywhere (a pasted chord
-chart keeps its lines; the Wi-Fi password is hidden; works in the PC app too) ·
-a clean-up pass over every button.
-
-**Version 7:** a full **mixer** (a fader, meter, mute / solo and pan
-for every track) · **scenes** saved with each song (up to 4 pad layers with
-their levels, the track mix, the instrument rig) recalled automatically, from a
-footswitch or by MIDI · **segues** between songs (gapless or crossfaded) ·
-**ProPresenter** slides that follow the sections · **Mix and Level on every
-pedal** · **8 keys layers** with splits · an **IR loader** · a **looper** ·
-**update checks** that ask before installing · in Central Control: the **fixture
-library** (QLC+ / Open Fixture Library), **moving-head positions and shapes**,
-a **phone remote** for the lights and **timecode** (MTC / LTC) out.
-
-**Version 6:** songs from Planning Center, MultiTracks.com / Loop
-Community track packs or your own files · tempo and time-signature changes
-inside a song · live arrangement (flow) with gapless jumps · per-stem outputs
-on a USB interface · your own recorded cue words · a stage display ·
-backup, restore and software update from a USB stick · every imported file
-kept in a library on the Pi · lighting in Central Control.
-
-</details>
+Older versions are in [release-notes/HISTORY.md](release-notes/HISTORY.md), and every release has its own notes in [release-notes/](release-notes/).
 
 ---
 
-# User guide
+# The pedal's user guide
 
 ## The tabs
 
-`F8` and `F1`–`F7`, or a button mapped to *Show tab*: **LIVE · Pad · Tracks · Instrument ·
-Configure · Learn · I/O · Settings**.
+The tabs along the top are **Live, Pad, Tracks, Instrument, Looper, Controls, Learn** and **I/O**. Settings opens from the ⚙ button. On a keyboard, F8 is Live, F1 Pad, F2 Tracks, F3 Instrument, F9 Looper, F4 Controls, F5 Learn, F7 I/O and F6 Settings. You can also put *Show tab* on a footswitch.
 
-### LIVE
-The screen for the service. Left: the setlist (● = the song has its tracks); tap a song to load it (while something
-plays: tap twice). The song: its number in the setlist, key, BPM, the time left, what is next, and Click / Cues.
-The **sections** in song order, sized by length and coloured (verse, chorus, bridge…); the one playing fills up as it
-goes; tap one to jump there (on the bar, like the section buttons). Below: **◀ Prev section · ▶ Play / Pause ·
-Next section ▶ · ⟲ Vamp** (repeat this section until pressed again) **· ■ Safe Stop** (fades the tracks and pads out
-over 2.5 s; press again to stop at once) **· Next song** (while playing: tap twice). The pads (tap to crossfade), the
-instrument (◀ ▶ board or keys sound, and the **tuner** right there) and the tracks / pads meters.
+### Live
 
-Along the top: the Pi's temperature in °F, low power, the outputs, the pairing with the main admin,
-**Ready check** and **🔒 Lock for service**.
-- **Ready check:** the sound is running; the outputs - on a 4-output interface the click must have an output of its
-  own, on a 2-output device a click in the main mix is flagged (the congregation would hear it); every song in the
-  setlist has its tracks and sections; tracks mode; the Pi's temperature, power supply (under-voltage), storage and
-  memory; the pairing. Each problem has a button to fix it where it can. Also as a button action *Ready check*.
-- **Service lock:** the other tabs, the mixer, tracks mode, seeking and set-up actions are locked (buttons and pedals
-  mapped to them do nothing); playing, sections, pads, the instrument and the tuner work. Unlock with the Central
-  Pedal's pairing PIN. The small screen shows LOCKED. Also as a button action *Service lock on*; *Safe stop* is an
-  action too.
-- **📋 Report:** the Central Pedal writes down what happens (songs loaded, played, stopped or played to the end,
-  sections, jumps, Vamp, Safe Stop, the lock, audio dropouts, and the Pi's temperature and power every minute while
-  playing) in `/data/pad-pedal/service-log/` (one file per day, 120 days). The report for a day: songs played,
-  playing time, stopped early, safe stops, dropouts, the hottest temperature; each song with its time, how long,
-  its sections and how it ended; and everything minute by minute. **⬇ Download** saves it as text.
+This is the screen for the service. The setlist runs down the left, with a dot next to songs that have their tracks. Tap a song to load it; if something is playing, tap it twice.
+
+The middle shows the song: its place in the setlist, key, BPM, time left and what's next. The sections are laid out in order, sized by length and coloured by type, and the one playing fills up as it goes. Tap a section to jump there on the next bar.
+
+Under that are the transport buttons: previous section, play and pause, next section, **Vamp** (repeats this section until you press it again), **Safe Stop** and **Next song**. Safe Stop fades the tracks and pads out over 2.5 seconds; press it again to stop straight away. The pads, the instrument (with its tuner) and the meters are on the same screen.
+
+Along the top you'll see the Pi's temperature, a low-power warning, the outputs, whether it's paired with the main admin, and two buttons:
+
+- **Ready check** looks at everything before the service starts. It checks the sound is running and the outputs make sense (on a 4-output interface the click needs an output of its own; on a 2-output device a click in the main mix gets flagged, because the congregation would hear it). It checks every song in the setlist has its tracks and sections, and it looks at the Pi's temperature, power supply, storage, memory and pairing. Where it can fix a problem, there's a button next to it. *Ready check* is also an action you can put on a button.
+- **Lock for service** locks the other tabs, the mixer, seeking and set-up actions, so a stray press can't change anything. Playing, sections, pads, the instrument and the tuner still work. Unlock it with the pedal's code. The small screen shows LOCKED while it's on.
+
+**Report.** The pedal keeps a log of the service: songs loaded and played, how each one ended, sections, jumps, Vamp, Safe Stop, the lock, audio dropouts, and the temperature and power every minute while it plays. It's kept in `/data/pad-pedal/service-log/`, one file a day for 120 days. The day's report shows what was played, for how long, anything stopped early and the hottest the Pi got. **⬇ Download** saves it as text.
 
 ### Pad
-The pad instrument. 8 pads per song (tap to crossfade, tap again to fade
-out), STOP, key − / +, two texture channels, tap tempo, layer, morph, freeze.
-- **Built-in pads** play in any key with no samples; **imported pads** (MP3,
-  WAV, FLAC, OGG, M4A, AIFF) get their key detected automatically and are
-  pitch-shifted to the song's key (set the root key yourself if it guessed wrong).
-- **Textures**: 2 channels, 100+ presets (rain, vinyl, choir air, tape hiss,
-  shimmer beds…), each with its own level knob.
-- **Effects** on every pad: 6-band EQ, compressor (VCA / FET / Opto /
-  Vari-Mu / Bus / Limiter), drive, auto-filter, phaser, chorus, tremolo,
-  stereo width, tempo-synced delay, reverb with shimmer, LFO; all with live
-  graphics drawn from the real audio.
-- **Octave layers**, **auto-swell**, **audio input** (USB interface) with its
-  own effects chain, and output meters with HOT / CLIP warnings.
-- **Pad layers**: with LAYER on, up to **4 pads play at once**; each has its
-  own level in the *Layers* box beside the pads (and on a knob: *Pad layer N
-  level*). A fifth pad fades the oldest one out.
 
-### Scenes (saved with each song)
-A scene is a snapshot of any of: the **pads** (which pads, up to 4, and each
-one's level), the **track mix** (every fader, mute, pan) and the
-**instrument** (which pedals are on, each pedal's Mix and Level, the keys
-layers and their volumes; tick *+ board* to store the whole pedalboard / keys
-setup for that song). Song editor → **Scenes** → *Capture*.
-- **Transitions**: *Smooth* (a fade of the seconds you set), *Swell* (slow),
-  or *Cut*; *at once*, on the *next beat* or on the *next bar*.
-- **Automatic**: a scene when the song is chosen, and a scene per section
-  (Sections → *scene*), recalled as the section starts.
-- **Triggered**: tap it (the scene buttons on the Tracks tab, the pads screen
-  and the mixer), or a footswitch / button (*Scene: next*, *Scene: previous*,
-  *Scene: recall scene N*).
-- **MIDI-cued**: *MIDI learn* on a scene, then send the note, CC or program
-  change that should call it (from a MIDI controller, Ableton, a console…);
-  a song can have its own MIDI cue too.
+Eight pads per song. Tap one to crossfade to it and tap it again to fade it out. There's a stop button, key up and down, two texture channels, tap tempo, layer, morph and freeze.
+
+Built-in pads play in any key with no samples. Imported pads (MP3, WAV, FLAC, OGG, M4A or AIFF) have their key detected and get shifted to the song's key. If it guessed the key wrong, set the root key yourself.
+
+The two texture channels have over 100 presets, like rain, vinyl, choir air, tape hiss and shimmer beds, each with its own level.
+
+Every pad has its own effects: a 6-band EQ, a compressor with six characters, drive, an auto-filter, phaser, chorus, tremolo, stereo width, a delay that can follow the tempo, reverb with shimmer, and an LFO. The graphs are drawn from the real audio.
+
+With **Layer** on, up to four pads play at once, each with its own level in the Layers box (or on a knob, *Pad layer N level*). A fifth pad fades out the oldest one. There are also octave layers, auto-swell, an audio input from a USB interface with its own effects, and output meters that warn HOT and CLIP.
+
+### Scenes
+
+A scene is a snapshot you save with a song. It can hold the pads (which ones and their levels), the track mix (faders, mutes and pans) and the instrument (which pedals are on, each pedal's Mix and Level, and the keys layers). Tick *+ board* to save the whole pedalboard or keys setup with it. Capture one from the song editor under **Scenes**.
+
+A scene can change smoothly over the seconds you set, swell in slowly, or cut, and it can land straight away, on the next beat or on the next bar. You can have a scene load with the song or start with a section. You can also tap it, put it on a footswitch (*Scene: next*, *Scene: previous*, *Scene: recall scene N*), or call it from MIDI: press *MIDI learn* on the scene and send the note, CC or program change you want to use from a controller, Ableton or a console.
 
 ### Tracks
-A multitrack player built in; nothing else to install.
-- **+ Song** opens *Add songs*, with three sources:
-  - **Planning Center**: connect once with a Personal Access Token
-    (api.planningcenteronline.com → Personal access tokens; the app ID and
-    secret stay on the Pi). Pick a service type and an upcoming plan; every
-    song in the plan comes in with its key, tempo, time signature, the
-    arrangement's sequence (as the song's flow), its chord chart and lyrics,
-    and any audio attached to the arrangement (pitched to the service key if
-    the file is in another key). Tick the songs (or all of them) and import; they can go to the top of
-    the setlist in service order.
-  - **Track pack**: a MultiTracks.com or Loop Community (Prime) download (the zip,
-    or the unzipped folder of WAV stems) on a USB stick. Stems are recognised by name
-    (click, guide, drums, bass, keys, EG / AG, vox, pads…), the full mix is
-    left out, and title, key and tempo are read from the file names; you can
-    change any stem's role before importing. The **sections** come from the
-    Ableton Live set (`.als` locators) or the MIDI file (markers) in the download,
-    and its tempo fixes the beat grid. **Combine stems of the same kind** mixes,
-    say, three drum stems into one Drums track (fewer faders, less memory); the
-    click and guide always stay separate. A pack that is too big for this Pi's
-    memory gets a warning. **Several songs…** imports a whole folder of downloads
-    (or zips) at once, one song each. Prime and Playback themselves run only on an
-    iPad / iPhone / Mac - this brings their songs to the Central Pedal.
-  - **Own files**: a single file (MP3 / WAV / FLAC…) or a folder of stems,
-    from a USB stick, from a phone (the *Upload* companion page), or from
-    this folder on your PC over the network.
-- **Library**: every imported file is copied to `/data/pad-pedal/library/`,
-  so a song still plays after the USB stick is gone or the browser storage is
-  cleared, and is part of every backup.
-- **Tempo and key are detected automatically** (with the runner-up guesses
-  one tap away if it got it wrong), plus the beat grid, downbeats, sections
-  and big hits; a **click track** is generated from the beat grid of the
-  instruments (and the song's own click stem is used if it has one).
-- **Any key, any tempo**: pitch and time change independently and
-  correctly on the fly (the stems stay locked together).
-- **Tempo map**: tempo and time-signature changes inside a song (*Tempo grid → Tempo &
-  time signature changes* in the song editor: from bar N, the new BPM and beats per bar, with
-  an optional ritardando over a few bars). The click, the count-in, the beat
-  dots, the sections, MIDI clock and the light hits all follow it.
-- **Flow (live arrangement)**: put the sections in the order you want to
-  play them (Intro, V1, C, C, Bridge, C…); playback jumps between them
-  gaplessly on the bar line. Live, **hold** a section button (or a footswitch
-  mapped to *Flow: play section N next*) to go there next, ⟲ *again* to
-  repeat the current one, ⤼ *skip* to drop the next, or turn flow off to play the song as recorded.
-- **Mixer** (🎚 *Mixer*, or the *Show the mixer* action): every file you
-  added gets a channel strip with a big fader (dB), a level meter, mute,
-  solo, pan and (with a big USB interface) its own output, plus the Tracks,
-  Click and Cues masters. The small strips on the Tracks tab are the same
-  faders. Mix changes glide (no clicks), and mixes can be saved as scenes.
-- **When the song ends** (song editor): stop · go to the next song, ready ·
-  play the next song after a gap · **segue**: the next song is loaded on a
-  second player while this one plays and starts the moment it ends
-  (gapless), or crossfades over the seconds you set; pads carry on into it.
-  *Setlist: go into the next song now* does it on a footswitch.
-- **Stems**: each stem has its own volume (with a dB readout) and **pan**.
-  When a USB interface with more than four outputs is plugged in, each stem
-  also gets an **Out** picker to send it alone to an interface channel
-  (e.g. drums and bass to their own console channels). The picker only
-  appears when such an interface is detected.
-- **Per-song settings**: key, tempo, count-in, loops, sections (Intro,
-  Verse 1, Chorus… with markers you can drag), cue words, pad set.
-- **Transport buttons**: play / pause, stop, start over, restart section,
-  repeat section, previous / next section, key − / +, previous / next song;
-  on the footswitches, the screen, the 3.5" screen or a phone.
-- **Using tracks** toggle: on, the pads follow the song's key (and section
-  pad sets) as the track plays; off, the pads follow the setlist's song key.
-- **Pad transitions** can be fired from the track: a section marker can
-  switch the pad, swell it in or out, or stop it.
-- **Click + spoken MD cues** ("Chorus", "Bridge", "1 2 3 4"…) go to output 3;
-  the band hears them, the house does not. **Your own cue words**: *Record cue
-  words in your voice…* in the song editor records a word with any microphone (silence is
-  trimmed) and it can be used on any section like the built-in ones.
-- **Chord charts**: upload a PDF or text chart (ChordPro, chords-over-lyrics
-  or `| G | C |` bars), or press **Listen & write chord chart** and the
-  Central Pedal writes one by listening to the stems (beat-synchronous chord
-  recognition with slash chords, lined up with the sections). The current
-  chord is shown on the transport while the song plays. Charts are shared
-  with phones, the projector and Central Control.
-- **Sheet music**: *Sheet music…* in the song editor listens to one stem
-  (bass, keys, lead…) and writes what it plays as standard notation,
-  guitar / bass tab, a piano roll that follows the playhead, Nashville
-  numbers or a chord chart - you pick the view, the clef, the instrument
-  and the note division; export as SVG (to a USB stick on the Pi).
-- **Lyrics**: words only, split by section, for the projector and phones.
-- **MIDI out**: channel 1 (or whichever you pick) sends *hits* for lights, and the drum hits of split songs as their
-  own notes (kick 36, snare 38, hi-hat 42, crash 49 by default; each can be changed or turned off).
-  The hits are a note on every accent / section start; channel 2 sends
-  general MIDI (program change per song, notes per section, clock).
-  The same hits and clock go over Wi-Fi to Central Control.
-  **Ableton Link** and **MIDI clock** sync are in Settings.
+
+The multitrack player is built in, so there's nothing else to install.
+
+**Adding songs.** **+ Song** opens *Add songs*. There are three places songs come from:
+
+- **Planning Center.** Connect once with a Personal Access Token (from api.planningcenteronline.com → Personal access tokens). Pick a service type and an upcoming plan, and every song in it comes in with its key, tempo, time signature, the arrangement's order, its chord chart, lyrics and any audio attached to the arrangement. Audio in another key gets pitched to the service key. You can put the songs at the top of the setlist in service order.
+- **A track pack.** A MultiTracks.com or Loop Community (Prime) download on a USB stick, zipped or unzipped. Stems are recognised by their names, the full mix is left out, and the title, key and tempo come from the file names. You can change any stem's role before importing. Sections come from the Ableton Live set or the MIDI file in the download. **Combine stems of the same kind** mixes, say, three drum stems into one Drums track, which saves faders and memory; the click and guide always stay separate. **Several songs…** imports a whole folder of downloads at once. If a pack is too big for the Pi's memory, it warns you first.
+- **Your own files.** One file or a folder of stems, from a USB stick, from a phone (the Upload page) or from a computer on the network.
+
+Every imported file is copied into `/data/pad-pedal/library/`, so the song still plays after the USB stick is gone, and it's included in every backup.
+
+**What the pedal works out.** Tempo and key are detected (if it gets one wrong, the next guesses are one tap away), along with the beat grid, downbeats, sections and big hits. A click track is made from the beat grid, or the song's own click stem is used if it has one.
+
+**Key and tempo.** Pitch and tempo change separately and on the fly, and the stems stay locked together. A song can change tempo and time signature part way through: in the song editor, under *Tempo grid → Tempo & time signature changes*, set the bar, the new BPM and beats per bar, with an optional slow-down over a few bars. The click, count-in, sections, MIDI clock and light hits all follow it.
+
+**Flow.** Put the sections in the order you want to play them (Intro, V1, C, C, Bridge, C) and playback jumps between them without a gap on the bar line. While it plays, hold a section button (or a footswitch set to *Flow: play section N next*) to go there next, use *again* to repeat the current one or *skip* to drop the next, or turn flow off to play the song as recorded.
+
+**The mixer.** Open it with 🎚 *Mixer* or the *Show the mixer* action. Each file you added gets a channel with a fader, a meter, mute, solo, pan and, with a big USB interface, its own output. The Tracks, Click and Cues masters are there too. The small strips on the Tracks tab are the same faders. Changes glide instead of clicking, and you can save mixes as scenes.
+
+**When a song ends** (set in the song editor), the pedal can stop, load the next song and wait, play the next song after a gap, or segue: the next song loads on a second player and starts the moment this one ends, or crossfades over the seconds you set, with the pads carrying on. *Setlist: go into the next song now* does it from a footswitch.
+
+**Stems** each have a volume and a pan. With a USB interface that has more than four outputs, each stem also gets an **Out** picker, so you can send the drums and bass to their own console channels. The picker only shows up when such an interface is plugged in.
+
+**Per song** you can set the key, tempo, count-in, loops, sections (with markers you can drag), cue words and the pad set. The transport (play, pause, stop, start over, restart or repeat the section, previous and next section, key, previous and next song) works from the footswitches, the screen, the 3.5" screen or a phone.
+
+With **Using tracks** on, the pads follow the song's key and each section's pad set as the track plays. A section marker can also switch the pad, swell it in or out, or stop it.
+
+**Click and cues.** The click and the spoken cues ("Chorus", "Bridge", "1 2 3 4") go to output 3, so the band hears them and the house doesn't. To use your own voice, choose *Record cue words in your voice…* in the song editor, record a word with any microphone, and use it on any section like the built-in ones.
+
+**Charts, sheet music and lyrics.** Upload a PDF or text chart (ChordPro, chords over lyrics, or `| G | C |` bars), or press **Listen & write chord chart** and the pedal writes one by listening to the stems, lined up with the sections. The current chord shows on the transport while the song plays. *Sheet music…* listens to one stem and writes what it plays as notation, guitar or bass tab, a piano roll, Nashville numbers or a chord chart, which you can export as SVG. Lyrics are split by section for the projector and phones. Charts and lyrics are shared with phones, the projector and Central Control.
+
+**MIDI out.** Channel 1 (or the one you pick) sends hits for the lights, and the drum hits of split songs as their own notes: kick 36, snare 38, hi-hat 42 and crash 49 by default, each of which you can change or turn off. Channel 2 sends general MIDI: a program change per song, notes per section, and clock. The same hits and clock go over the network to Central Control. Ableton Link and MIDI clock sync are in Settings.
 
 ### Instrument
-Plug a guitar into a USB audio interface, or a keyboard into a USB port, and
-the Central Pedal is the rig. Its sound leaves on **output 4**, never in
-the way of the pads or tracks.
-- **Electric / Acoustic guitar**: the input (any class-compliant USB
-  interface, left / right / stereo channel), gain and noise gate, then a
-  **pedalboard** drawn on screen: 239 pedals (boost, overdrive, distortion,
-  fuzz, compressors, EQ, wah, chorus, flanger, phaser, tremolo, pitch,
-  delays, reverbs, amps and cabinets, acoustic tools) built from the free
-  LV2 / LADSPA plugins installed in the image (Guitarix, Calf, Invada, TAP,
-  CAPS, swh, x42, Dragonfly, ZamAudio, MDA…) plus boards made here.
-  Tap a pedal to switch it, open it for its knobs, drag to reorder, *Sync*
-  a delay to the song tempo. **13 board presets** (Clean Worship, Ambient
-  Swell, Edge Dotted-Eighth, Blues Crunch, Modern High Gain, Fuzz Wall,
-  Acoustic Natural / Shimmer / DI, Keys: Stage / Ambient Pad / EP Tremolo /
-  Organ Leslie) and your own boards.
-- **Piano & keys**: a USB MIDI keyboard plays SoundFont sounds through
-  FluidSynth: grand, upright and old pianos (Salamander, YDP, Upright KW and
-  KW Bright, Piano FB), electric pianos, organs, pads, strings, synth brass,
-  leads, synth and electric basses (finger / picked), harp, clarinet, tenor
-  sax, recorder, bells, glass, hang, xylophone, kalimba and a full General
-  MIDI bank (37 free banks), then the same pedal chain (compressor, EQ, reverb, delay…).
-  Transpose, velocity curve, sustain. **Add your own sounds**: an `.sf2`
-  SoundFont or a folder of WAV samples named by note (`C4.wav`, `F#3.wav`,
-  `60.wav`…) from a USB stick (*Sounds → Add sounds…*), or send an `.sf2`
-  from a phone or computer with the Upload page.
-- **Mix and Level on every pedal**: open a pedal - *Mix* blends the dry
-  sound with the pedal (parallel compression, a touch of fuzz, a delay at
-  30 %), *Level* sets what the pedal gives back. Live, no restart.
-- **IR loader** (*IR loader: cab / acoustic body*): a cabinet or acoustic
-  body impulse response (.wav) from a USB stick (*+ Add IR from USB…*).
-- **Keys layers**: up to **8 sounds at once** (piano + pad + strings…), each
-  with its own volume, pan, octave, key range (*Split at C4* in one tap) and
-  velocity range; each layer is a footswitch toggle or knob too.
-- **Looper**: *REC / PLAY / DUB* on one footswitch (record → play → overdub
-  → play), *Stop*, *Undo* the last overdub, *Clear*. In time with the song
-  (1–16 bars from the next bar line) or free. It records the instrument
-  after its pedals and plays back on the instrument output.
-- **Tuner** (mutes the output), input meter, **Auto** (listens to the
-  input, sets gain and gate, guesses acoustic / electric, picks a board).
-- Every pedal, board, sound, the tuner, the expression pedal (wah / volume)
-  and the output level can be put on a footswitch, knob or MIDI control in
-  **Configure** (*Instrument: pedal N on / off*, *… while held*, *next board*,
-  *Keys: next sound*, *tuner*, *Auto set-up*…).
-- Latency: 128 samples at 48 kHz in the Pi plus the interface's own.
 
-### Configure
-Every physical control, what it does in the Pad layout and what it does in
-the Tracks layout, with a hold-action per button. Pick from the action list;
-LEDs follow the mapping (on / off / blink on the beat).
+Plug a guitar into a USB audio interface, or a keyboard into a USB port, and the pedal becomes the rig. Its sound goes out on output 4, out of the way of the pads and tracks.
+
+**Guitar.** Pick the input (any class-compliant USB interface, left, right or stereo), set the gain and noise gate, and build a pedalboard on screen. There are hundreds of pedals, from boosts, drives and fuzzes to compressors, wahs, modulation, pitch, delays, reverbs, amps and cabinets, built from the free LV2 and LADSPA plugins in the image (Guitarix, Calf, Invada, TAP, CAPS, swh, x42, Dragonfly, ZamAudio, MDA and others) plus ones made here. Tap a pedal to switch it on or off, open it for its knobs, and drag to reorder. Any delay can follow the song's tempo. There are ready-made boards, and you can save your own.
+
+**Piano and keys.** A USB MIDI keyboard plays SoundFont sounds through FluidSynth: grand, upright and old pianos, electric pianos, organs, pads, strings, synths, basses, harp, woodwinds, bells and a full General MIDI bank, then through the same pedal chain. Transpose, velocity curve and sustain are there. To add your own sounds, use *Sounds → Add sounds…* with an `.sf2` SoundFont or a folder of WAV samples named by note (`C4.wav`, `F#3.wav`, `60.wav`) from a USB stick, or send an `.sf2` from a phone or computer with the Upload page.
+
+**Mix and Level** are on every pedal. Mix blends the dry sound with the pedal, which is handy for parallel compression or a delay at 30%. Level sets how loud the pedal comes back. Both change live.
+
+**IR loader.** Load a cabinet or acoustic body impulse response (.wav) from a USB stick with *+ Add IR from USB…*.
+
+**Keys layers.** Up to eight sounds at once, like piano with a pad and strings. Each has its own volume, pan, octave, key range (*Split at C4* in one tap) and velocity range, and each can be a footswitch toggle or a knob.
+
+**Tuner** mutes the output while it's open. **Auto** listens to the input, sets the gain and gate, guesses acoustic or electric, and picks a board.
+
+Any pedal, board, sound, the tuner, the expression pedal (wah or volume) and the output level can go on a footswitch, knob or MIDI control in the Controls tab. Latency is 128 samples at 48 kHz on the Pi, plus whatever the interface adds.
+
+### Looper
+
+Three loops, worked from one footswitch: record, then play, then overdub. You can undo and redo, reverse a loop, play it at half speed, and set its level and pan. Loops can start on the next bar line and stay in time with the song, or run free. It records the instrument after its pedals and plays back on the instrument output.
+
+### Controls
+
+Every physical control, with what it does in the Pad layout and what it does in the Tracks layout, plus a hold action for each button. Pick from the action list. The LEDs follow what you set: on, off, or blinking on the beat.
 
 ### Learn
-- **Add new button** → name it → Learn → press the pedal. Works for GPIO
-  pins, USB foot controllers (any HID pedal / keyboard key), and MIDI
-  (note, CC, program change).
-- **Control board inputs**: the 6 knobs, 2 sliders and 12 buttons; *Learn*
-  scans every usable GPIO and ADS1115 input for the one you move. Starts
-  from the defaults in `wiring.html`; *Reset* puts them back.
+
+**Add new button**, give it a name, press Learn, then press the pedal. It works for GPIO pins, USB foot controllers (any HID pedal or keyboard key) and MIDI (note, CC or program change). For the 6 knobs, 2 sliders and 12 buttons on the control board, *Learn* scans every usable input for the one you move. It starts from the layout in `wiring.html`, and *Reset* puts it back.
 
 ### I/O
-Every input and output of the Central Pedal on one page:
-- **Audio to Central Control**: *Off*, *Ethernet* (a cable to the network or
-  straight to the computer; the best), *Wi-Fi* (anywhere on the Wi-Fi, a
-  little more delay) or *Audio interface* (the outputs cabled into the other
-  computer's interface). On the network, every track goes on its own
-  channel, raw (Central Control mixes it), together with *Click + cues*, *Pads
-  L/R*, *Tracks mix L/R* and the instrument. Each channel is 48 kHz, or
-  24 kHz with *Saver* for a busy Wi-Fi. The page shows who is listening and
-  what is being sent. The Pi only serves computers that reach it over the
-  chosen connection.
-- **Audio outputs**: the routing of the four buses and the per-track direct
-  outputs.
-- **Audio inputs**, **MIDI** (ports, notes for the lights), **Screens & video**
-  (what HDMI 1 and 2 show, including *Slides from Central Control*), the
-  **control surface**, and the devices on the network (the Central Control
-  computers, the audio host, the pairing code).
+
+Every input and output on one page.
+
+**Audio to Central Control** can be off, over Ethernet (a cable to the network or straight to the computer, which is best), over Wi-Fi (a little more delay), or through an audio interface (the pedal's outputs cabled into the other computer's interface). Over the network, every track goes on its own channel for Central Control to mix, along with the click and cues, the pads, the track mix and the instrument. Each channel is 48 kHz, or 24 kHz with *Saver* on a busy Wi-Fi. The page shows who's listening and what's being sent.
+
+The same tab has the routing of the four outputs and each track's own output, the audio inputs, MIDI ports and the notes for the lights, what HDMI 1 and 2 show, the control surface, and the devices on the network.
 
 ### Settings
-- **Appearance**: colour presets (Midnight, Worship warm, Stage black,
-  Forest, Royal, Daylight, High contrast) or your own colours; interface size.
-- **Audio engine**: sample rate (device default / 44.1 / 48 / 96 kHz) and
-  latency (lowest / balanced / safest), applied with a restart of the engine.
-- **Output routing** and **Output device** (below).
-- **Screens**, **3.5-inch screen**, **Companion devices** (QR code, pairing
-  code, Upload page), **Wi-Fi**, **MIDI in**, **Tempo / Link / MIDI clock**,
-  **Power-cut safe mode**, keyboard shortcuts, shut down / restart.
-- **ProPresenter**: Settings → *ProPresenter* (its IP and port; in
-  ProPresenter 7: Settings → Network → Enable network). Each section can show
-  a slide (Sections → *slide*: a number, or *next*), and choosing a song
-  brings up its presentation from the library (*ProPresenter presentation*
-  in the song editor, the song name by default).
-- **Software updates**: set the *Update source* (the GitHub repository the
-  releases are published to). The Central Pedal looks once a day; when a
-  newer version is out, *Update ready* appears with *Install* - which waits
-  until nothing is playing. The download is checked against the release's
-  SHA256SUMS before anything is installed; your songs and settings stay.
-- **Backup, restore & update** (USB stick):
-  - *Back up to USB stick* writes `Central Control/central-control-backup-<date>.zip`
-    on the stick: songs and their library audio, charts, lyrics, pads,
-    keys sounds, recorded cues, lighting shows, setlists, the pin map,
-    audio and app settings.
-  - *Restore from USB…* lists the backups on the stick and puts one back (the app
-    restarts).
-  - *Update software from USB…* installs a newer Central Pedal from a zip on the
-    stick (`central-control-source.zip` from this project), into the
-    read-only system too when safe mode is on, and restarts the app. Your
-    songs and settings are not touched.
+
+Settings opens from ⚙ and is grouped down the side: **Sound, Screens & displays, Look, Controls, Network & devices, Packages & key, Planning Center & CCLI, Saved setups, Software updates & backup** and **About & power**.
+
+- **Sound** has the audio engine (sample rate and latency), where each output goes, the output device, and **Test sound**. Test sound plays a tone on each output, follows it along the way, and tells you where it stops.
+- **Look** has the colour presets (Midnight, Worship warm, Stage black, Forest, Royal, Daylight, High contrast), your own colours, and the interface size.
+- **ProPresenter.** Type its IP and port (in ProPresenter 7, turn on Settings → Network → Enable network). Each section can show a slide, and choosing a song can bring up its presentation.
+- **Software updates.** The pedal checks once a day. When a new version is out, *Update ready* appears with *Install*, which waits until nothing is playing. The download is checked against the release's `SHA256SUMS`, and your songs and settings stay as they are.
+- **Backup, restore and update from a USB stick.** *Back up to USB stick* writes `Central Control/central-control-backup-<date>.zip` with your songs and their audio, charts, lyrics, pads, keys sounds, recorded cues, light shows, setlists, the pin map and your settings. *Restore from USB…* lists the backups on the stick and puts one back. *Update software from USB…* installs a newer version from a `central-control-source.zip` on the stick, even with safe mode on, without touching your songs or settings.
 
 ## Setlists on every Central Pedal
 
-Every Central Pedal - the Pi and Central Pedal on your computers - keeps the
-same **Song library** and **setlists**. Open **Setlist → Setlists · Song library ·
-Devices…**:
+Every Central Pedal, the Pi and the app on your computers, keeps the same song library and setlists. Open **Setlist → Setlists · Song library · Devices…**.
 
-* **Setlists**: every setlist from every device, newest first. **Open** one (the one
-  you had open is kept), or **+ New setlist**.
-* **Song library**: every song, with its key, tempo, tracks and the setlists it is
-  in. **+ Add** puts it in the open setlist. **Delete…** asks *on this device* or
-  *everywhere*.
-* **Devices**: the other Central Pedals on the network. **Link…** once with the
-  other one's pairing code (its Settings); after that they copy each other's songs
-  and setlists every few seconds - songs, stems, charts, light shows - and the
-  newest edit wins. A Raspberry Pi keeps the tracks of songs that are in a setlist
-  and leaves the others on the computers until a setlist needs them (it warns when
-  the card is nearly full). Removing a song from the setlist asks: *from this
-  setlist only*, *delete on this Central Pedal*, or *delete everywhere*.
+**Setlists** lists every setlist from every device, newest first. Open one, or make a new one. **Song library** has every song with its key, tempo, tracks and the setlists it's in. **+ Add** puts it in the open setlist. **Delete…** asks whether you mean this device or everywhere.
 
-Devices find each other with a small broadcast on the network (UDP port 8094); if
-your network blocks that, use **Link by address…**.
+**Devices** shows the other Central Pedals on the network. Link to one once with its code (from its Settings), and after that they copy each other's songs and setlists every few seconds. The newest edit wins. A Raspberry Pi only keeps the tracks of songs that are in a setlist and leaves the rest on the computers until they're needed, and it warns you when the card is nearly full.
+
+Devices find each other with a small broadcast on the network (UDP port 8094). If your network blocks that, use **Link by address…**.
 
 ## Parts for every instrument
 
-Song editor → **Charts & sheet music → Parts for every instrument** (also in
-Central Control's chart tab). Pick the instrument: **chord chart**, **Nashville
-numbers**, **guitar** (chart with capo, a diagram for every shape, tab), **bass**,
-**keys** (both hands), **vocals** (melody with the words), **trumpet, clarinet, alto
-sax, tenor sax, horn in F, trombone** (each written in its own key), **violin**,
-**cello**, **drums**.
+Song editor → **Charts & sheet music → Parts for every instrument** (it's in Central Control's chart tab too). Pick the instrument: a chord chart, Nashville numbers, guitar (with capo, chord shapes and tab), bass, keys, vocals, trumpet, clarinet, alto and tenor sax, horn in F, trombone, violin, cello or drums. Each horn part is written in its own key.
 
-* **♫ Listen to every track** writes down what each track plays - bass and vocal as
-  a single line, keys and guitar as chords, horns and strings, and the drum track as
-  kick / snare / hi-hat / crash - so each part is the real one. Click and guide
-  tracks are skipped.
-* With no track for an instrument, its part is **written from the chords**: bass on
-  the roots (held in verses, a pulse with approach notes in choruses), keys voiced
-  close over the roots, horns on guide tones in the big sections, strings
-  throughout, and a drum chart that follows the sections with fills and the song's
-  hits.
-* **✎ Lyrics + chords from the vocal** (Central Pedal on a PC; the speech model
-  runs there): hears the words in the vocal track and writes the lyric chart with
-  each chord on the word it lands on; the vocal part gets the words under its notes.
-* Charts written by listening use the bass track on its own when the song has one,
-  which decides between chords that share their notes (Em7 / G6, Am / C6).
+**♫ Listen to every track** writes down what each track actually plays, so the bass part is the real bass line and the drum chart follows the real kick, snare and hi-hat. Click and guide tracks are skipped. When there's no track for an instrument, its part is written from the chords: the bass on the roots, keys voiced close, horns in the big sections, strings throughout, and a drum chart with fills that follows the sections.
 
-## Audio: four mono outputs
+**✎ Lyrics + chords from the vocal** listens to the vocal track and writes the lyric chart with each chord on the word it lands on. It runs on a computer, not the Pi.
 
-| Output | What | Where it comes out (default) |
+## Audio outputs
+
+| Output | What | Where it comes out by default |
 |---|---|---|
-| 1 | Tracks (all stems except click / guide) | 3.5 mm jack, left |
-| 2 | Pads + textures | 3.5 mm jack, right |
-| 3 | Click + MD voice | PCM5102A I2S DAC, left |
-| 4 | Guitar / keys | PCM5102A I2S DAC, right |
+| 1 | Tracks (every stem except the click and guide) | Headphone jack, left |
+| 2 | Pads and textures | Headphone jack, right |
+| 3 | Click and spoken cues | DAC board, left |
+| 4 | Guitar or keys | DAC board, right |
 
-A USB interface adds its outputs after those (5, 6…; or first, with *USB
-first* in Settings → Output device). Settings → Output routing moves any bus
-to any channel, or switches to **stereo pairs** (tracks 1-2, pads 3-4…);
-each bus has a *Test* tone. The OS builds one multi-channel PipeWire output
-out of the jack, the DAC and the interface so they stay in sync.
+A USB interface adds its outputs after those (5, 6 and on), or before them with *USB first* in Settings → Sound. You can move any of the four to any output, or switch to stereo pairs. The pedal builds one multi-channel output out of the jack, the DAC and the interface so they stay in sync. On a pedal with only the headphone jack, the jack is played directly.
 
-- **Audio input** (guitar): any USB interface's input, chosen on the
-  Instrument tab (and usable in the pad editor's audio-input chain).
-- On a plain stereo output (a PC, or the Pi with the DAC off) the click can
-  be mixed in, sent to the right channel or to a second device (Settings →
-  Output device → click fallback).
+On a plain stereo output (a computer, or the Pi without the DAC), the click can be mixed in, sent to the right channel, or sent to a second device.
 
 ## Hardware
-12 buttons on GPIO, 6 knobs + 2 sliders on two ADS1115 boards (0x48, 0x49),
-an optional expression pedal on a third (0x4A), the PCM5102A DAC on I2S
-(GPIO 18 / 19 / 21), an optional 3.5" SPI screen, an optional rotary encoder,
-USB MIDI, USB foot pedals, USB sticks, a USB audio interface and a USB MIDI
-keyboard for the Instrument tab. Everything is in `wiring.html`.
-The pin map lives in `/data/pad-pedal/hardware.json` (the Learn tab writes it);
-`sudo systemctl restart pad-pedal-driver` reloads it by hand.
+
+12 buttons on GPIO, 6 knobs and 2 sliders on two ADS1115 boards (0x48 and 0x49), an optional expression pedal on a third (0x4A), the PCM5102A DAC on I2S (GPIO 18, 19 and 21), an optional 3.5" SPI screen and an optional rotary encoder. USB MIDI, USB foot pedals, USB sticks, a USB audio interface and a USB MIDI keyboard all work too. `wiring.html` has the whole thing. The pin map is kept in `/data/pad-pedal/hardware.json` (the Learn tab writes it), and `sudo systemctl restart pad-pedal-driver` reloads it by hand.
 
 ## Screens
-- **HDMI 1**: the app (default). Or a big copy of the 3.5" view, lyrics, or charts.
-- **HDMI 2**: lyrics only, for a projector (default). Or charts, the big
-  3.5" view, the **stage display**, the app, or nothing. (Settings → Screens.)
-- **Stage display** (`/stage`, on either HDMI or any tablet): the song, key,
-  tempo and meter, the section now playing with a bar countdown, what comes
-  next in the flow, the lyrics, beat dots and the song's progress, readable
-  from across the stage.
-- **3.5" SPI touch screen** on the GPIO header: pads + tracks transport only,
-  never charts. Turn it on in Settings → 3.5-inch screen (choose the type),
-  then *Calibrate touch*.
-- **Phones, tablets, Macs** on the same Wi-Fi: open `http://padpedal.local:8080`
-  (or scan the QR code in Settings). Pages: chord charts (follows the song),
-  lyrics, remote, upload. The 4-digit pairing PIN (picked the first time the
-  Central Pedal starts, shown in Settings) is needed to control anything; viewing is free.
-- **Central Control** (Linux desktop app, `central-usage/`): chord chart
-  transposed for the player's instrument (guitar shapes + capo, B♭ / E♭ / F
-  horns, Nashville numbers), lyrics, and **lighting**: a built-in light
-  controller (patch your fixtures and their channels, looks, a cue timeline
-  per song that is filled in automatically from the sections and hits and
-  that you can edit or record by hand) driving a USB-DMX box, Art-Net or
-  sACN; or the light hits + MIDI clock relayed to a MIDI port for Lightkey,
-  QLC+ or a console.
-- **Cursor**: auto (shown while a mouse or keyboard is plugged in), always, never.
-- **Resolution, zoom, edges** (Settings → Screens, per HDMI port): each screen
-  runs at its own native resolution unless you pick another; the zoom is
-  automatic (100 %, or 150 % / 200 % on 1440p / 4K monitors) or chosen; *Edges
-  cut off?* pulls the picture in on TVs and monitors that overscan. Resolution
-  and edge changes apply within seconds while the music keeps playing.
-- **Plugging in late / swapping screens**: the Pi waits up to 20 s at start-up
-  for the monitor to wake up, and afterwards watches the HDMI ports - a screen
-  that appears, changes or comes back is laid out again by itself.
-- **Picture problems?** Use the micro-HDMI port next to the power socket for
-  HDMI 1. Blurry text means the screen isn't at its native resolution: set
-  Settings → Screens → Resolution to *Automatic* (or the one marked
-  *native*). Edges missing: turn on the monitor's "Just scan" / "1:1" / "Screen
-  fit" picture setting, or use *Edges cut off?*. What the session did is in
-  `/tmp/pad-pedal-session.log` (ssh in).
 
-## MIDI in (USB keyboards and foot controllers)
-Any note, CC or program change can be learned onto any input on the Learn
-tab. Out of the box: notes play the pads in that key (or the keys sounds when
-the Instrument tab is on *Piano & keys*), CC 64 (sustain) holds freeze /
-sustain, CC 7 / 74 / 91 / 73 are the Volume / Tone / Reverb / Fade knobs,
-CC 11 is expression, and MIDI clock sets the tempo (switchable in Settings).
+**HDMI 1** shows the app by default. It can show a big copy of the small screen, lyrics or charts instead. **HDMI 2** shows lyrics for a projector by default, or charts, the stage display, the app, or nothing. Change them in Settings → Screens & displays.
 
-## Power-cut safe mode (on by default)
-The system partition is read-only and runs from memory, so pulling the plug
-can never damage it. Songs, stems, pads, charts, keys sounds, the pin map and
-Wi-Fi settings are on the separate `/data` partition, which keeps saving
-normally. Settings shows the status and switches it (takes effect after a
-restart); over SSH: `sudo pad-pedal-safe-mode on|off|status`. Software
-updates from a USB stick (Settings → Backup, restore & update) work with
-safe mode on.
+The **stage display** (`/stage`, on either HDMI port or any tablet) shows the song, key, tempo, the section playing with a bar countdown, what's next, the lyrics and the beat, big enough to read across the stage.
+
+The **3.5" touch screen** on the GPIO header has Pads, Tracks, Instrument and Settings tabs of its own. Pick the screen type and calibrate the touch in its Settings.
+
+**Phones, tablets and computers** on the same Wi-Fi can open `http://padpedal.local:8080` (or scan the QR code in Settings) for the chord charts, lyrics, a remote and the Upload page. Anyone can look, but controlling anything needs the pedal's 4-digit code.
+
+**Resolution and edges.** Each HDMI screen runs at its own native resolution unless you pick another. Zoom is automatic (100%, or 150% and 200% on 1440p and 4K monitors) or set by hand. *Edges cut off?* pulls the picture in on TVs that overscan. Changes apply within seconds while the music keeps playing. The Pi waits up to 20 seconds at start-up for a monitor to wake up, and lays the screens out again when one is plugged in or swapped later.
+
+**Picture problems.** Use the micro-HDMI port next to the power socket for HDMI 1. Blurry text means the screen isn't at its native resolution, so set the resolution to *Automatic*. If the edges are missing, turn on the monitor's "Just scan" or "1:1" setting, or use *Edges cut off?*. The session's log is in `/tmp/pad-pedal-session.log`.
+
+## MIDI in
+
+Any note, CC or program change can be learned onto any input on the Learn tab. Out of the box, notes play the pads in that key (or the keys sounds when the Instrument tab is on piano and keys), CC 64 holds freeze or sustain, CC 7, 74, 91 and 73 are the Volume, Tone, Reverb and Fade knobs, CC 11 is expression, and MIDI clock sets the tempo. You can switch that off in Settings.
+
+## Power-cut safe mode
+
+Safe mode is on by default. The system partition is read-only and runs from memory, so pulling the plug can't damage it. Songs, stems, pads, charts, keys sounds, the pin map and the Wi-Fi settings are on the separate `/data` partition, which saves normally. Settings shows whether it's on and switches it (after a restart). Over SSH: `sudo pad-pedal-safe-mode on|off|status`. Updates from a USB stick work with it on.
 
 ## Keyboard shortcuts
-`F1`–`F6` the six tabs · `1`–`8` pads · `Space` stop · `P` Perform / Edit ·
-`↑`/`↓` key · `B` tap tempo · `Z` freeze · `L` layer · `[` `]` previous / next
-song · `A W S E D F T G Y H U J` preview the pad in any key.
-On the Tracks tab: `Space` play / pause · `←` `→` previous / next section ·
-`R` repeat section · `Home` start over · `+` `−` key.
+
+`F1` to `F9` switch tabs (above), `1` to `8` play the pads, `Space` stops, `P` switches between Perform and Edit, `↑` and `↓` change key, `B` is tap tempo, `Z` freeze, `L` layer, and `[` `]` go to the previous and next song. `A W S E D F T G Y H U J` preview the pad in any key. On the Tracks tab, `Space` plays and pauses, `←` `→` move between sections, `R` repeats the section, `Home` starts over, and `+` `−` change key.
 
 ## Already have Raspberry Pi OS Lite on a card?
-Copy this folder to the Pi and run `sudo bash install-kiosk.sh` (add
-`TFT=none` if there's no small 3.5" screen; the blue one is on by default), then reboot. Everything works except
-safe mode, which needs the separate `/data` partition that the image creates.
-`bash get-sounds.sh sounds` first if you want the free keys sound banks.
 
-## Getting a shell on the Pi itself
-Plug in a keyboard and press `Ctrl+Alt+F2`; `Ctrl+Alt+F1` returns to the app.
-Logs: `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
+Copy this folder to the Pi, run `sudo bash install-kiosk.sh` and reboot. Add `TFT=none` if there's no small screen. Everything works except safe mode, which needs the separate `/data` partition the image makes. Run `bash get-sounds.sh sounds` first if you want the free keys sound banks.
 
-## Testing on your PC (no Pi needed)
-- `python3 pedal-driver.py --simulate /tmp/pp --app-root .` then open
-  `http://127.0.0.1:8766/app/` in Chrome: the whole app with a simulated
-  control surface (type `press b1`, `knob k1 0.5`, `gpio 4 low` in the
-  terminal), the companion pages on `http://127.0.0.1:8080`, uploads, charts.
-  (`pip install websockets gpiozero evdev pillow mido python-rtmidi`.)
-  With PipeWire on the PC the Instrument tab works too (LADSPA pedals; the
-  LV2 ones need PipeWire 1.2+ with its LV2 loader, as on the Pi image).
-- `python3 test_pedal_driver.py` — the driver against simulated GPIO,
-  ADS1115 boards, USB pedals, MIDI, uploads, keys sounds, cue words,
-  Planning Center (against a mock server), track packs, the library,
-  backup / restore / update, ProPresenter and the update checker against
-  stand-in servers, IR import, the Screens settings (97 checks).
-- `bash test-session.sh` — the HDMI screen session on a virtual screen (Xvfb)
-  with a pretend HDMI port and a real Chromium: the start-up page, the window
-  exactly on the screen, live edge margin, a monitor swap, restarts (7 checks).
-- `node test-integration.mjs` — the real app in headless Chromium talking to
-  the simulated driver: tracks, sections, keys, cues, chord chart from audio,
-  sheet music, the Instrument tab, learn, companion pages, tempo map, flow,
-  direct outputs, the stage display, Planning Center and track-pack import,
-  backup, the mixer and meters, pad layers, scenes (automatic, MIDI-cued,
-  MIDI learn), ProPresenter, segues, pedal Mix / Level, 8 keys layers,
-  instrument scenes, the looper, the update banner (51 checks;
-  `npm i playwright && npx playwright install chromium`).
-- `node test-headless.mjs` — the app on its own (engine, effects, setlist).
-- `python3 test_instrument_host.py` — the native pedal / keys host against a
-  real PipeWire graph: pedal Mix / Level, the IR convolver, the looper tap,
-  8 keys layers (13 checks; needs `pipewire`, `wireplumber`, `fluidsynth`).
-- `cd central-usage && node test-usage.mjs` — Central Control: transposition,
-  capo, horns, Nashville, lyrics, remote, MIDI relay timing, the lighting
-  controller, fixture library, movers, phone remote, timecode (18 checks);
-  `node test-dmx.mjs` — the USB-DMX, Art-Net and sACN packets;
-  `xvfb-run -a node test-app.mjs` — the real Electron app: the phone remote's
-  server, the update check and its checksum guard.
-- `node server/test/site-ui.mjs postgres://…` — the website clicked through in a
-  real browser: store and cart codes, the main admin's account and phone code,
-  confirming the email, a free trial, Teams and invites, support, forgot
-  password, the staff cards, phone width (screenshots with a 3rd argument).
-- `node tools/brand/make-brand.mjs` — redraws every app icon, launch screen and
-  website icon from `tools/brand/glyphs.mjs` (needs Playwright).
-- `bash tools/bump-version.sh 9.1.1` — sets the one version on every app.
-- `bash make-release.sh 8.1.0 owner/repo` (with `GITHUB_TOKEN`) — packs and
-  publishes a release the update checks find (see the script's header).
+## A shell on the Pi
+
+Plug in a keyboard and press `Ctrl+Alt+F2`. `Ctrl+Alt+F1` goes back to the app. The logs are in `journalctl -u pad-pedal-driver -f` and `/tmp/pad-pedal-session.log`.
+
+## Testing on a PC
+
+You don't need a Pi to work on the pedal.
+
+- `python3 pedal-driver.py --simulate /tmp/pp --app-root .`, then open `http://127.0.0.1:8766/app/` in Chrome. That's the whole app with a pretend control surface: type `press b1`, `knob k1 0.5` or `gpio 4 low` in the terminal. The phone pages are on `http://127.0.0.1:8080`. You'll need `pip install websockets gpiozero evdev pillow mido python-rtmidi`. With PipeWire on the PC the Instrument tab works too.
+- `python3 test_pedal_driver.py` runs the driver against simulated GPIO, ADS1115 boards, USB pedals, MIDI, uploads, Planning Center, track packs, backups, updates and the sound checks.
+- `bash test-session.sh` runs the HDMI session on a virtual screen with a real Chromium.
+- `node test-integration.mjs` runs the real app in headless Chromium against the simulated driver (`npm i playwright && npx playwright install chromium`).
+- `node test-headless.mjs` tests the app on its own.
+- `python3 test_audio_routing.py` checks how the outputs are built.
+- `python3 test_instrument_host.py` tests the native pedal and keys host against a real PipeWire graph (it needs `pipewire`, `wireplumber` and `fluidsynth`).
+- `cd central-usage && node test-usage.mjs` covers Central Control; `node test-dmx.mjs` the DMX, Art-Net and sACN packets; `xvfb-run -a node test-app.mjs` the real Electron app.
+- `node server/test/site-ui.mjs postgres://…` clicks through the website in a real browser.
+- `node tools/brand/make-brand.mjs` redraws every app icon and website icon.
+- `bash tools/bump-version.sh 10.4.1` sets the version on every app. Pushing to `main` with a version that has no release builds and publishes it.
 
 ## Files
+
 | File | What it is |
 |---|---|
-| `index.html`, `css/`, `js/` | The app: pads, tracks, instrument, configure, learn, settings, engine, effects, graphics |
-| `js/multitrack-worklet.js`, `js/analysis-worker.js` | Multitrack audio engine (key / tempo change, click, cues) and the BPM / key / section / chord / note analysis |
-| `js/chords.js`, `js/notation.js` | Chord-chart parsing, transposition and instrument views (shared with Central Control); sheet music, tab and piano roll |
-| `js/pedals.js`, `js/plugin-ports.js`, `instrument-plugins.json` | The pedal catalogue and board presets; the plugin ports found in the image |
-| `js/instrument.js`, `instrument_host.py` | The Instrument tab and the native PipeWire pedal chain / FluidSynth keys host behind it |
-| `js/scenes.js`, `js/looper.js`, `js/integrations.js` | Scenes and pad layers; the looper; ProPresenter and update checks (page side) |
-| `js/io.js`, `js/netsend.js`, `js/hub.js`, `js/colors.js` | The I/O tab; the audio to Central Control (every track on its own channel); the songs for Central Control; the colours of everything |
-| `make-release.sh` | Builds a release (Pi zip, PC installers, SHA256SUMS) and publishes it to GitHub |
-| `sources.py` | The driver side of *Add a song*: Planning Center, track packs |
-| `companion/` | The pages phones, tablets and the projector open: charts, lyrics, remote, upload, mini, stage, slides |
-| `central-usage/` | The Central Control desktop app (Electron; its audio engine and NDI sender in `native/`) and its installers in `dist/` |
-| `cues/` | Pre-rendered spoken cue words |
-| `pedal-driver.py`, `hardware.json`, `pad-pedal-driver.service` | Hardware, USB, MIDI, Link, 3.5" screen, file, companion and Wi-Fi server; its default pin map; its service |
-| `pad-pedal-session`, `xinitrc`, `bash_profile` | The kiosk session: audio, HDMI 1 / HDMI 2 (native resolution, zoom, edges, hot-plug), cursor, the full-screen app |
-| `starting.html`, `99-central-control-vc4.conf` | The start-up screen shown until the service answers; the X setting that uses the Pi's own display driver |
-| `fonts/` | Inter (SIL Open Font License), used by the app, the companion pages and Central Control |
-| `pad-pedal-audio-config` | Builds the multi-channel output (jack + DAC + USB) in PipeWire |
-| `pad-pedal-system`, `pad-pedal-safe-mode`, `pad-pedal.sudoers` | Root helper for Settings (safe mode, screen, DAC, audio, Wi-Fi, hostname) |
-| `build-image.sh` | Builds the SD card image on an Ubuntu / Debian PC |
-| `setup-pi.sh` | The OS setup used by both the image builder and `install-kiosk.sh` |
-| `get-sounds.sh` | Downloads the free keys sound banks (FreePats, Salamander…) for the image |
-| `install-kiosk.sh` | Turns an existing Pi OS Lite install into Central Pedal |
-| `firstboot.sh`, `pad-pedal-firstboot.service`, `pad-pedal-wifi-import.service` | First boot: /data partition, safe mode, Wi-Fi import |
-| `99-pad-pedal-usb.rules`, `99-pad-pedal-touch.conf` | USB auto-mount; keeps the 3.5" touch panel away from X |
-| `wiring.html` (`make_wiring.py`, `wiring.template.html`) | Wiring guide with the header map, and its generator |
-| `test_pedal_driver.py`, `test-integration.mjs`, `test-headless.mjs`, `test_instrument_host.py` | Automated tests |
-| `central-usage/player.js`, `prepare-player.sh` | The player window in Central Control: the Central Pedal app and its driver (bundled with PyInstaller - `tools/build-driver.sh`), for the main admin's computer when no Central Pedal plays the tracks |
-| `native_rig.py` | The driver's bridge to the built-in instrument rig (cu-rig) where PipeWire isn't there (Windows, macOS) |
-| `central-usage/native/` | `cu-mixer` (audio engine: JACK, or Windows / macOS / Linux devices through miniaudio - several at once, Dante), `cu-ndi`, `cu-rig` (built-in instrument rig + `plughost/`, the host for the musician's own VST3 / CLAP / Audio Unit / LV2 plugins: scans in child processes, states in `plugin-states/`, editor windows on X11 / Win32 / Cocoa), `vendor/` (miniaudio, TinySoundFont, cJSON, CLAP headers, the VST3 SDK's interface headers), unit tests (`test-rig.mjs` with test CLAP and VST3 plugins from `plughost/test/`) |
-| `central-usage-mobile/` | Central Usage for Android (`.apk`) and iPhone / iPad (TestFlight / App Store): a Capacitor app that finds the main admin and opens Central Usage - [IOS-APP-STORE.md](IOS-APP-STORE.md) |
-| `central-usage/usage-builder.js` | Packs Central Usage (the musicians' edition) from the same code as Central Control |
-| `central-pedal-control/`, `central-pedal-control-mobile/` | Central Pedal Control for macOS, Windows and Linux (Electron, the bundled driver) and iPhone, iPad and Android (Capacitor) |
-| `js/sources.js`, `js/central-tracks.js` | *Add a song*: your songs, then the four ways (own stems, the whole song split, MultiTracks.com / Prime, Central Tracks) and Planning Center |
-| `js/license.js` | The license key and the first-open setup (all four apps; Central Control / Usage get a copy in `app/shared/`) |
-| `server/src/licenses.js` | Church accounts and license keys on the website (activate, check, release, the church page, staff keys) |
-| `js/stemsplit.js`, `StemSplitter` in `pedal-driver.py` | The stem splitter: RoFormer / MDX23C ensembles (audio-separator) and Demucs, installed on demand with uv; the clean-up pass (`STEMTOOL`, numpy) and the review |
-| `js/structure.js` | Finding a song's sections from its tracks (vocals, harmony, loudness) |
-| `js/practice.js`, `PracticeMixes` in `pedal-driver.py` | Practice mixes (offline mix, time-stretch, click, WAV / MP3) and the phones' `/practice/` page |
-| `js/backup.js`, `js/streamdeck.js` | The backup player; the Elgato Stream Deck (WebHID) |
-| `js/transfer.js`, `PedalTransfer` in `pedal-driver.py`, `test-transfer.mjs` | Upload / Download between Central Pedal Control and a Central Pedal |
-| `js/live.js`, `js/report.js`, `css/live.css` | The LIVE screen, the service lock, Safe Stop, the Ready check and the service report |
-| `docs/` | The download page (GitHub Pages) |
-| `tools/` | Build helpers: the pedal map for the rig, the built-in sounds, the bundled driver, CI smoke tests, `netns-run.sh` (a test suite in its own network) |
-| `.github/workflows/` | `build.yml` (every system's installers, tested on each), `release.yml` (publishes them, Google Drive copy, App Store upload), `pages.yml` (the download page) |
+| `index.html`, `css/`, `js/` | The pedal app: pads, tracks, instrument, controls, learn, settings, the engine, effects and graphics |
+| `js/multitrack-worklet.js`, `js/analysis-worker.js` | The multitrack engine (key and tempo change, click, cues) and the tempo, key, section, chord and note analysis |
+| `js/chords.js`, `js/notation.js` | Chord charts, transposing and the instrument views (shared with Central Control); sheet music, tab and piano roll |
+| `js/pedals.js`, `js/plugin-ports.js`, `instrument-plugins.json` | The pedal catalogue and boards, and the plugin ports found in the image |
+| `js/instrument.js`, `instrument_host.py` | The Instrument tab, and the PipeWire pedal chain and FluidSynth keys host behind it |
+| `js/scenes.js`, `js/looper.js`, `js/integrations.js` | Scenes and pad layers, the looper, ProPresenter and update checks |
+| `js/io.js`, `js/netsend.js`, `js/hub.js`, `js/colors.js` | The I/O tab, the audio sent to Central Control, the songs for Central Control, and the colours |
+| `js/soundtest.js` | Settings → Sound → Test sound |
+| `js/sources.js`, `js/central-tracks.js` | *Add a song*, Planning Center and Central Tracks |
+| `js/license.js` | The license key and first-open setup (Central Control and Usage get a copy in `app/shared/`) |
+| `js/stemsplit.js` | The stem splitter (the work happens in `StemSplitter` in `pedal-driver.py`) |
+| `js/structure.js`, `js/practice.js` | Finding a song's sections; practice mixes and the phones' `/practice/` page |
+| `js/backup.js`, `js/streamdeck.js` | The backup player; the Elgato Stream Deck |
+| `js/transfer.js` | Upload and Download between Central Pedal Control and a pedal |
+| `js/live.js`, `js/report.js`, `css/live.css` | The Live screen, the service lock, Safe Stop, the Ready check and the service report |
+| `pedal-driver.py`, `hardware.json`, `pad-pedal-driver.service` | The pedal's driver (hardware, USB, MIDI, Link, the 3.5" screen, files, phone pages, Wi-Fi), its default pin map and its service |
+| `sources.py` | The driver's side of *Add a song* |
+| `companion/` | The pages phones, tablets and the projector open: charts, lyrics, remote, upload, stage, slides |
+| `cues/` | The spoken cue words |
+| `pad-pedal-session`, `xinitrc`, `bash_profile` | The kiosk session: audio, the HDMI screens, the cursor and the full-screen app |
+| `starting.html`, `99-central-control-vc4.conf` | The start-up screen, and the X setting for the Pi's display driver |
+| `pad-pedal-audio-config` | Builds the outputs in PipeWire (the jack, the DAC and a USB interface) |
+| `pad-pedal-system`, `pad-pedal-safe-mode`, `pad-pedal.sudoers` | The root helper behind Settings (safe mode, screens, DAC, audio, Wi-Fi, hostname) |
+| `build-image.sh`, `setup-pi.sh`, `install-kiosk.sh` | Building a card image, the OS setup both use, and turning an existing Pi OS Lite into a pedal |
+| `get-sounds.sh` | Downloads the free keys sound banks |
+| `firstboot.sh`, `pad-pedal-firstboot.service`, `pad-pedal-wifi-import.service` | The first start: the `/data` partition, safe mode and Wi-Fi import |
+| `99-pad-pedal-usb.rules`, `99-pad-pedal-touch.conf` | USB sticks mount by themselves; the 3.5" touch panel is kept away from X |
+| `wiring.html` (`make_wiring.py`, `wiring.template.html`) | The wiring guide and its generator |
+| `native_rig.py` | The driver's bridge to the built-in rig on Windows and macOS |
+| `central-usage/` | Central Control and Central Usage (Electron), with the audio engine, NDI sender and plugin host in `native/` |
+| `central-usage-mobile/` | Central Usage for Android and iPhone/iPad (Capacitor) |
+| `central-pedal-control/`, `central-pedal-control-mobile/` | Central Pedal Control for computers, and for phones and tablets |
+| `central-services/` | Central Services |
+| `central-production/` | Central Production for computers (the browser version is in `server/public/production/`) |
+| `server/` | The Motion Audio website and its API: accounts, keys, the store, Central Tracks, Help |
+| `docs/` | The download page on GitHub Pages, the brand files and the docs |
+| `tools/` | Build helpers: the version bump, the website pages, the sound libraries, icons and CI checks |
+| `release-notes/` | The notes for every release |
+| `.github/workflows/` | `build.yml` builds and tests every system, `release.yml` publishes a release, `pages.yml` publishes the download page |
