@@ -379,15 +379,15 @@ def pricing():
 def help_center():
     groups = "".join(f'<div class="faq-group" data-faq-group="{E(g)}"><h3 id="faq-{slug(g)}">{E(g)}</h3>' + "".join(f'<details data-faq><summary>{E(qq)}</summary><p>{E(a)}</p></details>' for qq, a in items) + "</div>" for g, items in C.HELP_FAQ)
     jumps = "".join(f'<a href="#faq-{slug(g)}">{E(g)}</a>' for g, _ in C.HELP_FAQ)
-    docs = [("Install the apps", "/help/install.html", "Windows, Mac, Linux, Android, iPhone and iPad, step by step."), ("How accounts work", "/help/accounts.html", "The church account, main admins, admins and users, keys and slots.")] + [(a["name"] + " manual", a["manual"], a["tag"]) for a in C.APPS if a["manual"]] + [("Status", "/status/", "Is the website, sign-in, downloads or payments down?")]
+    docs = [("Install the apps", "/help/install.html", "Getting each app onto Windows, Mac, Linux, Android, iPhone or iPad."), ("How accounts work", "/help/accounts.html", "Who owns the keys, what a main admin can do, and how people join your church.")] + [(a["name"] + " manual", a["manual"], a["tag"]) for a in C.APPS if a["manual"]] + [("Status", "/status/", "Check whether sign-in, downloads or payments are down right now.")]
     body = f'''<section class="page-hero on-stage"><div class="wrap">
   <div class="crumbs"><span>Help</span></div>
   <h1 data-edit="help.title">How can we help?</h1>
-  <p class="lede" data-edit="help.lede">Step-by-step guides for every role and every app, answers to common questions, and real people when you need them.</p>
-  <form class="hc-search" role="search" onsubmit="return false"><label for="hcQ" class="sr-only" style="position:absolute;left:-9999px">Search the Help Center</label><input id="hcQ" type="search" placeholder="Search guides and questions: pedal, keys, CCLI, no sound…" autocomplete="off"></form>
+  <p class="lede" data-edit="help.lede">Setup guides, answers to the questions people ask me most, and a way to reach us when you're stuck.</p>
+  <form class="hc-search" role="search" onsubmit="return false"><label for="hcQ" class="sr-only" style="position:absolute;left:-9999px">Search the Help Center</label><input id="hcQ" type="search" placeholder="Try \"no sound\", \"keys\" or \"Planning Center\"" autocomplete="off"></form>
 </div></section>
 <section class="pg" id="results" hidden><div class="wrap"><div class="pg-head"><h2 id="hcResTitle">Results</h2></div><div class="hc-results" id="hcResults" aria-live="polite"></div></div></section>
-<section class="pg" id="guides"><div class="wrap"><div class="pg-head" style="display:flex;justify-content:space-between;align-items:end;gap:1rem;flex-wrap:wrap;max-width:none"><div><h2>Guides</h2><p>Setup, step by step, with pictures from the apps.</p></div><button class="btn ghost small" type="button" id="hcEdit" hidden>Write and edit guides</button></div>
+<section class="pg" id="guides"><div class="wrap"><div class="pg-head" style="display:flex;justify-content:space-between;align-items:end;gap:1rem;flex-wrap:wrap;max-width:none"><div><h2>Guides</h2><p>Step-by-step setup, with screenshots from the apps.</p></div><button class="btn ghost small" type="button" id="hcEdit" hidden>Write and edit guides</button></div>
   <div class="hc-cats" id="hcCats"><p class="muted">Loading the guides…</p></div>
   <div id="hcEditor" hidden></div></div></section>
 <section class="pg band" id="faq"><div class="wrap"><div class="pg-head"><h2>Questions and answers</h2><div class="toc" style="margin-top:0">{jumps}</div></div><div class="faq">{groups}</div></div></section>
@@ -395,7 +395,7 @@ def help_center():
 <section class="pg band" id="contact"><div class="wrap contact">
   <form id="contactForm" novalidate>
     <h2 style="font-size:1.6rem">Contact support</h2>
-    <p class="muted">A real person on our team reads every message and writes back by email, usually within a day.</p>
+    <p class="muted">We read every message and write back by email, usually within a day. The more you tell us, the quicker we can fix it.</p>
     <label>Your name<input id="ctName" autocomplete="name"></label>
     <label>Your email<input id="ctEmail" type="email" autocomplete="email" required></label>
     <label>About<select id="ctApp"><option value="Website">The website or my account</option>{"".join(f"<option>{E(a['name'])}</option>" for a in C.APPS)}<option>Keys, plans or billing</option><option>Something else</option></select></label>
@@ -406,13 +406,13 @@ def help_center():
     <div id="ctDone" hidden></div>
   </form>
   <div style="display:grid;gap:1rem">
-    <div class="fact"><h3>Email us</h3><p><a href="mailto:{E(C.SUPPORT_EMAIL)}" id="supportMail">{E(C.SUPPORT_EMAIL)}</a></p><p class="muted">We answer from this address. Replies to our emails reach us too.</p></div>
-    <div class="fact"><h3>Your tickets</h3><p class="muted">Every message becomes a ticket. Follow it, and answer us, from the link in our email or under <a href="/#account-help">Account → Help &amp; tickets</a>.</p></div>
-    <div class="fact"><h3>Is something down?</h3><p class="muted">The <a href="/status/">status page</a> shows the website, sign-in, downloads, payments and Central Tracks storage.</p></div>
+    <div class="fact"><h3>Email us</h3><p><a href="mailto:{E(C.SUPPORT_EMAIL)}" id="supportMail">{E(C.SUPPORT_EMAIL)}</a></p><p class="muted">We answer from this address, and you can reply to any of our emails.</p></div>
+    <div class="fact"><h3>Your tickets</h3><p class="muted">Each message you send becomes a ticket. You can follow it and write back from the link in our email, or under <a href="/#account-help">Account → Help &amp; tickets</a>.</p></div>
+    <div class="fact"><h3>Is something down?</h3><p class="muted">The <a href="/status/">status page</a> shows whether the website, sign-in, downloads, payments or Central Tracks are having trouble.</p></div>
   </div>
 </div></section>'''
     OG_SHOT["help"] = "cc-devices"
-    page("help/index.html", "help", "Help Center: guides, questions and support | Motion Audio", "Step-by-step setup guides for the Central Pedal and every app, answers to common questions, and contact support.", body, scripts=["/help.js"],
+    page("help/index.html", "help", "Help Center: guides, questions and support | Motion Audio", "Setup guides for the Central Pedal and the apps, answers to common questions, and how to reach support.", body, scripts=["/help.js"],
          jsonld={"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": qq, "acceptedAnswer": {"@type": "Answer", "text": a}} for _, items in C.HELP_FAQ for qq, a in items]})
     page("help/article.html", "help-article", "Help Center | Motion Audio", "A step-by-step guide from the Motion Audio Help Center.", '''<section class="page-hero on-stage"><div class="wrap"><div class="crumbs"><a href="/help/">Help</a><span aria-hidden="true">/</span><span id="artCat">Guide</span></div><h1 id="artTitle">Loading…</h1><p class="lede" id="artSum"></p></div></section>
 <section class="pg"><div class="wrap"><article class="article" id="artBody"></article><div class="helpful" id="artHelp" hidden><b>Was this helpful?</b><button class="btn small ghost" type="button" data-helpful="1">Yes</button><button class="btn small ghost" type="button" data-helpful="0">No</button><span class="muted" id="artThanks"></span></div>

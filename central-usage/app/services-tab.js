@@ -157,7 +157,7 @@
     h += '</tbody></table><div class="row sv-adds"><span class="muted small">Add:</span>' + Object.keys(KIND_LABEL).map(function (k) { return '<button data-add="' + k + '">+ ' + KIND_LABEL[k] + "</button>"; }).join("") +
       '<span class="spacer"></span><b>' + Math.round(total(sv) - preCount(sv)) + " min</b> <span class=\"muted small\">ends about " + end + "</span>" +
       (sv.length ? ' <span class="sv-fit ' + (Math.abs(over) < 1 ? "ok" : over > 0 ? "long" : "short") + '">' + (Math.abs(over) < 1 ? "fits " + sv.length + " min" : Math.abs(Math.round(over)) + " min " + (over > 0 ? "over" : "under") + " the " + sv.length) + "</span>" : "") + "</div>" +
-      '<p class="muted small">Every computer fires the cues for its own job when the service gets to an item: the lights computer the look, the slides computer the slide, the cameras computer the camera… Lyrics "on" sends the words to the screens; the band\'s screen always has them. <a href="#" data-sv="link">Open the run sheet on a phone</a></p></div>';
+      '<p class="muted small">When the service gets to an item, each computer fires the cues for its own job. The lights computer changes the look, the slides computer shows the slide, and so on. Lyrics "on" sends the words to the screens. The band\'s screen always has them. <a href="#" data-sv="link">Open the run sheet on a phone</a></p></div>';
     return h;
   }
   function tick() {

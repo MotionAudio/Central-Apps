@@ -255,7 +255,7 @@ try {
     await p.goto(base + "/help/article.html?a=set-up-the-central-pedal", { waitUntil: "networkidle" }); await p.waitForSelector("#artBody ol.steps");
     ok(/Setting up the Central Pedal/.test(await p.textContent("h1")) && await p.$$eval("#artBody img", (x) => x.length && x.every((i) => i.naturalWidth > 0)), "a guide: steps and pictures from the apps");
     await p.click("[data-helpful='1']"); await p.waitForTimeout(300);
-    ok(/Glad it helped/.test(await p.textContent("#artThanks")), "Was this helpful? Yes");
+    ok(/glad it helped/i.test(await p.textContent("#artThanks")), "Was this helpful? Yes");
     await p.goto(base + "/help/#contact", { waitUntil: "networkidle" });
     await p.waitForFunction((me) => document.querySelector("#ctEmail").value === me, ME, { timeout: 5000 }).catch(() => {});
     ok(await p.$eval("#ctWebsite", (e) => e.getBoundingClientRect().right < 0 && !!e.closest("[aria-hidden=true]") && e.tabIndex === -1) && (await p.inputValue("#ctEmail")) === ME, "Contact support: the box for robots is out of sight (and out of the tab order); your email is filled in");

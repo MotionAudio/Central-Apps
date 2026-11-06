@@ -49,7 +49,7 @@
 <body>
 <main>
   <h1>Set up Central Pedal</h1>
-  <p class="lead" id="lead">Three things, then Upload. The pedal does the rest.</p>
+  <p class="lead" id="lead">Three things to fill in, then press Upload and the pedal sets itself up.</p>
 
   <section class="banner hidden" id="lastError" role="alert"></section>
 
@@ -166,7 +166,7 @@
       sel.value = s.screen || "rpi35-xpt2046";
       if (s.screenSet && !screenOpen) {   // (set when the pedal was tested: nothing to pick, Change opens the list)
         $("screenName").textContent = s.screenName || s.screen; $("screenDone").classList.remove("hidden"); $("screenBox").classList.add("hidden");
-        $("codeNum").textContent = "2"; $("lead").textContent = "Two things, then Upload. The pedal does the rest.";
+        $("codeNum").textContent = "2"; $("lead").textContent = "Two things to fill in, then press Upload and the pedal sets itself up.";
       }
       if (s.codeChosen) $("codeHint").textContent = "This pedal already has a code. Type it to make the changes (it's the same code Central Pedal Control uses).";
     }).catch(function () {
@@ -198,17 +198,17 @@
         $("lead").textContent = "You can close this page.";
         $("doneText").textContent = r.message || "Saved.";
         var steps = [];
-        if (!keep) steps.push("This phone leaves “Central Pedal Setup” - put it back on your own Wi-Fi.");
+        if (!keep) steps.push("Your phone drops off “Central Pedal Setup”, so put it back on your own Wi-Fi.");
         if (r.restart) steps.push("The pedal downloads the screen's driver and restarts once (about a minute).");
         steps.push("Open Central Pedal Control and type the same 4-digit code.");
-        if (!keep) steps.push("If the password was wrong, “Central Pedal Setup” comes back in about a minute - join it again and this page says what happened.");
+        if (!keep) steps.push("If the password was wrong, “Central Pedal Setup” comes back in about a minute. Join it again and this page tells you what happened.");
         $("doneSteps").innerHTML = steps.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("");
       })
       .catch(function () {
         // (the setup Wi-Fi can go away before the answer arrives - that means it worked)
         $("go").disabled = false; $("go").textContent = "Upload";
         if (!keep) { $("form").classList.add("hidden"); $("done").classList.remove("hidden"); $("doneText").textContent = "The pedal is joining “" + ssid + "”."; $("doneSteps").innerHTML = "<li>If it can't, “Central Pedal Setup” comes back in about a minute.</li>"; }
-        else { $("msg").textContent = "The pedal didn't answer - try again."; $("msg").className = "msg bad"; }
+        else { $("msg").textContent = "The pedal didn't answer. Try again."; $("msg").className = "msg bad"; }
       });
   });
 

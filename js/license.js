@@ -270,7 +270,7 @@
         '<label><span>License key - it starts with <b>' + kind + "</b> · " + esc({ P: "Central Pedal / Central Pedal Control", A: "Central Control (admins)", U: "Central Usage (users)" }[kind]) + '</span><input id="lwKey" class="lw-key" maxlength="29" value="' + esc(pretty(ui.key || (st && st.key) || opts.presetKey || "")) + '" placeholder="' + kind + 'XXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"></label>' +
         '<label>This device’s name (so you know it on the website)<input id="lwDev" value="' + esc(ui.devName || (st && st.deviceName) || opts.deviceName || NAME_OF[app]) + '"></label>' +
         (!on() ? '<p class="muted">The Motion Audio website isn’t open yet. For now use the default key, <b>' + esc(DEFAULT_KEYS[kind]) + "</b>" + (DEMO_KEYS[kind] ? ", or the demo church’s key, <b>" + esc(DEMO_KEYS[kind]) + "</b>" : "") + ".</p>" : "") +
-        '<p class="muted">Your key is in the email your church sent you, and on your church’s page on our website. ' + (kind === "A" || app === "pedal" ? "It works on one device at a time" : "It works on two devices (for example the church’s and your own) with the same account and the same settings") + '; Settings → License → Release key frees a device for another.</p>';
+        '<p class="muted">Your key is in the email your church sent you, and on your church’s page on our website. ' + (kind === "A" || app === "pedal" ? "It works on one device at a time" : "It works on two devices (for example the church’s and your own) with the same account and the same settings") + '. To move it, press Release key under Settings → Packages &amp; key on the old one.</p>';
       btns = '<button data-lw="back">Back</button><button class="primary" data-lw="key"' + (ui.busy ? " disabled" : "") + ">" + (ui.busy ? "Checking…" : "Use this key") + "</button>";
     } else if (s === 3 && ui.two) {   // an admin account: the phone (first time), then the code sent to it
       var t = ui.two;
@@ -404,7 +404,7 @@
     var s = st || {};
     if (!on()) return packagesHtml(cls) + '<section class="' + (cls || "") + '" data-st="license" id="licSettings"><h3>License</h3>' +
       (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p><p class=\"muted\">Key <code>" + esc(s.key) + "</code>" + (isDemo(s.key) ? " · <b>Demo key</b>" : s.isDefault || isDefault(s.key) ? " · <b>Default key (temporary)</b>" : "") + (s.church ? " · " + esc(s.church) : "") + (s.production ? " · " + esc(s.production) : "") + "</p>" +
-        '<p class="muted">The Motion Audio website isn’t open yet. When it is, this device checks its key there; a default key then needs replacing with your church’s own key.</p><div class="row"><button data-lic="release">Release key</button></div>'
+        '<p class="muted">The Motion Audio website isn’t open yet. When it is, this device checks its key there, and a default key needs swapping for your church’s own.</p><div class="row"><button data-lic="release">Release key</button></div>'
         : '<p class="bad">No key on this device.</p><button data-lic="enter">Enter a key</button>') + "</section>";
     return packagesHtml(cls) + '<section class="' + (cls || "") + '" data-st="license" id="licSettings"><h3>License</h3>' +
       (licensed() ? "<p>✓ " + esc(NAME_OF[app]) + " · " + esc(KIND_NAME[s.kind] || "") + "</p>" +
@@ -412,9 +412,9 @@
         " · this device: " + esc(s.deviceName || "") + " · checked " + new Date(s.okAt).toLocaleDateString() + " (works offline " + daysLeft() + " more days)" + (s.account && s.account.email ? " · account " + esc(s.account.email) : "") + "</p>" +
         (s.trial && s.expiresAt ? '<p class="muted">Free trial until ' + esc(new Date(s.expiresAt).toLocaleDateString()) + ". After that, enter a key your church bought. Everything you made here stays.</p>"
           : s.kind === "P" || s.updatesUntilText === "forever" ? '<p class="muted">Updates: forever.</p>'
-          : s.updatesUntilText ? '<p class="muted">Updates through version ' + esc(s.updatesUntilText) + '. After that this version keeps working; renew the key ($20) on the website for ten more releases.</p>' : "") +
+          : s.updatesUntilText ? '<p class="muted">Updates through version ' + esc(s.updatesUntilText) + '. After that, this version keeps working. Renew the key on the website for $20 to get ten more releases.</p>' : "") +
         '<div class="row"><button data-lic="release">Release key</button>' + (s.account && s.account.email ? '<button data-lic="signout">Sign out of the account</button>' : '<button data-lic="account">Sign in</button>') + "</div>" +
-        '<p class="muted">Release key frees it for another device; this one asks for a key again. For a lost or broken device, release its key on the website (your church’s page).</p>'
+        '<p class="muted">Release key frees it for another device, and this one asks for a key again. If a device is lost or broken, release its key on the website under My products.</p>'
         : '<p class="bad">No key on this device.</p><button data-lic="enter">Enter a key</button>') +
       '<div class="row"><button data-lic="support">Contact support</button><a href="' + esc(base()) + '/privacy" target="_blank" rel="noopener">Privacy policy</a> · <a href="' + esc(base()) + '/terms" target="_blank" rel="noopener">Terms</a>' +
       (s.account && s.account.email ? '<button data-lic="delete" class="bad-btn">Delete my account</button>' : "") + "</div></section>";
@@ -431,7 +431,7 @@
   }
   function supportBox(note) {
     var s = st || {}, email = (s.account && s.account.email) || "";
-    mini('<h2>Talk to us</h2><p class="muted">' + esc(note || "Tell us what’s going on. A real person on our team reads every message and writes back by email.") + '</p><label>Your email<input id="spEmail" type="email" value="' + esc(email) + '"></label><label>About<input id="spSubject" placeholder="Pairing, keys, sound…"></label><label>What’s going on?<textarea id="spMsg" rows="5"></textarea></label><p class="bad" id="spErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary" data-mini="send">Send</button></div>',
+    mini('<h2>Talk to us</h2><p class="muted">' + esc(note || "Tell us what’s going on. Someone on our team reads it and writes back by email.") + '</p><label>Your email<input id="spEmail" type="email" value="' + esc(email) + '"></label><label>About<input id="spSubject" placeholder="Pairing, keys, sound…"></label><label>What’s going on?<textarea id="spMsg" rows="5"></textarea></label><p class="bad" id="spErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary" data-mini="send">Send</button></div>',
       async function (a, d) {
         if (a !== "send") return;
         try {
@@ -442,7 +442,7 @@
   }
   function deleteBox() {
     var s = st || {};
-    mini('<h2>Delete my account</h2><p>This deletes <b>' + esc(s.account && s.account.email) + '</b>: your name, email and phone are removed, your keys are freed, and you’re taken out of your church. It can’t be undone.</p><p class="muted">The main admin hands that role to someone else first (on the website: Account → People → Make main admin).</p><label>Your password<input id="delPw" type="password" autocomplete="current-password"></label><p class="bad" id="delErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary bad-btn" data-mini="del">Delete my account</button></div>',
+    mini('<h2>Delete my account</h2><p>This deletes <b>' + esc(s.account && s.account.email) + '</b>: your name, email and phone are removed, your keys are freed, and you’re taken out of your church. It can’t be undone.</p><p class="muted">If you’re a main admin, hand that role to someone else on the website’s Teams page first.</p><label>Your password<input id="delPw" type="password" autocomplete="current-password"></label><p class="bad" id="delErr"></p><div class="row"><button data-mini="close">Cancel</button><button class="primary bad-btn" data-mini="del">Delete my account</button></div>',
       async function (a, d, close) {
         if (a !== "del" && a !== "delclose") return;
         try {

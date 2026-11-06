@@ -26,131 +26,124 @@
   </nav>
 </div></header>
 <div class="salebar" id="saleBar" hidden></div>
-<div class="page-head on-stage"><div class="wrap"><div class="crumbs"><a href="/apps/">The apps</a></div><img class="icon" src="/brand/central-pedal-control.svg" alt=""><h1>Central Pedal Control</h1><p class="lede">The Central Pedal app on your computer, tablet or phone. Get every song, pad and footswitch ready at home, then Upload it to the pedal.</p></div><div class="wrap facts-wrap"><dl class="facts"><div><dt>Who uses it</dt><dd>Whoever gets the songs ready</dd></div><div><dt>Key</dt><dd>P key, two devices</dd></div><div><dt>Updates</dt><dd>Forever</dd></div><div><dt>Runs on</dt><dd>Mac, Windows, Linux, Android, iPad</dd></div></dl></div></div>
+<div class="page-head on-stage"><div class="wrap"><div class="crumbs"><a href="/apps/">The apps</a></div><img class="icon" src="/brand/central-pedal-control.svg" alt=""><h1>Central Pedal Control</h1><p class="lede">The pedal's app on your computer, tablet or phone. Get the songs, pads and footswitches ready at home, then send them to the pedal with Upload.</p></div><div class="wrap facts-wrap"><dl class="facts"><div><dt>Who uses it</dt><dd>Whoever gets the songs ready</dd></div><div><dt>Key</dt><dd>P key, two devices</dd></div><div><dt>Updates</dt><dd>Forever</dd></div><div><dt>Runs on</dt><dd>Mac, Windows, Linux, Android, iPad</dd></div></dl></div></div>
 <main class="wrap man"><aside class="toc" aria-label="On this page"><b>On this page</b><ol><li><a href="#what-it-s-for">What it's for</a></li><li><a href="#your-key-and-your-devices">Your key and your devices</a></li><li><a href="#upload-and-download">Upload and Download</a></li><li><a href="#live-on-the-pedal">● Live on the pedal</a></li><li><a href="#live">LIVE</a></li><li><a href="#pad">Pad</a></li><li><a href="#tracks">Tracks</a></li><li><a href="#instrument">Instrument</a></li><li><a href="#configure-and-learn">Configure and Learn</a></li><li><a href="#i-o-and-settings">I/O and Settings</a></li><li><a href="#looper">Looper</a></li><li><a href="#setlists-on-every-device">Setlists</a></li><li><a href="#troubleshooting">Troubleshooting</a></li></ol></aside>
 <article class="doc">
 <h2 id="what-it-s-for">What it's for</h2>
 
-<p class="lead">Central Pedal Control is the Central Pedal app on your computer, tablet or phone. Make the setlist, add songs and tracks, and set up the pads, footswitches, knobs and the instrument at home or in the office.</p>
+<p class="lead">Central Pedal Control is the pedal's app on your computer, tablet or phone. You use it to make the setlist, bring in songs and tracks, and set up the pads, footswitches, knobs and instrument at home or in the office, where it's quieter than the stage.</p>
 <p>It's the same app the pedal runs, with the same tabs, so what you see here is what you'll see on stage. You can rehearse on its LIVE screen too.</p>
-<p>At church you have two ways to use it with the pedal. <b>Leave it running on a computer</b>: it keeps the songs and plays the tracks, and the pedal becomes its foot controller, so the Pi has less to store and less to do. If the computer goes away, the pedal takes over within about 5 seconds. Or <b>press ⇪ Upload</b> to send one setlist to the pedal and let the pedal play it on its own.</p>
+<p>At church there are two ways to use it with the pedal. You can leave it running on a computer, so it keeps the songs and plays the tracks while the pedal acts as its foot controller. The Pi then has less to store and less to do, and if the computer drops off, the pedal takes over within about 5 seconds. Or you can press <b>⇪ Upload</b> to send one setlist to the pedal and let the pedal play it on its own.</p>
 
 <h2 id="your-key-and-your-devices">Your key and your devices</h2>
 
-<p>It needs a <b>P key</b>, which gets every update forever. A P key works on <b>two devices</b>, both signed in with the same account. Every pack comes with one, or it's $50 on its own.</p>
+<p>It needs a P key, which gets every update. A P key works on two devices signed in with the same account. Every pack comes with one, or you can buy it on its own for $50.</p>
 <div class="tblwrap"><table class="tbl"><thead><tr><th>Device</th><th>What works</th></tr></thead><tbody>
 <tr><td>Mac (Apple Silicon or Intel), Windows, Linux</td><td>Everything, including the stem splitter and MP3 practice mixes.</td></tr>
-<tr><td>Android phones and tablets</td><td>Songs, pads, controls, Upload, Download, Central Tracks and your own files. The stem splitter, MP3 practice mixes and imports from a USB stick need a computer or the pedal.</td></tr>
-<tr><td>iPad (and iPhone)</td><td>Open <code>http://padpedal.local:8080/control/</code> in Safari on the same Wi-Fi as the pedal (or its address with <code>:8080/control/</code>), then Share → <b>Add to Home Screen</b>. It opens full screen like an app, with ● Live, Upload and Download. The App Store version follows.</td></tr>
+<tr><td>Android phones and tablets</td><td>Songs, pads, controls, Upload, Download, Central Tracks and your own files. The stem splitter, MP3 practice mixes and importing from a USB stick need a computer or the pedal.</td></tr>
+<tr><td>iPad (and iPhone)</td><td>On the same Wi-Fi as the pedal, open <code>http://padpedal.local:8080/control/</code> in Safari (or the pedal's address followed by <code>:8080/control/</code>), then press Share → <b>Add to Home Screen</b>. It opens full screen like an app, with ● Live, Upload and Download. An App Store version is on the way.</td></tr>
 </tbody></table></div>
-<p>See <a href="/help/install.html">Install Central Pedal Control</a>.</p>
+<p><a href="/help/install.html">Install the apps</a> has the steps for each one.</p>
 
 <h2 id="upload-and-download">Upload and Download</h2>
 
 <ol class="steps">
-<li><b>Get it ready</b> at home: the setlist, the songs and their tracks, the pads, the footswitches and knobs, the instrument.</li>
-<li><b>At church,</b> join the same Wi-Fi as the pedal, or use a network cable.</li>
-<li><b>Press ⇪ Upload</b> (top right, File → Upload…, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>U</kbd>). Type the pedal's name or address (for example <code>padpedal.local</code>) and its pairing PIN. Before anything is sent, it shows what will go, how big it is, what's already on the pedal and whether it fits.</li>
-<li><b>Tick what to send</b>: songs and their tracks, pads and sounds, buttons and MIDI, instrument, setups, colours, the Stream Deck, the network audio and backup player settings, and the practice-mix and stem splitter settings. Outputs and screens only when your computer's outputs match the pedal's.</li>
-<li><b>On the pedal,</b> nothing changes until everything has arrived. Then it switches to the new setlist as soon as nothing is playing, or when you press <b>Switch now</b>, and only then removes the old one. If Upload stops halfway, press it again and it carries on where it left off.</li>
+<li>At home, get the setlist ready with its songs and tracks, the pads, the footswitches and knobs, and the instrument.</li>
+<li>At church, join the same Wi-Fi as the pedal, or plug in a network cable.</li>
+<li>Press <b>⇪ Upload</b> at the top right (or File → Upload…, or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>U</kbd>). Type the pedal's name or address, for example <code>padpedal.local</code>, and its pairing PIN. Before it sends anything, it shows you what will go, how big it is, what's already on the pedal and whether it fits.</li>
+<li>Tick what you want to send. Songs, pads, controls, the instrument and your colours are all there. Only tick outputs and screens if your computer's outputs match the pedal's.</li>
+<li>Press send. The pedal doesn't change anything until everything has arrived. It switches to the new setlist once nothing is playing, or straight away if you press <b>Switch now</b> on the pedal, and only then removes the old one.</li>
 </ol>
-<p><b>⇩ Download</b> (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>D</kbd>) does the opposite: the pedal's songs and setup come to your computer.</p>
+<p>If Upload stops halfway, press it again and it carries on from where it got to.</p>
+<p><b>⇩ Download</b> (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>D</kbd>) goes the other way and brings the pedal's songs and setup to your computer.</p>
 
 <h2 id="live-on-the-pedal">● Live on the pedal</h2>
-<p>Press <b>● Live</b> (top right), type the pedal's name or address and its pairing PIN, then <b>Go live</b>. You are working the pedal itself, over the network: every tap and fader changes the pedal straight away, with no Upload. The same tabs as the pedal's 3.5" touch screen are there: pads, tracks, the instrument, the looper and settings. A network cable or 5 GHz Wi-Fi keeps it quickest. Close goes back to editing.</p>
+<p>Press <b>● Live</b> at the top right, type the pedal's name or address and its pairing PIN, then press <b>Go live</b>. Now you're working the pedal itself over the network. Every tap and fader changes the pedal straight away, with no Upload. You get the same tabs as the pedal's 3.5" screen: pads, tracks, the instrument, the looper and settings. A network cable or 5 GHz Wi-Fi keeps it quickest. Press Close to go back to editing.</p>
 
 <h2 id="live">LIVE</h2>
 
-<figure class="shot"><img src="/img/apps/pc-live.webp" alt="Central Pedal Control&#x27;s LIVE screen with the setlist, sections and transport" loading="lazy"><figcaption>LIVE: the same screen as on the pedal, for rehearsing.</figcaption></figure>
-<p>The screen for the service: the setlist, the song's sections in colour, the transport with Vamp and Safe Stop, the pads and the instrument. It works exactly as on the pedal; see <a href="/apps/central-pedal.html#on-stage-live">LIVE on the Central Pedal</a>.</p>
+<figure class="shot"><img src="/img/apps/pc-live.webp" alt="Central Pedal Control&#x27;s LIVE screen with the setlist, sections and transport" loading="lazy"><figcaption>LIVE looks the same here as it does on the pedal, so you can rehearse with it.</figcaption></figure>
+<p>LIVE is the screen for the service, with the setlist, the song's sections in colour, the transport with Vamp and Safe Stop, the pads and the instrument. It works the same way as on the pedal, and <a href="/apps/central-pedal.html#on-stage-live">LIVE on the Central Pedal</a> explains it.</p>
 
 <h2 id="pad">Pad</h2>
 
-<figure class="shot"><img src="/img/apps/pc-pads.webp" alt="The Pad tab with eight pads, textures and the effects chain" loading="lazy"><figcaption>Pad: eight pads per song, textures and effects.</figcaption></figure>
-<ul>
-<li><b>8 pads per song</b>: tap to crossfade, tap again to fade out. <b>STOP</b>, key − / +, tap tempo, <b>LAYER</b> (up to 4 pads at once), morph and <b>FREEZE</b>.</li>
-<li><b>Built-in pads</b> play in any key. <b>Imported pads</b> (MP3, WAV, FLAC, OGG, M4A, AIFF) have their key detected and are pitch-shifted to the song's key; set the root key yourself if it guessed wrong.</li>
-<li><b>Textures</b>: two channels with 100+ presets (rain, vinyl, choir air, tape hiss, shimmer beds…), each with its own level.</li>
-<li><b>Effects</b> on every pad: 6-band EQ, compressor, drive, auto-filter, phaser, chorus, tremolo, stereo width, tempo-synced delay, reverb with shimmer and an LFO. Every track can have a gate, EQ, compressor, reverb and delay too (the basic ones are free; Central Plugins adds the bigger ones).</li>
-<li><b>Pad volume</b>: each pad has its own slider. Sliding it never starts the pad.</li>
-<li><b>Scenes</b> (in the song editor) save the pads, the track mix and the instrument, and recall them on a section, a button or a MIDI cue, with a smooth, swell or cut transition.</li>
-</ul>
+<figure class="shot"><img src="/img/apps/pc-pads.webp" alt="The Pad tab with eight pads, textures and the effects chain" loading="lazy"><figcaption>Each song has eight pads, with textures and effects.</figcaption></figure>
+<p>Each song has eight pads. Tap one to crossfade to it and tap it again to fade it out. Along the top you've got <b>STOP</b>, the key, tap tempo, <b>LAYER</b> (up to four pads at once), morph and <b>FREEZE</b>. Each pad has its own volume slider, and moving it never starts the pad.</p>
+<p>The built-in pads play in any key. If you import your own (MP3, WAV, FLAC, OGG, M4A or AIFF), the app works out its key and shifts it to the song's key. If it guessed wrong, set the root key yourself.</p>
+<p>There are two texture channels with over a hundred presets, things like rain, vinyl, choir air and shimmer beds, and each has its own level.</p>
+<p>Every pad has an effects chain with EQ, a compressor, drive, filter, phaser, chorus, tremolo, width, a delay in time with the song, and reverb with shimmer. Tracks get a gate, EQ, compressor, reverb and delay. The basic versions are free and Central Plugins adds the bigger ones.</p>
+<p>Scenes live in the song editor. A scene saves the pads, the track mix and the instrument, and brings them back on a section, a button or a MIDI cue, with a smooth, swell or cut change.</p>
 
 <h2 id="tracks">Tracks</h2>
 
-<figure class="shot"><img src="/img/apps/pc-tracks.webp" alt="The Tracks tab: the song&#x27;s waveform with sections, the mixer strips and the transport" loading="lazy"><figcaption>Tracks: the multitrack player, with the mixer on the page.</figcaption></figure>
-<h3>Add songs</h3>
-<p><b>+ Song</b> gives you four choices:</p>
+<figure class="shot"><img src="/img/apps/pc-tracks.webp" alt="The Tracks tab: the song&#x27;s waveform with sections, the mixer strips and the transport" loading="lazy"><figcaption>The multitrack player, with the mixer on the same page.</figcaption></figure>
+<h3>Adding songs</h3>
+<p>Press <b>+ Song</b> and pick where it's coming from.</p>
 <ul>
-<li><b>My own (MP3 / WAV)</b>: one mixed file or a set of stems. Your own files stay on your devices and are never shared.</li>
-<li><b>Multitrack</b>: a MultiTracks.com download or any zip or folder of stems. Stems are recognised by name, the sections come from the Ableton Live set or MIDI file in the download, and <b>Combine stems of the same kind</b> makes, say, three drum stems one Drums track. <b>Several songs…</b> imports a whole folder at once.</li>
-<li><b>Prime track</b>: a Loop Community song's WAV stems.</li>
-<li><b>Central Tracks</b>: the Motion Audio library, including hymns we've arranged ourselves with their charts and lyrics. With Central Tracks Unlimited, press <b>Add</b>; otherwise <b>Buy</b> on the website.</li>
+<li><b>My own (MP3 / WAV)</b> takes one mixed file or a set of stems. Your own files stay on your devices and are never shared.</li>
+<li><b>Multitrack</b> takes a MultiTracks.com download or any zip or folder of stems. It recognises stems by their names and gets the sections from the Ableton Live set or MIDI file in the download. Tick <b>Combine stems of the same kind</b> if you'd like, say, three drum stems to become one Drums track. <b>Several songs…</b> brings in a whole folder at once.</li>
+<li><b>Prime track</b> takes a Loop Community song's WAV stems.</li>
+<li><b>Central Tracks</b> is our own library, including hymns we've arranged with their charts and lyrics. With Central Tracks Unlimited you press <b>Add</b>. Without it you buy the song on the website first.</li>
 </ul>
-<p><b>Planning Center</b> plans come in too: connect once with a Personal Access Token, pick a plan, and its songs arrive with their key, tempo, arrangement, chart, lyrics and audio.</p>
-<h3>After every import</h3>
-<p>Tempo and key are detected (with the runner-up guesses one tap away), along with the beat grid, the sections (intro, verse, chorus, bridge…) and the big hits. A click and a spoken guide are made from the grid if the song doesn't have them.</p>
+<p>Planning Center plans come in too. Connect once with a Personal Access Token, pick a plan, and its songs arrive with their key, tempo, arrangement, chart, lyrics and audio.</p>
+<p>After an import, the app works out the tempo and key (with its next best guesses a tap away), the beat grid, the sections and the big hits. If the song has no click or spoken guide, it makes them from the grid.</p>
 <h3>Playing a song</h3>
-<ul>
-<li><b>Any key, any tempo</b>, changed on the fly with the stems locked together. Tempo and time-signature changes inside a song live in the song editor.</li>
-<li><b>Flow</b>: put the sections in the order you'll play them (Intro, V1, C, C, Bridge, C…). Live, hold a section button to go there next, <b>⟲ again</b> to repeat, <b>⤼ skip</b> to drop the next.</li>
-<li><b>Mixer</b>: a strip for every track with fader, meter, mute, solo and pan, plus the Tracks, Click and Cues masters.</li>
-<li><b>When the song ends</b>: stop, go to the next song ready, play the next after a gap, or <b>segue</b> straight into it (gapless or crossfaded).</li>
-<li><b>Click and spoken cues</b> ("Chorus", "Bridge", "1 2 3 4") go to output 3 for the band. Record your own cue words in your voice in the song editor.</li>
-<li><b>Chord charts</b>: upload a PDF or text chart, or press <b>Listen &amp; write chord chart</b>. <b>Sheet music…</b> writes what one stem plays as notation, tab, a piano roll or Nashville numbers. <b>Parts for every instrument</b> makes a part for each player.</li>
-<li><b>MIDI out</b>: hits for the lights on every accent and section, the drum hits of split songs, program changes and clock. The same go over Wi-Fi to Central Control.</li>
-</ul>
+<p>You can change the key and tempo on the fly and the stems stay locked together. Tempo and time signature changes partway through a song are set in the song editor.</p>
+<p>Use Flow to put the sections in the order you'll play them, for example Intro, V1, C, C, Bridge, C. When you're playing, hold a section button to go there next, press <b>⟲ again</b> to repeat a section, or <b>⤼ skip</b> to drop the next one.</p>
+<p>The mixer has a strip for each track with a fader, meter, mute, solo and pan, and there are master faders for the tracks, the click and the cues. At the end of a song it can stop, get the next song ready, play the next one after a gap, or go straight into it with or without a crossfade.</p>
+<p>The click and spoken cues ("Chorus", "Bridge", "1 2 3 4") go to output 3 for the band. You can record the cue words in your own voice in the song editor.</p>
+<p>For charts, upload a PDF or text chart, or press <b>Listen &amp; write chord chart</b>. <b>Sheet music…</b> writes out what one stem plays as notation, tab, a piano roll or Nashville numbers, and <b>Parts for every instrument</b> makes a part for each player.</p>
+<p>MIDI out sends hits for the lights on accents and sections, the drum hits of split songs, program changes and clock. The same hits go over Wi-Fi to Central Control.</p>
 <h3>The stem splitter</h3>
-<p>Tracks → <b>✂ Stem splitter</b> turns one WAV of a whole song into the tracks a band plays with: Lead Vox, BGVs, Drums, Perc, Bass, Guitars, Keys, Synth &amp; Pads, plus a Click and a Guide. Press <b>Install</b> the first time (about 2.5 GB, inside the app's own folder, downloaded once); <b>Remove it</b> takes it all away. It runs on your computer, and an Apple Silicon Mac or an NVIDIA graphics card makes it much faster. Check the tracks before adding them: play, solo, rename, merge or split one again.</p>
+<p>Tracks → <b>✂ Stem splitter</b> takes one WAV of a whole song and splits it into the tracks a band plays with, such as lead vocal, backing vocals, drums, bass, guitars and keys, plus a click and a guide. The first time, press <b>Install</b>. It downloads about 2.5 GB once into the app's own folder, and <b>Remove it</b> takes it all away again. It runs on your computer, and an Apple Silicon Mac or an NVIDIA graphics card makes it a lot faster. Listen to the tracks before you add them. You can solo, rename, merge or split any of them again.</p>
 <h3>Practice mixes</h3>
-<p>Tracks → <b>🎧 Practice mixes</b> makes a mix for every musician: their part up, alone or left out, slower without changing the pitch or in another key, with a count-in. They're MP3s when ffmpeg is installed (the pedal has it; on Linux <code>sudo apt install ffmpeg</code>, on a Mac <code>brew install ffmpeg</code>), otherwise WAVs.</p>
+<p>Tracks → <b>🎧 Practice mixes</b> makes a mix for each musician, with their part turned up, on its own or taken out. It can slow the song down without changing the pitch, move it to another key and add a count-in. The mixes are MP3s if ffmpeg is installed (the pedal already has it. On Linux run <code>sudo apt install ffmpeg</code> and on a Mac <code>brew install ffmpeg</code>), and WAVs if it isn't.</p>
 
 <h2 id="instrument">Instrument</h2>
 
-<figure class="shot"><img src="/img/apps/pc-instrument.webp" alt="The Instrument tab: an electric guitar pedalboard with the tuner open" loading="lazy"><figcaption>Instrument: the pedalboard, the keys sounds, the tuner and the looper.</figcaption></figure>
-<ul>
-<li><b>Electric and acoustic guitar</b>: the input, gain and noise gate, then a pedalboard drawn on screen. Tap a pedal to switch it, open it for its knobs, drag to reorder, <b>Sync</b> a delay to the tempo. 13 board presets (Clean Worship, Ambient Swell, Edge Dotted-Eighth…) and your own boards.</li>
-<li><b>Piano &amp; keys</b>: a USB MIDI keyboard plays pianos, electric pianos, organs, pads, strings, basses and more, through the same pedals. Up to 8 layers with their own volume, pan, octave, key range (<b>Split at C4</b> in one tap) and velocity range. Add your own <code>.sf2</code> SoundFonts or folders of WAV samples.</li>
-<li><b>Your own plugins</b> on a computer: VST3 and CLAP on Windows, Mac and Linux, Audio Units on the Mac, LV2 on Linux. <b>Add pedal → Your plugins</b> and <b>Piano &amp; keys → Your instruments</b>, each with its own window.</li>
-<li><b>Mix and Level</b> on every pedal, an <b>IR loader</b> for cabinets and acoustic bodies, the <b>tuner</b> and <b>Auto</b>, which listens and sets gain, gate and a board for you.</li>
-</ul>
+<figure class="shot"><img src="/img/apps/pc-instrument.webp" alt="The Instrument tab: an electric guitar pedalboard with the tuner open" loading="lazy"><figcaption>The pedalboard, the keys sounds, the tuner and the looper.</figcaption></figure>
+<p>For electric or acoustic guitar, you set the input, gain and noise gate, then build a pedalboard on screen. Tap a pedal to switch it on or off, open it to get at its knobs, drag pedals to change the order, and press <b>Sync</b> to put a delay in time with the song. There are 13 ready-made boards, like Clean Worship, Ambient Swell and Edge Dotted-Eighth, and you can save your own.</p>
+<p>With a USB MIDI keyboard, <b>Piano &amp; keys</b> plays pianos, electric pianos, organs, pads, strings, basses and more, through the same pedals. You can stack up to eight layers, each with its own volume, pan, octave, key range and velocity range. <b>Split at C4</b> sets up a split in one tap. You can add your own <code>.sf2</code> SoundFonts or folders of WAV samples too.</p>
+<p>On a computer you can use your own plugins: VST3 and CLAP on Windows, Mac and Linux, Audio Units on the Mac and LV2 on Linux. Find them under <b>Add pedal → Your plugins</b> and <b>Piano &amp; keys → Your instruments</b>. Each opens in its own window.</p>
+<p>Every pedal has Mix and Level. There's an IR loader for cabinets and acoustic bodies, a tuner, and <b>Auto</b>, which listens to you play and sets the gain, gate and a board for you.</p>
 
 <h2 id="configure-and-learn">Configure and Learn</h2>
 
-<figure class="shot"><img src="/img/apps/pc-configure.webp" alt="The Configure tab: every footswitch, knob and slider with its action in the Pad and Tracks layouts" loading="lazy"><figcaption>Configure: what every control does, in the Pad layout and the Tracks layout.</figcaption></figure>
-<p><b>Configure</b> lists every physical control with what it does in the Pad layout and in the Tracks layout, and a hold action for each button. Pick from the action list: play, sections, songs, scenes, pads, the instrument's pedals and boards, the tuner, the looper, the service lock, Ready check and more. The LEDs follow the mapping.</p>
-<figure class="shot"><img src="/img/apps/pc-learn.webp" alt="The Learn tab adding a new button from a USB foot controller" loading="lazy"><figcaption>Learn: add a footswitch, a USB foot controller or a MIDI control by pressing it.</figcaption></figure>
-<p><b>Learn</b>: <b>Add new control</b> → pick Button, Knob or Slider → name it. Then press the button once, turn the knob all the way left and then all the way right, or move the slider all the way down and then all the way up. It works with the pedal's own pins, USB foot controllers, MIDI controllers and any key on your computer's keyboard. <b>Control board inputs</b> finds the knobs, sliders and buttons on the board for you; <b>Reset</b> puts the defaults back.</p>
+<figure class="shot"><img src="/img/apps/pc-configure.webp" alt="The Configure tab: every footswitch, knob and slider with its action in the Pad and Tracks layouts" loading="lazy"><figcaption>What each control does, in the Pad layout and the Tracks layout.</figcaption></figure>
+<p><b>Configure</b> lists the pedal's controls and what each one does in the Pad layout and in the Tracks layout. Buttons get a hold action as well. You pick from a list that covers playing, sections, songs, scenes, pads, the instrument's pedals and boards, the tuner, the looper, the service lock and Ready check. The LEDs follow whatever you set.</p>
+<figure class="shot"><img src="/img/apps/pc-learn.webp" alt="The Learn tab adding a new button from a USB foot controller" loading="lazy"><figcaption>Add a footswitch, a USB foot controller or a MIDI control by pressing it.</figcaption></figure>
+<p>To add a control, go to <b>Learn</b> and press <b>Add new control</b>. Pick Button, Knob or Slider and give it a name. Then press the button once, turn the knob all the way left and then all the way right, or move the slider all the way down and then all the way up. This works with the pedal's own controls, USB foot controllers, MIDI controllers and any key on your computer keyboard. <b>Control board inputs</b> finds the knobs, sliders and buttons on the pedal's board for you, and <b>Reset</b> puts the defaults back.</p>
 
 <h2 id="i-o-and-settings">I/O and Settings</h2>
 
-<figure class="shot"><img src="/img/apps/pc-io.webp" alt="The I/O tab: audio to Central Control, outputs, inputs, MIDI and screens" loading="lazy"><figcaption>I/O: every input and output on one page.</figcaption></figure>
-<p><b>I/O</b> has every input and output on one page: <b>Audio to Central Control</b> (off, Ethernet, Wi-Fi or an audio interface; every track on its own channel), the four outputs and per-track direct outputs, inputs, MIDI, screens and the devices on the network.</p>
-<figure class="shot"><img src="/img/apps/pc-settings.webp" alt="Settings: appearance, audio engine, outputs, screens and updates" loading="lazy"><figcaption>Settings: the look, the audio engine, outputs, MIDI, Stream Deck and updates.</figcaption></figure>
-<p><b>Settings</b>: colour presets or your own colours and the interface size; the audio engine (sample rate and latency); output routing and the output device; MIDI in; tempo, Ableton Link and MIDI clock; the Stream Deck; ProPresenter (each section can show a slide); the backup player; and software updates.</p>
+<figure class="shot"><img src="/img/apps/pc-io.webp" alt="The I/O tab: audio to Central Control, outputs, inputs, MIDI and screens" loading="lazy"><figcaption>Every input and output on one page.</figcaption></figure>
+<p><b>I/O</b> puts every input and output on one page. That includes <b>Audio to Central Control</b>, which sends every track on its own channel over Ethernet, Wi-Fi or an audio interface, along with the outputs, the direct outputs for each track, the inputs, MIDI, screens and the devices on your network.</p>
+<figure class="shot"><img src="/img/apps/pc-settings.webp" alt="Settings: appearance, audio engine, outputs, screens and updates" loading="lazy"><figcaption>Settings has the look, the audio engine, outputs, MIDI, the Stream Deck and updates.</figcaption></figure>
+<p><b>Settings</b> is laid out the same as on the pedal. Sound has the audio engine, the output device and output routing. Look has the colours and the size of everything. Controls has MIDI in, tempo, Ableton Link, MIDI clock and the Stream Deck. You'll also find ProPresenter (so each section can show a slide), the backup player, Packages &amp; key and Software updates &amp; backup.</p>
 
 <h2 id="looper">Looper</h2>
 
-<p>The <b>LOOPER</b> tab is a loop pedal with three loops: record, overdub, undo, redo, reverse, half speed, level and pan on each. One footswitch runs it: tap to record, then play, then overdub; double-tap stops; hold for a second to clear. While tracks or the click are playing it stays in time with the song. On a computer it records the audio input. See <a href="/apps/central-pedal.html#looper">the looper on the Central Pedal</a>.</p>
+<p>The <b>LOOPER</b> tab is a loop pedal with three loops. Each loop can record, overdub, undo, redo, play backwards or at half speed, and has its own level and pan. One footswitch runs it. Tap to record, tap to play and tap again to overdub. Double-tap to stop, and hold it for a second to clear. While tracks or the click are playing, it stays in time with the song. On a computer it records the audio input. <a href="/apps/central-pedal.html#looper">The looper on the Central Pedal</a> has more.</p>
 
 <h2 id="setlists-on-every-device">Setlists</h2>
 
-<p>Open <b>Setlist</b> for three buttons. <b>Load setlist</b> shows the setlists your church has made before (they're saved on your church's account, so every device sees them). <b>Create new</b> asks for a name, a day and the people playing, picked from your Central Services teams. <b>Add songs</b> opens the website on that setlist: songs you own go straight in, Central Tracks Unlimited covers any song, and the rest you buy first. The app picks up what you added within a few seconds.</p>
-<p>Linked devices also share their songs. Open <b>Setlist → Setlists · Song library · Devices…</b>:</p>
+<p>Open <b>Setlist</b> and you'll see three buttons. <b>Load setlist</b> shows the setlists your church has made before. They're saved on your church's account, so every device sees them. <b>Create new</b> asks for a name and a day, and lets you add the people playing from your Central Services teams. <b>Add songs</b> opens the website on that setlist. Songs you own go straight in, Central Tracks Unlimited covers any song, and anything else you buy first. The app picks up what you added within a few seconds.</p>
+<p>Devices you link also share their songs. Open <b>Setlist → Setlists · Song library · Devices…</b> to see them.</p>
 <ul>
-<li><b>Setlists</b>: every setlist from every device, newest first. <b>Open</b> one, or <b>+ New setlist</b>.</li>
-<li><b>Song library</b>: every song with its key, tempo, tracks and the setlists it's in. <b>Delete…</b> asks <i>on this device</i> or <i>everywhere</i>.</li>
-<li><b>Devices</b>: <b>Link…</b> once with the other one's pairing code. After that they copy each other's songs and setlists every few seconds, and the newest edit wins. If your network blocks discovery, use <b>Link by address…</b>.</li>
+<li><b>Setlists</b> lists the setlists from all your devices, newest first. Press <b>Open</b> on one, or <b>+ New setlist</b>.</li>
+<li><b>Song library</b> lists the songs with their key, tempo, tracks and the setlists they're in. <b>Delete…</b> asks whether you mean on this device or everywhere.</li>
+<li><b>Devices</b> is where you link another device. Press <b>Link…</b> and type the other one's pairing code. From then on they copy each other's songs and setlists every few seconds, and the newest change wins. If your network blocks this, use <b>Link by address…</b>.</li>
 </ul>
 
 <h2 id="troubleshooting">Troubleshooting</h2>
 
 <ul>
-<li><b>Upload can't reach the pedal.</b> Both on the same network? Type <code>padpedal.local</code> or the pedal's IP address, and its pairing PIN from the pedal's Settings.</li>
-<li><b>The pedal didn't change after Upload.</b> Look for the bar on the pedal: press <b>Apply now</b>. It waits while something plays.</li>
-<li><b>The stem splitter is slow.</b> Studio mode runs several models one after the other, so it takes several times as long as Best. A Mac with Apple Silicon or an NVIDIA card helps a lot.</li>
-<li><b>The pedal plays the tracks instead of this computer.</b> Check the computer and the pedal are on the same network and paired. The pedal hands the tracks back once nothing is playing.</li>
-<li><b>"This key is now used on another device."</b> A P key works on two devices. Release one in Settings → License, or on the website.</li>
+<li><b>Upload can't find the pedal.</b> Check they're on the same network. Type <code>padpedal.local</code> or the pedal's IP address, and the pairing PIN from the pedal's Settings.</li>
+<li><b>The pedal didn't change after Upload.</b> Look for the bar along the top of the pedal's screen and press <b>Switch now</b> or <b>Apply now</b>. It waits if something's playing.</li>
+<li><b>The stem splitter is slow.</b> Studio mode runs several models one after another, so it takes a few times longer than Best. An Apple Silicon Mac or an NVIDIA card helps a lot.</li>
+<li><b>The pedal is playing the tracks instead of this computer.</b> Check that the computer and the pedal are on the same network and paired. The pedal hands the tracks back as soon as nothing is playing.</li>
+<li><b>It says "This key is now used on another device."</b> A P key works on two devices. Release one under Settings → Packages &amp; key → <b>Release key</b>, or from My products on the website.</li>
+<li><b>Still stuck?</b> Write to us through <a href="/help/#contact">Contact support</a> and tell us what you pressed and what it said.</li>
 </ul>
 
 </article></main>

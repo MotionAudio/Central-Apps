@@ -33,7 +33,7 @@
     if (check.jack) lines.push("<li>Headphone jack: " + (check.jack.muted ? "<b>was muted</b>" : "on") + (check.jack.text ? ", level " + esc(check.jack.text) : "") + "</li>");
     (check.found || []).forEach(function (f) { lines.push('<li class="warn-line">' + esc(f) + "</li>"); });
     (check.fixed || []).forEach(function (f) { lines.push("<li>✓ " + esc(f) + "</li>"); });
-    if (check.ok) lines.push("<li>✓ Everything looks right. Still nothing? Try the sound cards below - if they're silent too, it's the headphones, the cable or the socket.</li>");
+    if (check.ok) lines.push("<li>✓ Everything looks right. If you still can't hear anything, try the sound cards below. If they're silent too, it's the headphones, the cable or what they're plugged into.</li>");
     return '<ul class="st-check">' + lines.join("") + "</ul>";
   }
 
@@ -44,7 +44,7 @@
     var lines = [];
     if (trace.ok) lines.push("<li>✓ Output " + trace.channel + ": the tone reached the outputs and the " + esc(trace.card || "sound card") + ". Still nothing? Check the headphones, the cable and the volume of what they're plugged into.</li>");
     else {
-      lines.push("<li>Output " + trace.channel + ": the app's sound " + (trace.appReached ? "reached the outputs" : "<b>didn't reach the outputs</b>") + "; the outputs " + (trace.cardReached ? "reach" : "<b>don't reach</b>") + " the " + esc(trace.card || "sound card") + ".</li>");
+      lines.push("<li>Output " + trace.channel + ": the app's sound " + (trace.appReached ? "reached the outputs" : "<b>didn't reach the outputs</b>") + ", and the outputs " + (trace.cardReached ? "reach" : "<b>don't reach</b>") + " the " + esc(trace.card || "sound card") + ".</li>");
     }
     (trace.found || []).forEach(function (f) { lines.push('<li class="warn-line">' + esc(f) + "</li>"); });
     (trace.fixed || []).forEach(function (f) { lines.push("<li>✓ " + esc(f) + "</li>"); });
@@ -57,13 +57,13 @@
     var chs = channels(), on = connected();
     var src = project().inputSource || {};
     return '<section data-st="audio" id="soundTest"><h3>Test sound</h3>' +
-      '<p class="muted">Play a short tone on each output. If you hear these but not a pad, it\'s the routing above. If you don\'t hear these either, try the sound cards straight from the Pi.</p>' +
+      '<p class="muted">Press an output to play a short tone on it. On the pedal, it listens along the way and tells you underneath where the sound stopped. If you hear the tone but not a pad, check the routing above. If you don\'t hear the tone either, try the sound cards, which play straight from the Pi.</p>' +
       '<div class="row st-tones">' + chs.map(function (name, i) { return '<button data-stt="ch" data-ch="' + (i + 1) + '"' + (playing === i + 1 ? ' class="on"' : "") + ">▶ " + (i + 1) + " · " + esc(name) + "</button>"; }).join("") + "</div>" +
       traceHtml() +
       (on ? '<div class="row"><button data-stt="check">Check where the sound goes</button><button data-stt="cards"' + (cardsBusy ? " disabled" : "") + ">" + (cardsBusy ? "Playing…" : "Play on each sound card") + "</button></div>" + checkHtml() +
         (cards.length ? '<ul class="st-check">' + cards.map(function (c) { return "<li>" + (c.busy ? "▶ " : c.ok ? "✓ " : "✗ ") + esc(c.desc) + (c.ok === false ? " - " + esc(c.error || "didn't play") : "") + "</li>"; }).join("") + "</ul>" : "") : "") +
       "</section>" +
-      '<section data-st="audio" id="audioInputSec"><h3>Audio input</h3><p class="muted">Where the pads\' Audio input (and a looper set to the audio input) listens. A USB audio interface\'s inputs show here once it\'s plugged in. The guitar / keys input is set on the Instrument tab.</p>' +
+      '<section data-st="audio" id="audioInputSec"><h3>Audio input</h3><p class="muted">This is what the pads\' Audio input listens to, and the looper too if you set it to the audio input. A USB audio interface\'s inputs show up here once it\'s plugged in. The guitar or keys input is set on the Instrument tab.</p>' +
       '<label>Device<select data-stt="inDev"><option value="">The default input</option>' + inputs.map(function (d) { return '<option value="' + esc(d.deviceId) + '"' + (src.deviceId === d.deviceId ? " selected" : "") + ">" + esc(d.label || "Input " + d.deviceId.slice(0, 6)) + "</option>"; }).join("") + "</select></label>" +
       '<label>Which input<select data-stt="inCh">' + [["", "Both (1 + 2)"], ["1", "Input 1 (left)"], ["2", "Input 2 (right)"]].map(function (o) { return '<option value="' + o[0] + '"' + ((src.channel || "") === o[0] ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label></section>";
   }

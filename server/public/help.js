@@ -96,7 +96,7 @@
       const b = e.target.closest("[data-helpful]"); if (!b) return;
       $$("[data-helpful]", hp).forEach((x) => (x.disabled = true));
       try { await api("POST", "/help/articles/" + encodeURIComponent(a.slug) + "/helpful", { yes: b.dataset.helpful === "1" }); } catch (_) { }
-      $("#artThanks").innerHTML = b.dataset.helpful === "1" ? "Thanks! Glad it helped." : 'Thanks for telling us. <a href="/help/#contact">Tell us what was missing</a> and we\'ll fix the guide.';
+      $("#artThanks").innerHTML = b.dataset.helpful === "1" ? "Thanks, glad it helped." : 'Thanks for telling us. If you <a href="/help/#contact">let us know what was missing</a>, we\'ll fix the guide.';
     });
     await loadArticles(true);
     if (data.canEdit) { $("#artEdit").innerHTML = '<p style="margin-top:1rem"><button class="btn ghost small" type="button" id="artEditBtn">Edit this guide</button></p><div id="hcEditor"></div>'; $("#artEditBtn").onclick = () => editArticle(a); }
@@ -108,7 +108,7 @@
   function editorList() {
     const el = editorBox();
     const list = data.articles.slice().sort((x, y) => (x.position || 0) - (y.position || 0) || x.id - y.id);
-    el.innerHTML = '<div class="pg-head" style="margin:1.5rem 0 .8rem"><h3>Guides: write, edit, put in order</h3><p class="muted">Changes show on the website straight away. Use the arrows to put guides in order; the order shows within each category.</p></div>' +
+    el.innerHTML = '<div class="pg-head" style="margin:1.5rem 0 .8rem"><h3>Write and edit guides</h3><p class="muted">Anything you change here shows on the website straight away. Use the arrows to change the order guides appear in within their category.</p></div>' +
       '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem"><button class="btn small" type="button" id="edNew">New guide</button><button class="btn ghost small" type="button" id="edClose">Done</button></div>' +
       '<div class="ed-list">' + list.map((a, i) => '<div class="ed-art" data-id="' + a.id + '"><button class="btn small ghost" type="button" data-mv="-1" aria-label="Move up"' + (i ? "" : " disabled") + '>↑</button><button class="btn small ghost" type="button" data-mv="1" aria-label="Move down"' + (i < list.length - 1 ? "" : " disabled") + '>↓</button><span><b>' + h(a.title) + '</b> <span class="muted">· ' + h(a.category) + (a.published === false ? " · draft" : "") + '</span></span><a class="btn small ghost" href="' + artHref(a) + '">View</a><button class="btn small ghost" type="button" data-ed="' + a.id + '">Edit</button><button class="btn small ghost" type="button" data-del="' + a.id + '">Delete</button></div>').join("") + "</div><div class=\"err\" id=\"edErr\"></div>";
     $("#edClose").onclick = () => { el.hidden = true; };
