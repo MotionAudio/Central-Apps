@@ -1415,7 +1415,7 @@ async def main():
             check("the setup page after the factory test: the touch screen is already set (shown with a Change link, not a step)",
                   stt.get("screenSet") is True and "3.5" in (stt.get("screenName") or ""), stt)
             status, body = http("http://127.0.0.1:18080/setup")
-            check("...the page has the 'Touch screen: … ✓ Change' line and two steps", b'id="screenDone"' in body and b"Two things" in body and b'id="screenChange"' in body)
+            check("...the page has the 'Touch screen: … ✓ Change' line and two steps", b'id="screenDone"' in body and b"Two things to fill in" in body and b'id="screenChange"' in body)
             # the factory test's own messages and the small screen's test pattern
             driver.factory = Fc(driver, markers=[], bid="G")
             driver.factory.state = "factory"

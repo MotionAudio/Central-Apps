@@ -5,6 +5,7 @@
 //     items: [..] } numbered steps, { t: "img", url, alt } a picture (uploaded like the page's own pictures), { t: "video",
 //     url } a video: an uploaded file (/help-media/…) or a YouTube link. "Was this helpful?" counts yes and no.
 //     The built-in guides (help-articles.json) are added once each; a guide staff have edited or deleted stays that way.
+//     When a release rewrites a built-in guide, the site's copy follows, as long as nobody has edited it there.
 //   Tickets: every Contact support message (support.js) is a ticket: open, waiting (we answered, waiting on them) or
 //     closed. Staff answer on the website (Account → Staff → Support); the answer goes by email from SUPPORT_EMAIL with a
 //     link back to the ticket. The mailer (Resend) only sends here - it doesn't receive - so the customer answers on the
@@ -51,15 +52,25 @@ async function seedOnce() {
   let list = [];
   try { list = JSON.parse(fs.readFileSync(new URL("./help-articles.json", import.meta.url), "utf8")).articles || []; } catch (e) { console.error("help articles:", e.message); return; }
   const done = await one("SELECT data FROM site_settings WHERE name='help-seeded'").catch(() => null), had = new Set(done && Array.isArray(done.data.slugs) ? done.data.slugs : []);
+  const hashes = Object.assign({}, done && done.data.hashes || {});
   let pos = 0;
   for (const a of list) {
     pos += 10;
-    if (had.has(a.slug)) continue;   // (seeded before: staff may have changed or deleted it since)
+    const h = crypto.createHash("sha256").update(JSON.stringify([a.title, a.category, a.summary || "", a.body])).digest("hex").slice(0, 16);
+    if (had.has(a.slug)) {   // (seeded before: staff may have changed or deleted it since - then it stays as they left it)
+      if (hashes[a.slug] !== h) {   // (a release rewrote it: the site's copy follows, unless someone edited it there)
+        await q("UPDATE help_articles SET title=$2,category=$3,summary=$4,body=$5,updated_at=now() WHERE slug=$1 AND updated_by='Motion Audio'",
+          [a.slug, a.title, a.category, a.summary || "", JSON.stringify(cleanBody(a.body))]);
+        hashes[a.slug] = h;
+      }
+      continue;
+    }
+    hashes[a.slug] = h;
     await q("INSERT INTO help_articles (slug,title,category,summary,body,position,updated_by) VALUES ($1,$2,$3,$4,$5,$6,'Motion Audio') ON CONFLICT (slug) DO NOTHING",
       [a.slug, a.title, a.category, a.summary || "", JSON.stringify(cleanBody(a.body)), pos]);
     had.add(a.slug);
   }
-  await q("INSERT INTO site_settings (name,data,updated_by) VALUES ('help-seeded',$1,'server') ON CONFLICT (name) DO UPDATE SET data=EXCLUDED.data", [{ slugs: [...had] }]);
+  await q("INSERT INTO site_settings (name,data,updated_by) VALUES ('help-seeded',$1,'server') ON CONFLICT (name) DO UPDATE SET data=EXCLUDED.data", [{ slugs: [...had], hashes }]);
 }
 const out = (a, full) => Object.assign({ id: Number(a.id), slug: a.slug, title: a.title, category: a.category, summary: a.summary, position: a.position, published: a.published, updated: a.updated_at, helpful: { yes: a.helpful_yes, no: a.helpful_no } },
   full ? { body: a.body } : { text: clip(textOf(a.body || []), 1200) });

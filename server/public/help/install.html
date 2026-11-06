@@ -26,124 +26,128 @@
   </nav>
 </div></header>
 <div class="salebar" id="saleBar" hidden></div>
-<div class="page-head on-stage plain"><div class="wrap"><div class="crumbs"><a href="/help/">Help</a></div><h1>Install the apps</h1><p class="lede">Every app on every device, step by step, with what to press the first time it opens.</p></div></div>
+<div class="page-head on-stage plain"><div class="wrap"><div class="crumbs"><a href="/help/">Help</a></div><h1>Install the apps</h1><p class="lede">How to get each app onto your computer, phone or tablet, and what to press the first time it opens.</p></div></div>
 <main class="wrap man"><aside class="toc" aria-label="On this page"><b>On this page</b><ol><li><a href="#before-you-start">Before you start</a></li><li><a href="#windows">Windows</a></li><li><a href="#mac">Mac</a></li><li><a href="#linux">Linux</a></li><li><a href="#android">Android</a></li><li><a href="#iphone-and-ipad">iPhone and iPad</a></li><li><a href="#the-central-pedal">The Central Pedal</a></li><li><a href="#signing-in-and-your-key">Signing in and your key</a></li><li><a href="#updates">Updates</a></li><li><a href="#uninstalling">Uninstalling</a></li></ol></aside>
 <article class="doc">
 <h2 id="before-you-start">Before you start</h2>
 
-<p class="lead">Every app is on the <a href="/#downloads">download page</a>, which picks the right file for the device you open it on. Install the apps for your role, sign in, type your key, and they update themselves from then on.</p>
+<p class="lead">All the apps are on the <a href="/#downloads">download page</a>, and it picks the right file for whatever device you open it on. Install the app you need, sign in, type your key, and from then on it keeps itself up to date.</p>
 <div class="tblwrap"><table class="tbl"><thead><tr><th>App</th><th>Windows</th><th>Mac</th><th>Linux</th><th>Android</th><th>iPhone and iPad</th></tr></thead><tbody>
 <tr><td><b>Central Control</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td></td><td></td></tr>
-<tr><td><b>Central Usage</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>In Safari today</td></tr>
-<tr><td><b>Central Pedal Control</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>iPad: in Safari, from the pedal</td></tr>
-<tr><td><b>Central Services</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>On the website today</td></tr>
+<tr><td><b>Central Usage</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>In Safari for now</td></tr>
+<tr><td><b>Central Pedal Control</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>iPad, in Safari from the pedal</td></tr>
+<tr><td><b>Central Services</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td>Yes</td><td>On the website for now</td></tr>
+<tr><td><b>Central Production</b></td><td>Yes</td><td>Yes</td><td>Yes</td><td></td><td>On the website</td></tr>
 </tbody></table></div>
-<p>The Central Pedal itself comes ready: see <a href="#the-central-pedal">The Central Pedal</a>.</p>
-<div class="note"><p>The apps aren't signed with a paid Apple, Microsoft or Google certificate yet, so each device asks once the first time. The steps below show what to press.</p></div>
+<p>The Central Pedal arrives ready to go, so there's nothing to install on it. See <a href="#the-central-pedal">The Central Pedal</a> for the first start.</p>
+<div class="note"><p>I haven't signed the apps with paid Apple and Microsoft certificates yet, so Windows and Mac ask you once, the first time. The steps below show what to press.</p></div>
 
 <h2 id="windows">Windows</h2>
 
 <ol class="steps">
-<li><b>Download the <code>.exe</code></b> for your app from the <a href="/#downloads">download page</a> (Windows 10 or 11, 64-bit).</li>
-<li><b>Open it.</b> Windows says <i>"Windows protected your PC"</i>.</li>
-<li><b>Click More info, then Run anyway.</b> It installs and opens by itself.</li>
+<li>Download the <code>.exe</code> for your app from the <a href="/#downloads">download page</a>. You need Windows 10 or 11, 64-bit.</li>
+<li>Open it. Windows will say <i>"Windows protected your PC"</i>.</li>
+<li>Click <b>More info</b>, then <b>Run anyway</b>. It installs and opens by itself.</li>
 </ol>
 
 <h2 id="mac">Mac</h2>
 
 <ol class="steps">
-<li><b>Download the <code>.dmg</code></b> for your Mac: <i>Apple Silicon</i> for M1 and newer, <i>Intel</i> for Macs from before 2021.</li>
-<li><b>Open it and drag the app into Applications.</b></li>
-<li><b>Open the app once.</b> The Mac refuses because it can't verify the developer. Click <b>Done</b>.</li>
-<li><b>System Settings → Privacy &amp; Security.</b> Scroll down, click <b>Open Anyway</b> next to the app's name, and confirm.</li>
-<li><b>Allow the microphone</b> when it asks. The audio interface, the in-ears, the tuner and the instrument need it.</li>
+<li>Download the <code>.dmg</code> for your Mac. Pick <i>Apple Silicon</i> if your Mac has an M1 or newer chip, or <i>Intel</i> if it's from before 2021.</li>
+<li>Open it and drag the app into Applications.</li>
+<li>Open the app once. The Mac won't open it because it can't check who made it. Click <b>Done</b>.</li>
+<li>Go to <b>System Settings → Privacy &amp; Security</b>, scroll down, click <b>Open Anyway</b> next to the app's name and confirm.</li>
+<li>Allow the microphone when it asks. The apps need it for your audio interface, the in-ears, the tuner and the instrument.</li>
 </ol>
-<p>If the Mac says the app <i>"is damaged"</i>, open Terminal and run the line for that app:</p>
-<div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/Central Control.app&quot;</code><button type="button">Copy</button></div><div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/CentralUsage.app&quot;</code><button type="button">Copy</button></div><div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/Central Pedal Control.app&quot;</code><button type="button">Copy</button></div>
+<p>If the Mac says the app <i>"is damaged"</i>, it isn't. Open Terminal and run the line for that app:</p>
+<div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/Central Control.app&quot;</code><button type="button">Copy</button></div><div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/CentralUsage.app&quot;</code><button type="button">Copy</button></div><div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/Central Pedal Control.app&quot;</code><button type="button">Copy</button></div><div class="cmd"><code>xattr -dr com.apple.quarantine &quot;/Applications/Central Production.app&quot;</code><button type="button">Copy</button></div>
 <h2 id="linux">Linux</h2>
 
-<p>The easy way: open Terminal (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> on Ubuntu), paste the line for your app, press Enter and type your password when it asks. It finds the newest version, checks the download, and installs it with everything the app needs. Ubuntu, Debian, Mint and Pop!_OS get the <code>.deb</code>; any other Linux gets the AppImage in <code>~/Applications</code> with a menu entry. Run the same line again any time to reinstall or update.</p>
+<p>The quickest way is one line in Terminal. Open it (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>T</kbd> on Ubuntu), paste the line for your app, press Enter and type your password when it asks. It finds the newest version, checks the download and installs everything the app needs. On Ubuntu, Debian, Mint and Pop!_OS you get the <code>.deb</code>. On any other Linux you get the AppImage in <code>~/Applications</code>, with a menu entry. Run the same line again whenever you want to reinstall or update.</p>
 <h3 id="central-control">Central Control</h3>
 <div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s control</code><button type="button">Copy</button></div>
-<p>Then open <b>Central Control</b> from your app menu, or type <code>central-control</code>. Installing it also fixes any old menu entries and desktop icons.</p>
+<p>Then open <b>Central Control</b> from your app menu, or type <code>central-control</code>. Installing it also tidies up any old menu entries and desktop icons.</p>
 <h3 id="central-usage">Central Usage</h3>
 <div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s usage</code><button type="button">Copy</button></div>
 <h3 id="central-pedal-control">Central Pedal Control</h3>
 <div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s pedal-control</code><button type="button">Copy</button></div>
 <h3 id="central-services">Central Services</h3>
 <div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s services</code><button type="button">Copy</button></div>
-<h3>By hand</h3>
+<h3 id="central-production">Central Production</h3>
+<div class="cmd"><code>curl -fsSL <span class="site-origin">https://motionaudio.org</span>/install.sh | bash -s production</code><button type="button">Copy</button></div>
+<h3>Doing it by hand</h3>
 <ul>
-<li><b>A <code>.deb</code></b>: download it from the download page, then <code>sudo apt install ./&lt;the file&gt;.deb</code> in the folder you saved it to. The <code>./</code> matters. Each app installs next to the others.</li>
-<li><b>An AppImage</b>: right-click it → <b>Properties → Permissions → Allow executing file as program</b>, then double-click it. AppImages need FUSE 2 (<code>sudo dnf install fuse-libs</code> on Fedora, <code>sudo pacman -S fuse2</code> on Arch).</li>
+<li>For a <code>.deb</code>, download it from the download page, then run <code>sudo apt install ./&lt;the file&gt;.deb</code> in the folder you saved it to. Don't leave out the <code>./</code>. Each app installs alongside the others.</li>
+<li>For an AppImage, right-click it, choose <b>Properties → Permissions → Allow executing file as program</b>, then double-click it. AppImages need FUSE 2: <code>sudo dnf install fuse-libs</code> on Fedora, <code>sudo pacman -S fuse2</code> on Arch.</li>
 </ul>
-<p>Central Control's mixer, in-ears and recording reach your audio interface through PipeWire's JACK: the <code>.deb</code> recommends <code>pipewire-jack</code>, and <code>sudo apt install pipewire-jack</code> adds it if it's missing.</p>
+<p>Central Control's mixer, in-ears and recording talk to your audio interface through PipeWire's JACK. The <code>.deb</code> asks for <code>pipewire-jack</code>; if it's missing, <code>sudo apt install pipewire-jack</code> adds it.</p>
 
 <h2 id="android">Android</h2>
 
 <p>Central Usage, Central Pedal Control and Central Services run on Android 6 or newer.</p>
 <ol class="steps">
-<li><b>On the phone or tablet,</b> open the <a href="/#downloads">download page</a> and tap <b>Download</b> for Android.</li>
-<li><b>Open the <code>.apk</code></b> from Downloads or the browser's notification.</li>
-<li><b>Allow installs from your browser</b>: Android asks once. Settings → turn on <b>Allow from this source</b> → back → <b>Install</b>.</li>
-<li><b>Open the app on the church Wi-Fi.</b> Central Usage: tap <b>Find the main admin</b>. Central Pedal Control: set up your songs, then Upload to the pedal.</li>
+<li>On the phone or tablet, open the <a href="/#downloads">download page</a> and tap <b>Download</b> for Android.</li>
+<li>Open the <code>.apk</code> from your Downloads or the browser's notification.</li>
+<li>Android asks once whether your browser may install apps. Tap Settings, turn on <b>Allow from this source</b>, go back and tap <b>Install</b>.</li>
+<li>Open the app while you're on the church Wi-Fi. In Central Usage, tap <b>Find the main admin</b>. In Central Pedal Control, set up your songs and Upload them to the pedal.</li>
 </ol>
 
 <h2 id="iphone-and-ipad">iPhone and iPad</h2>
 
-<p>The App Store apps aren't out yet. Today:</p>
+<p>The App Store versions aren't out yet. Until they are:</p>
 <ul>
-<li><b>Central Usage</b> runs in Safari, served by the main admin's computer: join the church Wi-Fi, open <code>http://&lt;main admin's address&gt;:8095/cu/</code>, choose User 1 or User 2 and type the pairing PIN, then <b>Share → Add to Home Screen</b>. It opens full screen and always has the hub's version. The address is in the main admin's Central Control, Settings → This computer.</li>
-<li><b>Central Services</b> works in Safari on the website: <a href="/services/">open Central Services</a>.</li>
-<li><b>Central Pedal Control</b> on an iPad: on the same Wi-Fi as the pedal, open <code>http://padpedal.local:8080/control/</code> in Safari (or the pedal's address with <code>:8080/control/</code>), then Share → <b>Add to Home Screen</b>. It opens full screen like an app, with ● Live, Upload and Download. The App Store version follows.</li>
+<li><b>Central Usage</b> runs in Safari, straight from the main admin's computer. Join the church Wi-Fi and open <code>http://&lt;main admin's address&gt;:8095/cu/</code>. Choose User 1 or User 2, type the pairing PIN, then tap <b>Share → Add to Home Screen</b>. After that it opens full screen like an app, and it's always the same version as the main admin's. The address is in the main admin's Central Control, under Settings → This computer.</li>
+<li><b>Central Services</b> works in Safari on this website. <a href="/services/">Open Central Services</a>.</li>
+<li><b>Central Pedal Control</b> on an iPad: on the same Wi-Fi as the pedal, open <code>http://padpedal.local:8080/control/</code> in Safari (or the pedal's address followed by <code>:8080/control/</code>), then tap Share → <b>Add to Home Screen</b>. It opens full screen with ● Live, Upload and Download.</li>
+<li><b>Central Production</b> runs in the browser on this website. <a href="/production/">Open Central Production</a>. Your projects are the same ones you'd see in the app on a computer.</li>
 </ul>
 
 <h2 id="the-central-pedal">The Central Pedal</h2>
 
-<p>We build every pedal and ship it with its card in and its software installed, tested, and it needs no key, so there's nothing to install. The first time it starts, set it up from your phone:</p>
+<p>We build each pedal and send it with its card in and the software installed and tested. It doesn't need a key. The first time it starts, you set it up from your phone:</p>
 <ol class="steps">
-<li><b>Plug in</b> the power and your outputs. A screen on HDMI 1 (the micro-HDMI port next to the power socket) is optional.</li>
-<li><b>On your phone, connect to the Wi-Fi "Central Pedal Setup".</b> The pedal makes it the first time it starts. The setup page opens by itself (if it doesn't, go to <code>http://10.42.0.1</code>).</li>
-<li><b>Pick the church Wi-Fi and type its password.</b></li>
-<li><b>Type a 4-digit code.</b> If you use Central Control, type the main admin's code: that pairs the pedal with it. If not, pick any 4 digits. Central Pedal Control uses the same code to Upload songs.</li>
-<li><b>Press Upload.</b> The pedal joins the Wi-Fi and is ready. If the password was wrong, "Central Pedal Setup" comes back in about a minute and the page says why.</li>
+<li>Plug in the power and your outputs. A screen on HDMI 1 (the micro-HDMI port next to the power socket) is optional.</li>
+<li>On your phone, join the Wi-Fi called <b>Central Pedal Setup</b>. The pedal makes it the first time it starts, and the setup page should open by itself. If it doesn't, go to <code>http://10.42.0.1</code>.</li>
+<li>Pick your church's Wi-Fi and type its password.</li>
+<li>Type a 4-digit code. If your church uses Central Control, use the main admin's code. That's what pairs the two. If not, any 4 digits will do. Central Pedal Control uses the same code when you Upload songs.</li>
+<li>Press <b>Upload</b>. The pedal joins your Wi-Fi and it's ready. If the password was wrong, "Central Pedal Setup" comes back after about a minute and the page tells you what happened.</li>
 </ol>
-<p>More in <a href="/apps/central-pedal.html#first-time-on">First time on</a>.</p>
-<p>Updates arrive by themselves: the pedal looks every time it starts and installs a new version after a 10-second notice, never while something plays. With no internet at church, <a href="/download/pedal/usb">download the pedal update</a>, copy it to a USB stick, and on the pedal use Settings → <b>Update software from USB…</b>.</p>
+<p>The <a href="/apps/central-pedal.html#first-time-on">Central Pedal manual</a> goes into more detail.</p>
+<p>The pedal updates itself. It checks each time it starts and installs a new version after a 10-second notice, never while something's playing. If there's no internet at your church, <a href="/download/pedal/usb">download the pedal update</a>, copy it to a USB stick, and on the pedal go to Settings → Software updates &amp; backup → <b>Update software from USB…</b>.</p>
 
 <h2 id="signing-in-and-your-key">Signing in and your key</h2>
 
-<p>The first time an app opens, it asks for your key and your Motion Audio account. Your key is in the email you got when you bought it or when your church invited you, and on the website under your account icon → <b>Purchases</b>. Central Control also asks for your church's name and which jobs this computer will do.</p>
+<p>The first time an app opens, it asks for your key and your Motion Audio account. Your key is in the email you got when you bought it or when your church invited you. It's also on this website: click your account icon, then <b>My products</b>. Central Control also asks for your church's name and which jobs this computer does.</p>
 <ol class="steps">
-<li><b>Sign in.</b> Use the account your invite email made. Admins can share one account if your church wants; each user has their own. Main admins and admins also get a code by text on a new device.</li>
-<li><b>Type your key</b>: 16 letters and digits.</li>
-<li><b>Join the Wi-Fi</b> if the device isn't online yet.</li>
+<li>Sign in with the account your invite email set up. Admins can share one account if your church prefers, but each musician has their own. Main admins and admins also get a code by text the first time they sign in on a new device.</li>
+<li>Type your key. It's 16 letters and digits.</li>
+<li>Join the Wi-Fi if the device isn't online yet.</li>
 </ol>
 <div class="tblwrap"><table class="tbl"><thead><tr><th>Key</th><th>For</th><th>Devices</th><th>Updates</th></tr></thead><tbody>
-<tr><td><b>P</b></td><td>Central Pedal Control (the pedal itself needs no key)</td><td>Two</td><td>Forever</td></tr>
-<tr><td><b>A</b></td><td>Central Control (main admins and admins)</td><td>One computer</td><td>Ten full releases, then $20 renews ten more</td></tr>
-<tr><td><b>U</b></td><td>Central Usage (users)</td><td>Two (say, church and home)</td><td>Ten full releases, then $20 renews ten more</td></tr>
-<tr><td><b>S</b></td><td>A sound plans package (any app: Settings → Packages → Add a package)</td><td>3 of your own devices, each a different app</td><td>As long as the plan: it renews every year</td></tr>
+<tr><td><b>P</b></td><td>Central Pedal Control (the pedal itself doesn't need a key)</td><td>Two</td><td>Forever</td></tr>
+<tr><td><b>A</b></td><td>Central Control, for main admins and admins</td><td>One computer</td><td>Ten releases, then $20 for ten more</td></tr>
+<tr><td><b>U</b></td><td>Central Usage, for musicians and singers</td><td>Two, say one at church and one at home</td><td>Ten releases, then $20 for ten more</td></tr>
+<tr><td><b>S</b></td><td>A sound plan, added in any app under Settings → Packages &amp; key → Add a package</td><td>Three of your own devices, each a different app</td><td>As long as the plan, which renews every year</td></tr>
 </tbody></table></div>
-<p>Buy at 9.4 and an A or U key gets every update through 10.4, fixes included. The apps never stop working if you don't renew; they keep the version they have. To move a key, <b>Release key</b> in the app's Settings → License, or on the website.</p>
+<p>An A or U key bought at 10.4 gets every update up to 11.4, fixes included. If you don't renew, the apps don't stop working. They stay on the version they have. To move a key to another device, press <b>Release key</b> under Settings → Packages &amp; key in the app, or do it on the website.</p>
 
 <h2 id="updates">Updates</h2>
 
 <ul>
-<li><b>Windows, Mac and Linux apps</b> look for a new version every time they open and install it after a short notice, never while something plays. You can turn automatic installs off in the app's settings and check for updates there yourself.</li>
-<li><b>Android</b> apps look every time they open; the new <code>.apk</code> downloads and Android shows <b>Update</b>. One tap.</li>
-<li><b>Central Usage in Safari</b> always has the hub's version: nothing to do.</li>
-<li>Songs, setlists, settings, your key and your sign-in are never touched by an update.</li>
+<li>On Windows, Mac and Linux, the apps check for a new version each time they open and install it after a short notice, never while something's playing. You can turn automatic installs off in the app's settings and check by hand instead.</li>
+<li>On Android, the app checks when it opens. The new <code>.apk</code> downloads and Android shows <b>Update</b>. One tap and you're done.</li>
+<li>Central Usage in Safari is always on the main admin's version, so there's nothing to do.</li>
+<li>Updates never touch your songs, setlists, settings, key or sign-in.</li>
 </ul>
 
 <h2 id="uninstalling">Uninstalling</h2>
 
 <ul>
-<li><b>First, release the key</b> (Settings → License → Release key) so you can use it on another device.</li>
-<li><b>Windows</b>: Settings → Apps → the app → Uninstall.</li>
-<li><b>Mac</b>: drag the app from Applications to the Bin.</li>
-<li><b>Linux</b>: <code>sudo apt remove central-control</code> (or <code>centralusage</code>, <code>central-pedal-control</code>, <code>central-services</code>). For an AppImage, delete the file in <code>~/Applications</code> and its menu entry in <code>~/.local/share/applications</code>.</li>
-<li><b>Android</b>: press and hold the app → Uninstall.</li>
+<li>Release the key first (Settings → Packages &amp; key → <b>Release key</b>) so you can use it on another device.</li>
+<li>On Windows, go to Settings → Apps, find the app and choose Uninstall.</li>
+<li>On a Mac, drag the app from Applications to the Bin.</li>
+<li>On Linux, run <code>sudo apt remove central-control</code> (or <code>centralusage</code>, <code>central-pedal-control</code>, <code>central-services</code>, <code>central-production</code>). For an AppImage, delete the file in <code>~/Applications</code> and its menu entry in <code>~/.local/share/applications</code>.</li>
+<li>On Android, press and hold the app and choose Uninstall.</li>
 </ul>
 
 </article></main>

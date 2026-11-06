@@ -68,10 +68,10 @@
       '<p class="' + (w.connected ? "" : "muted") + '">' + (wifi ? (w.connected ? "✓ Connected to <b>" + esc(w.connected) + "</b>" + (w.signal != null ? " (" + w.signal + "%)" : "") : "Not connected to Wi-Fi") + (w.addresses && w.addresses.length ? ' <span class="muted small">· ' + w.addresses.map(esc).join(", ") + "</span>" : "") : "Checking…") + "</p>" +
       (w.error ? '<p class="warn small">' + esc(w.error) + "</p>" : "") +
       (wfMsg ? '<p class="small ' + (/^✓|^Connecting/.test(wfMsg) ? "" : "warn") + '">' + (wfBusy ? "⏳ " : "") + esc(wfMsg) + "</p>" : "") +
-      '<div class="wifi-list">' + (list || (wifi ? '<span class="muted small">No networks found yet - Scan again.</span>' : "")) + "</div>" +
+      '<div class="wifi-list">' + (list || (wifi ? '<span class="muted small">No networks found yet. Press Scan again.</span>' : "")) + "</div>" +
       '<div class="row"><button data-wf="scan">Scan again</button><button data-wf="other">Other network…</button>' + (w.connected ? '<button data-wf="forget">Forget this network</button>' : "") +
       '<label class="wf-cc">Country<select data-wf="country">' + COUNTRIES.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === cc ? " selected" : "") + ">" + c[1] + "</option>"; }).join("") + (COUNTRIES.some(function (c) { return c[0] === cc; }) ? "" : '<option value="' + esc(cc) + '" selected>' + esc(cc) + "</option>") + "</select></label></div>" +
-      '<p class="muted small">The Wi-Fi radio follows the country\'s rules - set yours, or some networks (5 GHz channels) stay hidden. A cable in the Ethernet port works too.</p>' +
+      '<p class="muted small">Set your country here. The Wi-Fi follows each country\'s rules, and without the right one some 5 GHz networks won\'t show up. A cable in the Ethernet port works too.</p>' +
       phoneHtml(status) + "</section>";
   }
   // phone setup: the pedal's own Wi-Fi "Central Pedal Setup" (it comes on by itself when the pedal has no network)
@@ -79,8 +79,8 @@
     var ps = (status && status.phoneSetup) || phone;
     if (!ps) return "";
     return '<div class="wf-phone"><h4>Set up from a phone</h4>' +
-      (ps.on ? '<p>The setup Wi-Fi is on: on a phone, join <b>' + esc(ps.ssid || "Central Pedal Setup") + '</b> - the setup page opens by itself (or go to ' + esc(ps.address || "http://10.42.0.1/") + ').</p><div class="row"><button data-wf="phoneOff">Turn the setup Wi-Fi off</button></div>'
-        : '<p class="muted small">The pedal makes its own Wi-Fi, <b>' + esc(ps.ssid || "Central Pedal Setup") + '</b>, for a phone to pick the church Wi-Fi, the touch screen and the code. It comes on by itself when the pedal has no network. While it is on, the pedal is off the church Wi-Fi.</p><div class="row"><button data-wf="phoneOn">Turn the setup Wi-Fi on</button></div>') +
+      (ps.on ? '<p>The setup Wi-Fi is on. On your phone, join <b>' + esc(ps.ssid || "Central Pedal Setup") + '</b> and the setup page should open by itself. If it doesn\'t, go to ' + esc(ps.address || "http://10.42.0.1/") + '.</p><div class="row"><button data-wf="phoneOff">Turn the setup Wi-Fi off</button></div>'
+        : '<p class="muted small">The pedal makes its own Wi-Fi, <b>' + esc(ps.ssid || "Central Pedal Setup") + '</b>, so you can use your phone to pick the church Wi-Fi, the touch screen and the code. It comes on by itself when the pedal has no network. While it\'s on, the pedal is off the church Wi-Fi.</p><div class="row"><button data-wf="phoneOn">Turn the setup Wi-Fi on</button></div>') +
       (ps.error ? '<p class="warn small">' + esc(ps.error) + "</p>" : "") + "</div>";
   }
   var phone = null;

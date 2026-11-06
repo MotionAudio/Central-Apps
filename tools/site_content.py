@@ -256,54 +256,54 @@ PRICING_FAQ = [
     ("What about refunds?", "If something isn't right, tell us within 30 days and we'll sort it out. The refund policy has the details."),
 ]
 
-# the Help page's FAQ: (group, [(question, answer)])
+# the Help page's FAQ: (group, [(question, answer)]) - written in Sam's voice (docs/VOICE.md)
 HELP_FAQ = [
     ("Getting started", [
-        ("Which apps do I need?", "Most churches need Central Control for the desk, Central Usage for each musician, Central Services for the schedule and Central Pedal Control to get the pedal ready. A church pack has all four. Add the Central Pedal if you want pads and tracks at your feet. See Apps → Compare."),
-        ("How do I set up the pedal?", "Plug in the power, a monitor on HDMI 1 if you like, and headphones or the desk on the headphone jack. Join the church Wi-Fi from Settings → Wi-Fi & devices, then build your setlist in Central Pedal Control and press Upload. The setup guide in the Help Center goes step by step."),
-        ("How do the apps find each other?", "On the same network, they find each other by themselves: the pedal, the desk computers and the musicians' devices. If a network keeps devices apart, type the pedal's address (on its Settings → About) into Connect."),
+        ("Which apps do I need?", "Most churches use Central Control at the desk, Central Usage for the musicians, Central Services for the schedule and Central Pedal Control to get the pedal ready. A church pack has all four. Add the Central Pedal if you want pads and tracks on the floor. Apps → Compare goes through it app by app."),
+        ("How do I set up the pedal?", "Plug in the power and your headphones or the desk. Then join the Wi-Fi called \"Central Pedal Setup\" on your phone and the setup page walks you through getting it on your church's Wi-Fi. After that, build a setlist in Central Pedal Control and press Upload. The setup guide in the Help Center has every step."),
+        ("How do the apps find each other?", "On the same network they find each other by themselves. If your network keeps devices apart, type the pedal's address into Connect. You'll find it under Settings → About & power on the pedal."),
     ]),
     ("Keys and accounts", [
-        ("Where are my keys?", "Account → My products lists every key you or your church owns, with the devices each one is on and a Copy button. They're in your email too."),
-        ("How do I move a key to a new computer?", "Account → My products → Release next to the old device, then enter the key on the new one. Central Control keys are for one computer; Central Usage and Central Pedal Control keys work on two devices."),
-        ("What is the 3-device rule for sound plans?", "A sound plan's package key works on three of your devices at once, each a different app: say Central Usage, Central Control and your pedal. It can't be three of the same app."),
-        ("How do renewals work?", "Central Control keys include ten releases of updates (buy during 10.x and you're covered to 11.0); renew for $20 any time. Sound plans and Central Utility renew yearly, and Central Tracks Unlimited monthly, until you cancel."),
+        ("Where are my keys?", "Under Account → My products. Every key you or your church owns is there, with the devices it's on and a Copy button. We emailed them to you as well."),
+        ("How do I move a key to a new computer?", "On Account → My products, press Release next to the old device, then type the key into the app on the new one. A Central Control key is for one computer. Central Usage and Central Pedal Control keys work on two devices."),
+        ("Can a sound plan go on more than one device?", "Yes, on three of your devices at once, as long as each is a different app. Central Usage, Central Control and your pedal would work. Three copies of Central Usage wouldn't."),
+        ("How do renewals work?", "Central Control and Central Usage keys get ten releases of updates from when you buy them, so buying at 10.4 covers you up to 11.4. Renewing is $20 and adds ten more. If you don't renew, the apps keep working. They just stop updating. Sound plans and Central Utility renew every year and Central Tracks Unlimited every month, until you cancel."),
     ]),
     ("Plans and billing", [
-        ("What does each plan include?", "Central Keys: pianos, organs, mallets, pads and synths. Central Instrument: basses, guitars, strings, brass, drums and loops. Central Pads: 82 pads in every key, with Central Pads Extra. Central Plugins: 32 better effects. Central Pedals: 55 new pedals, cabinets and 68 boards. Every plan includes Central Pads."),
-        ("What is Central Utility?", "118 seasonal and Christian backgrounds with 51 matching slide themes and lower thirds, 14 click sounds, 24 lighting looks, countdowns and stream overlays. $50 a year, and included in All plans ($270) and every church bundle."),
-        ("What are church bundles?", "Every sound plan plus Central Utility for each person on your team, at a lower price per person: 4, 8, 12, 16 or 20 people."),
-        ("Can I get a refund?", "Tell us within 30 days if something isn't right. Our refund policy page has the details."),
-        ("How do I cancel?", "Account → Billing opens Stripe's billing page, where you can cancel a plan or subscription. It stays active until the end of what you paid for."),
-        ("What happens if a plan ends in the middle of a service?", "Nothing stops mid-song. A pad, pedal, plugin or sound that's already playing with that plan keeps going until the song ends: the music stops or the setlist moves to the next song. Then it shows that it needs the plan and is bypassed, on the pedal, in Central Usage, in Central Control's mixer and in the Studio. You can't add anything new from that plan in the meantime. Renew it and everything comes back on by itself."),
+        ("What's in each sound plan?", "Central Keys has the pianos, organs, mallets, pads and synths. Central Instrument has basses, guitars, strings, brass, drums and loops. Central Pads is 82 pads in every key. Central Plugins adds 32 better effects, and Central Pedals has 55 pedals, amp cabinets and 68 ready-made boards. Every plan comes with Central Pads."),
+        ("What is Central Utility?", "It's the pack for the screens and the desk: 118 backgrounds for the church year, 51 slide themes with matching lower thirds, 14 click sounds, 24 lighting looks, countdowns and stream overlays. It's $50 a year on its own, and it's included in All plans ($270) and in every church bundle."),
+        ("What are church bundles?", "Every sound plan plus Central Utility for each person on your team, for less per person. They come in sizes of 4, 8, 12, 16 and 20 people."),
+        ("Can I get a refund?", "If something isn't right, tell us within 30 days. The refund policy page has the details."),
+        ("How do I cancel?", "Account → Billing opens Stripe's billing page, and you can cancel a plan or subscription there. It keeps working until the end of the time you've paid for."),
+        ("What if a plan runs out in the middle of a service?", "Nothing cuts out mid-song. Anything from that plan that's already playing carries on until the song ends. After that it's bypassed and shows which plan it needs. You can't add anything new from that plan until you renew, and when you do, it all comes back on by itself."),
     ]),
     ("Sound and audio", [
-        ("I hear crackles but no music on the pedal's headphone jack.", "Set Settings → Output device → Headphone jack buffer to Biggest. The Pi's own jack needs a bigger buffer than a sound card. Test sound also steps it up by itself when it finds dropouts."),
-        ("Can I use an audio interface?", "Yes, for inputs and outputs. Plug it in and it appears under Settings → Output device; its outputs come after the headphone jack (1-2) and the DAC board (3-4)."),
-        ("There's no sound at all.", "Go through the No sound checklist in the Help Center: Test sound, Check where the sound goes, Play on each sound card, then the cable and headphones."),
+        ("The pedal's headphone jack crackles and I can't hear the music.", "Open Settings → Sound → Output device and set Headphone jack buffer to Biggest. The Pi's own jack needs a bigger buffer than a proper sound card. Test sound also turns it up by itself if it hears dropouts."),
+        ("Can I use an audio interface?", "Yes, for inputs and outputs. Plug it in before you start and it shows up under Settings → Sound → Output device. Its outputs come after the headphone jack (1 and 2) and the DAC board (3 and 4)."),
+        ("There's no sound at all.", "Open Settings → Sound → Test sound on the pedal and press 1. It plays a tone, works out where the sound stops and fixes what it can. If that doesn't do it, the No sound guide in the Help Center goes through the rest."),
     ]),
     ("Lights and video", [
-        ("How do I add my real lights?", "In Central Control's Lighting tab, Find a real light… searches 2,272 fixtures by maker and model. No match? Make a profile… lets you list the channels yourself."),
-        ("Can the lights follow the songs by themselves?", "Yes. Auto lights follow each song's sections; your own scenes fire where you put them. Simulate a setlist to see it before Sunday."),
-        ("How do I stream?", "Give a computer the Stream mix job. The Video tab sends the program to RTMP or SRT destinations, with slides, lyrics and lower thirds on top."),
+        ("How do I add my real lights?", "In Central Control's Lighting tab, press Find a real light…. You can search 2,272 fixtures by maker and model. If yours isn't there, Make a profile… lets you type in its channels."),
+        ("Can the lights follow the songs by themselves?", "Yes. The automatic lights follow each song's sections, and any scenes you've made fire where you put them. You can run a setlist on the 3D stage before Sunday to see how it looks."),
+        ("How do I stream?", "Give one computer the Stream mix job on the Devices tab. Its Video tab sends the service to RTMP or SRT destinations, with slides, lyrics and lower thirds on top."),
     ]),
     ("Central Tracks and Make & sell", [
-        ("Can I hear a track before I buy?", "Yes. Every pad, loop, instrument and track has a 30-second preview on the website and in the apps."),
-        ("How do I publish a track?", "On the home page, Central Tracks → Publish your own track, or use Make & sell for sounds, pads, instruments and plugins. We check every upload before it goes live."),
-        ("How are creators paid?", "Tracks: 75% of each sale, plus a share of the subscriber pool when subscribers add your tracks. Make & sell items: a share of each sound plan's money, by downloads and the stars we give. We pay monthly through Stripe."),
+        ("Can I hear a track before I buy it?", "Yes. Every pad, loop, instrument and track has a 30-second preview, here on the website and in the apps."),
+        ("How do I publish a track?", "On the home page, go to Central Tracks and press Publish your own track. For sounds, pads, instruments and plugins, use Make & sell. We check every upload before it goes live."),
+        ("How do creators get paid?", "For tracks, you get 75% of each sale, plus a share of the subscriber pool when subscribers add your tracks. For Make & sell items, you get a share of each sound plan's money, based on downloads and the stars we give. We pay every month through Stripe."),
     ]),
     ("Planning Center and CCLI", [
-        ("How do I connect Planning Center?", "A main admin presses Connect Planning Center on Account → Planning Center & CCLI (or in Central Control's Settings), signs in and allows it. Until then you can import a plan from a file."),
-        ("Does it report to CCLI for us?", "It counts every time a song's words reach a screen and fills in the report. Download it from your Account page in the layout CCLI asks for, and enter it on CCLI's site."),
+        ("How do I connect Planning Center?", "A main admin opens Account → Planning Center & CCLI (or Settings in Central Control), presses Connect Planning Center, signs in and allows it. Until then, you can import a plan from a file."),
+        ("Does it report to CCLI for us?", "It counts each time a song's words go up on a screen and fills in the report for you. Download the report from your Account page, in the layout CCLI asks for, and enter it on CCLI's site."),
     ]),
     ("Shorts and social media", [
-        ("How are shorts made?", "After a service recording of 10 minutes or more, the built-in AI picks the strongest sermon moments and worship high points and makes vertical clips with captions. You review every one before it's posted."),
-        ("Where can shorts be posted?", "YouTube, Facebook, Instagram and TikTok, once each is connected in Central Control → Shorts → Settings. You can always download and post by hand."),
+        ("How are shorts made?", "Once a service recording is 10 minutes or longer, the built-in AI picks the strongest moments from the sermon and the worship and makes vertical clips with captions. You see every one before it's posted."),
+        ("Where can shorts be posted?", "YouTube, Facebook, Instagram and TikTok, once you've connected each one in Central Control → Shorts → Settings. You can always download a clip and post it yourself."),
     ]),
     ("Troubleshooting", [
-        ("An update failed.", "Settings → Software updates → Try again, or download the newest version from Downloads. On Linux, an update waits for the computer's own updates first and tells you the real reason if it can't install."),
-        ("It says it can't reach the website.", "Check the device is online, and look at the status page to see if sign-in or downloads are down. The apps keep working offline."),
-        ("The pedal shows as offline.", "Make sure it's on and on the same Wi-Fi. Some networks keep devices apart: ask for that to be allowed, use a cable, or type the pedal's address into Connect."),
+        ("An update failed.", "Open Settings → Software updates and press Try again, or download the newest version from Downloads. On Linux, an update waits for the computer's own updates to finish first, and it tells you why if it still can't install."),
+        ("It says it can't reach the website.", "Check the device is online, then look at the status page to see whether sign-in or downloads are down. The apps keep working without the internet."),
+        ("The pedal shows as offline.", "Make sure it's on and on the same Wi-Fi. Some networks keep devices apart, so ask for that to be allowed, plug in a cable, or type the pedal's address into Connect."),
     ]),
 ]
 
