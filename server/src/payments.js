@@ -352,7 +352,7 @@ export async function connectLink(user) {
     acct = a.id; await q("UPDATE users SET connect_account=$1 WHERE id=$2", [acct, user.id]);
   }
   const use = user.connect_ready ? "account_update" : "account_onboarding";
-  const link = await stripe.v2.core.accountLinks.create({ account: acct, use_case: { type: use, [use]: { configurations: ["recipient"], refresh_url: back("payouts-refresh"), return_url: back("payouts-done") } } });
+  const link = await stripe.v2.core.accountLinks.create({ account: acct, use_case: { type: use, [use]: { refresh_url: back("payouts-refresh"), return_url: back("payouts-done") } } });
   return link.url;
 }
 // the source of truth for "can we send this publisher money": the v2 transfers capability

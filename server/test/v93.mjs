@@ -250,7 +250,7 @@ try {
   ok(yesId._status === 400 && /Upload the full mix/.test(yesId.error) && (await j("GET", "/me", null, pubTok)).idStatus === "verified", "...verified: publishing goes ahead (here it asks for the upload)", yesId);
   const cn = await j("POST", "/connect", null, pubTok);
   const acc = calls.find((c) => c.path === "/v2/core/accounts" && c.method === "POST"), lk = calls.filter((c) => c.path === "/v2/core/account_links").pop();
-  ok(cn.url && acc.body.dashboard === "express" && acc.body.configuration.recipient.capabilities.stripe_balance.stripe_transfers.requested === true && lk.body.use_case.type === "account_onboarding" && lk.body.use_case.account_onboarding.configurations[0] === "recipient",
+  ok(cn.url && acc.body.dashboard === "express" && acc.body.configuration.recipient.capabilities.stripe_balance.stripe_transfers.requested === true && lk.body.use_case.type === "account_onboarding" && lk.body.use_case.account_onboarding.configurations === undefined && !!lk.body.use_case.account_onboarding.refresh_url,
     "payout setup: a Stripe recipient account (Express) and Stripe's setup pages", { acc: acc && acc.body, lk: lk && lk.body });
   ok((await j("GET", "/me", null, pubTok)).payoutsReady === true, "back from Stripe: payouts are ready once Stripe says transfers are active");
   ok((await j("POST", "/connect/session", null, pubTok)).clientSecret === "acs_secret", "the payout settings show on the website (Stripe's embedded components)");
