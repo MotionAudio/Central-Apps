@@ -420,7 +420,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { arch: arm64, cpu: arm64, runner: macos-14 }   # (10.1.1: GitHub stopped handing out macos-15 Apple-chip Macs to this repo - jobs waited 15 min and were cancelled)
+          - { arch: arm64, cpu: arm64, runner: macos-15 }   # (10.4.2: GitHub retired macos-14 Apple-chip Macs - "the configuration macos-14-arm64 is not supported". 10.1.1 had moved off macos-15 when it wasn't handed out)
           - { arch: x64, cpu: x86_64, runner: macos-15-intel }
     runs-on: ${{ matrix.runner }}
     env:   # (10.3: signing and notarization - only when these GitHub Secrets exist; without them the apps stay unsigned. docs/SIGNING.md)
@@ -544,7 +544,7 @@ jobs:
     # (10.1.1) a release leaves this check out: when GitHub has no Mac free it got cancelled and held the release
     # back, though it makes nothing that's published. It still runs on the work branches and by hand.
     if: ${{ !inputs.skip_ios_check }}
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

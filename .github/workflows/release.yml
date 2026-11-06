@@ -98,7 +98,7 @@ jobs:
     # set (IOS-APP-STORE.md). Without them this job does nothing.
     needs: [version, publish]
     if: needs.version.outputs.exists == '0'
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       TEAM: ${{ secrets.APPLE_TEAM_ID }}
       KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
