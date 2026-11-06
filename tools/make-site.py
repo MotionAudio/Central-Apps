@@ -188,7 +188,7 @@ def app_page(a):
     <div class="fact"><h3>Where it runs</h3><div class="chips" style="margin:0">{plats}</div><p class="muted">{E(dl_text)}</p><a class="btn ghost small" href="{dl}">{"Open it" if a["slug"] == "production" else "Downloads"}</a></div>
     <div class="fact"><h3>{"Get it" if priced else "It's free"}</h3>{("<div class=buybar>" + price_of(b["add"], PER.get(b["add"], "")) + "</div>") if priced else ""}<p class="muted">{E(b["note"])}</p><div style="display:flex;gap:.5rem;flex-wrap:wrap">{buy_button(a, "btn")}{'<a class="btn ghost" href="/pricing/#packsTop">Church packs</a>' if a["slug"] in ("control", "usage", "pedal-control", "services") else ""}</div></div>
   </div>
-  {f'<p class="muted" style="margin-top:1.4rem">If you want every detail, there\'s a full <a href="{a["manual"]}">{E(a["name"])} manual</a>. Stuck on something? Try the <a href="/help/">Help Center</a>.</p>' if a["manual"] else '<p class="muted" style="margin-top:1.4rem">Stuck on something? Try the <a href="/help/">Help Center</a>.</p>'}
+  {f'<p class="muted" style="margin-top:1.4rem">If you want every detail, there&#x27;s a full <a href="{a["manual"]}">{E(a["name"])} manual</a>. Stuck on something? Try the <a href="/help/">Help Center</a>.</p>' if a["manual"] else '<p class="muted" style="margin-top:1.4rem">Stuck on something? Try the <a href="/help/">Help Center</a>.</p>'}
 </div></section>
 <section class="pg band"><div class="wrap"><div class="pg-head"><h2>The other apps</h2><p>They're separate apps, but on the same Wi-Fi they find each other and share the work.</p></div>
   <div class="app-grid">{"".join(app_card(x) for x in others[:3])}</div><p style="margin-top:1rem"><a href="/apps/">Compare all six apps</a></p></div></section>'''
