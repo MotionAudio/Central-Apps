@@ -16,7 +16,7 @@ The website, the help guides, the manuals and the docs should read like Sam wrot
 - Say it once. Don't end a section by summing it up again.
 - Put the useful part first. Lead with what most people need, then the details.
 - Be honest about rough edges. If something needs a workaround, say so plainly and say what to do.
-- Keep facts exact. Prices, plan names, menu paths, button labels and app names must match the apps and the price list. Write menu paths the way they are now: Settings → Audio → Test sound.
+- Keep facts exact. Prices, plan names, menu paths, button labels and app names must match the apps and the price list. Write menu paths the way they are now: Settings → Sound → Test sound.
 
 ## What to avoid (these are what make text read like AI)
 
