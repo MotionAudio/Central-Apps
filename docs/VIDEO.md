@@ -1,75 +1,79 @@
-# Central Control – the Video switcher (design note)
+# How Central Control's Video switcher works
+
+This is the design behind the Video tab. For where it hooks into the rest of the app, see [VIDEO-INTEGRATION.md](VIDEO-INTEGRATION.md).
 
 ## What it does
-- **Cameras in:** up to 48 cameras, from four kinds of source:
-  - NDI cameras
-  - USB / HDMI capture devices and webcams
-  - SRT / RTMP / RTSP / HTTP IP cameras and encoders
-  - Phones, which join from a web page
 
-  Media files that loop and test patterns are also sources. The Slides tab's picture is one more tile.
-- **Multiview:** pick the cameras on it, the grid size and the page. Tally shows red for program and green for preview, with which output each is on.
-- **Two outputs, each with its own Preview / Program:**
-  - **MAIN** goes full screen on a display of this computer.
-  - **STREAM** goes to several RTMP(S) / SRT destinations at once, to a recording, and to NDI ("Central Control Stream" / "Central Control Main") for OBS / vMix / Streamlabs.
-- **Per output:**
-  - Cut, and Auto with fade, dip to black or wipe.
-  - **Lyrics** lower third from the Central Pedal. Lines cross-fade; a new section dips out and in.
-  - **Slides**: full screen, or keyed over the camera.
-  - Fade to black.
-- **Stream audio:** two sources, A and B, each a device plus a channel pair on an interface or Dante. One is chosen, with gain, meters and a delay. The in-house audio is untouched.
+It takes up to 48 cameras from four kinds of source: NDI cameras; USB and HDMI capture devices and webcams; SRT, RTMP, RTSP and HTTP IP cameras and encoders; and phones, which join from a web page. Looping media files and test patterns count as sources too, and the Slides tab's picture is one more tile.
 
-## Architecture
-**Chromium is the vision mixer, ffmpeg does the moving of pictures, and a small C helper covers what neither can.**
+On the multiview you choose which cameras show, the grid size and the page. Tally shows red for program and green for preview, along with which output each is on.
+
+There are two outputs, and each has its own Preview and Program. **MAIN** goes full screen on one of this computer's displays. **STREAM** goes to several RTMP(S) and SRT destinations at once, to a recording, and to NDI as "Central Control Stream" and "Central Control Main" for OBS, vMix or Streamlabs.
+
+Each output can cut, or do an Auto transition with a fade, a dip to black or a wipe. It can show a **lyrics** lower third from the Central Pedal, where lines cross-fade and a new section dips out and back in. It can show **slides** full screen or keyed over the camera. And it can fade to black.
+
+Stream audio has two sources, A and B, each a device plus a channel pair on an interface or on Dante. You pick one, with gain, meters and a delay. The sound in the room isn't touched.
+
+## How it's built
+
+In short, Chromium is the vision mixer, ffmpeg moves the pictures around, and a small C helper does what neither of them can.
 
 | Job | Where | Why |
 |---|---|---|
-| Compositing (sources → outputs, transitions, keys, lyrics) | WebGL2 in the Central Control page, on one off-screen canvas | It is the GPU on every OS with no native graphics code. Every source is a texture; each output renders into its own framebuffer. |
-| USB / HDMI capture, webcams | `getUserMedia` in the page | Cross-platform capture with device names, at full frame rate, straight into textures. |
-| IP cameras (SRT / RTMP / RTSP / HTTP), media files | one `ffmpeg` per source (`video-service.js`) → raw I420 → the page | ffmpeg handles every protocol and codec, and uses hardware decoding when present. |
-| NDI cameras | `cu-video ndi-recv` (the NDI runtime is loaded at run time) → I420 → the page | NDI's own SDK; the runtime is free, but its licence keeps it out of the bundle. |
-| Phones | an HTTPS page (`camera.html`) encodes H.264 with WebCodecs (JPEG fallback) → WSS → the page decodes with `VideoDecoder` | No app to install; hardware encode on the phone, hardware decode on the desk. |
-| Slides | the existing `output.html` rendered off screen (`paint`) → the page | Exactly what the Slides tab shows, videos included. |
-| Main output | a window the page opens itself (`window.open`, same renderer process) drawn from the off-screen canvas | No frame copies across processes; full screen on the chosen display. |
-| Stream output | RGBA → I420 on the GPU (shader) → async readback (pixel-pack buffers + fences) → `ffmpeg` encoder | 1.5 bytes per pixel and no CPU colour conversion. |
-| Encoding | one ffmpeg: NVENC / Quick Sync / AMF / VideoToolbox / VAAPI, x264 when none is present | Each is probed with a test encode at start. |
-| Destinations, recording | one light `ffmpeg -c copy` per destination, fed the encoder's MPEG-TS | One destination can drop, reconnect or stop without touching the others, and there is no second encode. |
-| Stream audio | `cu-video audio` (miniaudio, shared mode: WASAPI / CoreAudio / ALSA / Pulse / JACK) → the encoder's second input | It opens any interface or Dante Virtual Soundcard channel pair without taking the device from the audio host. It is paced by the device's clock and never faster than real time. Delay is a hold-back in its ring buffer. |
+| Compositing (sources to outputs, transitions, keys, lyrics) | WebGL2 in the Central Control page, on one off-screen canvas | It's the GPU on every OS without any native graphics code. Each source is a texture and each output renders into its own framebuffer. |
+| USB and HDMI capture, webcams | `getUserMedia` in the page | Capture that works on every OS, with device names, at full frame rate, straight into textures. |
+| IP cameras (SRT, RTMP, RTSP, HTTP) and media files | one `ffmpeg` per source (`video-service.js`), sending raw I420 to the page | ffmpeg handles every protocol and codec, and decodes in hardware when it can. |
+| NDI cameras | `cu-video ndi-recv`, with the NDI runtime loaded at run time, sending I420 to the page | It uses NDI's own SDK. The runtime is free, but its licence keeps it out of our bundle. |
+| Phones | an HTTPS page (`camera.html`) that encodes H.264 with WebCodecs (or JPEG if it can't), sent over WSS and decoded in the page with `VideoDecoder` | Nothing to install. The phone encodes in hardware and the desk decodes in hardware. |
+| Slides | the existing `output.html`, rendered off screen (`paint`) into the page | It's exactly what the Slides tab shows, videos included. |
+| Main output | a window the page opens itself (`window.open`, in the same renderer process), drawn from the off-screen canvas | No frames are copied between processes, and it goes full screen on the chosen display. |
+| Stream output | RGBA to I420 on the GPU in a shader, read back asynchronously (pixel-pack buffers and fences), then into the `ffmpeg` encoder | 1.5 bytes per pixel and no colour conversion on the CPU. |
+| Encoding | one ffmpeg using NVENC, Quick Sync, AMF, VideoToolbox or VAAPI, or x264 if none of those is there | Each one is tried with a test encode at start. |
+| Destinations and recording | one light `ffmpeg -c copy` per destination, fed the encoder's MPEG-TS | One destination can drop, reconnect or stop without affecting the others, and there's no second encode. |
+| Stream audio | `cu-video audio` (miniaudio in shared mode: WASAPI, CoreAudio, ALSA, Pulse or JACK), into the encoder's second input | It opens any interface or Dante Virtual Soundcard channel pair without taking the device away from the audio host. It runs off the device's clock and never faster than real time. The delay is a hold-back in its ring buffer. |
 
-## Why not a single native process (libav + SDL + NDI)?
-It would mean building and shipping libav*, SDL2 and a GPU path for three operating systems, plus a second UI for monitoring. Chromium already has the following on every OS:
-- WebGL2 / ANGLE on Direct3D, Metal and GL
-- camera capture
-- WebCodecs
-- windows on any display
+### Why not one native process with libav, SDL and NDI?
 
-What it lacks is protocol input and stream encoding, and the ffmpeg command line provides both. That pieces is one static binary per OS.
+That would mean building and shipping libav, SDL2 and a GPU path for three operating systems, plus a second interface for monitoring. Chromium already has WebGL2 through ANGLE on Direct3D, Metal and GL, camera capture, WebCodecs, and windows on any display, on every OS. What it's missing is protocol input and stream encoding, and the ffmpeg command line covers both with one static binary per OS.
 
-## Keeping the CPU sane
-- **Multiview:** each camera arrives small (384×216 at 10 fps by default). For NDI that is the camera's own low-bandwidth stream; for IP cameras it is an optional sub-stream URL, or ffmpeg scaling.
-- **On-air sources:** only cameras in a Preview or on a Program (or set "always full quality") come in full size at the stream frame rate. Putting a camera in Preview starts that upgrade before the cut.
-- **Frame flow:** the page only gets the newest frame per source, and frames are dropped when the page is behind. The GPU readback skips a frame instead of queueing when the GPU is busy.
-- **Background running:** a worker's timer drives the outputs, and the window's background throttling is turned off, so streaming goes on with the window minimised.
+## Keeping the CPU in check
+
+On the multiview, each camera comes in small, at 384×216 and 10 fps by default. For NDI that's the camera's own low-bandwidth stream. For IP cameras it's an optional sub-stream address, or ffmpeg scales it down.
+
+Only cameras in a Preview or on a Program, or ones set to "always full quality", come in at full size and the stream's frame rate. Putting a camera in Preview starts that switch before you cut to it.
+
+The page only ever gets the newest frame from each source, and frames are dropped if the page falls behind. If the GPU is busy, the readback skips a frame rather than queueing it.
+
+A worker's timer drives the outputs, and the window's background throttling is off, so streaming carries on with the window minimised.
 
 ## Phones and HTTPS
-Browsers only give a page the camera in a secure context. The app makes a small local CA and a server certificate for this computer's names and IP addresses (`video-cert.js`, node:crypto, EC P-256). A plain-HTTP start page then:
-1. offers the CA, installed once per phone. On iPhone/iPad: Settings → Profile Downloaded → Install, then General → About → Certificate Trust Settings → enable;
-2. links to the HTTPS camera page.
 
-Accepting the browser's warning instead also works on most phones. Phones need the camera code shown on the Phones page. A phone that is on a program shows ON AIR.
+Browsers only let a page use the camera in a secure context. So the app makes a small local CA and a server certificate for this computer's names and IP addresses (`video-cert.js`, node:crypto, EC P-256). A plain HTTP start page then offers the CA, which each phone installs once, and links to the HTTPS camera page. On an iPhone or iPad, installing it means Settings → Profile Downloaded → Install, and then turning it on under General → About → Certificate Trust Settings.
 
-## Limits and what is untested
-- **Untested here:** NDI receive and send (no runtime in the test container), hardware encoders other than x264, Windows/macOS device names for `getUserMedia`, and Dante Virtual Soundcard. The paths follow the SDK and platform documentation.
-- **Program sources:** 48 full-HD cameras can be on the multiview at once. Only a handful are full-size at a time, by design: what is in Preview or on a Program.
-- **Phone codec:** the test container's Chromium may fall back to JPEG for the phone. Safari 16.4+ and Chrome on phones use H.264.
+Accepting the browser's warning instead also works on most phones. Phones need the camera code shown on the Phones page, and a phone that's on a program shows ON AIR.
 
-## Screens on the lights page's 3D stage (10.2)
-The lights page can show the room's screens and projectors in 3D, each with what its output shows, live (`app/screen-feed.js`, `app/lights3d-screens.js`).
-- **Links:** a screen or projector shows one output: the Video tab's **Main** or **Stream**, the **Slides & lyrics** output (second screen and NDI), or the Central Pedal's **HDMI 1** or **HDMI 2**. The names match the Video and Slides tabs.
-- **Main and Stream:** copied from the compositor at 15 fps into a 384 × 216 canvas (`CUVideoTab.previewTo`), only while a screen on the 3D stage asks for it.
-- **Slides & lyrics, HDMI 1 and 2:** drawn on the lights computer the way `output.html` draws them: the live slide, or the lyrics on their background.
-- **Another computer has the job:** when Cameras or Slides runs on another computer, the lights computer asks the center (`screenPreviewWant`), and the computer with the job sends small JPEGs about 4 times a second (`screenPreview`), only while asked.
-- **Rehearsal:** while the lights page plays a song on its own, HDMI 2 and the Slides output step through the song's words or its parts.
+## Limits, and what hasn't been tested
 
-## Lyric backgrounds (10.2)
-`app/backgrounds.js`: 45 backgrounds drawn by the app itself (no downloads, nobody else's pictures): 32 moving (gradients, light leaks, rays, dust, snow, fireflies, bokeh, clouds, aurora, stars, water, waves, shapes) and 13 still (colours, gradients, textures). A slide names one as `bg:<id>`. The Lyrics tab → **Background…** picks one for every song, this song, or this part of the song, or your own picture or video, with a crossfade. The output page draws it on its own layer, so the words change without the background restarting. The Central Pedal's HDMI 2 doesn't draw these yet: it shows the lyrics on black, or on a picture background.
+Some things haven't been tested here: receiving and sending NDI (there's no runtime in the test container), hardware encoders other than x264, the device names `getUserMedia` gives on Windows and macOS, and Dante Virtual Soundcard. Those paths follow the SDK and platform documentation.
+
+The multiview can show 48 full-HD cameras at once, but only a handful are at full size at any moment, on purpose: whatever's in a Preview or on a Program.
+
+The test container's Chromium may fall back to JPEG for the phone. Safari 16.4 and later, and Chrome on phones, use H.264.
+
+## Screens on the lights page's 3D stage
+
+The lights page can show the room's screens and projectors in 3D, each with what its output is showing, live (`app/screen-feed.js` and `app/lights3d-screens.js`).
+
+Each screen or projector shows one output: the Video tab's **Main** or **Stream**, the **Slides & lyrics** output (the second screen and NDI), or the Central Pedal's **HDMI 1** or **HDMI 2**. The names match the ones on the Video and Slides tabs.
+
+Main and Stream are copied from the compositor at 15 fps into a 384 × 216 canvas (`CUVideoTab.previewTo`), and only while a screen on the 3D stage wants them. Slides & lyrics, HDMI 1 and HDMI 2 are drawn on the lights computer the same way `output.html` draws them, as the live slide or the lyrics on their background.
+
+When Cameras or Slides is running on a different computer, the lights computer asks the center for a preview (`screenPreviewWant`), and the computer doing that job sends small JPEGs about 4 times a second (`screenPreview`) for as long as it's asked.
+
+While the lights page plays a song on its own for a rehearsal, HDMI 2 and the Slides output step through the song's words or its parts.
+
+## Lyric backgrounds
+
+`app/backgrounds.js` draws 45 backgrounds in the app itself, with no downloads and nobody else's pictures. 32 of them move (gradients, light leaks, rays, dust, snow, fireflies, bokeh, clouds, aurora, stars, water, waves and shapes) and 13 are still (colours, gradients and textures). `app/backgrounds-seasons.js` adds a seasonal set on top of those. A slide names its background as `bg:<id>`.
+
+On the Lyrics tab, **Background…** picks one for every song, for this song or for this part of the song, or uses your own picture or video, with a crossfade. The output page draws the background on its own layer, so the words can change without the background starting over. The Central Pedal's HDMI 2 doesn't draw these yet. It shows the lyrics on black or on a picture background.
