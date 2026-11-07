@@ -44,7 +44,7 @@ export const config = {
   // (10.2) CCLI partner access (SongSelect search and import, sending the report): given by CCLI to approved partners.
   // Empty until then: SongSelect files are imported and the report is a file to enter on CCLI's site (ccli-partner.js).
   ccli: { partnerId: (env.CCLI_PARTNER_ID || "").trim(), clientId: (env.CCLI_CLIENT_ID || "").trim(), clientSecret: (env.CCLI_CLIENT_SECRET || "").trim() },
-  librariesBaseUrl: (env.LIBRARIES_BASE_URL || "https://github.com/MotionAudio/central-apps/releases/download/libraries").trim().replace(/\/+$/, ""),
+  librariesBaseUrl: (env.LIBRARIES_BASE_URL || "https://libraries.motionaudio.org").trim().replace(/\/+$/, ""),
 };
 
 // Prices (cents), tax included. Change them on the website's price page (staff), or here for the defaults.

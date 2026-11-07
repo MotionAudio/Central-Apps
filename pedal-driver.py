@@ -95,7 +95,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "10.4.3"
+APP_VERSION = "10.5.0"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -4625,7 +4625,17 @@ class MiniScreen:
     # ----- LOOPER: three loops - each with its state, where it is, and its switches -----------------------------
     LP_LABEL = {"empty": "REC", "armed": "WAIT", "recording": "RECORDING", "playing": "PLAYING", "dubbing": "OVERDUB", "stopped": "STOPPED"}
     LP_NEXT = {"empty": "record", "armed": "cancel", "recording": "close loop", "playing": "overdub", "dubbing": "play", "stopped": "play"}
-    LP_SRC = {"inst": "Instrument", "input": "Audio input", "both": "Both"}
+    LP_SRC = {"inst": "Instrument", "input": "Audio input", "both": "Both"}   # (10.5: "in:3" -> "input 3", the looper's own srcName)
+
+    def lp_window(self, lp, key):
+        """(the loops on this page, page, pages): three to a page (10.5: up to eight loops) - ‹ › on the chips row turn
+        it, and when the main switch's loop changes (a footswitch), the page jumps to that loop."""
+        count = max(3, min(8, int(lp.get("count") or len(lp.get("tracks") or []) or 3)))
+        sel = max(0, min(count - 1, int(lp.get("sel") or 0)))
+        if getattr(self, "_lp_sel", None) != sel:
+            self._lp_sel = sel
+            self.pages["loops"] = self.pages["lmix"] = sel // 3
+        return self.paged(key, list(range(count)), 3)
     LP_MODE = {"auto": ("Auto", "with the song when it plays"), "song": ("Tempo", "always N bars"), "free": ("Free", "tap to start and close")}
 
     def lp_color(self, state):
@@ -4648,11 +4658,12 @@ class MiniScreen:
 
     def looper_loops(self, g, hits, d, lp):
         C, W, H = self.COL, self.w, self.h
-        self.chips(g, hits, "looper")
         tracks = lp.get("tracks") or []
         sel = int(lp.get("sel") or 0)
+        rows, page, pages = self.lp_window(lp, "loops")
+        self.chips(g, hits, "looper", pager=("loops", page, pages) if pages > 1 else None)
         y, rh = 76, 46
-        for i in range(3):
+        for i in rows:
             t = tracks[i] if i < len(tracks) else {"s": "empty"}
             s, col = t.get("s") or "empty", self.lp_color(t.get("s"))
             # the loop: its state, where it is, its length (a tap: the main switch works this loop)
@@ -4696,10 +4707,11 @@ class MiniScreen:
 
     def looper_mix(self, g, hits, d, lp):
         C, W, H = self.COL, self.w, self.h
-        self.chips(g, hits, "looper")
         tracks = lp.get("tracks") or []
+        rows, page, pages = self.lp_window(lp, "lmix")
+        self.chips(g, hits, "looper", pager=("lmix", page, pages) if pages > 1 else None)
         y, rh = 76, (H - 46 - 76) / 3
-        for i in range(3):
+        for i in rows:
             t = tracks[i] if i < len(tracks) else {}
             top = y + 2
             self.button(g, hits, [6, top + 2, 38, top + 30], "M", {"name": "looperTrackMute", "args": {"index": i}}, on=bool(t.get("mute")), radius=7, font=self.F["label"])
@@ -4710,7 +4722,7 @@ class MiniScreen:
             third = (W - 50 - 10) / 3
             for j, (label, action, on) in enumerate((("REVERSE", {"name": "looperTrackReverse", "args": {"index": i}}, bool(t.get("rev"))),
                                                      ("½ SPEED", {"name": "looperTrackHalf", "args": {"index": i}}, bool(t.get("half"))),
-                                                     ("from " + self.LP_SRC.get(t.get("src") or "inst", "Instrument").lower(), {"name": "looperTrackSource", "args": {"index": i}}, False))):
+                                                     ("from " + (t.get("srcName") or self.LP_SRC.get(t.get("src") or "inst", "Instrument")).lower(), {"name": "looperTrackSource", "args": {"index": i}}, False))):
                 x = 44 + j * (third + 5)
                 self.button(g, hits, [x, by0, x + third, by1], label, action, on=on, font=self.F["sub"], radius=7)
             y += rh
@@ -4725,15 +4737,17 @@ class MiniScreen:
         rows = [(("TIMING: " + mode[0].upper(), {"name": "looperMode"}, mode[1], False),
                  ("LENGTH: %d BAR%s" % (bars, "" if bars == 1 else "S"), {"name": "looperBars"}, "1 · 2 · 4 · 8 · 16", False)),
                 (("COUNT-IN", {"name": "looperCountIn"}, "on - one bar of clicks" if lp.get("countIn") else "off", bool(lp.get("countIn"))),
-                 ("MAIN SWITCH: LOOP %d" % (sel + 1), {"name": "looperSelectNext"}, "tap for the next loop", False))]
+                 ("MAIN SWITCH: LOOP %d" % (sel + 1), {"name": "looperSelectNext"}, "tap for the next loop", False)),
+                (("ADD A LOOP", {"name": "looperAddLoop"}, "%d of 8 loops" % int(lp.get("count") or 3), False),
+                 ("REMOVE LAST LOOP", {"name": "looperRemoveLoop"}, "down to three", False))]
         y = 78
         for row in rows:
             for j, (label, action, sub, on) in enumerate(row):
                 x = 6 + j * (half + 5)
-                self.button(g, hits, [x, y, x + half, y + 60], label, action, on=on, sub=sub)
-            y += 66
-        self.text(g, (W / 2, y + 12), "The first loop sets the length; the others stay in step.", self.F["sub"], C["muted"], "mm", W - 16)
-        self.text(g, (W / 2, y + 30), "A footswitch on \"Looper pedal\": tap rec/play/dub · double tap stop · hold clear", self.F["sub"], C["muted"], "mm", W - 16)
+                self.button(g, hits, [x, y, x + half, y + 48], label, action, on=on, sub=sub)
+            y += 54
+        self.text(g, (W / 2, y + 8), "The first loop sets the length; the others stay in step. Each loop picks its input on Mix.", self.F["sub"], C["muted"], "mm", W - 16)
+        self.text(g, (W / 2, y + 24), "A footswitch on \"Looper pedal\": tap rec/play/dub · double tap stop · hold clear", self.F["sub"], C["muted"], "mm", W - 16)
 
     def page_settings(self, g, hits, d):
         sub = self.sub.get("settings", "audio")

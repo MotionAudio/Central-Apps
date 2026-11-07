@@ -1030,3 +1030,183 @@ def render(style, lp, root, rng, notes=None, fx=True):
         x = st["fx"](lp, x, rng, D.hz(root))
     x = x - x.mean(0)
     return D.to_rms(x, 0.2)
+
+
+# ---------------------------------------------------------------- 10.5: Central Pads More - 18 more styles
+# More of what Sunday mornings ask for: worship beds with room for the singer, choirs and strings together, a string
+# machine, an organ pad, quiet prayer-room pads, and a few made from the CC0 recordings (VSCO 2 CE, VCSL).
+def v_string_machine(lp, note, rng):
+    """The 70s string synthesizer: a saw per note through a three-voice ensemble chorus (the bucket-brigade swirl)."""
+    x = v_saws(lp, note, rng, n=2, detune=4.0, spread=0.4)
+    return D.ensemble(lp, x, mix=0.85)
+
+
+def v_breath_sines(lp, note, rng):
+    """Soft sines on the first harmonics, each breathing at its own slow rate (an organ-like glow with motion)."""
+    out = np.zeros((lp.n, 2))
+    for k, (ratio, g) in enumerate(((1, 1.0), (2, 0.5), (3, 0.3), (4, 0.18), (6, 0.08))):
+        y = D.sine(lp, D.hz(note) * ratio, lp.drift(rng, 3.0), rng.uniform(0, 1))
+        env = 0.55 + 0.45 * lp.lfo((k % 3 + 1) / lp.L, rng.uniform(0, 2 * math.pi))
+        pan = rng.uniform(0.25, 0.75)
+        out[:, 0] += y * env * g * math.cos(pan * math.pi / 2)
+        out[:, 1] += y * env * g * math.sin(pan * math.pi / 2)
+    return out
+
+
+def v_twinkle(lp, note, rng, per_second=1.6):
+    """A few high FM bell glints a second on the chord's pentatonic, each ringing away: a night sky."""
+    out = np.zeros((lp.n, 2))
+    n = min(lp.n, int(2.5 * lp.sr))
+    t = np.arange(n) / lp.sr
+    at = rng.uniform(0, 1 / per_second)
+    pent = (0, 2, 4, 7, 9, 12, 14)
+    while at < lp.L:
+        f = D.hz(note + pent[int(rng.integers(0, len(pent)))])
+        y = np.sin(2 * math.pi * f * t + 1.6 * np.exp(-t / 0.25) * np.sin(2 * math.pi * f * 3.01 * t)) * np.exp(-t / 0.9)
+        y = y * np.minimum(1, t / 0.004)
+        idx = (int(at * lp.sr) + np.arange(n)) % lp.n
+        ang = (rng.uniform(-0.95, 0.95) + 1) * math.pi / 4
+        g = rng.uniform(0.3, 0.9)
+        out[idx, 0] += y * g * math.cos(ang)
+        out[idx, 1] += y * g * math.sin(ang)
+        at += rng.uniform(0.4, 1.6) / per_second
+    return out
+
+
+VOICES.update({"stringmachine": v_string_machine, "breathsines": v_breath_sines, "twinkle": v_twinkle})
+
+
+def fx_sunday_shimmer(lp, x, rng, f0):
+    x = D.sweep(lp, x, lp_curve(lp, 0.3, 0.8, 1, -math.pi / 2), lp4, f0 * 3, f0 * 36)
+    x = D.chorus(lp, vocal_space(lp, x), rate=0.12, depth_ms=3.5, mix=0.4, voices=3)
+    return D.width(D.shimmer(lp, x, rng, 11.0, mix=0.7, amount=0.55, octaves=2), 1.5)
+
+
+def fx_deep_worship(lp, x, rng, f0):
+    f = D.freqs(lp)
+    x = D.filt(x, D.lowpass(f, 1600, 0.8, 4) * D.highpass(f, 40, 0.7, 2))
+    x = x * (0.6 + 0.4 * (0.5 + 0.5 * lp.lfo(1 / lp.L, -math.pi / 2)))[:, None]
+    return D.width(D.reverb(lp, vocal_space(lp, x, 70), rng, 8.0, mix=0.5, damp=2200, predelay=0.05, width=1.3), 1.3)
+
+
+def fx_analog_strings(lp, x, rng, f0):
+    x = D.filt(x, D.lowpass(D.freqs(lp), 5200, 0.7, 2) * D.highpass(D.freqs(lp), 110, 0.7, 2))
+    x = D.chorus(lp, x, rate=0.6, depth_ms=4.0, base_ms=10, mix=0.55, voices=2)
+    return D.width(D.reverb(lp, x, rng, 3.2, mix=0.35, damp=6000, predelay=0.02), 1.3)
+
+
+def fx_glass_choir(lp, x, rng, f0):
+    x = vocal_space(lp, x, 150)
+    x = D.delay(lp, x, lp.L / 16, feedback=0.35, mix=0.25, tone=6000)
+    return D.width(D.shimmer(lp, x, rng, 7.0, mix=0.55, amount=0.4, octaves=1), 1.4)
+
+
+def fx_prayer_room(lp, x, rng, f0):
+    f = D.freqs(lp)
+    x = D.filt(x, D.lowpass(f, 2200, 0.7, 2) * D.highpass(f, 90, 0.7, 2))
+    x = x * (0.7 + 0.3 * (0.5 + 0.5 * lp.lfo(2 / lp.L, rng.uniform(0, 6.0))))[:, None]
+    return D.width(D.reverb(lp, x, rng, 9.0, mix=0.6, damp=2800, predelay=0.06, width=1.2), 1.1)
+
+
+def fx_cathedral_choir(lp, x, rng, f0):
+    return D.width(D.reverb(lp, vocal_space(lp, x, 120), rng, 10.0, mix=0.62, damp=3500, predelay=0.09, width=1.3), 1.3)
+
+
+def fx_rising_tide(lp, x, rng, f0):
+    c = lp_curve(lp, 0.0, 1.0, 1, -math.pi / 2)
+    x = D.sweep(lp, x, c, lambda f, k: D.lowpass(f, k, 1.3, 4), f0 * 1.5, f0 * 40) * (0.35 + 0.65 * c)[:, None]
+    return D.width(D.reverb(lp, D.chorus(lp, x, rate=0.25, depth_ms=3, mix=0.35), rng, 5.0, mix=0.4, damp=6000), 1.4)
+
+
+def fx_organ_pad(lp, x, rng, f0):
+    x = D.rotary(lp, D.filt(x, D.lowpass(D.freqs(lp), 4200, 0.7, 2)), rate=0.7, depth=0.3)
+    return D.width(D.reverb(lp, x, rng, 4.5, mix=0.45, damp=4500, predelay=0.03, width=1.2), 1.2)
+
+
+def fx_celtic_air(lp, x, rng, f0):
+    x = D.filt(x, D.highpass(D.freqs(lp), 160, 0.7, 2))
+    x = D.delay(lp, x, lp.L / 10, feedback=0.3, mix=0.2, tone=5000)
+    return D.width(D.reverb(lp, x, rng, 5.5, mix=0.5, damp=6500, predelay=0.03, width=1.3), 1.3)
+
+
+def fx_glacier(lp, x, rng, f0):
+    x = D.filt(x, D.highpass(D.freqs(lp), 300, 0.7, 2))
+    x = x * (0.5 + 0.5 * (0.5 + 0.5 * lp.lfo(1 / lp.L, math.pi)))[:, None]
+    return D.width(D.shimmer(lp, x, rng, 12.0, mix=0.7, amount=0.6, octaves=2), 1.6)
+
+
+def fx_soft_brass(lp, x, rng, f0):
+    x = D.filt(x, D.lowpass(D.freqs(lp), 2600, 0.7, 2))
+    x = x * (0.5 + 0.5 * (0.5 + 0.5 * lp.lfo(1 / lp.L, -math.pi / 2)))[:, None]
+    return D.width(D.reverb(lp, x, rng, 6.0, mix=0.5, damp=3200, predelay=0.04, width=1.3), 1.2)
+
+
+def fx_night_sky(lp, x, rng, f0):
+    x = D.delay(lp, x, lp.L / 12, feedback=0.4, mix=0.35, tone=7000)
+    return D.width(D.reverb(lp, x, rng, 7.0, mix=0.55, damp=7000, bright=1.15, width=1.3), 1.5)
+
+
+def fx_harvest(lp, x, rng, f0):
+    x = D.filt(x, D.lowpass(D.freqs(lp), 6000, 0.7, 2))
+    return D.width(D.reverb(lp, D.delay(lp, x, lp.L / 16, feedback=0.3, mix=0.2, tone=5000), rng, 3.5, mix=0.4, damp=5000), 1.3)
+
+
+def fx_heartstrings(lp, x, rng, f0):
+    breath = (0.5 - 0.5 * np.cos(2 * math.pi * 2 * lp.t / lp.L)) ** 1.3
+    x = D.sweep(lp, x, 0.2 + 0.75 * breath, lp4, f0 * 2, f0 * 20) * (0.4 + 0.6 * breath)[:, None]
+    return D.width(D.reverb(lp, vocal_space(lp, x, 60), rng, 6.5, mix=0.5, damp=3800, predelay=0.04, width=1.3), 1.3)
+
+
+def fx_fire(lp, x, rng, f0):
+    f = D.freqs(lp)
+    x = D.saturate(D.filt(x, D.lowpass(f, 4000, 0.8, 2) * D.highpass(f, 90, 0.7, 2)) / D.rms(x) * 0.5, 2.4)
+    x = phaser(lp, x, rate=0.12, stages=6)
+    return D.width(D.shimmer(lp, x, rng, 6.0, mix=0.45, amount=0.35, octaves=1), 1.4)
+
+
+def fx_still_waters(lp, x, rng, f0):
+    wave = (0.5 - 0.5 * np.cos(2 * math.pi * 2 * lp.t / lp.L)) ** 1.5
+    x = D.sweep(lp, x, 0.25 + 0.6 * wave, lp4, f0 * 2, f0 * 18) * (0.55 + 0.45 * wave)[:, None]
+    return D.width(D.reverb(lp, x, rng, 3.0, mix=0.4, damp=5500, predelay=0.015, bright=1.05), 1.3)
+
+
+def fx_harmonium(lp, x, rng, f0):
+    x = D.filt(x, D.lowpass(D.freqs(lp), 3600, 0.7, 2))
+    x = D.tremolo(lp, x, 4.8, 0.18, math.pi / 4)
+    return D.width(D.reverb(lp, x, rng, 1.6, mix=0.25, damp=4000, predelay=0.01), 0.7)
+
+
+def fx_choir_strings(lp, x, rng, f0):
+    x = vocal_space(lp, x, 100)
+    return D.width(D.reverb(lp, x, rng, 6.0, mix=0.5, damp=4800, predelay=0.04, width=1.3), 1.3)
+
+
+MORE = {
+    # worship beds
+    "Sunday Shimmer": {"layers": [(("saws", {"n": 6, "detune": 14, "spread": 1.0}), 0, 0.9), (("sines", {"ratios": ((1, 1.0), (2, 0.3)), "spread": 1.0}), 1, 0.6), ("sub", -1, 0.25)], "fx": fx_sunday_shimmer, "chord": FIFTH},
+    "Deep Worship": {"layers": [(("saws", {"n": 7, "detune": 18, "spread": 0.9}), -1, 1.0), ("tri", 0, 0.5), ("sub", -1, 0.5)], "fx": fx_deep_worship, "chord": FIFTH},
+    "Analog Strings": {"layers": [("stringmachine", 0, 1.0), ("stringmachine", 1, 0.4)], "fx": fx_analog_strings, "chord": FIFTH},
+    "Glass Choir": {"layers": [(("choir", {"vowel": "o", "singers": 8, "vib_cents": 14}), 0, 1.0), ("glass", 1, 0.5)], "fx": fx_glass_choir, "chord": FIFTH},
+    "Prayer Room": {"layers": [(F("piano", at=(0.2, 1.0), at2=(1.0, 2.4)), 0, 1.0), ("air", 1, 0.2), ("breathsines", -1, 0.35)], "fx": fx_prayer_room, "chord": FIFTH},
+    "Cathedral Choir": {"layers": [(("choir", {"vowel": "a", "singers": 14, "vib_cents": 18}), 0, 1.0), (("choir", {"vowel": "u", "singers": 8, "vib_cents": 12}), -1, 0.5)], "fx": fx_cathedral_choir, "chord": FIFTH},
+    "Rising Tide": {"layers": [(("pulse", {"n": 3, "detune": 9}), 0, 1.0), (("saws", {"n": 3, "detune": 7}), -1, 0.45)], "fx": fx_rising_tide, "chord": FIFTH},
+    "Organ Pad": {"layers": [(("organ", {"bars": ((0.5, 0.5), (1, 1.0), (1.5, 0.4), (2, 0.7), (3, 0.2), (4, 0.3))}), 0, 1.0), ("breathsines", 0, 0.3)], "fx": fx_organ_pad, "chord": FIFTH},
+    "Choir and Strings": {"layers": [(("choir", {"vowel": "a", "singers": 10}), 0, 0.9), (("strings", {"players": 12}), 0, 0.8), (("strings", {"players": 6, "low": True}), -1, 0.4)], "fx": fx_choir_strings, "chord": FIFTH},
+    "Still Waters": {"layers": [(("sines", {"ratios": ((1, 1.0), (2, 0.4), (3, 0.15)), "spread": 1.0, "beat": 0.35}), 0, 1.0), ("air", 1, 0.2), ("tri", -1, 0.3)], "fx": fx_still_waters, "chord": (0, 7, 12, 14)},
+    "Chapel Harmonium": {"layers": [("reed", 0, 1.0), (("organ", {"bars": ((1, 1.0), (2, 0.5))}), -1, 0.4)], "fx": fx_harmonium, "chord": FIFTH},
+    "Pentecost Fire": {"layers": [(("saws", {"n": 7, "detune": 22, "spread": 1.0}), 0, 1.0), (("pulse", {"n": 2, "detune": 6}), 1, 0.4), ("sub", -1, 0.3)], "fx": fx_fire, "chord": FIFTH},
+    "Night Sky": {"layers": [("twinkle", 1, 1.0), (("sines", {"ratios": ((1, 1.0), (2, 0.2))}), 0, 0.4), ("air", 1, 0.12)], "fx": fx_night_sky, "chord": (0, 7, 12, 14)},
+    # made from recordings (CC0)
+    "Celtic Air": {"layers": [("flutes", 1, 0.8), ("air", 1, 0.25), (("plucks", {"src": "harp", "every": 2.0}), 0, 0.6)], "fx": fx_celtic_air, "chord": (0, 7, 12, 14)},
+    "Glacier": {"layers": [(G("violins", grain=0.5, density=28, region=(0.4, 2.8), rev=0.4), 1, 1.0), (F("violins", at=(0.5, 1.5), at2=(1.5, 2.8)), 0, 0.5)], "fx": fx_glacier, "chord": FIFTH},
+    "Soft Brass": {"layers": [(G("horn", **SUS), 0, 1.0), (G("trombone", **SUS), -1, 0.6), (G("horn", **SUS), 1, 0.3)], "fx": fx_soft_brass, "chord": FIFTH},
+    "Harvest": {"layers": [(("plucks", {"src": "marimba", "every": 0.7}), 0, 0.7), (("strings", {"players": 10}), 0, 0.8), ("felt", 1, 0.25)], "fx": fx_harvest, "chord": (0, 7, 12, 14)},
+    "Heartstrings": {"layers": [(G("cellos", **SUS), -1, 1.0), (G("violas", **SUS), 0, 0.6), ("sub", -1, 0.3)], "fx": fx_heartstrings, "chord": FIFTH},
+}
+STYLES.update(MORE)
+MORE_NAMES = list(MORE)
+
+# 10.5: more moving pads (their own loop set, in Central Pads More - Central Pads Extra's files stay as they were)
+PULSES_MORE = [("Dotted Eighths", "Sunday Keys", "9009009009009009"), ("Sixteenth Shimmer", "Shimmer", "9595959595959595"),
+               ("Slow Breath", "Air", "~1234567898765432"), ("Push and Pull", "Analog", "9009090090090900"),
+               ("Quarter Swell", "Deep Worship", "~9631963196319631"), ("Half-Time Pulse", "Sunday Shimmer", "9000000090000000")]

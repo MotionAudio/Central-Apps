@@ -5,3 +5,10 @@
 .cu-studio-bar .cu-st-name{font-weight:650;width:220px}
 .cu-st-saved{color:#9AA1AB;font-size:12px}
 .cu-studio-daw{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+.cu-st-loop{display:flex;align-items:center;gap:6px;padding:2px 8px;border:1px solid #2A2F36;border-radius:8px;background:#0F1216}
+.cu-st-loop b{color:#8DB5DE;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+.cu-st-loop label{font-size:12px;color:#9AA1AB;display:flex;align-items:center;gap:4px}
+.cu-seg{display:inline-flex;border:1px solid #2A2F36;border-radius:6px;overflow:hidden}
+.cu-seg button{border:0;border-radius:0;padding:4px 8px;background:transparent;color:#9AA1AB}
+.cu-seg button.on{background:#2A2F36;color:#fff}
+.cu-st-hint{flex-basis:100%;color:#6F7780;font-size:12px}

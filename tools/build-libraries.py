@@ -35,7 +35,7 @@ import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFINITIONS = os.path.join(ROOT, "libraries", "libraries.json")
-DEFAULT_BASE = "https://github.com/MotionAudio/central-apps/releases/download/libraries"
+DEFAULT_BASE = "https://libraries.motionaudio.org"   # (10.5: Cloudflare R2 - the GitHub release "libraries" was its home until 10.4)
 PLANS = {"keys": "Central Keys", "instrument": "Central Instrument", "plugins": "Central Plugins", "pedals": "Central Pedals", "pads": "Central Pads", "utility": "Central Utility"}
 # (10.2) Central Utility: click sets, lighting looks, slide templates, lyric backgrounds, graphics (tools/make-utility.py)
 KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "look", "slide", "background", "graphic")
@@ -330,7 +330,8 @@ def vcsl_presets():
 def loop_names(lib):
     """What a library's loops will be, before they're made (tools/make-loops.py's lists)."""
     ml = _load("tools/make-loops.py", "make_loops")
-    names = {"drums": [g[0] for g in ml.GROOVES], "ambient": list(ml.AMBIENT), "pulse": [p[0] for p in _load("tools/pad_voices.py", "pad_voices").PULSES]}
+    pv = _load("tools/pad_voices.py", "pad_voices")
+    names = {"drums": [g[0] for g in ml.GROOVES], "ambient": list(ml.AMBIENT), "pulse": [p[0] for p in pv.PULSES], "pulse-more": [p[0] for p in pv.PULSES_MORE]}
     return ["%s: %s" % (ls["name"], n) for ls in lib.get("loops") or [] for n in names.get(ls["set"], [])]
 
 
@@ -376,7 +377,8 @@ def expected_previews(lib, banks, base_url=DEFAULT_BASE):
     for p in lib.get("pads") or []:
         add("pad", p["name"])
     ml = _load("tools/make-loops.py", "make_loops")
-    names = {"drums": list(dict.fromkeys(g[0] for g in ml.GROOVES)), "ambient": list(ml.AMBIENT), "pulse": [p[0] for p in _load("tools/pad_voices.py", "pad_voices").PULSES]}
+    pv = _load("tools/pad_voices.py", "pad_voices")
+    names = {"drums": list(dict.fromkeys(g[0] for g in ml.GROOVES)), "ambient": list(ml.AMBIENT), "pulse": [p[0] for p in pv.PULSES], "pulse-more": [p[0] for p in pv.PULSES_MORE]}
     for ls in lib.get("loops") or []:
         add("loops", ls["name"], set=ls["set"])
         for n in names.get(ls["set"], []):

@@ -743,8 +743,25 @@ async def main():
         mini.local({"local": "sub", "tab": "looper", "value": "setup"})
         mini.render(lp_d)
         lp_mode = mini.hit_test(100, 100)
+        # (10.5) up to eight loops: the page shows three at a time, the one the selected loop is on; a pager turns the page
+        empty = {"s": "empty", "secs": 0, "f": 0, "undo": False, "redo": False, "level": 0.9, "pan": 0, "mute": False, "rev": False, "half": False, "src": "in:4", "srcName": "Input 4"}
+        lp8 = dict(disp, mini=dict(disp.get("mini") or {}, looper=dict(lp_d["mini"]["looper"], sel=4, count=8, tracks=lp_d["mini"]["looper"]["tracks"] + [dict(empty) for _ in range(5)])))
+        mini.local({"local": "sub", "tab": "looper", "value": "loops"})
+        mini.render(lp8)
+        lp8_row1 = mini.hit_test(60, 95)         # the first row on this page is loop 4
+        lp8_rec2 = mini.hit_test(220, 150)       # the second row: loop 5's REC
+        lp8_pager = mini.hit_test(mini.w - 22, 57)   # › on the chips row: the next page (loops 7-8)
+        mini.local({"local": "sub", "tab": "looper", "value": "mix"})
+        mini.render(lp8)
+        lp8_lvl = mini.hit_test(200, 92)
+        mini.local({"local": "sub", "tab": "looper", "value": "setup"})
+        mini.render(lp8)
+        lp8_add = mini.hit_test(100, 200)
         mini.tab = "pads"
         driver.schedule_mini_render = _sched2
+        check("small screen (10.5): eight loops come three to a page - the selected loop's page, a pager to the next; Set-up adds and removes loops",
+              lp8_row1 == {"name": "looperSelect", "args": {"index": 3}} and lp8_rec2 == {"name": "looperRec", "args": {"index": 4}} and lp8_pager == {"local": "page", "key": "loops", "d": 1}
+              and lp8_lvl and lp8_lvl.get("args") == {"index": 3} and lp8_add == {"name": "looperAddLoop"}, (lp8_row1, lp8_rec2, lp8_pager, lp8_lvl, lp8_add))
         check("small screen: a LOOPER tab - each loop's REC / STOP / UNDO / REDO, a tap on a loop picks the main switch's loop, levels, the timing",
               lp_tab == {"local": "tab", "value": "looper"} and lp_rec2 == {"name": "looperRec", "args": {"index": 1}} and lp_card1 == {"name": "looperSelect", "args": {"index": 0}}
               and lp_undo1 == {"name": "looperTrackUndo", "args": {"index": 0}} and lp_redo3 == {"name": "looperTrackRedo", "args": {"index": 2}} and lp_stop2 is None

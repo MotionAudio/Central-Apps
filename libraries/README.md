@@ -49,8 +49,8 @@ of Central Tracks Unlimited). `hymns/hymns.json` holds each hymn's words (public
 energy of each section; `tools/make-hymns.py` arranges and renders the stems on the libraries' own sounds (drums, bass,
 grand piano, pad, clean electric, strings, plus a click and spoken section cues), and writes a song file with the
 sections, lyrics, chords and a chord chart, so the apps don't have to guess any of it. CI renders them after the
-libraries and publishes them on the GitHub release `central-tracks` with `hymns-index.json`; the website lists each hymn
-once that index is there (`server/src/hymns.js`, `HYMNS_BASE_URL`). A hymn is only added when its words and tune were
+libraries and puts them in Cloudflare R2 under `central-tracks/` with `hymns-index.json` (10.5; the GitHub release
+`central-tracks` until 10.4); the website lists each hymn from that index (`server/src/hymns.js`, `HYMNS_BASE_URL`). A hymn is only added when its words and tune were
 published before 1929 and every writer died more than 70 years ago (`make-hymns.py --check`); modern worship songs and
 recordings of anyone else's are never used.
 
@@ -79,22 +79,21 @@ Looked at and not used:
   key and velocity mixed into one mono note), `tools/make-pads.py` (pads, textures), `tools/make-irs.py` (IRs),
   `tools/build-libraries.py` (the zips, `libraries-index.json`, `SHA256SUMS`; a zip over 1.5 GB stops the build).
 - `tools/build-libraries.sh [out]` runs them all locally (needs numpy and ffmpeg); CI does the same:
-  **.github/workflows/libraries.yml** (by hand from Actions, and when these files change on main or release/9.8.0)
-  and publishes to the GitHub release tagged `libraries` (a pre-release, never "latest", so the apps' update checks
-  never see it).
+  **.github/workflows/libraries.yml** (by hand from Actions, and when these files change on main) and copies the zips,
+  previews, index and hymns to Cloudflare R2 - the bucket behind `libraries.motionaudio.org` (10.5; until 10.4 they
+  went to the GitHub releases `libraries` and `central-tracks`, which stay as they were for the apps from before).
 - After changing `libraries.json`: `python3 tools/build-libraries.py --write-builtin server/src/libraries-builtin.json`
   (the list the website shows until an index is published; `test_libraries.py` checks it).
 
-## Where the files are, and switching to Cloudflare R2
+## Where the files are: Cloudflare R2
 
-Today: `https://github.com/MotionAudio/central-apps/releases/download/libraries/<file>` - the website's default
-`LIBRARIES_BASE_URL` (the repository is public, so anyone can download them).
-
-To move to Cloudflare R2: make a bucket with public access (a custom domain or r2.dev), an API token with Object Read &
-Write on it, put `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` in GitHub → Settings →
-Secrets (never in a chat or a file), set the repository variables `R2_UPLOAD = on` and `R2_PUBLIC_URL = <the bucket's
-public address>`, run the workflow, then set `LIBRARIES_BASE_URL` on Render to the same public address. The details are
-at the top of `.github/workflows/libraries.yml`.
+`https://libraries.motionaudio.org/<file>` (the zips, previews, `libraries-index.json`, `SHA256SUMS`) and
+`https://libraries.motionaudio.org/central-tracks/<file>` (the hymns) - the website's `LIBRARIES_BASE_URL` and
+`HYMNS_BASE_URL`, and the apps' fallbacks when no website is set. The bucket (`central-libraries`) has public access on
+that custom domain; the workflow writes to it with an R2 API token kept in GitHub → Settings → Secrets (`R2_ACCOUNT_ID`,
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` - never in a chat or a file) and the variables `R2_UPLOAD = on`,
+`R2_PUBLIC_URL`, `R2_HYMNS_URL`. The details are at the top of `.github/workflows/libraries.yml`. The installers and the
+apps' updates stay on GitHub releases: GitHub is where the code lives and where it is built.
 
 ## Installing (the apps)
 

@@ -469,6 +469,9 @@ svg.pedal.plug.err .pk-state { fill: #ff9b94; }
 .lp-track.sel { border-color: var(--accent); }
 .lp-track.st-recording, .lp-track.st-armed { --lp: #e5484d; } .lp-track.st-dubbing { --lp: #f5a524; } .lp-track.st-playing { --lp: #30a46c; } .lp-track.st-stopped { --lp: #8DB5DE; }
 .lp-track.muted .lp-ringbox { opacity: .45; }
+.lp-track.lp-add { border-style: dashed; align-content: center; justify-items: center; min-height: 180px; }
+.lp-addbtn { display: grid; gap: 4px; padding: 18px 22px; border-radius: 14px; font-size: 1.05em; }
+.lp-addbtn small { font-weight: normal; opacity: .7; }
 .lp-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .lp-num { font-weight: 800; letter-spacing: .04em; padding: 6px 12px; border-radius: 999px; }
 .lp-track.sel .lp-num { background: var(--accent); color: var(--accentText); border-color: var(--accent); }

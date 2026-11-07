@@ -31,9 +31,9 @@ services:
         sync: false
       - key: R2_SECRET_ACCESS_KEY
         sync: false
-      - key: LIBRARIES_BASE_URL  # the sound libraries' zips (empty: the GitHub release "libraries"; later the R2 bucket's public address)
+      - key: LIBRARIES_BASE_URL  # the sound libraries' zips: https://libraries.motionaudio.org (Cloudflare R2; empty means the same)
         sync: false
-      - key: HYMNS_BASE_URL      # the Central Tracks hymns (empty: the GitHub release "central-tracks"; later the R2 bucket's public address + /central-tracks)
+      - key: HYMNS_BASE_URL      # the Central Tracks hymns: https://libraries.motionaudio.org/central-tracks (empty means the same)
         sync: false
       - key: RESEND_API_KEY      # email (Teams invites, schedule requests): resend.com → API Keys
         sync: false

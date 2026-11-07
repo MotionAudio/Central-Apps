@@ -321,7 +321,7 @@ await check("buttons / knobs: tabs, moving around the screen, bus levels & mutes
   for (const id of ["padVolume", "levelTracks", "levelPads", "levelClick", "levelInstrument", "busLevel", "navScroll", "navValue", "tabKnob"]) assert.ok(ids.c.includes(id), "continuous " + id);
   for (const id of ["stepTab", "stepFocus", "stepScroll", "stepValue"]) assert.ok(ids.s.includes(id), "step " + id);
 });
-await check("looper: three loops - the LOOPER tab, its actions, when a loop starts and how long it is", async () => {
+await check("looper: three loops (up to eight - 10.5) - the LOOPER tab, its actions, when a loop starts and how long it is", async () => {
   const r = await T(() => {
     const ids = [].concat(PPActions.list("trigger"), PPActions.list("continuous"), PPActions.list("step")).map((a) => a.id);
     const P = PPLooper.plan, rate = 48000, base = { bars: 4, countIn: false, bpm: 120, bpb: 4, now: 1, rate, master: 0, song: null };
@@ -332,13 +332,23 @@ await check("looper: three loops - the LOOPER tab, its actions, when a loop star
     const tempo = P(Object.assign({}, base, { mode: "song", bars: 1, bpm: 60, bpb: 3, now: 0 }));
     const fr = P(Object.assign({}, base, { mode: "free", countIn: true, song: { at: 5, len: 6, bars: 1 } }));
     PPShell.showTab("looper");
-    const tab = document.querySelectorAll("#looperRoot .lp-track").length === 3 && document.querySelectorAll("#looperRoot .lp-ring").length === 3 && !!document.querySelector('[data-tab="looper"]');
+    const tab = document.querySelectorAll("#looperRoot .lp-track:not(.lp-add)").length === 3 && document.querySelectorAll("#looperRoot .lp-ring").length === 3 && !!document.querySelector('[data-tab="looper"]');
     PPShell.showTab("pads"); PPActions.run("tabLooper"); const cur = PPShell.currentTab(); PPShell.showTab("pads");
     PPLooper.setMode("free"); PPLooper.setBars(8); PPLooper.toggle(2, "rev"); PPLooper.select(2);
     const c = JSON.parse(JSON.stringify(PPLooper.config())); const parts = PPSetups.PARTS.slice();
     PPLooper.setMode("auto"); PPLooper.setBars(4); PPLooper.toggle(2, "rev"); PPLooper.select(0);
     const sum = PPLooper.summary();
-    return { ids, free, ci, song, fol, tempo, fr, tab, cur, c, parts, sum };
+    // (10.5) more loops, up to eight, each able to record one input of the interface
+    PPShell.showTab("looper");
+    const added = PPLooper.addLoop(), cards4 = document.querySelectorAll("#looperRoot .lp-track:not(.lp-add)").length;
+    PPLooper.setCount(8); const eight = PPLooper.count(), cards8 = document.querySelectorAll("#looperRoot .lp-track:not(.lp-add)").length, nine = PPLooper.addLoop();
+    PPLooper.select(7); const sel7 = PPLooper.selected();
+    PPLooper.setSource(5, "in:3"); const src = PPLooper.config().tracks[5].src, srcName = PPLooper.summary().tracks[5].srcName, opts = PPLooper.sourceOptions("in:3").map((o) => o[0]);
+    PPLooper.setSource(5, "nonsense"); const srcBad = PPLooper.config().tracks[5].src;
+    PPLooper.setCount(3); const back = PPLooper.count(), selBack = PPLooper.selected(), cards3 = document.querySelectorAll("#looperRoot .lp-track:not(.lp-add)").length, sumN = PPLooper.summary().tracks.length;
+    const fewer = PPLooper.removeLoop();
+    PPShell.showTab("pads");
+    return { ids, free, ci, song, fol, tempo, fr, tab, cur, c, parts, sum, added, cards4, eight, cards8, nine, sel7, src, srcName, opts, srcBad, back, selBack, cards3, sumN, fewer };
   });
   for (const id of ["looperPedal", "looperRec", "looperTrackStop", "looperTrackUndo", "looperTrackRedo", "looperTrackClear", "looperTrackMute", "looperTrackReverse", "looperTrackHalf", "looperTrackSource",
     "looperTrackLevel", "looperTrackPan", "looperSelect", "looperSelectNext", "looperPlayAll", "looperStopAll", "looperClearAll", "looperMode", "looperBars", "looperCountIn", "stepLoop", "tabLooper",
@@ -352,6 +362,14 @@ await check("looper: three loops - the LOOPER tab, its actions, when a loop star
   assert.ok(r.tab, "the LOOPER tab shows three loops"); assert.equal(r.cur, "looper");
   assert.equal(r.c.mode, "free"); assert.equal(r.c.bars, 8); assert.equal(r.c.sel, 2); assert.equal(r.c.tracks[2].rev, true); assert.ok(r.parts.includes("looper"), "saved setups keep the looper");
   assert.equal(r.sum.tracks.length, 3); assert.equal(r.sum.mode, "auto"); assert.equal(r.sum.sel, 0);
+  assert.equal(r.added, 4); assert.equal(r.cards4, 4, "Add loop shows a fourth card");
+  assert.equal(r.eight, 8); assert.equal(r.cards8, 8); assert.equal(r.nine, 8, "eight is the most");
+  assert.equal(r.sel7, 7);
+  assert.equal(r.src, "in:3"); assert.equal(r.srcName, "Input 3"); assert.ok(r.opts.includes("inst") && r.opts.includes("input") && r.opts.includes("both") && r.opts.includes("in:1") && r.opts.includes("in:3"), JSON.stringify(r.opts));
+  assert.equal(r.srcBad, "inst", "an unknown source falls back to the instrument");
+  assert.equal(r.back, 3); assert.equal(r.selBack, 2, "the selection moves back onto a loop that is there"); assert.equal(r.cards3, 3); assert.equal(r.sumN, 3);
+  assert.equal(r.fewer, 3, "three loops at least");
+  for (const id of ["looperAddLoop", "looperRemoveLoop"]) assert.ok(r.ids.includes(id), "action " + id);
 });
 await check("looper output: the Looper bus follows the Instrument, or goes to its own output (Settings → Output routing)", async () => {
   const r = await T(async () => {

@@ -28,7 +28,7 @@ const EXTRA_KINDS = { look: "looks", slide: "slides", background: "backgrounds",
 const PLUGIN_FORMATS = ["lv2", "vst3", "clap", "component", "cmfx"], MAX_PLUGIN = 300 * 1024 * 1024, MAX_CMFX = 512 * 1024;   // (10.2) cmfx: a Central FX plugin, one .cmfx.json
 const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const MAX_DOWNLOAD = 2 * 1024 ** 3, MAX_ITEM = 700 * 1024 * 1024, MAX_TOTAL = 2 * 1024 ** 3;
-const INDEX_URL = process.env.CC_LIBRARIES_INDEX || "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/libraries-index.json";
+const INDEX_URL = process.env.CC_LIBRARIES_INDEX || "https://libraries.motionaudio.org/libraries-index.json";
 const ID_RE = /^[a-z0-9-]{3,60}$/, VERSION_RE = /^\d+(\.\d+){0,3}$/, SHA_RE = /^[0-9a-f]{64}$/;
 // (10.2) a library's 30-second previews, next to its zip in the release: [{kind, name, preset?, set?, url, seconds}]
 const PREVIEW_KINDS = ["pad", "loops", "loop", "sound", "preset", "ir"];

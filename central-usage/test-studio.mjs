@@ -70,6 +70,25 @@ await check("Open in Central Production: the song as a .cmproj that Central Prod
   const r = await T(async () => { const bytes = await CUStudioTab.toCmproj(), u = await CMProj.unpack(bytes); return { fmt: u.project.format, type: u.project.type, name: u.project.daw.name, files: Object.keys(u.files) }; });
   assert.equal(r.fmt, "central-production"); assert.equal(r.type, "track"); assert.equal(r.name, "Idea 1"); assert.ok(r.files.some((f) => /^audio\/.+\.wav$/.test(f)), r.files.join());
 });
+await check("(10.5) make a loop: New loop sets the DAW loop to its bars, the render is seamless (the tail comes round), and it packs as a library of your own", async () => {
+  const r = await T(async () => {
+    CUStudioTab.loop.fresh({ bars: 2, bpm: 120, key: "D" });
+    const p = CDaw.project(), isLoop = CUStudioTab.loop.isLoop(), bars = CUStudioTab.loop.bars(), loopEnd = p.loop.end, barEl = !!document.querySelector('#view-studio .cu-st-loop select[data-s="bars"]');
+    let empty = ""; try { await CUStudioTab.loop.render(false); } catch (e) { empty = e.message; }
+    const t = p.tracks.find((x) => x.kind === "instrument"); CDaw.project().tracks.forEach((x) => { if (x.kind === "bus") x.inserts = []; });
+    CDaw.edit("n", () => { CDaw.track(t.id).clips.push({ id: "L1", kind: "midi", start: 0, len: 8, notes: [{ p: 62, v: 100, s: 7.5, d: 0.5 }] }); });   // (a note at the very end: its ring comes round to the start)
+    const l = await CUStudioTab.loop.render(false), buf = l[0].buf, secs = buf.duration, d = buf.getChannelData(0);
+    let head = 0, mid = 0; const w = Math.round(0.05 * buf.sampleRate); for (let i = 0; i < w; i++) head += Math.abs(d[i]); const m0 = Math.round(secs * 0.4 * buf.sampleRate); for (let i = 0; i < w; i++) mid += Math.abs(d[m0 + i]);
+    CUStudioTab.loop.setBars(4); const bars4 = CUStudioTab.loop.bars();
+    CUStudioTab.loop.setPerTrack(true); const lib = await CUStudioTab.loop.library(await CUStudioTab.loop.render(true));
+    return { isLoop, bars, loopEnd, barEl, empty, secs, head, mid, n: l.length, bars4, libId: lib.id, zipLen: lib.zip.length, per: CUStudioTab.loop.perTrack() };
+  });
+  assert.ok(r.isLoop && r.bars === 2 && r.loopEnd === 8 && r.barEl, JSON.stringify(r));
+  assert.match(r.empty, /empty/);
+  assert.ok(Math.abs(r.secs - 4) < 0.01, "2 bars at 120 = 4 s: " + r.secs); assert.equal(r.n, 1);
+  assert.ok(r.head > r.mid * 3, "the last note's ring is heard at the start (seamless): head " + r.head + " mid " + r.mid);
+  assert.equal(r.bars4, 4); assert.ok(/^my-new-loop-/.test(r.libId) && r.zipLen > 1000 && r.per, JSON.stringify(r));
+});
 await check("a song from the Studio before 10.2 opens in the new one (clips on the timeline, the fader in dB)", async () => {
   const r = await T(() => { const old = { v: 1, id: "old1", name: "Old song", bpm: 90, key: "D", sig: [4, 4], tracks: [{ id: "t1", name: "Keys", kind: "instrument", volume: 0.8, pan: 0, layers: [{ sound: "builtin:keys", lo: 0, hi: 127 }], fx: {}, slots: {} }], clips: { c1: { id: "c1", kind: "midi", len: 4, notes: [{ p: 60, v: 100, s: 0, d: 1 }] } }, arrangement: [{ id: "x", track: "t1", clip: "c1", start: 4, len: 4, offset: 0 }] };
     CDaw.load(old); const p = CDaw.project(); return { v: p.v, name: p.name, clip: p.tracks[0].clips[0].start, vol: p.tracks[0].volume }; });

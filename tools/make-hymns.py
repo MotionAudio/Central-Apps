@@ -48,7 +48,7 @@ import worship_band as WB  # noqa: E402
 
 DATA = os.path.join(ROOT, "hymns", "hymns.json")
 CUES = os.path.join(ROOT, "hymns", "guide")   # (10.2: spoken by Piper's LJSpeech voice - tools/make-guide-cues.py)
-DEFAULT_BASE = "https://github.com/MotionAudio/central-apps/releases/download/central-tracks"
+DEFAULT_BASE = "https://libraries.motionaudio.org/central-tracks"   # (10.5: Cloudflare R2; the GitHub release "central-tracks" until 10.4)
 SR = 44100
 ARTIST = "Motion Audio"
 NOTES = {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11}

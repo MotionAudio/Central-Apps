@@ -17,7 +17,7 @@ const str = (v, n) => String(v == null ? "" : v).slice(0, n);
 const URL_RE = /^https:\/\/[^\s"'<>]+$/;
 const ROLES = new Set(["drums", "bass", "keys", "guitar", "vocals", "music", "click", "guide"]);
 
-export function baseUrl() { return (process.env.HYMNS_BASE_URL || "https://github.com/MotionAudio/central-apps/releases/download/central-tracks").trim().replace(/\/+$/, ""); }
+export function baseUrl() { return (process.env.HYMNS_BASE_URL || "https://libraries.motionaudio.org/central-tracks").trim().replace(/\/+$/, ""); }
 
 // one hymn from the index as it's kept (only known fields, plain values: the index comes from outside)
 export function clean(h) {

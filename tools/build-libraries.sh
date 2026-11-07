@@ -17,7 +17,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-$HERE/dist/libraries}"
 WORK="${WORK:-$HERE/build/libraries-work}"
-BASE="${LIBRARIES_BASE_URL:-https://github.com/MotionAudio/central-apps/releases/download/libraries}"
+BASE="${LIBRARIES_BASE_URL:-https://libraries.motionaudio.org}"
 mkdir -p "$OUT" "$WORK"
 python3 -c 'import numpy' 2>/dev/null || { echo "needs numpy: pip install numpy (or apt install python3-numpy)"; exit 1; }
 

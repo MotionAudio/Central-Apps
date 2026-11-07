@@ -1,9 +1,10 @@
 /* Central Pedal - the loop pedal (LOOPER tab, the 3.5" screen's LOOPER tab, a strip on the Instrument tab).
  *
- * Three loops. Each one records the instrument (the native chain's "Central Pedal loop" virtual microphone on the Pi),
- * the audio input, or both, and plays back on the Looper bus (the instrument's output unless routed elsewhere in
- * Settings → Output routing). Each loop: record / overdub / play / stop / undo / redo / clear, level, pan, reverse,
- * half speed, mute.
+ * Three loops to start with, up to eight ("Add loop" - 10.5). Each one records the instrument (the native chain's
+ * "Central Pedal loop" virtual microphone on the Pi), the audio input (both channels), both - or (10.5) one input of
+ * the audio interface, so a loop can be the bass, the next one a vocal mic, the next a keyboard - and plays back on the
+ * Looper bus (the instrument's output unless routed elsewhere in Settings → Output routing). Each loop: record /
+ * overdub / play / stop / undo / redo / clear, level, pan, reverse, half speed, mute.
  *
  * In time: while the tracks play, a loop is N bars long and starts on the next bar line. With nothing playing the
  * first loop is free (tap to start, tap to close) - or, with a count-in, N bars at the set's tempo after one bar of
@@ -22,11 +23,12 @@
   function bridge() { return window.__pedalBridge; }
   function send(m) { return bridge() && bridge().send ? bridge().send(m) : false; }
   function T() { return window.PPTracks; }
-  var N = 3;
+  var MAX = 8, MIN = 3;   // (10.5) three loops to start with, "Add loop" up to eight; the worklet always has eight
+  function N() { return cfg().count; }
 
   // ------------------------------------------------------------------ the worklet (runs in the audio thread)
   var WORKLET = function () {
-    var SR = sampleRate, MAXF = Math.round(SR * 120), NT = 3;
+    var SR = sampleRate, MAXF = Math.round(SR * 120), NT = 8;
     function mod(a, n) { return ((a % n) + n) % n; }
     function Loop() {
       this.L = null; this.R = null; this.cap = 0; this.len = 0; this.state = "empty"; this.ph = 0; this.wp = 0; this.want = 0; this.at = 0;
@@ -35,7 +37,7 @@
     class Looper extends AudioWorkletProcessor {
       constructor() {
         super(); this.t = []; for (var i = 0; i < NT; i++) this.t.push(new Loop());
-        this.mlen = 0; this.G = 0; this.comp = 0; this.level = 1; this.click = null; this.rep = ""; this.posAt = 0;
+        this.mlen = 0; this.G = 0; this.comp = 0; this.level = 1; this.click = null; this.rep = ""; this.posAt = 0; this.inCh = -1;
         this.port.onmessage = this.onMessage.bind(this);
       }
       grow(k, need) {
@@ -109,11 +111,13 @@
         for (ti = 0; ti < NT; ti++) if (this.t[ti].state !== "empty" && this.t[ti].state !== "stopped") active = true;
         if (!active && !this.click) return true;   // (nothing recorded or playing: no work at all)
         var a0 = inputs[0] || [], a1 = inputs[1] || [], iL0 = a0[0], iR0 = a0[1] || a0[0], iL1 = a1[0], iR1 = a1[1] || a1[0], two = oR !== oL;
+        if (a1.length !== this.inCh) { this.inCh = a1.length; this.port.postMessage({ type: "inputs", channels: a1.length }); }   // (10.5: how many inputs the interface gives)
         for (ti = 0; ti < NT; ti++) {
           var k = this.t[ti]; if (k.state === "empty" || k.state === "stopped") continue;
-          var useA = k.src !== 1, useB = k.src !== 0;
+          var one = k.src >= 10 ? a1[k.src - 11] || null : null, useA = k.src === 0 || k.src === 2, useB = k.src === 1 || k.src === 2;
           for (i = 0; i < n; i++) {
-            var frame = f0 + i, a = (useA && iL0 ? iL0[i] : 0) + (useB && iL1 ? iL1[i] : 0), b = (useA && iR0 ? iR0[i] : 0) + (useB && iR1 ? iR1[i] : 0);
+            var frame = f0 + i, a, b;
+            if (one) { a = b = one[i]; } else { a = (useA && iL0 ? iL0[i] : 0) + (useB && iL1 ? iL1[i] : 0); b = (useA && iR0 ? iR0[i] : 0) + (useB && iR1 ? iR1[i] : 0); }
             if (k.state === "armed") { if (frame < k.at) continue; k.state = "recording"; k.wp = 0; }
             if (k.state === "recording") {
               if (k.wp >= k.cap) this.grow(k, k.wp + 1);
@@ -157,7 +161,24 @@
 
   // ------------------------------------------------------------------ settings (saved with the setup)
   var SRC = { inst: 0, input: 1, both: 2 };
-  var SRC_NAMES = { inst: "Instrument", input: "Audio input", both: "Both" };
+  var SRC_NAMES = { inst: "Instrument", input: "Audio input (1 + 2)", both: "Both" };
+  // (10.5) "in:3": one input of the audio interface, by its number - a loop can be the bass, another the vocal mic
+  function srcCode(s) { var m = /^in:(\d+)$/.exec(String(s || "")); return m ? 10 + Math.max(1, Math.min(32, +m[1])) : SRC[s] != null ? SRC[s] : 0; }
+  function srcName(s) { var m = /^in:(\d+)$/.exec(String(s || "")); return m ? "Input " + m[1] : SRC_NAMES[s] || "Instrument"; }
+  function srcChannel(s) { var m = /^in:(\d+)$/.exec(String(s || "")); return m ? +m[1] : 0; }
+  var inputChannels = 0;   // (how many the audio input stream carries once it is open; 0 until then)
+  function knownInputs() {   // the inputs to offer: what the open stream gives, else what the Instrument tab knows of the interface
+    var n = inputChannels, I = window.PPInstrument, cat = I && I.catalog && I.catalog(), c = I && I.config && I.config(), dev = null;
+    if (cat && cat.inputs && cat.inputs.length) { var want = c && c.input && c.input.device; dev = cat.inputs.filter(function (d) { return d.id === want; })[0] || cat.inputs.filter(function (d) { return d.usb; })[0] || null; }
+    if (dev && dev.channels > n) n = dev.channels;
+    return Math.max(2, Math.min(32, n || 2));
+  }
+  function srcOptions(cur) {
+    var out = [["inst", SRC_NAMES.inst], ["input", SRC_NAMES.input], ["both", SRC_NAMES.both]], n = knownInputs();
+    for (var i = 1; i <= n; i++) out.push(["in:" + i, "Input " + i + (i <= 2 ? (i === 1 ? " (left)" : " (right)") : "")]);
+    if (cur && !out.some(function (o) { return o[0] === cur; })) out.push([cur, srcName(cur) + " (not on this interface)"]);
+    return out;
+  }
   function cfg() {
     var p = project();
     if (!p.looper || typeof p.looper !== "object") p.looper = {};
@@ -166,9 +187,10 @@
     if (!(c.bars > 0)) c.bars = 4;
     if (c.level == null) c.level = 0.9;
     if (typeof c.countIn !== "boolean") c.countIn = false;
-    if (!(c.sel >= 0 && c.sel < N)) c.sel = 0;
+    if (!(c.count >= MIN && c.count <= MAX)) c.count = MIN;
+    if (!(c.sel >= 0 && c.sel < c.count)) c.sel = 0;
     if (!Array.isArray(c.tracks)) c.tracks = [];
-    for (var i = 0; i < N; i++) if (!c.tracks[i] || c.tracks[i].src == null || c.tracks[i].level == null) c.tracks[i] = Object.assign({ level: 0.9, pan: 0, mute: false, rev: false, half: false, src: "inst" }, c.tracks[i] || {});
+    for (var i = 0; i < MAX; i++) if (!c.tracks[i] || c.tracks[i].src == null || c.tracks[i].level == null) c.tracks[i] = Object.assign({ level: 0.9, pan: 0, mute: false, rev: false, half: false, src: "inst" }, c.tracks[i] || {});
     return c;
   }
   // ("In time with the song" off in older setups, or a test turning it off)
@@ -176,8 +198,8 @@
 
   // ------------------------------------------------------------------ the engine
   var node = null, gain = null, srcInst = null, srcInput = null, instStream = null, inputStream = null, ready = null, armedFlag = false;
-  var st = { tracks: [], mlen: 0 }, pos = [0, 0, 0], meta = [{}, {}, {}];
-  for (var z = 0; z < N; z++) st.tracks.push({ s: "empty", len: 0, u: false, r: false });
+  var st = { tracks: [], mlen: 0 }, pos = [], meta = [];
+  for (var z = 0; z < MAX; z++) { st.tracks.push({ s: "empty", len: 0, u: false, r: false }); pos.push(0); meta.push({}); }
   async function ensure() {
     if (ready) return ready;
     ready = (async function () {
@@ -191,7 +213,7 @@
       node.port.postMessage({ cmd: "level", level: 1 });
       var lat = cfg().latencyMs != null ? cfg().latencyMs / 1000 : (ctx.baseLatency || 0.005) + (ctx.outputLatency || 0.01) + 0.008;
       node.port.postMessage({ cmd: "comp", frames: lat * ctx.sampleRate });
-      for (var i = 0; i < N; i++) pushTrack(i);
+      for (var i = 0; i < MAX; i++) pushTrack(i);
       return node;
     })();
     ready.catch(function (e) { console.warn("looper failed", e); ready = null; });
@@ -207,9 +229,11 @@
       if (key !== lastStateKey) { lastStateKey = key; render(); if (window.PPActions) window.PPActions.sendLeds(); displaySoon(); }
       if (!anyContent() && armedFlag && !holdArm) disarmLater(); else clearTimeout(disarmTimer);
     } else if (m.type === "pos") { pos = m.p; paintRings(); }
+    else if (m.type === "inputs") { if (m.channels !== inputChannels) { inputChannels = m.channels; render(); } }
   }
   function anyContent() { return st.tracks.some(function (t) { return t.s !== "empty"; }); }
   function anyPlaying() { return st.tracks.some(function (t) { return t.s === "playing" || t.s === "dubbing" || t.s === "recording" || t.s === "armed"; }); }
+  function shown() { return st.tracks.slice(0, N()); }   // (the loops on the page: the first `count`)
   // a loop's length in bars: set when it was recorded in time (song or count-in), else a whole number of the first loop's
   function barsOf(len) {
     if (!len || !st.mlen) return null;
@@ -218,7 +242,7 @@
   }
   function pushTrack(i) {
     if (!node) return; var t = cfg().tracks[i], lv = clamp(t.level, 0, 1.4), p = clamp(t.pan, -1, 1);
-    node.port.postMessage({ cmd: "set", t: i, gl: lv * (p > 0 ? 1 - p : 1), gr: lv * (p < 0 ? 1 + p : 1), mute: !!t.mute, rev: !!t.rev, half: !!t.half, src: SRC[t.src] != null ? SRC[t.src] : 0 });
+    node.port.postMessage({ cmd: "set", t: i, gl: lv * (p > 0 ? 1 - p : 1), gr: lv * (p < 0 ? 1 + p : 1), mute: !!t.mute, rev: !!t.rev, half: !!t.half, src: srcCode(t.src) });
   }
 
   // the inputs: the Pi's "Central Pedal loop" virtual microphone (the instrument) and the audio input
@@ -241,20 +265,25 @@
       return true;
     } catch (e) { console.warn("looper instrument input", e); return false; }
   }
+  function wantsChannels() { var n = 0; cfg().tracks.slice(0, N()).forEach(function (t) { n = Math.max(n, srcChannel(t.src)); }); return n; }
   async function connectInput() {   // the audio input: the one the Pad tab's AUDIO INPUT uses, else this device's default input
     if (srcInput) return true;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
     try {
-      var engine = PP.engine, stream = engine.inputStream;
-      if (!stream) {
+      var engine = PP.engine, stream = engine.inputStream, many = wantsChannels() > 2; inputMany = many;
+      if (!stream || many) {   // (10.5: a loop on input 3 or higher: our own stream, asking the interface for every input it has)
         var devs = await navigator.mediaDevices.enumerateDevices(), dev = devs.filter(function (d) { return d.kind === "audioinput" && !isLoopDev(d) && d.deviceId !== "default"; })[0];
-        inputStream = stream = await navigator.mediaDevices.getUserMedia({ audio: Object.assign({ echoCancellation: false, noiseSuppression: false, autoGainControl: false }, dev && /^(127\.0\.0\.1|localhost)$/.test(location.hostname) ? { deviceId: dev.deviceId } : {}) });
+        var pick = (window.PP.project().inputSource || {}).deviceId || (dev && /^(127\.0\.0\.1|localhost)$/.test(location.hostname) ? dev.deviceId : null);
+        inputStream = stream = await navigator.mediaDevices.getUserMedia({ audio: Object.assign({ echoCancellation: false, noiseSuppression: false, autoGainControl: false }, many ? { channelCount: { ideal: 32 } } : {}, pick ? { deviceId: pick } : {}) });
       }
+      var tr = stream.getAudioTracks()[0], got = tr && tr.getSettings ? tr.getSettings().channelCount : 0;
+      if (got) inputChannels = got;
       srcInput = engine.ctx.createMediaStreamSource(stream); srcInput.connect(node, 0, 1);
+      if (many && got && got < wantsChannels()) PP.setStatus("Looper: this device gives " + got + " input" + (got === 1 ? "" : "s") + " here - a loop set to a higher input stays quiet");
       return true;
     } catch (e) { console.warn("looper audio input", e); return false; }
   }
-  function needs(i) { var s = cfg().tracks[i].src; return { inst: s !== "input", input: s !== "inst" }; }
+  function needs(i) { var s = cfg().tracks[i].src; return { inst: s === "inst" || s === "both", input: s !== "inst" }; }
   async function arm(on) {
     armedFlag = on !== false;
     send({ type: "instrument", action: "looper", on: armedFlag });
@@ -281,7 +310,7 @@
     if (!ok && !srcInst && !srcInput) PP.setStatus("Looper: no input - " + (w.inst ? "the instrument's loop input did not appear (Instrument on, on the Central Pedal)" : "no audio input on this device") + ".");
     return ok || !!srcInst || !!srcInput;
   }
-  var disarmTimer = 0, holdArm = false, instFallback = false;
+  var disarmTimer = 0, holdArm = false, instFallback = false, inputMany = false;
   function onPi() { var F = window.PPFeatures, s = F && F.systemStatus && F.systemStatus(); return !!(s && s.audio && s.audio.channels && s.audio.channels.length); }
   function disarmLater() { clearTimeout(disarmTimer); disarmTimer = setTimeout(function () { if (!anyContent() && armedFlag) arm(false); }, 30000); }   // (the Pi's loop tap stops when the loops have been empty for a while)
   // a node to record from instead (tests, or a computer without the Pi)
@@ -316,7 +345,7 @@
   function anyContentBut(i) { return st.tracks.some(function (t, j) { return j !== i && t.len; }); }
 
   // ------------------------------------------------------------------ the controls
-  function idx(i) { return i == null || i < 0 || !(i < N) ? cfg().sel : i | 0; }
+  function idx(i) { return i == null || i < 0 || !(i < N()) ? cfg().sel : i | 0; }
   function stateOf(i) { return (st.tracks[idx(i)] || {}).s || "empty"; }
   async function record(i) {
     var c = cfg(); i = idx(i);
@@ -349,14 +378,29 @@
   function clear(i) { i = idx(i); post("clear", i); meta[i] = {}; say(i, "cleared"); }
   function stopAll() { if (node) node.port.postMessage({ cmd: "all", what: "stop" }); PP.setStatus("Looper: every loop stopped"); }
   function playAll() { if (node) node.port.postMessage({ cmd: "all", what: "play" }); PP.setStatus("Looper: playing"); }
-  function clearAll() { if (node) node.port.postMessage({ cmd: "all", what: "clear" }); meta = [{}, {}, {}]; PP.setStatus("Looper: all loops cleared"); }
-  function select(i) { var c = cfg(); c.sel = clamp(i | 0, 0, N - 1); PP.persistSoon(); render(); displaySoon(); }
-  function selectStep(d) { select((cfg().sel + (d < 0 ? N - 1 : 1)) % N); }
+  function clearAll() { if (node) node.port.postMessage({ cmd: "all", what: "clear" }); meta = meta.map(function () { return {}; }); PP.setStatus("Looper: all loops cleared"); }
+  function select(i) { var c = cfg(); c.sel = clamp(i | 0, 0, N() - 1); PP.persistSoon(); render(); displaySoon(); }
+  function selectStep(d) { select((cfg().sel + (d < 0 ? N() - 1 : 1)) % N()); }
+  // (10.5) more loops: up to eight; the last one goes when it is empty
+  function addLoop() { var c = cfg(); if (c.count >= MAX) { PP.setStatus("Looper: eight loops is the most"); return c.count; } c.count++; PP.persistSoon(); render(); displaySoon(); PP.setStatus("Looper: loop " + c.count + " added"); return c.count; }
+  function removeLoop() {
+    var c = cfg(), i = c.count - 1;
+    if (c.count <= MIN) { PP.setStatus("Looper: three loops at least"); return c.count; }
+    if (st.tracks[i] && st.tracks[i].s !== "empty") { post("clear", i); meta[i] = {}; }
+    c.count--; if (c.sel >= c.count) c.sel = c.count - 1; PP.persistSoon(); render(); displaySoon(); return c.count;
+  }
+  function setCount(n) { var c = cfg(); n = clamp(n | 0, MIN, MAX); while (c.count < n) addLoop(); while (c.count > n) removeLoop(); return c.count; }
   function setTrack(i, k, v) { i = idx(i); var t = cfg().tracks[i]; t[k] = v; pushTrack(i); PP.persistSoon(); render(); displaySoon(); }
   function toggleTrack(i, k) { i = idx(i); setTrack(i, k, !cfg().tracks[i][k]); return cfg().tracks[i][k]; }
-  function setLevel(v, i) { if (i == null) { cfg().level = clamp(v, 0, 1.4); for (var j = 0; j < N; j++) { cfg().tracks[j].level = cfg().level; pushTrack(j); } PP.persistSoon(); paintLevels(); displaySoon(); return; } setTrack(i, "level", clamp(v, 0, 1.4)); }
+  function setLevel(v, i) { if (i == null) { cfg().level = clamp(v, 0, 1.4); for (var j = 0; j < MAX; j++) { cfg().tracks[j].level = cfg().level; pushTrack(j); } PP.persistSoon(); paintLevels(); displaySoon(); return; } setTrack(i, "level", clamp(v, 0, 1.4)); }
   function setPan(v, i) { setTrack(i, "pan", clamp(v, -1, 1)); }
-  function stepSource(i) { i = idx(i); var order = ["inst", "input", "both"], s = cfg().tracks[i].src; setTrack(i, "src", order[(order.indexOf(s) + 1) % order.length]); }
+  function stepSource(i) { i = idx(i); var order = srcOptions(cfg().tracks[i].src).map(function (o) { return o[0]; }), s = cfg().tracks[i].src; setTrack(i, "src", order[(order.indexOf(s) + 1) % order.length]); }
+  function setSource(i, s) {
+    i = idx(i); s = /^(inst|input|both|in:\d+)$/.test(String(s)) ? String(s) : "inst";
+    // (an input the open stream doesn't carry: let it go, so the next recording opens the interface with all of them)
+    if (srcChannel(s) > 2 && srcInput && !inputMany) { try { srcInput.disconnect(); } catch (_) { } srcInput = null; if (inputStream) { inputStream.getTracks().forEach(function (t) { t.stop(); }); inputStream = null; } }
+    setTrack(i, "src", s);
+  }
   function setMode(m) { var c = cfg(); delete c.sync; c.mode = m === "free" || m === "song" ? m : "auto"; PP.persistSoon(); render(); displaySoon(); }
   function stepMode() { var order = ["auto", "song", "free"]; setMode(order[(order.indexOf(mode()) + 1) % order.length]); }
   function setBars(b) { cfg().bars = clamp(b | 0, 1, 16); PP.persistSoon(); render(); displaySoon(); }
@@ -387,8 +431,8 @@
   // ------------------------------------------------------------------ what other screens get (3.5" screen, HDMI copy)
   function summary() {
     var c = cfg(), ctx = PP.engine.ctx, rate = ctx ? ctx.sampleRate : 48000;
-    return { on: c.enabled !== false, sel: c.sel, mode: mode(), bars: c.bars, countIn: !!c.countIn, playing: anyPlaying(),
-      tracks: st.tracks.map(function (t, i) { var k = c.tracks[i], f = pos[i] || 0, b = meta[i].bars || barsOf(t.len); return { s: t.s, secs: Math.round(t.len / rate * 10) / 10, f: Math.round((f < 0 ? -f - 1 : f) * 1000) / 1000, rec: f < 0, bars: b || null, bar: b && t.len ? Math.min(b, Math.floor((f < 0 ? 0 : f) * b) + 1) : null, undo: !!t.u, redo: !!t.r, level: k.level, pan: k.pan, mute: !!k.mute, rev: !!k.rev, half: !!k.half, src: k.src }; }) };
+    return { on: c.enabled !== false, sel: c.sel, mode: mode(), bars: c.bars, countIn: !!c.countIn, playing: anyPlaying(), count: c.count, max: MAX,
+      tracks: shown().map(function (t, i) { var k = c.tracks[i], f = pos[i] || 0, b = meta[i].bars || barsOf(t.len); return { s: t.s, secs: Math.round(t.len / rate * 10) / 10, f: Math.round((f < 0 ? -f - 1 : f) * 1000) / 1000, rec: f < 0, bars: b || null, bar: b && t.len ? Math.min(b, Math.floor((f < 0 ? 0 : f) * b) + 1) : null, undo: !!t.u, redo: !!t.r, level: k.level, pan: k.pan, mute: !!k.mute, rev: !!k.rev, half: !!k.half, src: k.src, srcName: srcName(k.src) }; }) };
   }
   var dispTimer = 0;
   function displaySoon() { clearTimeout(dispTimer); dispTimer = setTimeout(function () { if (T() && T().sendDisplay) T().sendDisplay(); }, 30); }
@@ -413,7 +457,7 @@
       '<div class="lp-row"><button class="tg' + (k.mute ? " on" : "") + '" data-lp="mute" data-i="' + i + '">MUTE</button><button class="tg' + (k.rev ? " on" : "") + '" data-lp="rev" data-i="' + i + '">REVERSE</button><button class="tg' + (k.half ? " on" : "") + '" data-lp="half" data-i="' + i + '">½ SPEED</button></div>' +
       '<label class="lp-slider">Level<input type="range" data-lplevel="' + i + '" min="0" max="140" value="' + Math.round(k.level * 100) + '"><output>' + Math.round(k.level * 100) + "</output></label>" +
       '<label class="lp-slider">Pan<input type="range" data-lppan="' + i + '" min="-100" max="100" value="' + Math.round(k.pan * 100) + '"><output>' + panText(k.pan) + "</output></label>" +
-      '<label class="lp-src">Records<select data-lpsrc="' + i + '">' + Object.keys(SRC_NAMES).map(function (s) { return '<option value="' + s + '"' + (k.src === s ? " selected" : "") + ">" + SRC_NAMES[s] + "</option>"; }).join("") + "</select></label></div>";
+      '<label class="lp-src">Records<select data-lpsrc="' + i + '">' + srcOptions(k.src).map(function (o) { return '<option value="' + esc(o[0]) + '"' + (k.src === o[0] ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("") + "</select></label></div>";
   }
   function panText(p) { var n = Math.round(Math.abs(p) * 100); return n < 2 ? "C" : (p < 0 ? "L " : "R ") + n; }
   function tabHtml() {
@@ -426,7 +470,9 @@
       '<label class="toggle"><input type="checkbox" data-lpset="countIn"' + (c.countIn ? " checked" : "") + "> Count-in (one bar of clicks)</label>" +
       '<label class="toggle lp-onoff"><input type="checkbox" data-lpset="enabled" checked> Looper on</label></div>' +
       '<p class="muted small lp-help">' + esc(MODES.filter(function (x) { return x[0] === m; })[0][2]) + ". The first loop sets the length and the others stay in step with it. Your tracks and pads keep playing.</p>" +
-      '<div class="lp-tracks">' + [0, 1, 2].map(trackCard).join("") + "</div>" +
+      '<div class="lp-tracks">' + shown().map(function (_t, i) { return trackCard(i); }).join("") +
+      '<div class="lp-track lp-add"><button class="lp-addbtn" data-lp="addLoop"' + (c.count >= MAX ? " disabled" : "") + '><b>+ Add loop</b><small>' + (c.count >= MAX ? "eight is the most" : "up to eight - each can record its own input") + '</small></button>' +
+      '<button class="ghost small" data-lp="removeLoop"' + (c.count <= MIN ? " disabled" : "") + '>Remove loop ' + c.count + '</button></div></div>' +
       '<div class="lp-all"><button class="lp-allbtn" data-lp="playAll">▶ PLAY ALL</button><button class="lp-allbtn" data-lp="stopAll">■ STOP ALL</button><button class="lp-allbtn danger" data-lp="clearAll">CLEAR ALL</button></div>' +
       '<p class="muted small">To run it from one footswitch like a looper pedal, give a button the "Looper pedal" job on the Controls tab: tap to record, play and overdub, double-tap to stop, hold to clear. Each loop also has its own jobs for buttons, knobs and sliders. The loops play on the instrument\'s output unless you pick another one in Settings → Output routing.</p>';
   }
@@ -435,7 +481,7 @@
   function html() {
     var c = cfg(), i = c.sel, t = st.tracks[i] || { s: "empty" };
     if (c.enabled === false) return '<section class="looper off" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">off</small></h3><button data-lp="goTab">Looper tab ›</button></div></section>';
-    return '<section class="looper" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">' + (st.tracks.every(function (x) { return x.s === "empty"; }) ? "all three loops are empty" : st.tracks.map(function (x, j) { return "loop " + (j + 1) + ": " + (x.s === "empty" ? "empty" : x.s); }).join(" · ")) + '</small></h3><button data-lp="goTab">Looper tab ›</button></div>' +
+    return '<section class="looper" id="looperBox"><div class="row spread"><h3>Looper <small class="muted">' + (shown().every(function (x) { return x.s === "empty"; }) ? "all " + ["three", "four", "five", "six", "seven", "eight"][N() - 3] + " loops are empty" : shown().map(function (x, j) { return "loop " + (j + 1) + ": " + (x.s === "empty" ? "empty" : x.s); }).join(" · ")) + '</small></h3><button data-lp="goTab">Looper tab ›</button></div>' +
       '<div class="lp-btns"><button class="pf-btn lp-main st-' + t.s + '" id="lpMain" data-lp="main" data-i="' + i + '"><small>LOOP ' + (i + 1) + " · REC / PLAY / DUB</small><b>" + LABEL[t.s] + '</b></button><button class="pf-btn" data-lp="stopAll"><small>EVERY LOOP</small><b>STOP</b></button><button class="pf-btn" data-lp="undo" data-i="' + i + '"' + (t.u ? "" : " disabled") + '><small>LAST DUB</small><b>UNDO</b></button><button class="pf-btn" data-lp="clear" data-i="' + i + '"><small>LOOP ' + (i + 1) + "</small><b>CLEAR</b></button></div></section>";
   }
   function render() {
@@ -458,6 +504,7 @@
     var i = b.dataset.i != null ? Number(b.dataset.i) : null, a = b.dataset.lp;
     if (a === "goTab") { if (window.PPShell) window.PPShell.showTab("looper"); return; }
     if (a === "main") main(i); else if (a === "select") select(i); else if (a === "stopPlay") stopPlay(i); else if (a === "undo") undo(i); else if (a === "redo") redo(i); else if (a === "clear") clear(i);
+    else if (a === "addLoop") addLoop(); else if (a === "removeLoop") removeLoop();
     else if (a === "mute" || a === "rev" || a === "half") toggleTrack(i, a);
     else if (a === "playAll") playAll(); else if (a === "stopAll") stopAll(); else if (a === "clearAll") clearAll();
   });
@@ -466,7 +513,7 @@
     if (el.dataset.lpset === "enabled") { c.enabled = el.checked; PP.persistSoon(); if (!c.enabled) { clearAll(); if (armedFlag) arm(false); } render(); renderTab(); return; }
     if (el.dataset.lpset === "bars") setBars(Number(el.value));
     else if (el.dataset.lpset === "countIn") { c.countIn = el.checked; PP.persistSoon(); displaySoon(); }
-    else if (el.dataset.lpsrc != null) setTrack(Number(el.dataset.lpsrc), "src", el.value);
+    else if (el.dataset.lpsrc != null) setSource(Number(el.dataset.lpsrc), el.value);
   });
   document.addEventListener("input", function (e) {
     var el = e.target; if (!el.dataset) return;
@@ -476,7 +523,7 @@
   document.addEventListener("pointerup", function () { if (dragging) { dragging = false; displaySoon(); } });
 
   // old single-loop API (actions, tests): loop 1
-  function applyConfig() { cfg(); for (var i = 0; i < N; i++) pushTrack(i); render(); displaySoon(); }
+  function applyConfig() { cfg(); for (var i = 0; i < MAX; i++) pushTrack(i); render(); displaySoon(); }
   function state() { var t = st.tracks[0] || {}; return { state: t.s || "empty", len: t.len || 0, undo: !!t.u, redo: !!t.r }; }
   window.PPLooper = {
     html: html, render: render, renderTab: renderTab, main: function (i) { return main(i == null ? 0 : i); }, stop: function (i) { stop(i == null ? 0 : i); }, play: function (i) { play(i == null ? 0 : i); },
@@ -484,6 +531,7 @@
     track: function (i) { return main(i); }, trackStop: stop, trackStopPlay: stopPlay, trackUndo: undo, trackRedo: redo, trackClear: clear, toggle: toggleTrack, setPan: setPan, stepSource: stepSource,
     stopAll: stopAll, playAll: playAll, clearAll: clearAll, select: select, selectStep: selectStep, selected: function () { return cfg().sel; },
     setMode: setMode, stepMode: stepMode, mode: mode, setBars: setBars, stepBars: stepBars, cycleBars: cycleBars, toggleCountIn: toggleCountIn,
+    addLoop: addLoop, removeLoop: removeLoop, setCount: setCount, count: function () { return N(); }, MAX: MAX, setSource: setSource, sourceOptions: srcOptions, sourceName: srcName,
     pedalPress: pedalPress, pedalRelease: pedalRelease, plan: plan, summary: summary, stateOf: function (i) { return stateOf(i); }, tracks: function () { return st.tracks; },
     arm: arm, armed: function () { return armedFlag; }, applyConfig: applyConfig, state: state, useNode: useNode, setLevel: setLevel, config: cfg, anyPlaying: anyPlaying, LABEL: LABEL
   };

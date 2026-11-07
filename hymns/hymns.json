@@ -653,6 +653,461 @@
     {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
     {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
+  },
+  {
+   "id": "jesus-paid-it-all",
+   "title": "Jesus Paid It All",
+   "words": "Elvina M. Hall (1865)",
+   "music": "ALL TO CHRIST, John T. Grape (1868)",
+   "public_domain": {"words": 1865, "music": 1868, "writers_died": 1915},
+   "key": "D", "bpm": 72, "meter": 4, "style": "piano-ballad",
+   "chords": {
+    "verse": ["D", "D A@3", "G", "D A@3", "D", "D A@3", "G A@3", "D"],
+    "refrain": ["D", "G D@3", "A", "D", "D", "G D@3", "G A@3", "D"],
+    "intro": ["D", "G", "A", "D"],
+    "interlude": ["D", "G", "Bm A@3", "D"],
+    "outro": ["G", "D", "G A@3", "D"]
+   },
+   "lyrics": {
+    "Verse 1": "I|hear the Savior|say, \"Thy ^strength in~|deed is|small; / ^child of|weakness, watch and|pray, / find ^in Me|thine all ^in|all.\" /",
+    "Verse 2": "Lord,|now indeed I|find Thy ^power, and|Thine a~|lone, / ^can|change the leper's|spots / and ^melt the|heart ^of|stone. /",
+    "Verse 3": "For|nothing good have|I where^by Thy|grace to|claim; / ^I'll|wash my garments|white / in ^the|blood of ^Calvary's|Lamb. /",
+    "Verse 4": "And|when, before the|throne, I ^stand in|Him com~|plete, / ^\"Jesus|died my soul to|save,\" / my ^lips shall|still ^re~|peat. /",
+    "Refrain": "|Jesus paid it|all, ^all to Him I|owe; / sin had|left a crimson|stain, / He|washed ^it|white ^as|snow. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Refrain 3", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Refrain 4", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "i-surrender-all",
+   "title": "I Surrender All",
+   "words": "Judson W. Van DeVenter (1896)",
+   "music": "SURRENDER, Winfield S. Weeden (1896)",
+   "public_domain": {"words": 1896, "music": 1896, "writers_died": 1939},
+   "key": "D", "bpm": 66, "meter": 4, "style": "hall-ballad",
+   "chords": {
+    "verse": ["D", "G D@3", "D", "A", "D", "G D@3", "D A@3", "D"],
+    "refrain": ["D", "G", "D", "A", "D", "G D@3", "D A@3", "D"],
+    "intro": ["D", "G", "A", "D"],
+    "interlude": ["G", "D", "Em A@3", "D"],
+    "outro": ["G", "D", "A", "D"]
+   },
+   "lyrics": {
+    "Verse 1": "|All to Jesus|I sur^render,|all to Him I|freely give; /|I will ever|love and ^trust Him,|in His ^presence|daily live. /",
+    "Verse 2": "|All to Jesus|I sur^render,|humbly at His|feet I bow; /|worldly pleasures|all for^saken,|take me, ^Jesus,|take me now. /",
+    "Verse 3": "|All to Jesus|I sur^render,|make me, Savior,|wholly Thine; /|let me feel the|Holy ^Spirit,|truly ^know that|Thou art mine. /",
+    "Verse 4": "|All to Jesus|I sur^render,|Lord, I give my~|self to Thee; /|fill me with Thy|love and ^power,|let Thy ^blessing|fall on me. /",
+    "Refrain": "|I sur~|render all,|I sur~|render all; /|all to Thee, my|blessed ^Savior,|I sur^render|all. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Refrain 3", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Refrain 4", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "praise-to-the-lord",
+   "title": "Praise to the Lord, the Almighty",
+   "words": "Joachim Neander (1680); translated by Catherine Winkworth (1863)",
+   "music": "LOBE DEN HERREN, Stralsund Gesangbuch (1665)",
+   "public_domain": {"words": 1863, "music": 1665, "writers_died": 1878},
+   "key": "G", "bpm": 112, "meter": 3, "style": "folk-68",
+   "chords": {
+    "verse": ["G", "C", "G", "D", "G", "Em", "C", "G", "D", "G", "D", "G", "C", "G", "D", "G", "C D@3", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|Praise to the|Lord, the Al~|mighty, the|King of cre~|ation! /|O my soul,|praise Him, for|He is thy|health and sal~|vation! /|All ye who|hear, /|now to His|temple draw|near; /|praise Him in|glad a^do~|ration. /",
+    "Verse 2": "|Praise to the|Lord, who o'er|all things so|wondrously|reigneth, /|shelters thee|under His|wings, yea, so|gently sus~|taineth! /|Hast thou not|seen /|how thy de~|sires e'er have|been /|granted in|what He ^or~|daineth? /",
+    "Verse 3": "|Praise to the|Lord, who doth|prosper thy|work and de~|fend thee; /|surely His|goodness and|mercy here|daily at~|tend thee. /|Ponder a~|new /|what the Al~|mighty can|do, /|if with His|love He ^be~|friend thee. /",
+    "Verse 4": "|Praise to the|Lord! O let|all that is|in me a~|dore Him! /|All that hath|life and breath,|come now with|praises be~|fore Him. /|Let the A~|men /|sound from His|people a~|gain; /|gladly for|aye we ^a~|dore Him. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:16-18", "role": "tag", "lyrics": "Verse 4@16-18", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "all-hail-the-power",
+   "title": "All Hail the Power of Jesus' Name",
+   "words": "Edward Perronet (1779); altered by John Rippon (1787)",
+   "music": "CORONATION, Oliver Holden (1793)",
+   "public_domain": {"words": 1787, "music": 1793, "writers_died": 1844},
+   "key": "G", "bpm": 100, "meter": 4, "style": "anthem-ride",
+   "chords": {
+    "verse": ["G", "G D@3", "G", "D", "G", "C", "G D@3", "G", "C", "G", "C D@3", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "All|hail the power of|Jesus' ^name! Let|angels prostrate|fall; / bring|forth the royal|diadem, and|crown Him ^Lord of|all; / bring|forth the royal|diadem, and|crown Him ^Lord of|all. /",
+    "Verse 2": "Ye|chosen seed of|Israel's ^race, ye|ransomed from the|fall, / hail|Him who saves you|by His grace, and|crown Him ^Lord of|all; / hail|Him who saves you|by His grace, and|crown Him ^Lord of|all. /",
+    "Verse 3": "Let|every kindred,|every ^tribe, on|this terrestrial|ball, / to|Him all majes~|ty ascribe, and|crown Him ^Lord of|all; / to|Him all majes~|ty ascribe, and|crown Him ^Lord of|all. /",
+    "Verse 4": "O|that with yonder|sacred ^throng we|at His feet may|fall! / We'll|join the ever~|lasting song, and|crown Him ^Lord of|all; / we'll|join the ever~|lasting song, and|crown Him ^Lord of|all. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:9-12", "role": "tag", "lyrics": "Verse 4@9-12", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "o-for-a-thousand-tongues",
+   "title": "O for a Thousand Tongues to Sing",
+   "words": "Charles Wesley (1739)",
+   "music": "AZMON, Carl G. Glaser (1828); arranged by Lowell Mason (1839)",
+   "public_domain": {"words": 1739, "music": 1839, "writers_died": 1872},
+   "key": "G", "bpm": 104, "meter": 4, "style": "anthem-drive",
+   "chords": {
+    "verse": ["G", "D", "G C@3", "D", "G", "C", "G D@3", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "O|for a thousand|tongues to sing my|great Re^deemer's|praise, / the|glories of my|God and King, the|triumphs ^of His|grace! /",
+    "Verse 2": "My|gracious Master|and my God, as~|sist me ^to pro~|claim, / to|spread through all the|earth abroad the|honors ^of Thy|name. /",
+    "Verse 3": "Jesus!|the name that|charms our fears, that|bids our ^sorrows|cease; / 'tis|music in the|sinner's ears, 'tis|life, and ^health, and|peace. /",
+    "Verse 4": "He|breaks the power of|canceled sin, He|sets the ^prisoner|free; / His|blood can make the|foulest clean; His|blood a^vailed for|me. /",
+    "Verse 5": "Hear|Him, ye deaf; His|praise, ye dumb, your|loosened ^tongues em~|ploy; / ye|blind, behold your|Savior come; and|leap, ye ^lame, for|joy. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "drop", "lyrics": "Verse 4", "energy": 1},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 5", "chords": "verse", "role": "final", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Tag", "chords": "verse:5-8", "role": "tag", "lyrics": "Verse 5@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "take-my-life",
+   "title": "Take My Life and Let It Be",
+   "words": "Frances R. Havergal (1874)",
+   "music": "HENDON, Henri A. Cesar Malan (1827)",
+   "public_domain": {"words": 1874, "music": 1827, "writers_died": 1879},
+   "key": "F", "bpm": 84, "meter": 4, "style": "piano-ballad",
+   "chords": {
+    "verse": ["F", "C", "F", "C F@3", "F", "Bb", "F", "C", "Bb F@3", "C F@3"],
+    "intro": ["F", "Bb", "C", "F"],
+    "interlude": ["Bb", "F", "C", "F"],
+    "outro": ["Bb", "F", "C", "F"]
+   },
+   "lyrics": {
+    "Verse 1": "|Take my life and|let it be|consecrated,|Lord, ^to Thee. /|Take my moments|and my days;|let them flow in|ceaseless praise, /|let them ^flow in|ceaseless ^praise. /",
+    "Verse 2": "|Take my hands and|let them move|at the impulse|of ^Thy love. /|Take my feet and|let them be|swift and beauti~|ful for Thee, /|swift and ^beauti~|ful for ^Thee. /",
+    "Verse 3": "|Take my voice and|let me sing|always, only,|for ^my King. /|Take my lips and|let them be|filled with messa~|ges from Thee, /|filled with ^messa~|ges from ^Thee. /",
+    "Verse 4": "|Take my will and|make it Thine;|it shall be no|long^er mine. /|Take my heart, it|is Thine own;|it shall be Thy|royal throne, /|it shall ^be Thy|royal ^throne. /",
+    "Verse 5": "|Take my love, my|Lord, I pour|at Thy feet its|trea^sure store. /|Take myself, and|I will be|ever, only,|all for Thee, /|ever, ^only,|all for ^Thee. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "drop", "lyrics": "Verse 4", "energy": 1},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 5", "chords": "verse", "role": "final", "lyrics": "Verse 5", "energy": 3},
+    {"name": "Tag", "chords": "verse:9-10", "role": "tag", "lyrics": "Verse 5@9-10", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "just-as-i-am",
+   "title": "Just As I Am",
+   "words": "Charlotte Elliott (1835)",
+   "music": "WOODWORTH, William B. Bradbury (1849)",
+   "public_domain": {"words": 1835, "music": 1849, "writers_died": 1871},
+   "key": "D", "bpm": 88, "meter": 3, "style": "ballad-68",
+   "chords": {
+    "verse": ["D", "D", "G", "D", "D", "A", "A", "D", "D", "G", "D", "A", "G", "D", "A", "D"],
+    "intro": ["D", "G", "A", "D"],
+    "interlude": ["G", "D", "A", "D"],
+    "outro": ["G", "D", "A", "D"]
+   },
+   "lyrics": {
+    "Verse 1": "|Just as I|am, with~|out one|plea, but|that Thy|blood was|shed for|me, / and|that Thou|bidd'st me|come to|Thee, / O|Lamb of|God, I|come, I|come. /",
+    "Verse 2": "|Just as I|am, and|waiting|not to|rid my|soul of|one dark|blot, / to|Thee whose|blood can|cleanse each|spot, / O|Lamb of|God, I|come, I|come. /",
+    "Verse 3": "|Just as I|am, though|tossed a~|bout with|many a|conflict,|many a|doubt, / with|fightings and|fears with~|in, with~|out, / O|Lamb of|God, I|come, I|come. /",
+    "Verse 4": "|Just as I|am, Thou|wilt re~|ceive, wilt|welcome,|pardon,|cleanse, re~|lieve; / be~|cause Thy|promise|I be~|lieve, / O|Lamb of|God, I|come, I|come. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "leaning-on-the-everlasting-arms",
+   "title": "Leaning on the Everlasting Arms",
+   "words": "Elisha A. Hoffman (1887)",
+   "music": "SHOWALTER, Anthony J. Showalter (1887)",
+   "public_domain": {"words": 1887, "music": 1887, "writers_died": 1929},
+   "key": "G", "bpm": 100, "meter": 4, "style": "country-drive",
+   "chords": {
+    "verse": ["G", "C", "G", "D", "G", "C", "G D@3", "G"],
+    "refrain": ["G", "C", "G", "D", "G", "C", "G D@3", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|What a fellowship,|what a joy divine,|leaning on the ever~|lasting arms; /|what a blessedness,|what a peace is mine,|leaning on the ^ever~|lasting arms. /",
+    "Verse 2": "|O how sweet to walk|in this pilgrim way,|leaning on the ever~|lasting arms; /|O how bright the path|grows from day to day,|leaning on the ^ever~|lasting arms. /",
+    "Verse 3": "|What have I to dread,|what have I to fear,|leaning on the ever~|lasting arms? /|I have blessed peace|with my Lord so near,|leaning on the ^ever~|lasting arms. /",
+    "Refrain": "|Leaning,|leaning,|safe and secure from|all alarms; /|leaning,|leaning,|leaning on the ^ever~|lasting arms. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Refrain 3", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "tis-so-sweet",
+   "title": "'Tis So Sweet to Trust in Jesus",
+   "words": "Louisa M. R. Stead (1882)",
+   "music": "TRUST IN JESUS, William J. Kirkpatrick (1882)",
+   "public_domain": {"words": 1882, "music": 1882, "writers_died": 1921},
+   "key": "G", "bpm": 78, "meter": 4, "style": "piano-anthem",
+   "chords": {
+    "verse": ["G", "C G@3", "G", "D", "G", "C G@3", "G D@3", "G"],
+    "refrain": ["G", "C G@3", "Em", "D", "G", "C G@3", "G D@3", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "Em D@3", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|'Tis so sweet to|trust in ^Jesus,|just to take Him|at His word; /|just to rest u~|pon His ^promise,|just to know, ^\"Thus|saith the Lord.\" /",
+    "Verse 2": "|O how sweet to|trust in ^Jesus,|just to trust His|cleansing blood; /|just in simple|faith to ^plunge me|'neath the heal^ing,|cleansing flood! /",
+    "Verse 3": "|Yes, 'tis sweet to|trust in ^Jesus,|just from sin and|self to cease; /|just from Jesus|simply ^taking|life and rest, ^and|joy and peace. /",
+    "Verse 4": "|I'm so glad I|learned to ^trust Thee,|precious Jesus,|Savior, Friend; /|and I know that|Thou art ^with me,|wilt be with ^me|to the end. /",
+    "Refrain": "|Jesus, Jesus,|how I ^trust Him!|How I've proved Him|o'er and o'er! /|Jesus, Jesus,|precious ^Jesus!|O for grace ^to|trust Him more! /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Refrain 3", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Refrain 4", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "when-i-survey",
+   "title": "When I Survey the Wondrous Cross",
+   "words": "Isaac Watts (1707)",
+   "music": "HAMBURG, Lowell Mason (1824)",
+   "public_domain": {"words": 1707, "music": 1824, "writers_died": 1872},
+   "key": "F", "bpm": 76, "meter": 4, "style": "hall-ballad",
+   "chords": {
+    "verse": ["F", "Bb F@3", "C", "F", "F", "Bb", "F C@3", "F"],
+    "intro": ["F", "Bb", "C", "F"],
+    "interlude": ["Bb", "F", "C", "F"],
+    "outro": ["Bb", "F", "C", "F"]
+   },
+   "lyrics": {
+    "Verse 1": "|When I survey the|wondrous ^cross on|which the Prince of|glory died, /|my richest gain I|count but loss, and|pour con^tempt on|all my pride. /",
+    "Verse 2": "|Forbid it, Lord, that|I should ^boast, save|in the death of|Christ my God! /|All the vain things that|charm me most, I|sacri^fice them|to His blood. /",
+    "Verse 3": "|See from His head, His|hands, His ^feet, sor~|row and love flow|mingled down! /|Did e'er such love and|sorrow meet, or|thorns com^pose so|rich a crown? /",
+    "Verse 4": "|Were the whole realm of|nature ^mine, that|were a present|far too small; /|love so amazing,|so divine, de~|mands my ^soul, my|life, my all. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:5-8", "role": "tag", "lyrics": "Verse 4@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "silent-night",
+   "title": "Silent Night",
+   "words": "Joseph Mohr (1816); translated by John F. Young (1859)",
+   "music": "STILLE NACHT, Franz X. Gruber (1818)",
+   "public_domain": {"words": 1859, "music": 1818, "writers_died": 1885},
+   "key": "Bb", "bpm": 92, "meter": 3, "style": "christmas-68", "season": "christmas",
+   "chords": {
+    "verse": ["Bb", "Bb", "Bb", "Bb", "F", "F", "Bb", "Bb", "Eb", "Eb", "Bb", "Bb", "Eb", "Eb", "Bb", "Bb", "F", "F", "Bb", "Bb", "Bb", "F", "Bb", "Bb"],
+    "intro": ["Bb", "Bb", "F", "Bb"],
+    "interlude": ["Eb", "Bb", "F", "Bb"],
+    "outro": ["Eb", "Bb", "F", "Bb"]
+   },
+   "lyrics": {
+    "Verse 1": "|Silent|night, /|holy|night, /|all is|calm, /|all is|bright /|round yon|Virgin|Mother and|Child. /|Holy In~|fant so|tender and|mild, /|sleep in|heavenly|peace, /|~|sleep in|heavenly|peace. /|",
+    "Verse 2": "|Silent|night, /|holy|night! /|Shepherds|quake /|at the|sight; /|glories|stream from|heaven a~|far, /|heavenly|hosts sing|Alle~|luia! /|Christ the|Savior is|born, /|~|Christ the|Savior is|born! /|",
+    "Verse 3": "|Silent|night, /|holy|night! /|Son of|God, /|love's pure|light; /|radiant|beams from|Thy holy|face /|with the|dawn of re~|deeming|grace, /|Jesus,|Lord, at Thy|birth, /|~|Jesus,|Lord, at Thy|birth. /|"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Tag", "chords": "verse:21-24", "role": "tag", "lyrics": "Verse 3@21-24", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "hark-the-herald",
+   "title": "Hark! The Herald Angels Sing",
+   "words": "Charles Wesley (1739); altered by George Whitefield (1753)",
+   "music": "MENDELSSOHN, Felix Mendelssohn (1840); adapted by William H. Cummings (1856)",
+   "public_domain": {"words": 1753, "music": 1856, "writers_died": 1915},
+   "key": "G", "bpm": 104, "meter": 4, "style": "christmas-anthem", "season": "christmas",
+   "chords": {
+    "verse": ["G", "D G@3", "G", "D", "G", "C G@3", "A", "D", "G", "C", "G D@3", "G", "G", "C", "G D@3", "G", "C", "G Em@3", "G D@3", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|Hark! The herald|angels ^sing,|\"Glory to the|newborn King; /|peace on earth, and|mercy ^mild,|God and sinners|reconciled!\" /|Joyful, all ye|nations rise,|join the ^triumph|of the skies; /|with the angelic|host proclaim,|\"Christ is ^born in|Bethlehem!\" /|Hark! The herald|angels ^sing,|\"Glory to ^the|newborn King!\" /",
+    "Verse 2": "|Christ, by highest|heaven a^dored;|Christ, the ever~|lasting Lord; /|late in time be~|hold Him ^come,|offspring of a|virgin's womb. /|Veiled in flesh the|Godhead see;|hail the in^carnate|Deity, /|pleased with us in|flesh to dwell,|Jesus, ^our Em~|manuel. /|Hark! The herald|angels ^sing,|\"Glory to ^the|newborn King!\" /",
+    "Verse 3": "|Hail the heaven-born|Prince of ^Peace!|Hail the Sun of|Righteousness! /|Light and life to|all He ^brings,|risen with healing|in His wings. /|Mild He lays His|glory by,|born that ^we no|more may die, /|born to raise us|from the earth,|born to ^give us|second birth. /|Hark! The herald|angels ^sing,|\"Glory to ^the|newborn King!\" /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Tag", "chords": "verse:17-20", "role": "tag", "lyrics": "Verse 3@17-20", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "joy-to-the-world",
+   "title": "Joy to the World",
+   "words": "Isaac Watts (1719)",
+   "music": "ANTIOCH, George F. Handel; arranged by Lowell Mason (1836)",
+   "public_domain": {"words": 1719, "music": 1836, "writers_died": 1872},
+   "key": "D", "bpm": 100, "meter": 4, "style": "christmas-anthem", "season": "christmas",
+   "chords": {
+    "verse": ["D", "G A@3", "D", "D A@3", "D", "A", "D", "D", "D", "A", "D", "G D@3", "A", "D"],
+    "intro": ["D", "G", "A", "D"],
+    "interlude": ["G", "D", "A", "D"],
+    "outro": ["G", "D", "A", "D"]
+   },
+   "lyrics": {
+    "Verse 1": "|Joy to the world, the|Lord is ^come! Let|earth receive her|King; let ^every|heart pre~|pare Him|room, / and|heaven and nature|sing, and|heaven and nature|sing, and|heaven, and ^heaven and|nature|sing. /",
+    "Verse 2": "|Joy to the earth, the|Savior ^reigns! Let|men their songs em~|ploy; while ^fields and|floods, rocks,|hills and|plains / re~|peat the sounding|joy, re~|peat the sounding|joy, re~|peat, re^peat the|sounding|joy. /",
+    "Verse 3": "|No more let sins and|sorrows ^grow, nor|thorns infest the|ground; He ^comes to|make His|blessings|flow / far|as the curse is|found, far|as the curse is|found, far|as, far ^as the|curse is|found. /",
+    "Verse 4": "|He rules the world with|truth and ^grace, and|makes the nations|prove the ^glories|of His|righteous~|ness / and|wonders of His|love, and|wonders of His|love, and|wonders, ^wonders|of His|love. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:9-14", "role": "tag", "lyrics": "Verse 4@9-14", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "christ-the-lord-is-risen",
+   "title": "Christ the Lord Is Risen Today",
+   "words": "Charles Wesley (1739)",
+   "music": "EASTER HYMN, Lyra Davidica (1708)",
+   "public_domain": {"words": 1739, "music": 1708, "writers_died": 1788},
+   "key": "C", "bpm": 92, "meter": 4, "style": "easter-anthem", "season": "easter",
+   "chords": {
+    "verse": ["C", "F C@3", "C G@3", "C", "C", "G", "C F@3", "G", "C", "F C@3", "G", "C", "F", "C", "F G@3", "C"],
+    "intro": ["C", "F", "G", "C"],
+    "interlude": ["F", "C", "G", "C"],
+    "outro": ["F", "C", "G", "C"]
+   },
+   "lyrics": {
+    "Verse 1": "|Christ the Lord is|risen to^day, /|Alle^lu~|ia! /|Sons of men and|angels say, /|Alle^lu~|ia! /|Raise your joys and|triumphs ^high, /|Alle~|luia! /|Sing, ye heavens, and|earth reply, /|Alle^lu~|ia! /",
+    "Verse 2": "|Love's redeeming|work is ^done, /|Alle^lu~|ia! /|Fought the fight, the|battle won, /|Alle^lu~|ia! /|Death in vain for~|bids Him ^rise, /|Alle~|luia! /|Christ has opened|Paradise, /|Alle^lu~|ia! /",
+    "Verse 3": "|Lives again our|glorious ^King, /|Alle^lu~|ia! /|Where, O death, is|now thy sting? /|Alle^lu~|ia! /|Once He died our|souls to ^save, /|Alle~|luia! /|Where thy victory,|O grave? /|Alle^lu~|ia! /",
+    "Verse 4": "|Soar we now where|Christ has ^led, /|Alle^lu~|ia! /|Following our ex~|alted Head, /|Alle^lu~|ia! /|Made like Him, like|Him we ^rise, /|Alle~|luia! /|Ours the cross, the|grave, the skies, /|Alle^lu~|ia! /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
   }
  ]
 }

@@ -53,7 +53,7 @@ VERSION_RE = re.compile(r"^\d+(\.\d+){0,3}$")
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 # 10.0.1: while the website isn't open, the list (with each zip's size and sha256) comes straight from the published
 # "libraries" release; the page asks the driver for it (GitHub's download redirect has no CORS header)
-INDEX_URL = os.environ.get("CC_LIBRARIES_INDEX", "https://github.com/MotionAudio/Central-Apps/releases/download/libraries/libraries-index.json")
+INDEX_URL = os.environ.get("CC_LIBRARIES_INDEX", "https://libraries.motionaudio.org/libraries-index.json")
 _index_cache = {}
 
 

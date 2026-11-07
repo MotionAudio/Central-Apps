@@ -45,8 +45,15 @@ SOURCES = {
     "bearsax": ("sfzinstruments/karoryfer.bear-sax", "7abb3c652525a15dfac80e1b5dfbba9964ee568f", "Bear Sax - Karoryfer Samples (1926 Conn baritone saxophone)"),
     # 10.0 (LICENSE: CC0 1.0; readme: "Royalty-free for all commercial and non-commercial use")
     "ergo": ("sfzinstruments/karoryfer.ergo", "c3232f03608e07e4e274c8ad9a1a4c32885f75c4", "Ergo electric upright bass - Karoryfer Samples (played and mapped by D. Smolken)"),
+    # 10.5, more (LICENSE: CC0 1.0 in each repository)
+    "gogodze": ("sfzinstruments/karoryfer.gogodze-phu-vol-ii", "69a0274cdc39c99c3098cde1bc3789690de86d62", "Gogodze Phu Vol II - Karoryfer Samples (a small lo-fi kit, 2018 KVR Developer Challenge)"),
+    "sneaky": ("sfzinstruments/karoryfer.sneakybass", "cc1a67e5c913678b85eaad1a3b5cb180d3be3e2d", "Sneakybass - Karoryfer Samples (a double bass played very quietly, D. Smolken)"),
+    "ganjo": ("sfzinstruments/ganjo", "ccff5cd5cd3b513873a48994c07724d9d3c39e1c", "ganjo - a six-string guitar banjo (sfzinstruments)"),
+    # 10.5 (LICENSE: CC-BY 3.0 - credited in CREDITS.txt and on the bank: Greg Sullivan, SFZ by kinwie)
+    "epianos": ("sfzinstruments/GregSullivan.E-Pianos", "8c3e581acda3594b553948ff0222d4f84a698376", "Greg Sullivan E-Pianos - Wurlitzer EP200, Yamaha CP80, Hohner Pianet T (CC-BY 3.0; SFZ by kinwie)"),
 }
 LICENSE = "CC0 1.0"
+LICENSES = {"epianos": "CC-BY 3.0"}   # (10.5: everything else is CC0 1.0)
 
 # instrument id -> source, SFZ program, kind (drum / decay / sus), keys rendered (lo, hi), seconds kept, controllers,
 # samples left out (a pattern on the path), most velocity layers
@@ -66,6 +73,13 @@ INSTR = {
     "barisax": dict(src="bearsax", program="Programs/2-solo-poly.sfz", kind="sus", keys=(24, 70), layers=2, exclude=r"(?i)noise|breath|growl|sub_|release|rel_"),
     "ergopizz": dict(src="ergo", program="ergo_pizz.sfz", kind="decay", keys=(24, 72), cut=3.5, layers=3, exclude=r"(?i)noise|release|rel_|slap"),
     "ergoarco": dict(src="ergo", program="ergo_arco.sfz", kind="sus", keys=(24, 72), layers=2, exclude=r"(?i)noise|release|rel_"),
+    # 10.5
+    "lofikit": dict(src="gogodze", program="Programs/Kit.sfz", kind="drum", keys=(35, 81), cut=3.0, layers=3),
+    "sneakybass": dict(src="sneaky", program="Programs/02-sneakybass_pluck.sfz", kind="decay", keys=(24, 72), cut=3.5, layers=3, exclude=r"(?i)noise|release|rel_|mute|ghost"),
+    "banjo": dict(src="ganjo", program="ganjo.sfz", kind="decay", keys=(38, 86), cut=3.0, layers=1),
+    "wurli": dict(src="epianos", program="Wurlitzer EP200/Wurlitzer EP200.sfz", kind="decay", keys=(33, 96), cut=5.0, layers=3, exclude=r"(?i)release|rel_"),
+    "cp80": dict(src="epianos", program="CP80/CP80.sfz", kind="decay", keys=(28, 103), cut=5.0, layers=3, exclude=r"(?i)release|rel_"),
+    "pianet": dict(src="epianos", program="Pianet T/Pianet T.sfz", kind="decay", keys=(36, 96), cut=4.0, layers=3, exclude=r"(?i)release|rel_"),
 }
 
 # bank -> (plan, presets: (name, [(instrument, key lo, key hi, attack, release or None, dB)]))
@@ -75,6 +89,7 @@ BANKS = [
         ("Rusty Rock Kit", [("rustykit", 0, 127, 0.001, None, 0)]),
         ("Unruly Kit", [("unrulykit", 0, 127, 0.001, None, 0)]),
         ("Brushes Kit", [("brushkit", 0, 127, 0.001, None, 0)]),
+        ("Lo-fi Kit", [("lofikit", 0, 127, 0.001, None, 0)]),   # (10.5: a small, dusty kit for quiet songs and lo-fi beats)
     ]),
     ("Central Instrument Guitars and Basses", "instrument", [
         ("Hollowbody Guitar (Gretsch)", [("green", 0, 127, 0.002, 0.4, 0)]),
@@ -86,6 +101,15 @@ BANKS = [
         ("Acoustic Bass (hollowbody)", [("bigbass", 0, 127, 0.002, 0.3, 0)]),
         ("Electric Upright Bass", [("ergopizz", 0, 127, 0.002, 0.3, 0)]),
         ("Electric Upright Bass (bowed)", [("ergoarco", 0, 127, 0.07, 0.45, 0)]),
+        ("Quiet Upright Bass", [("sneakybass", 0, 127, 0.002, 0.35, 0)]),   # (10.5: for the softest songs)
+        ("Banjo", [("banjo", 0, 127, 0.002, 0.3, 0)]),                      # (10.5: country and bluegrass hymns)
+    ]),
+    # 10.5: real electric pianos (Greg Sullivan, CC-BY 3.0 - credited): the worship keys players' first ask
+    ("Central Keys Electric Pianos", "keys", [
+        ("Wurlitzer EP200", [("wurli", 0, 127, 0.002, 0.5, 0)]),
+        ("CP80 Electric Grand", [("cp80", 0, 127, 0.002, 0.5, 0)]),
+        ("Pianet T", [("pianet", 0, 127, 0.002, 0.4, 0)]),
+        ("Wurlitzer & Pad", [("wurli", 0, 127, 0.002, 0.8, -1), ("cp80", 0, 127, 0.4, 2.0, -9)]),
     ]),
     ("Central Instrument Saxophones", "instrument", [
         ("Alto Sax", [("altosax", 0, 127, 0.03, 0.3, 0)]),
@@ -239,7 +263,7 @@ def build_bank(bank, cache, out_dir):
     out = os.path.join(out_dir, bank_file(name))
     if os.path.isfile(out):
         return out
-    V.say(name + " (sfzinstruments / Karoryfer, CC0)")
+    V.say(name + " (sfzinstruments / Karoryfer - %s)" % " / ".join(sorted({LICENSES.get(INSTR[i]["src"], LICENSE) for _p, ls in presets for i, *_r in ls})))
     samples, instruments, index, base = [], [], {}, {}
     pr_out = []
     for prog, (pname, layers) in enumerate(presets):
@@ -261,7 +285,8 @@ def build_bank(bank, cache, out_dir):
             z.append(("instrument", index[key]))
             pz.append(z)
         pr_out.append({"name": pname, "prog": prog, "zones": pz})
-    V.write_sf2(out, name, samples, instruments, pr_out, copyright=COPYRIGHT, comment=COMMENT)
+    lic = sorted({LICENSES.get(INSTR[i]["src"], LICENSE) for i in base})
+    V.write_sf2(out, name, samples, instruments, pr_out, copyright=("%s - %s (see CREDITS.txt)" % (" / ".join(lic), ", ".join(sorted({SOURCES[INSTR[i]["src"]][2].split(" - ")[0] for i in base})))) if lic != [LICENSE] else COPYRIGHT, comment=COMMENT)
     V.say("  -> %s (%.0f MB, %d samples)" % (os.path.basename(out), os.path.getsize(out) / 1e6, len(samples)))
     return out
 

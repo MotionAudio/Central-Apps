@@ -13,8 +13,8 @@
   var esc = PP.escapeHtml, LS = "central-tracks";
   // (10.0: the preview shows Motion Audio's own hymn multitracks - public-domain hymns in our arrangements, hymns/hymns.json;
   // 10.2: each with its 30-second preview from the "central-tracks" release, so they can be heard before a server is set;
-  // 10.3: all 20 of them - the test checks this list against hymns.json)
-  var HYMN = "https://github.com/MotionAudio/Central-Apps/releases/download/central-tracks/";
+  // 10.3: all of them - the test checks this list against hymns.json; 10.5: 34, with Cloudflare the previews' home)
+  var HYMN = "https://libraries.motionaudio.org/central-tracks/";   // (10.5: Cloudflare, where the website's HYMNS_BASE_URL points; the GitHub release "central-tracks" until 10.4)
   var PREVIEW = [
     { id: "p1", title: "Amazing Grace", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 72, price: 20, preview: HYMN + "amazing-grace--amazing-grace-preview.mp3" },
     { id: "p2", title: "Joyful, Joyful, We Adore Thee", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 100, price: 20, preview: HYMN + "joyful-joyful--joyful-joyful-preview.mp3" },
@@ -36,6 +36,20 @@
     { id: "h18", title: "The First Noel", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 96, price: 20, preview: HYMN + "first-noel--first-noel-preview.mp3" },
     { id: "h19", title: "Away in a Manger", artist: "Motion Audio", kind: "Multitrack", key: "F", bpm: 84, price: 20, preview: HYMN + "away-in-a-manger--away-in-a-manger-preview.mp3" },
     { id: "h20", title: "Jesus Christ Is Risen Today", artist: "Motion Audio", kind: "Multitrack", key: "C", bpm: 100, price: 20, preview: HYMN + "jesus-christ-is-risen--jesus-christ-is-risen-preview.mp3" },
+    { id: "h21", title: "Jesus Paid It All", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 72, price: 20, preview: HYMN + "jesus-paid-it-all--jesus-paid-it-all-preview.mp3" },
+    { id: "h22", title: "I Surrender All", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 66, price: 20, preview: HYMN + "i-surrender-all--i-surrender-all-preview.mp3" },
+    { id: "h23", title: "Praise to the Lord, the Almighty", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 112, price: 20, preview: HYMN + "praise-to-the-lord--praise-to-the-lord-preview.mp3" },
+    { id: "h24", title: "All Hail the Power of Jesus' Name", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 100, price: 20, preview: HYMN + "all-hail-the-power--all-hail-the-power-preview.mp3" },
+    { id: "h25", title: "O for a Thousand Tongues to Sing", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 104, price: 20, preview: HYMN + "o-for-a-thousand-tongues--o-for-a-thousand-tongues-preview.mp3" },
+    { id: "h26", title: "Take My Life and Let It Be", artist: "Motion Audio", kind: "Multitrack", key: "F", bpm: 84, price: 20, preview: HYMN + "take-my-life--take-my-life-preview.mp3" },
+    { id: "h27", title: "Just As I Am", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 88, price: 20, preview: HYMN + "just-as-i-am--just-as-i-am-preview.mp3" },
+    { id: "h28", title: "Leaning on the Everlasting Arms", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 100, price: 20, preview: HYMN + "leaning-on-the-everlasting-arms--leaning-on-the-everlasting-arms-preview.mp3" },
+    { id: "h29", title: "'Tis So Sweet to Trust in Jesus", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 78, price: 20, preview: HYMN + "tis-so-sweet--tis-so-sweet-preview.mp3" },
+    { id: "h30", title: "When I Survey the Wondrous Cross", artist: "Motion Audio", kind: "Multitrack", key: "F", bpm: 76, price: 20, preview: HYMN + "when-i-survey--when-i-survey-preview.mp3" },
+    { id: "h31", title: "Silent Night", artist: "Motion Audio", kind: "Multitrack", key: "Bb", bpm: 92, price: 20, preview: HYMN + "silent-night--silent-night-preview.mp3" },
+    { id: "h32", title: "Hark! The Herald Angels Sing", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 104, price: 20, preview: HYMN + "hark-the-herald--hark-the-herald-preview.mp3" },
+    { id: "h33", title: "Joy to the World", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 100, price: 20, preview: HYMN + "joy-to-the-world--joy-to-the-world-preview.mp3" },
+    { id: "h34", title: "Christ the Lord Is Risen Today", artist: "Motion Audio", kind: "Multitrack", key: "C", bpm: 92, price: 20, preview: HYMN + "christ-the-lord-is-risen--christ-the-lord-is-risen-preview.mp3" },
     { id: "p6", title: "Warm Swell Pad (all 12 keys)", artist: "Motion Audio", kind: "Pad", key: "", bpm: 0, price: 9.99 },
     { id: "p7", title: "Felt Upright (sampled)", artist: "Grace Hill Keys", kind: "Sound", key: "", bpm: 0, price: 4.99, stars: 4 },
     { id: "p8", title: "Worship Lead Board (ambient)", artist: "M. Ortiz", kind: "Board", key: "", bpm: 0, price: 1.99, stars: 3 },

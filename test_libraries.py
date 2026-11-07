@@ -90,7 +90,7 @@ def main():
 def run(tmp):
     print("The library definitions:")
     defs = BUILD.load_definitions()
-    check("seven libraries: one for each plan (Central Pads, and Central Utility since 10.2), and Central Pads Extra (10.3) - a second for the pads plan", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pads", "pedals", "plugins", "utility"] and sorted(l["id"] for l in defs if l["plan"] == "pads") == ["central-pads-extra", "central-pads-library"], [l["plan"] for l in defs])
+    check("eight libraries: one for each plan (Central Pads, and Central Utility since 10.2), and Central Pads Extra (10.3) and Central Pads More (10.5) - a second and third for the pads plan", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pads", "pads", "pedals", "plugins", "utility"] and sorted(l["id"] for l in defs if l["plan"] == "pads") == ["central-pads-extra", "central-pads-library", "central-pads-more"], [l["plan"] for l in defs])
     node = subprocess.run(["node", "-e", "const P=require('./js/pedals.js');console.log(JSON.stringify(P.pedals.map(p=>[p.id,p.tier,Object.keys(p.knobs),!!p.opts.irFile])))"], cwd=HERE, capture_output=True, text=True)
     pedals = {p[0]: p for p in json.loads(node.stdout)}
     bad = []
@@ -190,7 +190,7 @@ def run(tmp):
     mix = VCSL_R.render_note(sfz, act, 36, 100, lambda p: (tone(100), 44100))
     check("a note mixes every microphone that sounds there (kick + overhead, at their levels)", mix is not None and abs(float(np.max(np.abs(mix[0]))) - 0.5 * (1 + 0.5 * 10 ** (-6 / 20))) < 0.02, mix and float(np.max(np.abs(mix[0]))))
     SFZB = load("sounds_sfz", "tools/sounds-sfz.py")
-    check("every SFZ library is CC0 at a pinned commit, and every instrument a bank uses is defined", all(len(c) == 40 for _r, c, _t in SFZB.SOURCES.values()) and SFZB.LICENSE == "CC0 1.0"
+    check("every SFZ library is at a pinned commit (CC0, or CC-BY credited - 10.5), and every instrument a bank uses is defined", all(len(c) == 40 for _r, c, _t in SFZB.SOURCES.values()) and SFZB.LICENSE == "CC0 1.0"
           and all(layer[0] in SFZB.INSTR for _b, _p, presets in SFZB.BANKS for _n, layers in presets for layer in layers))
 
     print("\nThe pads and textures (tools/make-pads.py, 10.2):")
@@ -232,21 +232,26 @@ def run(tmp):
     f0 = np.argmax(spec[: int(400 * LOOPS.LOOP)]) / LOOPS.LOOP   # (the strongest low partial: F#3 185 Hz or its octave / fifth)
     check("Central Pads: a key's loop is a stereo WAV of the loop's length, about -6 dBFS, in its key (F#: Fs.wav), seamless", okw and 0.45 < peak < 0.52 and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
           and any(abs(f0 - 185.0 * m) < 6 for m in (0.25, 0.5, 1, 1.5, 2, 3)) and seamless(frames), (okw, peak, f0))
-    check("Central Pads: 41 styles, the same ones the library lists; Central Pads Extra: 35 more, none the same", len(LOOPS.MAIN_NAMES) == 41 and len(set(LOOPS.NAMES)) == 76
-          and LOOPS.MAIN_NAMES == [p["name"] for p in by["pads"]["pads"]] and LOOPS.NAMES[41:] == [p["name"] for p in extra["pads"]] and extra["plan"] == "pads", LOOPS.NAMES)
+    more = next(l for l in defs if l["id"] == "central-pads-more")
+    check("Central Pads: 41 styles, the same ones the library lists; Central Pads Extra: 35 more, none the same; Central Pads More (10.5): 18 more", len(LOOPS.MAIN_NAMES) == 41 and len(set(LOOPS.NAMES)) == 94
+          and LOOPS.MAIN_NAMES == [p["name"] for p in by["pads"]["pads"]] and LOOPS.NAMES[41:76] == [p["name"] for p in extra["pads"]] and LOOPS.NAMES[76:] == [p["name"] for p in more["pads"]] and extra["plan"] == more["plan"] == "pads", LOOPS.NAMES)
     pdir2 = LOOPS.build_pulse(os.path.join(tmp, "pulse"), keys=["D"], log=lambda *a: None)
     gw = [e for e in pdir2 if e["key"] == "D"]
     with _wave.open(os.path.join(tmp, "pulse", gw[0]["file"])) as w:
         okp = w.getnchannels() == 2 and abs(w.getnframes() / w.getframerate() - LOOPS.PULSE_SECONDS) < 1e-3
     check("the moving pads: six, each in all 12 keys, a 4-second stereo bed with its gate (16 steps, 0-9, '~' to glide)", len({e["name"] for e in pdir2}) == 6 and len(pdir2) == 72 and okp
           and all(re.match(r"^~?[0-9]{16}$", e["gate"]) for e in pdir2), gw[:2])
+    with open(os.path.join(tmp, "pulse-more", "index.json")) as handle:   # (10.5: Central Pads More's six, built beside them)
+        pmore = json.load(handle)
+    check("the moving pads of Central Pads More: six more, their own set (pulse-more) beside Central Pads Extra's", len({e["name"] for e in pmore}) == 6 and len(pmore) == 72 and not ({e["name"] for e in pmore} & {e["name"] for e in pdir2})
+          and all(re.match(r"^~?[0-9]{16}$", e["gate"]) for e in pmore) and os.path.isfile(os.path.join(tmp, "pulse-more", [e for e in pmore if e["key"] == "D"][0]["file"])), [e["name"] for e in pmore][:6])
 
     print("\nThe zips (tools/build-libraries.py):")
     snd = os.path.join(tmp, "sounds")
     os.makedirs(snd)
     for s in want:
         tiny_sf2(os.path.join(snd, BUILD.sound_file(s)), s)
-    for pd in by["pads"]["pads"] + extra["pads"]:   # (Central Pads and Extra: a tiny loop per style and key)
+    for pd in by["pads"]["pads"] + extra["pads"] + more["pads"]:   # (Central Pads, Extra and More: a tiny loop per style and key)
         for k in BUILD.PAD_KEYS:
             LOOPS.loop_wav(os.path.join(snd, "pad-loops", BUILD.pad_loop_file(pd["name"], k)), np.zeros(64, np.float32), np.zeros(64, np.float32))
     for lib in defs:   # (10.0: the loops - a tiny one per set; tools/make-loops.py's own checks are in test_content.py)

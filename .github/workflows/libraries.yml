@@ -1,28 +1,20 @@
-# Builds the sound libraries - one zip per plan (Central Keys, Central Instrument, Central Plugins, Central Pedals) - and
-# publishes them on the GitHub release tagged "libraries" (made if it isn't there, its files replaced if it is), with
-# libraries-index.json (what the website's /v1/libraries and the apps read) and SHA256SUMS - and (10.2) a 30-second
+# Builds the sound libraries - one zip per plan (Central Keys, Central Instrument, Central Plugins, Central Pedals, Central
+# Pads and its extra sets, Central Utility) - and publishes them in Cloudflare R2 (the bucket behind libraries.motionaudio.org),
+# with libraries-index.json (what the website's /v1/libraries and the apps read) and SHA256SUMS - and (10.2) a 30-second
 # preview MP3 of each pad, loop, instrument preset, keys preset and IR (tools/make-previews.py), so people can hear them
-# before they download.
+# before they download. The Central Tracks hymns go up beside them, under central-tracks/.
 #
-# Runs by hand (Actions -> Sound libraries -> Run workflow) and whenever a library's sources change on main or on
-# release/9.8.0 (so the files are built before that release).
-# The "libraries" release is a pre-release and never "latest", so the apps' update checks (which read the latest
-# release) never see it.
+# Runs by hand (Actions -> Sound libraries -> Run workflow) and whenever a library's sources change on main.
 #
-# Where the zips are downloaded from: the website's LIBRARIES_BASE_URL (Render -> Environment). Today that is this
-# release: https://github.com/MotionAudio/central-apps/releases/download/libraries
+# Where things are downloaded from: the website's LIBRARIES_BASE_URL and HYMNS_BASE_URL (Render -> Environment):
+#   https://libraries.motionaudio.org and https://libraries.motionaudio.org/central-tracks
+# (10.5: the GitHub releases "libraries" and "central-tracks" were their home until 10.4; they stay as they were, for the
+#  apps from before, and nothing new goes there - only the small fixture library for the lights page still does.)
 #
-# Cloudflare R2, later: the last step below copies the zips to an R2 bucket. It is off until it is set up:
-#   1. Cloudflare -> R2 -> Create bucket (e.g. central-libraries); Settings -> Public access: connect a custom domain
-#      (e.g. libraries.motionaudio.org) or allow the r2.dev URL.
-#   2. R2 -> Manage API tokens -> Create token, "Object Read & Write" on that bucket. Then in GitHub -> Settings ->
-#      Secrets and variables -> Actions, add the secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
-#      (never paste them anywhere else).
-#   3. Add the repository variable R2_UPLOAD = on (Settings -> Secrets and variables -> Actions -> Variables), set
-#      R2_PUBLIC_URL to the bucket's public address and R2_HYMNS_URL to that address plus /central-tracks, so the indexes
-#      point there. Then run this workflow with nothing in "only".
-#   4. When it has finished, set LIBRARIES_BASE_URL and HYMNS_BASE_URL on Render to those same two addresses and redeploy. The apps and the website then download
-#      from Cloudflare; the GitHub release stays as a copy.
+# Cloudflare R2 (on since 10.4): the repository variable R2_UPLOAD = on, R2_PUBLIC_URL and R2_HYMNS_URL (Settings -> Secrets
+# and variables -> Actions -> Variables), and the secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+# (an R2 API token with Object Read & Write on the bucket; never paste them anywhere else). With R2_UPLOAD off, the
+# build runs and the files stay in the workflow's dist/ folder (an artifact below) - nothing is published.
 name: Sound libraries
 on:
   workflow_dispatch:
@@ -32,7 +24,7 @@ on:
         required: false
         default: ""
   push:
-    branches: [main, release/9.8.0, release/10.0.0]   # (a release branch: the files are built before that release)
+    branches: [main]
     paths:
       - libraries/**
       - hymns/**
@@ -73,9 +65,9 @@ jobs:
     env:
       WORK: ${{ github.workspace }}/work
       OUT: ${{ github.workspace }}/dist/libraries
-      LIBRARIES_BASE_URL: ${{ vars.R2_UPLOAD == 'on' && vars.R2_PUBLIC_URL || 'https://github.com/MotionAudio/central-apps/releases/download/libraries' }}
+      LIBRARIES_BASE_URL: ${{ vars.R2_PUBLIC_URL || 'https://libraries.motionaudio.org' }}
       ONLY: ${{ github.event.inputs.only }}
-      HYMNS_BASE_URL: ${{ vars.R2_UPLOAD == 'on' && vars.R2_HYMNS_URL || 'https://github.com/MotionAudio/central-apps/releases/download/central-tracks' }}
+      HYMNS_BASE_URL: ${{ vars.R2_HYMNS_URL || 'https://libraries.motionaudio.org/central-tracks' }}
     steps:
       - uses: actions/checkout@v4
       - name: Check Cloudflare R2 access (before hours of building)
@@ -108,20 +100,13 @@ jobs:
             fluidsynth -ni -F /tmp/check.wav "$f" >out.txt 2>&1 || true   # (no MIDI file: it loads the bank and stops)
             if grep -qiE "error|not a soundfont" out.txt; then echo "$f:"; cat out.txt; exit 1; fi
           done
-      - name: Publish on the "libraries" release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: One library rebuilt - keep the others in the index
+        if: ${{ env.ONLY != '' }}
         run: |
-          NOTES="Libraries for Central Keys, Central Instrument, Central Plugins, Central Pedals, Central Pads and Central Utility, and the lights page's fixture library. Anyone can download them; they open with the plan's package key (Settings -> Packages in any app). libraries-index.json lists what's in each. Built from ${GITHUB_SHA::7}."
-          if gh release view libraries >/dev/null 2>&1; then
-            gh release edit libraries --prerelease --latest=false --title "Sound libraries" --notes "$NOTES"
-          else
-            gh release create libraries --prerelease --latest=false --title "Sound libraries" --notes "$NOTES" --target "$GITHUB_SHA"
-          fi
-          # (one library rebuilt: the others' files stay; the index and SHA256SUMS list what was built this time plus what's there)
-          if [ -n "$ONLY" ]; then
-            gh release download libraries -p libraries-index.json -D old || true
-            python3 - "$OUT" old/libraries-index.json <<'PY'
+          # (one library rebuilt: the others' files stay where they are; the index and SHA256SUMS list what was built this
+          #  time plus what is published already)
+          curl -fsSL -o old-index.json "$LIBRARIES_BASE_URL/libraries-index.json" || true
+          python3 - "$OUT" old-index.json <<'PY'
           import hashlib, json, os, sys
           out, old = sys.argv[1], sys.argv[2]
           new = json.load(open(os.path.join(out, "libraries-index.json")))
@@ -134,20 +119,16 @@ jobs:
                   f.write("%s  %s\n" % (e["sha256"], e["file"]))
               f.write("%s  libraries-index.json\n" % hashlib.sha256(open(os.path.join(out, "libraries-index.json"), "rb").read()).hexdigest())
           PY
-          fi
-          # (10.2: the 30-second previews go up before the index that lists them)
-          ls "$OUT"/preview--*.mp3 >/dev/null 2>&1 && gh release upload libraries "$OUT"/preview--*.mp3 --clobber
-          gh release upload libraries "$OUT"/*.zip "$OUT/libraries-index.json" "$OUT/SHA256SUMS" --clobber
-          echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/libraries"
           ls -l "$OUT"
 
       # ---- (10.2) the fixture library: the Open Fixture Library (MIT) and the QLC+ fixture definitions (Apache 2.0), as
       # one file the lights page's "Update the fixture library" downloads (the apps carry a copy too)
-      - name: The fixture library
+      - name: The fixture library (on the GitHub release "libraries", where the apps' lights page looks for it)
         if: ${{ env.ONLY == '' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          gh release view libraries >/dev/null 2>&1 || gh release create libraries --prerelease --latest=false --title "Sound libraries" --notes "The sound libraries moved to Cloudflare (libraries.motionaudio.org) in 10.5. This release keeps the lights page's fixture library and the files the apps before 10.5 download." --target "$GITHUB_SHA"
           git clone -q --depth 1 https://github.com/OpenLightingProject/open-fixture-library work/ofl
           git clone -q --depth 1 https://github.com/mcallegari/qlcplus work/qlcplus
           python3 tools/make-fixture-library.py --ofl work/ofl --qlc work/qlcplus --out dist/fixture-library.json.gz \
@@ -168,22 +149,8 @@ jobs:
           #  Black And Green guitars, VSCO 2 strings - fetched from their repositories by tools/sampler.py and cached)
           pip install --quiet soundfile pyloudnorm scipy
           python3 tools/make-hymns.py --samples work/samples --out dist/hymns --base-url "$HYMNS_BASE_URL"
-      - name: Publish the hymns on the "central-tracks" release
-        if: ${{ env.ONLY == '' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          NOTES="Central Tracks hymns: public-domain hymns in Motion Audio's own arrangements (stems, song files with sections, lyrics and chords, previews). The website lists them in Central Tracks from hymns-index.json. Built from ${GITHUB_SHA::7}."
-          if gh release view central-tracks >/dev/null 2>&1; then
-            gh release edit central-tracks --prerelease --latest=false --title "Central Tracks hymns" --notes "$NOTES"
-          else
-            gh release create central-tracks --prerelease --latest=false --title "Central Tracks hymns" --notes "$NOTES" --target "$GITHUB_SHA"
-          fi
-          gh release upload central-tracks dist/hymns/release/* --clobber
-          echo "Published: https://github.com/${GITHUB_REPOSITORY}/releases/tag/central-tracks"
-
-      # ---- Cloudflare R2 (OFF until set up - see the top of this file). Turn on with the repository variable R2_UPLOAD = on.
-      - name: Copy to Cloudflare R2 (disabled until R2_UPLOAD = on)
+      # ---- Cloudflare R2: where everything is downloaded from (see the top of this file)
+      - name: Copy to Cloudflare R2
         if: ${{ vars.R2_UPLOAD == 'on' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -210,3 +177,14 @@ jobs:
           fi
           # (the index last: the apps only see a new version once its zip is there)
           aws s3 cp "$OUT/libraries-index.json" "s3://${R2_BUCKET}/libraries-index.json" --endpoint-url "$ENDPOINT" --content-type application/json --cache-control "max-age=300"
+          echo "Published: $LIBRARIES_BASE_URL/libraries-index.json"
+      - name: Keep the files as a workflow artifact when they weren't published (R2_UPLOAD off)
+        if: ${{ vars.R2_UPLOAD != 'on' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sound-libraries
+          path: |
+            dist/libraries/libraries-index.json
+            dist/libraries/SHA256SUMS
+            dist/hymns/release/hymns-index.json
+          retention-days: 14

@@ -35,6 +35,15 @@ CABS = [
     ("Central Bass 4x10", dict(hp=(45, 0.8), res=(70, 4, 1.4), peaks=[(400, -3, 0.9), (1200, 2, 1.1), (2800, 3, 1.5)], lp=(4500, 4), ripple=1.5, seed=21, room=(0.8, 0.06))),
     ("Central Bass 1x15", dict(hp=(38, 0.8), res=(55, 5, 1.3), peaks=[(300, -2, 0.9), (900, 1, 1.0)], lp=(2600, 4), ripple=1.2, seed=22, room=(0.9, 0.06))),
     ("Central Bass 8x10", dict(hp=(42, 0.8), res=(65, 5, 1.2), peaks=[(250, 2, 1.0), (600, -2, 1.0), (1800, 2, 1.2)], lp=(3800, 6), ripple=1.6, seed=23, room=(0.7, 0.05))),
+    # 10.5, more cabinets
+    ("Central 1x12 Tweed Deluxe", dict(hp=(95, 0.8), res=(125, 4, 1.3), peaks=[(600, 1.5, 0.9), (1900, 3.5, 1.1), (3200, 2.5, 1.6)], lp=(5200, 4), ripple=2.4, seed=18, room=(1.5, 0.2))),
+    ("Central 2x12 Jazz Clean", dict(hp=(70, 0.7), res=(95, 3, 1.3), peaks=[(350, -1.5, 0.9), (1200, 1.0, 1.0), (2800, 1.5, 1.2), (5000, -2, 1.5)], lp=(7000, 4), ripple=0.9, seed=19, room=(1.1, 0.1))),
+    ("Central 4x12 Greenback", dict(hp=(88, 0.8), res=(100, 5, 1.6), peaks=[(700, 1.5, 0.9), (1400, 2.5, 1.2), (2400, 4, 1.4), (4200, -3, 1.6)], lp=(4800, 6), ripple=2.6, seed=24, room=(0.8, 0.06))),
+    ("Central 1x15 Blues", dict(hp=(65, 0.8), res=(85, 4.5, 1.3), peaks=[(450, 1, 0.9), (1600, 2, 1.1), (2600, 3, 1.5)], lp=(4400, 4), ripple=2.0, seed=25, room=(1.2, 0.14))),
+    ("Central 2x12 Modern Clean", dict(hp=(80, 0.8), res=(110, 3.5, 1.4), peaks=[(500, -2, 0.9), (2000, 2.5, 1.0), (3600, 3, 1.3), (6000, 1, 1.5)], lp=(7500, 4), ripple=1.2, seed=26, room=(0.9, 0.08))),
+    ("Central 1x10 Practice Amp", dict(hp=(140, 1.0), res=(190, 3, 1.5), peaks=[(1000, 3.5, 1.0), (2200, 2, 1.4), (3400, -2, 1.6)], lp=(4200, 4), ripple=2.8, seed=27, room=(0.9, 0.22))),
+    ("Central Bass 2x10 Modern", dict(hp=(48, 0.8), res=(75, 3.5, 1.4), peaks=[(350, -2, 0.9), (1400, 2.5, 1.1), (3200, 3, 1.4)], lp=(5200, 4), ripple=1.4, seed=28, room=(0.8, 0.06))),
+    ("Central Bass 1x12 Warm", dict(hp=(40, 0.8), res=(60, 4.5, 1.3), peaks=[(280, -1.5, 0.9), (800, 1, 1.0), (1800, 1, 1.2)], lp=(3000, 4), ripple=1.2, seed=29, room=(0.9, 0.06))),
 ]
 
 
@@ -59,6 +68,13 @@ BODIES = [
     ("Central Acoustic Jumbo Body", dict(modes=[(92, 10, 42), (185, 7, 30), (250, 4, 24), (420, 3, 16), (700, 2, 11), (1100, 1.5, 8)], bright=0.5, seed=32)),
     ("Central Acoustic Parlor Body", dict(modes=[(118, 7, 28), (230, 7, 22), (310, 4, 18), (520, 3, 13), (900, 3, 9), (1500, 2, 7)], bright=0.7, seed=33)),
     ("Central Acoustic Nylon Body", dict(modes=[(100, 8, 34), (205, 6, 26), (300, 3, 20), (480, 2, 15), (760, 1.5, 10)], bright=0.4, seed=34)),
+    # 10.5, more bodies
+    ("Central Acoustic OM Body", dict(modes=[(105, 8.5, 36), (205, 7, 26), (245, 4, 22), (410, 3, 16), (640, 2.5, 12), (980, 2, 9), (1400, 1, 7)], bright=0.6, seed=35)),
+    ("Central Acoustic 12-String Body", dict(modes=[(96, 9, 40), (190, 8, 28), (235, 5, 24), (400, 4, 18), (600, 3, 13), (900, 3, 10), (1300, 2, 8), (2000, 1.5, 6)], bright=0.75, seed=36)),
+    ("Central Mandolin Body", dict(modes=[(215, 8, 20), (380, 7, 16), (520, 5, 13), (800, 4, 10), (1300, 3, 8), (2100, 2, 6)], bright=0.85, seed=37)),
+    ("Central Ukulele Body", dict(modes=[(240, 8, 18), (420, 6, 14), (640, 4, 11), (1000, 3, 8), (1600, 2, 6)], bright=0.7, seed=38)),
+    ("Central Resonator Body", dict(modes=[(130, 6, 24), (260, 7, 18), (520, 6, 14), (1100, 6, 12), (1900, 5, 10), (3000, 4, 8)], bright=1.0, seed=39)),
+    ("Central Acoustic Bass Body", dict(modes=[(62, 9, 48), (124, 7, 32), (180, 4, 26), (300, 3, 18), (520, 2, 12), (800, 1.5, 9)], bright=0.4, seed=40)),
 ]
 
 

@@ -2,6 +2,10 @@
 
 The short version of what changed in each release, newest first. Most versions also have their own page in this folder with the full notes.
 
+### 10.5.0
+
+More sounds (a third pads download, real electric pianos, a lo-fi kit, a banjo, 26 more cabinet and body impulse responses, 19 more loops, 30 more boards and presets), 14 more Central Tracks hymns, a looper with up to eight loops that each record their own input, loops you make yourself in Central Usage's Studio, and the sound libraries' move to Cloudflare.
+
 ### 10.4.3
 
 The apps now check their license keys and sound plans at motionaudio.org. The default keys still work, and paid sounds now need a sound plan key.

@@ -163,6 +163,72 @@ def g_swell(b, r):
     return h + [(i / 8, SUSC, int(18 + 22 * (b + i / 32))) for i in range(32)]
 
 
+# 10.5, more grooves
+def g_pocket(b, r):
+    # the modern worship pocket: a fat kick on 1 and the "and" of 2, a cross-stick verse backbeat becoming a snare, eighth hats
+    sn = X if b < 2 else S
+    h = [(0, K, 100), (1.5, K, 84), (2.5, K, 70), (1, sn, 92), (3, sn, 96)] + eighths(HC, 70, 48, 4) + ghosts(r, [1.75, 3.75], chance=0.3)
+    return h + ([(3.75, K, 60)] if b == 3 else [])
+
+
+def g_tom_groove(b, r):
+    # floor tom and kick together on the big beats, snare on 3 only: the anthem build before the chorus
+    return [(0, K, 104), (0, T4, 96), (1.5, T4, 70), (2, S, 108), (2.5, K, 80), (3, T4, 92), (3.5, T3, 64)] + [(i / 2, HC, 62 if i % 2 == 0 else 40) for i in range(8)]
+
+
+def g_builder(b, r):
+    # sixteenths on the floor tom getting louder across the four bars, the snare joining in the last two: a riser you can count
+    v = 54 + 12 * b
+    h = [(0, K, 100), (2, K, 96)] + [(i / 4, T4, int(v + (10 if i % 4 == 0 else 0) + r.integers(-4, 5))) for i in range(16)]
+    return h + ([(i / 4, S, 50 + 14 * (b - 2)) for i in range(16) if i % 2 == 0] if b >= 2 else [])
+
+
+def g_gospel_128(b, r):
+    # 12/8 gospel ballad (counted in eighths, 0..11): kick on 1 and 7, snare on 4 and 10, ride every eighth, a tambourine
+    return [(0, K, 100), (6, K, 96), (9, K, 60), (3, S, 104), (9, S, 108)] + [(i, RIDE, 72 if i % 3 == 0 else 50) for i in range(12)] + [(3, TAMB, 60), (9, TAMB, 64)]
+
+
+def g_country_two_step(b, r):
+    # the country two-step: boom-chick, kick on 1 and 3, a rim on 2 and 4, hats closed and crisp
+    return [(0, K, 96), (2, K, 92), (1, X, 84), (3, X, 86)] + [(i / 2, HC, 70 if i % 2 == 0 else 42) for i in range(8)] + ([(3.5, K, 60)] if b % 2 else [])
+
+
+def g_soft_pop(b, r):
+    # a quiet pop ballad: a kick on 1 and the "a" of 2, a side-stick on 2 and 4, closed hats in sixteenths, very light
+    return [(0, K, 84), (1.75, K, 62), (2, X, 72), (3, X, 0)] + [(1, X, 74), (3, X, 76)] + [(i / 4, HC, 52 if i % 4 == 0 else 28 if i % 2 else 38) for i in range(16)]
+
+
+def g_lofi(b, r):
+    # a lo-fi beat on the dusty kit: a lazy kick, a soft snare a little late, hats swung, nothing in a hurry
+    h = [(0, K, 96), (1.75, K, 70), (2.5, K, 82), (1, S, 88), (3, S, 92)] + [(i / 2, HC, 62 if i % 2 == 0 else 44) for i in range(8)]
+    return h + ghosts(r, [0.75, 2.25, 3.5], chance=0.4)
+
+
+def g_lofi_halftime(b, r):
+    return [(0, K, 100), (1.5, K, 60), (2.75, K, 70), (2, S, 102)] + [(i / 4, HC, 58 if i % 2 == 0 else 32) for i in range(16)] + ghosts(r, [1.25, 3.5], chance=0.5)
+
+
+def g_march(b, r):
+    # a processional march: bass drum on 1 and 3, snare rolls into 2 and 4 (the press roll as fast sixteenths), hats on the beat
+    return [(0, K, 104), (2, K, 100), (1, S, 96), (3, S, 100)] + [(q - 0.25 + i / 12, S, 36 + 8 * i) for q in (1, 3) for i in range(3)] + [(q, HC, 66) for q in range(4)]
+
+
+def g_tambourine(b, r):
+    # just a tambourine and a shaker: for the songs that only need a little lift
+    return [(1, TAMB, 86), (3, TAMB, 88)] + [(i / 2, SHAKE, 62 if i % 2 == 0 else 40) for i in range(8)] + ([(3.5, TAMB, 56), (3.75, TAMB, 50)] if b == 3 else [])
+
+
+def g_djembe(b, r):
+    # a djembe-style groove on the congas and bongos: bass on 1, tones and slaps answering, a shaker underneath
+    return [(0, CONGA_M, 96), (1.5, CONGA_O, 84), (2, CONGA_M, 70), (2.5, CONGA_O, 92), (3, BONGO_H, 74), (3.5, BONGO_L, 70), (3.75, CONGA_O, 60)] + [(i / 4, SHAKE_L, 54 if i % 2 == 0 else 34) for i in range(16)] + ([(1, BONGO_H, 60)] if b % 2 else [])
+
+
+def g_timpani_hymn(b, r):
+    # timpani and a bass drum under a big hymn: the downbeats, rolls into the fourth bar
+    h = [(0, TIMP, 92), (0, OBD, 86), (2, TIMP, 80)] + ([(3 + i / 8, TIMP, 40 + 6 * i) for i in range(8)] if b == 3 else [])
+    return h + [(2, SUSC, 36)] if b in (1, 3) else h
+
+
 def fill_snare(m):   # the last beat: snare and toms in 16ths
     return [(m - 1, S, 82), (m - 0.75, T1, 86), (m - 0.5, T2, 92), (m - 0.25, T4, 100)]
 
@@ -191,6 +257,14 @@ def fill_conga(m):
     return [(m - 1 + i / 4, (CONGA_O, CONGA_M, BONGO_H, BONGO_L)[i], 76 + 6 * i) for i in range(4)]
 
 
+def fill_128(m):   # the last three eighths of a 12/8 bar
+    return [(m - 3 + i, n, 78 + 10 * i) for i, n in enumerate((S, T2, T4))]
+
+
+def fill_press(m):   # a press roll up into the next bar
+    return [(m - 1 + i / 8, S, 40 + 8 * i) for i in range(8)]
+
+
 DRUM_BANK = "Central Instrument Drum Kits"
 PERC_BANK = "Central Instrument Percussion"
 # (name, meter, kit (bank, preset), tempos, swing, fill, room, loudness dBFS RMS, pattern)
@@ -215,8 +289,23 @@ GROOVES = [
     ("Shaker and Congas", 4, (PERC_BANK, "Hand Percussion"), (88, 112), 0, fill_conga, 0.12, -22, g_congas),
     ("Frame Drum 6/8", 6, (PERC_BANK, "Hand Percussion"), (162, 210), 0, None, 0.18, -22, g_perc_68),
     ("Cinematic Swell", 4, (PERC_BANK, "Orchestral Percussion"), (66, 88), 0, None, 0.28, -22, g_swell),
+    # 10.5, more
+    ("Worship Pocket", 4, (DRUM_BANK, "Studio Kit"), (68, 92), 0, fill_snare, 0.10, -19, g_pocket),
+    ("Tom Groove", 4, (DRUM_BANK, "Rusty Rock Kit"), (70, 96), 0, fill_toms, 0.16, -19, g_tom_groove),
+    ("Four-Bar Builder", 4, (DRUM_BANK, "Studio Kit"), (72, 100), 0, None, 0.14, -19, g_builder),
+    ("Gospel 12/8", 12, (DRUM_BANK, "Studio Kit"), (132, 180), 0, fill_128, 0.14, -19, g_gospel_128),
+    ("Country Two-Step", 4, (DRUM_BANK, "Brushes Kit"), (96, 128), 0, fill_pickup, 0.12, -21, g_country_two_step),
+    ("Soft Pop", 4, (DRUM_BANK, "Studio Kit"), (64, 84), 0, None, 0.14, -24, g_soft_pop),
+    ("Lo-fi Beat", 4, (DRUM_BANK, "Lo-fi Kit"), (70, 90), 0.09, fill_pickup, 0.08, -20, g_lofi),
+    ("Lo-fi Half-Time", 4, (DRUM_BANK, "Lo-fi Kit"), (64, 80), 0.06, None, 0.08, -20, g_lofi_halftime),
+    ("Processional March", 4, (DRUM_BANK, "Studio Kit"), (92, 116), 0, fill_press, 0.18, -19, g_march),
+    ("Tambourine and Shaker", 4, (PERC_BANK, "Hand Percussion"), (72, 112), 0, None, 0.12, -24, g_tambourine),
+    ("Djembe Groove", 4, (PERC_BANK, "Hand Percussion"), (84, 108), 0.04, fill_conga, 0.14, -21, g_djembe),
+    ("Timpani Hymn", 4, (PERC_BANK, "Orchestral Percussion"), (60, 84), 0, None, 0.30, -22, g_timpani_hymn),
 ]
-AMBIENT = ["Sparkle", "Drift", "Breath", "Felt Piano", "Guitar Swells", "Cello Drone", "Choir Air", "Harp Rain"]
+AMBIENT = ["Sparkle", "Drift", "Breath", "Felt Piano", "Guitar Swells", "Cello Drone", "Choir Air", "Harp Rain",
+           # 10.5, more
+           "Piano Arps", "Organ Swell", "Strings Rise", "Bell Tower", "Guitar Arpeggio", "Wurlitzer Haze", "Hum Drone"]
 # the ambient styles played on the libraries' instruments: (bank, preset words, fallbacks [(bank, words)], GM program)
 AMB_SOUNDS = {
     "Felt Piano": ("Central Keys Grand Pianos", ["Soft Grand"], [("Central Keys Pianos", ["Soft Upright"])], 0),
@@ -226,6 +315,13 @@ AMB_SOUNDS = {
     "Choir Air aah": ("Central Keys Pads", ["Choir Aah"], [("Central Keys Pads", ["Choir"])], 52),
     "Choir Air ooh": ("Central Keys Pads", ["Choir Ooh"], [("Central Keys Pads", ["Choir"])], 53),
     "Harp Rain": ("Central Instrument Harps", ["Concert Harp"], [("Central Instrument Harps", ["Harp"])], 46),
+    # 10.5
+    "Piano Arps": ("Central Keys Grand Pianos", ["Soft Grand"], [("Central Keys Pianos", ["Soft Upright"])], 0),
+    "Organ Swell": ("Central Keys Organs", ["Organ Swell"], [("Central Keys Organs", ["Quiet Organ"]), ("Central Keys Organs", ["Pipe Organ"])], 19),
+    "Strings Rise": ("VSCO Strings", ["Worship Strings"], [("VSCO Strings", ["String Swell"]), ("Central Keys Pads", ["String Pad"])], 48),
+    "Bell Tower": ("Central Keys Mallets", ["Tubular Bells"], [("Central Keys Mallets", ["Church Bells"]), ("Central Keys Mallets", ["Hand Chimes"])], 14),
+    "Guitar Arpeggio": ("Central Instrument Guitars and Basses", ["Electric Guitar Clean"], [("Central Instrument Guitars and Basses", ["Hollowbody"])], 27),
+    "Wurlitzer Haze": ("Central Keys Electric Pianos", ["Wurlitzer EP200"], [("Central Keys Pianos", ["FM Piano"])], 4),
 }
 
 
@@ -527,6 +623,84 @@ def ambient(style, ki, pads, sounds=None, orchestra=None, gm=None):
             air[:, c] = np.fft.irfft(spec, n)
         x = x / (float(np.max(np.abs(x))) or 1.0) + air / (float(np.max(np.abs(air))) or 1.0) * 0.12
         x = np.stack([circular_reverb(x[:, c], seconds=4.5, wet=0.6, seed=50 + c, dark=7000) for c in range(2)], axis=1)
+    elif style == "Piano Arps":     # a soft grand playing the key's add9 chord as a slow broken chord, round and round, with echoes
+        notes, at = [], 0.1
+        shape = [0, 7, 14, 16, 19, 16, 14, 7]
+        j = 0
+        while at < AMB_SECONDS - 0.3:
+            k = 48 + ki + shape[j % len(shape)] + (12 if (j // len(shape)) % 2 else 0)
+            notes.append((at + float(rng.normal(0, 0.008)), 2.6, k, int(rng.integers(34, 52)), []))
+            at += 0.5 if j % 4 else 0.5 + rng.uniform(0.0, 0.25)
+            j += 1
+        x = play("Piano Arps", sounds, orchestra, gm, notes, n, gain=0.65)
+        f = np.fft.rfftfreq(n, 1 / AMB_SR)
+        for c in range(2):
+            x[:, c] = np.fft.irfft(np.fft.rfft(x[:, c]) / np.sqrt(1 + (f / 3200.0) ** 4), n)
+        x = circular_echo(x, 0.75, 0.32, 5)
+        x[:, 1] = np.roll(x[:, 1], int(0.375 * AMB_SR)) * 0.5 + x[:, 1] * 0.75
+        x = np.stack([circular_reverb(x[:, c], seconds=3.8, wet=0.5, seed=70 + c, dark=4500) for c in range(2)], axis=1)
+    elif style == "Organ Swell":    # a quiet organ chord swelling up and away twice round the loop (the expression pedal)
+        base = 48 + ki if ki < 6 else 36 + ki
+        voicing = [base, base + 7, base + 12, base + 16, base + 19]
+        swell = [(i * 0.1, 11, int(20 + 107 * (0.5 - 0.5 * math.cos(2 * math.pi * 2 * (i * 0.1) / AMB_SECONDS)))) for i in range(int(AMB_SECONDS * 10))]
+        x = play("Organ Swell", sounds, orchestra, gm, [(0, AMB_SECONDS + 1.0, k, 72, swell if j == 0 else []) for j, k in enumerate(voicing)], n, gain=0.5)
+        g = 0.25 + 0.75 * (0.5 - 0.5 * np.cos(2 * math.pi * 2 * t / AMB_SECONDS))
+        x = x * g[:, None]
+        x = np.stack([circular_reverb(x[:, c], seconds=5.0, wet=0.55, seed=80 + c, dark=4000) for c in range(2)], axis=1)
+    elif style == "Strings Rise":   # a string section on the root, fifth and ninth, rising once round the loop and falling back
+        base = 48 + ki
+        voicing = [base, base + 7, base + 14, base + 19, base + 24]
+        x = play("Strings Rise", sounds, orchestra, gm, [(0.2 * j, AMB_SECONDS + 1.0, k, 64, []) for j, k in enumerate(voicing)], n, gain=0.5)
+        rise = 0.3 + 0.7 * (0.5 - 0.5 * np.cos(2 * math.pi * t / AMB_SECONDS)) ** 1.4
+        x = x * rise[:, None]
+        f = np.fft.rfftfreq(n, 1 / AMB_SR)
+        for c in range(2):    # (the top opens as it rises: a brighter section at the peak)
+            x[:, c] = np.fft.irfft(np.fft.rfft(x[:, c]) / np.sqrt(1 + (f / 5000.0) ** 2), n)
+        x = np.stack([circular_reverb(x[:, c], seconds=4.5, wet=0.5, seed=90 + c, dark=6000) for c in range(2)], axis=1)
+    elif style == "Bell Tower":     # tubular bells on the root and fifth, one every few seconds, ringing into a long hall
+        notes, at = [], 0.4
+        tones = [0, 7, 12, 7, 0, 12]
+        j = 0
+        while at < AMB_SECONDS - 1.0:
+            notes.append((at, 5.0, 60 + ki + tones[j % len(tones)] - 12 * int(rng.integers(0, 2)), int(rng.integers(60, 84)), []))
+            at += rng.uniform(1.6, 2.6)
+            j += 1
+        x = play("Bell Tower", sounds, orchestra, gm, notes, n, gain=0.55)
+        x[:, 1] = np.roll(x[:, 1], int(0.02 * AMB_SR))
+        x = np.stack([circular_reverb(x[:, c], seconds=6.0, wet=0.7, seed=100 + c, dark=5000) for c in range(2)], axis=1)
+    elif style == "Guitar Arpeggio":   # a clean electric picking the chord in dotted eighths (at 120), ping-pong echoes
+        notes, at = [], 0.05
+        shape = [0, 7, 12, 16, 19, 16, 12, 7]
+        j = 0
+        while at < AMB_SECONDS - 0.2:
+            notes.append((at + float(rng.normal(0, 0.006)), 1.4, 52 + ki + shape[j % len(shape)], int(rng.integers(62, 84)), [(0.0, 7, 100)]))
+            at += 0.375
+            j += 1
+        x = play("Guitar Arpeggio", sounds, orchestra, gm, notes, n, gain=0.6)
+        x = circular_echo(x, 0.375 * 2, 0.4, 6)
+        x[:, 0] = np.roll(x[:, 0], int(0.375 * AMB_SR)) * 0.55 + x[:, 0] * 0.75
+        x = np.stack([circular_reverb(x[:, c], seconds=4.0, wet=0.55, seed=110 + c, dark=6500) for c in range(2)], axis=1)
+    elif style == "Wurlitzer Haze":    # soft Wurlitzer chords every few seconds, a slow tremolo, a dark room
+        notes, at = [], 0.2
+        while at < AMB_SECONDS - 0.5:
+            root = 55 + ki - 12 * int(rng.integers(0, 2))
+            for j, iv in enumerate((0, 7, 11, 14) if rng.random() < 0.5 else (0, 4, 7, 14)):
+                notes.append((at + j * 0.03 + float(rng.normal(0, 0.006)), 3.2, root + iv, int(rng.integers(40, 62)), []))
+            at += rng.uniform(2.4, 3.6)
+        x = play("Wurlitzer Haze", sounds, orchestra, gm, notes, n, gain=0.6)
+        trem = 1 - 0.3 * (0.5 - 0.5 * np.cos(2 * math.pi * 4.6 * t + 0.0))
+        x = x * np.stack([trem, np.roll(trem, int(AMB_SR / 9.2))], axis=1)
+        f = np.fft.rfftfreq(n, 1 / AMB_SR)
+        for c in range(2):
+            x[:, c] = np.fft.irfft(np.fft.rfft(x[:, c]) / np.sqrt(1 + (f / 3800.0) ** 4), n)
+        x = np.stack([circular_reverb(x[:, c], seconds=2.8, wet=0.45, seed=120 + c, dark=3500) for c in range(2)], axis=1)
+    elif style == "Hum Drone":      # the Choir Hum and Deep pads trading places slowly over a sub that breathes
+        a, b = read_pad(pads, "Choir Hum", KEYS[ki]), read_pad(pads, "Deep", KEYS[ki])
+        g = 0.5 + 0.5 * np.cos(2 * math.pi * t / AMB_SECONDS)
+        root = 36 + ki if ki < 7 else 24 + ki
+        f0 = round(440.0 * 2 ** ((root - 69) / 12.0) * AMB_SECONDS) / AMB_SECONDS
+        sub = np.sin(2 * math.pi * f0 * t) * (0.35 + 0.25 * np.sin(2 * math.pi * 2 * t / AMB_SECONDS - math.pi / 2))
+        x = a * g[:, None] + b * (1 - g)[:, None] * 0.9 + np.stack([sub, sub], axis=1) * 0.18
     else:                           # Harp Rain: harp runs down the key's add9 chord, now and then, with space between
         notes, at = [], 0.2
         while at < AMB_SECONDS - 1.0:

@@ -458,6 +458,12 @@ module.exports = function services(app, getWin) {
     const sha = a && a.byFile && a.byFile[path.basename(r.filePaths[0])];   // (a file named as a listed library: checked against its sha256 too)
     try { return libOut(libs.installFile(r.filePaths[0], sha || null, "file")); } catch (e) { return libErr(e); }
   });
+  // (10.5) a library made here (the Studio tab's "Add to my loops"): the zip's bytes, installed as one of your own (plan "free", personal)
+  ipcMain.handle("lib-install-bytes", async (_e, name, bytes) => {
+    const dir = path.join(userData, "studio-handoff"); fs.mkdirSync(dir, { recursive: true });
+    const f = path.join(dir, String(name || "my-loops").replace(/[^\w.-]+/g, "-").replace(/\.zip$/i, "") + ".zip");
+    try { fs.writeFileSync(f, Buffer.from(bytes)); return Object.assign(libOut(libs.installFile(f, null, "personal")), { saved: f }); } catch (e) { return libErr(e); }
+  });
   ipcMain.handle("lib-remove", (_e, id) => { try { libs.remove(String(id || "")); return libOut(null); } catch (e) { return libErr(e); } });
   // (10.1) community items: the "Allow community plugins" switch (this computer; off by default) and the website's revoke list
   ipcMain.handle("lib-community", (_e, a) => {

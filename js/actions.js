@@ -124,9 +124,9 @@
   def("instrumentLevel", "Instrument: output level", "Instrument", "continuous", function (a, v) { if (!I()) return; var s = I().state(); s.levelDb = Math.round((-30 + v * 42) * 2) / 2; PP.persistSoon(); sendInstrumentLevel(); });
   def("stepPedal", "Encoder: next / previous board preset", "Instrument", "step", function (a, d) { if (I()) I().stepBoard(d); });
   def("stepPatch", "Encoder: next / previous keys sound", "Instrument", "step", function (a, d) { if (I()) I().stepPatch(d); });
-  // ---- the looper (LOOPER tab): three loops. "Loop N" picks one, or "the selected loop" (the main switch's)
+  // ---- the looper (LOOPER tab): three loops, up to eight (10.5). "Loop N" picks one, or "the selected loop" (the main switch's)
   function L() { return window.PPLooper; }
-  function li(a) { var n = Number(a && a.index); return isFinite(n) && n >= 0 && n < 3 ? n : -1; }
+  function li(a) { var n = Number(a && a.index); return isFinite(n) && n >= 0 && n < 8 ? n : -1; }
   function ledOf(st) { return st === "recording" || st === "dubbing" ? "blink" : st === "playing" ? "on" : st === "armed" ? "beat" : "off"; }
   function loopFlag(a, k) { var c = L() && L().config(), i = li(a) < 0 && c ? c.sel : li(a); return c && c.tracks[i] && c.tracks[i][k] ? "on" : "off"; }
   def("looperPedal", "Looper pedal: tap record / play / overdub · double tap stop all · hold clear", "Looper", "trigger", function (a, v, info) { if (L()) L().pedalPress(info); }, { release: function () { if (L()) L().pedalRelease(); }, led: function () { return L() ? ledOf(L().stateOf(-1)) : "off"; } });
@@ -138,7 +138,9 @@
   def("looperTrackMute", "Looper: loop N mute on / off", "Looper", "trigger", function (a) { if (L()) L().toggle(li(a), "mute"); }, { arg: "loop", led: function (a) { return loopFlag(a, "mute"); } });
   def("looperTrackReverse", "Looper: loop N reverse on / off", "Looper", "trigger", function (a) { if (L()) L().toggle(li(a), "rev"); }, { arg: "loop", led: function (a) { return loopFlag(a, "rev"); } });
   def("looperTrackHalf", "Looper: loop N half speed on / off", "Looper", "trigger", function (a) { if (L()) L().toggle(li(a), "half"); }, { arg: "loop", led: function (a) { return loopFlag(a, "half"); } });
-  def("looperTrackSource", "Looper: loop N records instrument / audio input / both (next)", "Looper", "trigger", function (a) { if (L()) L().stepSource(li(a)); }, { arg: "loop" });
+  def("looperTrackSource", "Looper: loop N records instrument / audio input / both / one input (next)", "Looper", "trigger", function (a) { if (L()) L().stepSource(li(a)); }, { arg: "loop" });
+  def("looperAddLoop", "Looper: add a loop (up to eight)", "Looper", "trigger", function () { if (L()) L().addLoop(); });
+  def("looperRemoveLoop", "Looper: remove the last loop", "Looper", "trigger", function () { if (L()) L().removeLoop(); });
   def("looperTrackLevel", "Looper: loop N level", "Looper", "continuous", function (a, v) { if (L()) L().setLevel(v * 1.2, li(a) < 0 ? L().selected() : li(a)); }, { arg: "loop" });
   def("looperTrackPan", "Looper: loop N pan (left / right)", "Looper", "continuous", function (a, v) { if (L()) L().setPan(a && a.pan != null ? Number(a.pan) : v * 2 - 1, li(a) < 0 ? L().selected() : li(a)); }, { arg: "loop" });
   def("looperSelect", "Looper: the main switch works loop N", "Looper", "trigger", function (a) { if (L()) L().select(li(a) < 0 ? 0 : li(a)); }, { arg: "loop", led: function (a) { return L() && L().selected() === (li(a) < 0 ? 0 : li(a)) ? "on" : "off"; } });

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Central Pedal - Central Pads: the pad pedal's pads, synthesised here (no one else's recording).
 
-  <out>/<Style>/<Key>.wav - 76 styles in all 12 keys (41 in Central Pads, 35 more in Central Pads Extra - 10.3), each a stereo chord (root, fifth, octave - Morning adds the 9th)
+  <out>/<Style>/<Key>.wav - 94 styles in all 12 keys (41 in Central Pads, 35 more in Central Pads Extra - 10.3, 18 more in Central Pads More - 10.5), each a stereo chord (root, fifth, octave - Morning adds the 9th)
   LOOP seconds long that repeats without a seam. The pad pedal plays the file of the song's key as it is (no pitch
   shifting). C# is "Cs" in a file name (no # in a file name or a web address).
 
@@ -38,6 +38,7 @@ NAMES = ["Warm", "Air", "Choir Aah", "Choir Ooh", "Shimmer", "Strings", "Glass",
          "Vowels", "Tape", "Sparkle", "Eighties", "Reed", "Swell Guitar", "Breathe", "Tanpura", "Horns", "Flute Choir"]
 MAIN_NAMES = list(NAMES)            # (Central Pads)
 NAMES += PV.EXTRA_NAMES              # (10.3: Central Pads Extra - after the 41, so theirs stay exactly as they were)
+NAMES += PV.MORE_NAMES               # (10.5: Central Pads More - after those, for the same reason)
 RECORDED = [n for n in NAMES if PV.needs_sources(n)]   # (made from CC0 recordings: they need the download cache)
 STYLES = [(n, PV.STYLES[n]) for n in NAMES]
 
@@ -94,12 +95,17 @@ def build(out_dir, styles=None, keys=None, seed=21, log=say, cache=None):
 PULSE_SECONDS = 4.0
 
 
-def build_pulse(out_dir, keys=None, seed=77, log=say):
-    """The moving pads: per pad and key, a 4-second seamless bed, and index.json [{name, file, key, seconds, gate}]."""
+def build_pulse(out_dir, keys=None, seed=77, log=say, pulses=None):
+    """The moving pads: per pad and key, a 4-second seamless bed, and index.json [{name, file, key, seconds, gate}].
+    (10.5) Without `pulses`: Central Pads Extra's set here, and Central Pads More's (PV.PULSES_MORE) in <out_dir>-more."""
     import json
+    if pulses is None:
+        index = build_pulse(out_dir, keys, seed, log, PV.PULSES)
+        build_pulse(out_dir.rstrip("/\\") + "-more", keys, seed + 1000, log, PV.PULSES_MORE)
+        return index
     os.makedirs(out_dir, exist_ok=True)
     index = []
-    for pi, (name, style, gate) in enumerate(PV.PULSES):
+    for pi, (name, style, gate) in enumerate(pulses):
         for ki, key in enumerate(KEYS):
             fn = "%s-%s.wav" % (name.lower().replace(" ", "-"), key.replace("#", "s"))
             index.append({"name": name, "file": fn, "key": key, "seconds": PULSE_SECONDS, "gate": gate})
