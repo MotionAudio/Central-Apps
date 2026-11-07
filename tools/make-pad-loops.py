@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Central Pedal - Central Pads: the pad pedal's pads, synthesised here (no one else's recording).
 
-  <out>/<Style>/<Key>.wav - 94 styles in all 12 keys (41 in Central Pads, 35 more in Central Pads Extra - 10.3, 18 more in Central Pads More - 10.5), each a stereo chord (root, fifth, octave - Morning adds the 9th)
-  LOOP seconds long that repeats without a seam. The pad pedal plays the file of the song's key as it is (no pitch
+  <out>/<Style>/<Key>.wav - 100 styles in all 12 keys (41 in Central Pads, 35 more in Central Pads Extra - 10.3, 24 more in Central Pads More - 10.5), each a stereo chord (root, fifth, octave - Morning adds the 9th)
+  LOOP seconds long (24 for Central Pads More) that repeats without a seam, every one at the same loudness (10.5). The pad pedal plays the file of the song's key as it is (no pitch
   shifting). C# is "Cs" in a file name (no # in a file name or a web address).
 
     python3 tools/make-pad-loops.py <out folder> [--cache DIR] [--pulse DIR] [--style NAME]... [--key C#]...
@@ -29,6 +29,10 @@ import pad_sources as PS  # noqa: E402
 
 SR = D.SR
 LOOP = 12.0        # seconds: slow movement that doesn't feel like it repeats (and 12 s loops tile exactly into the 12 s ambient loops)
+LOOP_MORE = 24.0   # (10.5) Central Pads More: twice as long, so a pad's slow movement takes longer still to come round
+# (10.5) every pad at the same loudness (RMS), under a peak ceiling - before, each was peak-normalised, so a smooth pad
+# (a low crest factor) came out up to 8 dB louder than a lively one at the same fader
+TARGET_RMS, PEAK_MAX = 0.12, 0.7
 KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 LOW = 48           # (each key's root in the octave from C3: C3..B3)
 NAMES = ["Warm", "Air", "Choir Aah", "Choir Ooh", "Shimmer", "Strings", "Glass", "Swell", "Worship", "Ambient Drone", "Deep", "Heaven",
@@ -65,12 +69,23 @@ def loop_wav(path, left, right):
     os.replace(path + ".part", path)
 
 
+def loop_seconds(style):
+    return LOOP_MORE if style in PV.MORE_NAMES else LOOP
+
+
+def level(x):
+    """The same loudness for every pad: RMS at TARGET_RMS, unless its peaks would pass PEAK_MAX (then a little quieter)."""
+    g = TARGET_RMS / (float(np.sqrt(np.mean(x ** 2))) or 1.0)
+    peak = float(np.max(np.abs(x))) * g
+    return x * (g * PEAK_MAX / peak if peak > PEAK_MAX else g)
+
+
 def render(style, key, seed=21):
-    """One style in one key: stereo, LOOP seconds, peaking at about -6 dBFS (room for layering)."""
+    """One style in one key: stereo, LOOP (or LOOP_MORE) seconds, at the pads' common loudness (room for layering)."""
     si, ki = NAMES.index(style), KEYS.index(key)
-    lp = D.Loop(LOOP)
+    lp = D.Loop(loop_seconds(style))
     x = PV.render(style, lp, LOW + ki, np.random.default_rng(seed + si * 97 + ki * 13))
-    return x / (float(np.max(np.abs(x))) or 1.0) * 0.5
+    return level(x)
 
 
 def build(out_dir, styles=None, keys=None, seed=21, log=say, cache=None):
@@ -112,8 +127,7 @@ def build_pulse(out_dir, keys=None, seed=77, log=say, pulses=None):
             path = os.path.join(out_dir, fn)
             if (keys and key not in keys) or os.path.isfile(path):
                 continue
-            x = PV.render(style, D.Loop(PULSE_SECONDS), LOW + ki, np.random.default_rng(seed + pi * 31 + ki))
-            x = x / (float(np.max(np.abs(x))) or 1.0) * 0.5
+            x = level(PV.render(style, D.Loop(PULSE_SECONDS), LOW + ki, np.random.default_rng(seed + pi * 31 + ki)))
             loop_wav(path, x[:, 0], x[:, 1])
     with open(os.path.join(out_dir, "index.json"), "w") as f:
         json.dump(index, f, indent=1)

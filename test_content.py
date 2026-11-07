@@ -214,11 +214,12 @@ def main():
         loops_ok, keys_ok = True, True
         for style in new:
             x, sr = read_wav(os.path.join(pdir, PL.loop_file(style, "D")))
-            loops_ok &= seamless(x) and sr == PL.SR and len(x) == int(PL.LOOP * PL.SR) and 0.4 < float(np.max(np.abs(x))) < 0.55
+            peak, rmsv = float(np.max(np.abs(x))), float(np.sqrt(np.mean(x ** 2)))
+            loops_ok &= seamless(x) and sr == PL.SR and len(x) == int(PL.loop_seconds(style) * PL.SR) and peak <= PL.PEAK_MAX + 0.01 and (abs(rmsv - PL.TARGET_RMS) < 0.012 or abs(peak - PL.PEAK_MAX) < 0.01)
             spec = np.abs(np.fft.rfft(x[:, 0]))
-            f = np.argmax(spec[:int(800 * PL.LOOP)]) / PL.LOOP
+            f = np.argmax(spec[:int(800 * len(x) / sr)]) / (len(x) / sr)
             keys_ok &= any(abs(f - 146.83 * m) < 5 for m in (0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4))   # (D: its root, fifth or an octave of them)
-        check(loops_ok, "each new style is a stereo seamless loop of %g s at about -6 dBFS" % PL.LOOP)
+        check(loops_ok, "each new style is a stereo seamless loop of %g s at the pads' common loudness (10.5: RMS -18 dBFS, peaks under -3)" % PL.LOOP)
         check(keys_ok, "...in its key (D)")
         # (10.2) no two styles alike: their sound over time (spectrum, how it moves, how wide it is) compared pair by pair
         def print_of(x):
@@ -240,11 +241,11 @@ def main():
         lout = os.path.join(tmp, "loops")
         if AUDIO:
             drums = ML.build_drums(lout, gm=GM, log=lambda *a: None)
-            okd = len(drums) == 2 * len(ML.GROOVES)
+            okd = len(drums) == sum(len(ML.three_tempos(g[3])) for g in ML.GROOVES)
             for e in drums:
                 x, sr = read_wav(os.path.join(lout, "drums", e["file"]))
-                okd &= abs(len(x) / sr - e["bars"] * e["meter"] * 60.0 / e["bpm"]) < 0.002 and seamless(x) and float(np.max(np.abs(x))) > 0.5
-            check(okd and len({e["name"] for e in drums}) == len(ML.GROOVES) and len({e["bpm"] for e in drums}) > 10, "%d grooves, each at two tempos of its own, exactly four bars long and seamless" % len(ML.GROOVES), [e["file"] for e in drums[:3]])
+                okd &= abs(len(x) / sr - e["bars"] * e["meter"] * 60.0 / e["bpm"]) < 0.002 and seamless(x) and float(np.max(np.abs(x))) > 0.3
+            check(okd and len({e["name"] for e in drums}) == len(ML.GROOVES) and len({e["bpm"] for e in drums}) > 10, "%d grooves, each at three tempos of its own (10.5), exactly four bars long and seamless" % len(ML.GROOVES), [e["file"] for e in drums[:3]])
         styles = ML.ambient_styles(gm=GM if AUDIO else None)
         amb = ML.build_ambient(lout, pdir, gm=GM if AUDIO else None, log=lambda *a: None)
         oka = len(amb) == 12 * len(styles) and len(styles) >= 3 and {e["key"] for e in amb} == set(ML.KEYS)

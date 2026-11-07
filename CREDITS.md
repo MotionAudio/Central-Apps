@@ -17,7 +17,8 @@ Where a light is in both, the Open Fixture Library version is used. `tools/make-
 - **Growlybass** and **Black And Green Guitars** by Karoryfer Samples (Brian Wood), under CC0 1.0 (sfzinstruments).
 - **Versilian Community Sample Library (VCSL)** and **VSCO 2 Community Edition** by Versilian Studios, under CC0 1.0.
 - **Greg Sullivan E-Pianos** (Wurlitzer EP200, Yamaha CP80, Hohner Pianet T) recorded by Greg Sullivan, SFZ by kinwie, under CC-BY 3.0 (github.com/sfzinstruments/GregSullivan.E-Pianos). The electric pianos in Central Keys since 10.5 - credited on the bank and in each library's CREDITS.txt.
-- **Gogodze Phu Vol II** (the Lo-fi Kit), **Sneakybass** (the Quiet Upright Bass) by Karoryfer Samples, and **ganjo** (the Banjo), all under CC0 1.0 (sfzinstruments) - in Central Instrument since 10.5.
+- **Gogodze Phu Vol II** (the Lo-fi Kit), **Swirly Drums** (the Vintage Kit), **Sneakybass** (the Quiet Upright Bass) by Karoryfer Samples, and **ganjo** (the Banjo), all under CC0 1.0 (sfzinstruments) - in Central Instrument since 10.5.
+- **Splendid Grand Piano** sampled by AKAI and released as public domain (2000), with the SFZ mapping from sfzinstruments (github.com/sfzinstruments/SplendidGrandPiano) - the Pop Grand in Central Keys since 10.5.
 - The guide voice in the hymn tracks is the **Piper** LJSpeech voice (MIT), trained on the **LJ Speech** dataset (public domain).
 
 The pads, synths, loops, clicks, impulse responses and lyric backgrounds are made by Motion Audio's own code in `tools/`, `central-usage/app/backgrounds.js` and `central-usage/app/backgrounds-seasons.js`. Every scene, silhouette and texture in the seasonal backgrounds is drawn by that code. There are no stock photos.

@@ -49,11 +49,14 @@ SOURCES = {
     "gogodze": ("sfzinstruments/karoryfer.gogodze-phu-vol-ii", "69a0274cdc39c99c3098cde1bc3789690de86d62", "Gogodze Phu Vol II - Karoryfer Samples (a small lo-fi kit, 2018 KVR Developer Challenge)"),
     "sneaky": ("sfzinstruments/karoryfer.sneakybass", "cc1a67e5c913678b85eaad1a3b5cb180d3be3e2d", "Sneakybass - Karoryfer Samples (a double bass played very quietly, D. Smolken)"),
     "ganjo": ("sfzinstruments/ganjo", "ccff5cd5cd3b513873a48994c07724d9d3c39e1c", "ganjo - a six-string guitar banjo (sfzinstruments)"),
+    "swirly": ("sfzinstruments/karoryfer.swirly-drums", "c40dafe0011cb2e54c0c220ff0fa308a11fc60f5", "Swirly Drums - Karoryfer Samples (a 1970s kit with its snare's brushes and stirs)"),
     # 10.5 (LICENSE: CC-BY 3.0 - credited in CREDITS.txt and on the bank: Greg Sullivan, SFZ by kinwie)
     "epianos": ("sfzinstruments/GregSullivan.E-Pianos", "8c3e581acda3594b553948ff0222d4f84a698376", "Greg Sullivan E-Pianos - Wurlitzer EP200, Yamaha CP80, Hohner Pianet T (CC-BY 3.0; SFZ by kinwie)"),
+    # 10.5 (README: "released as public domain in early 2000 by Akai"; the sfzinstruments listing says Public Domain)
+    "splendid": ("sfzinstruments/SplendidGrandPiano", "1c595d827b7fd7f0be3134aaed0f90b3662a09cf", "Splendid Grand Piano - AKAI (public domain; SFZ on sfzinstruments)"),
 }
 LICENSE = "CC0 1.0"
-LICENSES = {"epianos": "CC-BY 3.0"}   # (10.5: everything else is CC0 1.0)
+LICENSES = {"epianos": "CC-BY 3.0", "splendid": "Public domain"}   # (10.5: everything else is CC0 1.0)
 
 # instrument id -> source, SFZ program, kind (drum / decay / sus), keys rendered (lo, hi), seconds kept, controllers,
 # samples left out (a pattern on the path), most velocity layers
@@ -75,6 +78,8 @@ INSTR = {
     "ergoarco": dict(src="ergo", program="ergo_arco.sfz", kind="sus", keys=(24, 72), layers=2, exclude=r"(?i)noise|release|rel_"),
     # 10.5
     "lofikit": dict(src="gogodze", program="Programs/Kit.sfz", kind="drum", keys=(35, 81), cut=3.0, layers=3),
+    "swirlykit": dict(src="swirly", program="Programs/Basic_kit.sfz", kind="drum", keys=(35, 81), cut=3.0, layers=4),
+    "splendid": dict(src="splendid", program="Splendid Grand Piano.sfz", kind="decay", keys=(21, 108), cut=6.0, layers=3, exclude=r"(?i)release|rel_|pedal|noise"),
     "sneakybass": dict(src="sneaky", program="Programs/02-sneakybass_pluck.sfz", kind="decay", keys=(24, 72), cut=3.5, layers=3, exclude=r"(?i)noise|release|rel_|mute|ghost"),
     "banjo": dict(src="ganjo", program="ganjo.sfz", kind="decay", keys=(38, 86), cut=3.0, layers=1),
     "wurli": dict(src="epianos", program="Wurlitzer EP200/Wurlitzer EP200.sfz", kind="decay", keys=(33, 96), cut=5.0, layers=3, exclude=r"(?i)release|rel_"),
@@ -90,6 +95,7 @@ BANKS = [
         ("Unruly Kit", [("unrulykit", 0, 127, 0.001, None, 0)]),
         ("Brushes Kit", [("brushkit", 0, 127, 0.001, None, 0)]),
         ("Lo-fi Kit", [("lofikit", 0, 127, 0.001, None, 0)]),   # (10.5: a small, dusty kit for quiet songs and lo-fi beats)
+        ("Vintage Kit", [("swirlykit", 0, 127, 0.001, None, 0)]),   # (10.5: Swirly Drums - a round, warm 70s kit)
     ]),
     ("Central Instrument Guitars and Basses", "instrument", [
         ("Hollowbody Guitar (Gretsch)", [("green", 0, 127, 0.002, 0.4, 0)]),
@@ -103,6 +109,12 @@ BANKS = [
         ("Electric Upright Bass (bowed)", [("ergoarco", 0, 127, 0.07, 0.45, 0)]),
         ("Quiet Upright Bass", [("sneakybass", 0, 127, 0.002, 0.35, 0)]),   # (10.5: for the softest songs)
         ("Banjo", [("banjo", 0, 127, 0.002, 0.3, 0)]),                      # (10.5: country and bluegrass hymns)
+    ]),
+    # 10.5: the pop grand (AKAI's Splendid Grand, public domain): bright and even, the piano of a thousand records
+    ("Central Keys Pop Grand", "keys", [
+        ("Pop Grand", [("splendid", 0, 127, 0.002, 0.45, 0)]),
+        ("Soft Pop Grand", [("splendid", 0, 127, 0.02, 1.2, -2)]),
+        ("Pop Grand & Pad", [("splendid", 0, 127, 0.002, 0.8, -1), ("splendid", 0, 127, 0.6, 2.4, -10)]),
     ]),
     # 10.5: real electric pianos (Greg Sullivan, CC-BY 3.0 - credited): the worship keys players' first ask
     ("Central Keys Electric Pianos", "keys", [

@@ -228,12 +228,21 @@ def run(tmp):
         frames = np.frombuffer(w.readframes(w.getnframes()), "<i2").reshape(-1, 2) / 32768.0
         okw = w.getnchannels() == 2 and w.getframerate() == LOOPS.SR and w.getnframes() == int(LOOPS.LOOP * LOOPS.SR)
     peak = float(np.max(np.abs(frames)))
+    rmsv = float(np.sqrt(np.mean(frames ** 2)))
     spec = np.abs(np.fft.rfft(frames[:, 0]))
     f0 = np.argmax(spec[: int(400 * LOOPS.LOOP)]) / LOOPS.LOOP   # (the strongest low partial: F#3 185 Hz or its octave / fifth)
-    check("Central Pads: a key's loop is a stereo WAV of the loop's length, about -6 dBFS, in its key (F#: Fs.wav), seamless", okw and 0.45 < peak < 0.52 and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
-          and any(abs(f0 - 185.0 * m) < 6 for m in (0.25, 0.5, 1, 1.5, 2, 3)) and seamless(frames), (okw, peak, f0))
+    check("Central Pads: a key's loop is a stereo WAV of the loop's length, at the pads' common loudness (10.5: RMS -18 dBFS, peaks under -3), in its key (F#: Fs.wav), seamless", okw and (abs(rmsv - LOOPS.TARGET_RMS) < 0.01 or abs(peak - LOOPS.PEAK_MAX) < 0.01) and peak <= LOOPS.PEAK_MAX + 0.01
+          and os.path.basename(LOOPS.loop_file("Worship", "F#")) == "Fs.wav" and LOOPS.loop_file("Choir Aah", "C") == BUILD.pad_loop_file("Choir Aah", "C")
+          and any(abs(f0 - 185.0 * m) < 6 for m in (0.25, 0.5, 1, 1.5, 2, 3)) and seamless(frames), (okw, peak, rmsv, f0))
+    # (10.5) Central Pads More: 24-second loops, so their movement takes longer to come round
+    mloops = LOOPS.build(os.path.join(tmp, "padloops"), styles=["Still Waters"], keys=["C"], log=lambda *a: None)
+    with _wave.open(os.path.join(mloops, LOOPS.loop_file("Still Waters", "C"))) as w:
+        okm = w.getnframes() == int(LOOPS.LOOP_MORE * LOOPS.SR)
+        mframes = np.frombuffer(w.readframes(w.getnframes()), "<i2").reshape(-1, 2) / 32768.0
+    check("Central Pads More: a 24-second seamless loop at the same loudness", okm and LOOPS.loop_seconds("Still Waters") == 24.0 and LOOPS.loop_seconds("Worship") == 12.0 and seamless(mframes)
+          and (abs(float(np.sqrt(np.mean(mframes ** 2))) - LOOPS.TARGET_RMS) < 0.01 or abs(float(np.max(np.abs(mframes))) - LOOPS.PEAK_MAX) < 0.01), okm)
     more = next(l for l in defs if l["id"] == "central-pads-more")
-    check("Central Pads: 41 styles, the same ones the library lists; Central Pads Extra: 35 more, none the same; Central Pads More (10.5): 18 more", len(LOOPS.MAIN_NAMES) == 41 and len(set(LOOPS.NAMES)) == 94
+    check("Central Pads: 41 styles, the same ones the library lists; Central Pads Extra: 35 more, none the same; Central Pads More (10.5): 24 more", len(LOOPS.MAIN_NAMES) == 41 and len(set(LOOPS.NAMES)) == 100
           and LOOPS.MAIN_NAMES == [p["name"] for p in by["pads"]["pads"]] and LOOPS.NAMES[41:76] == [p["name"] for p in extra["pads"]] and LOOPS.NAMES[76:] == [p["name"] for p in more["pads"]] and extra["plan"] == more["plan"] == "pads", LOOPS.NAMES)
     pdir2 = LOOPS.build_pulse(os.path.join(tmp, "pulse"), keys=["D"], log=lambda *a: None)
     gw = [e for e in pdir2 if e["key"] == "D"]

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Central Pedal - loops for the texture channels (10.0; 10.2 each with its own feel), made here (no one else's recording):
 
-  drums/    Drum and percussion loops (Central Instrument): twenty four-bar grooves, each with its own feel, kit and
-            tempos - straight eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms,
+  drums/    Drum and percussion loops (Central Instrument): thirty-two four-bar grooves (10.5), each with its own feel, kit
+            and three tempos - straight eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms,
             brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat,
             kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell - played on the
             library's own kits (Studio, Rusty Rock, Unruly, Brushes, Hand and Orchestral Percussion - CC0 samples, see
@@ -390,6 +390,39 @@ def wrap_room(x, wet, seed, sr, seconds=0.9):
     return out
 
 
+def three_tempos(tempos):
+    """(10.5) The groove's two tempos and one between them: the app plays the nearest and stretches it to the song, so
+    with three the stretch stays small (under about 15%) and the kit keeps its sound."""
+    lo, hi = tempos
+    mid = int(round((lo + hi) / 2.0))
+    return (lo, mid, hi) if mid not in (lo, hi) else tuple(tempos)
+
+
+def glue(x, sr, ratio=2.2, max_db=4.0, attack=0.004, release=0.14, drive=1.25):
+    """(10.5) The drum bus: a gentle compressor (RMS over 10 ms, a soft knee, at most max_db of gain reduction) and a
+    touch of tape-like saturation, so a loop sits under a band the way a mixed drum track does. The gain envelope is
+    worked out round the loop (over two laps, keeping the second), so the turn stays seamless."""
+    n = len(x)
+    bs = max(1, int(0.01 * sr))
+    xx = np.concatenate([x, x])
+    nb = len(xx) // bs
+    r = np.sqrt(np.mean(xx[:nb * bs].mean(1).reshape(nb, bs) ** 2, axis=1)) + 1e-9
+    db = 20 * np.log10(r)
+    loud = db[db > np.max(db) - 30]
+    thr = float(np.percentile(loud, 65)) if len(loud) else -30.0
+    over = np.maximum(db - thr, 0.0)
+    want = np.minimum(over * (1 - 1 / ratio), max_db)
+    g = np.zeros(nb)
+    cur, a, rl = 0.0, 1 - math.exp(-bs / (attack * sr)), 1 - math.exp(-bs / (release * sr))
+    for i in range(nb):
+        cur = cur + (want[i] - cur) * (a if want[i] > cur else rl)
+        g[i] = cur
+    gain = 10 ** (-np.interp(np.arange(len(xx)) / bs, np.arange(nb) + 0.5, g) / 20)
+    y = (xx * gain[:, None])[n:2 * n]
+    y = y * 10 ** (np.mean(g[nb // 2:]) / 20 * 0.5)   # (half the average reduction made up again)
+    return np.tanh(y * drive) / math.tanh(drive)
+
+
 def groove_hits(name, meter, pattern, fill, bar, rng):
     hits = pattern(bar, rng)
     if bar == LOOP_BARS - 1 and fill is not None:
@@ -405,7 +438,7 @@ def build_drums(out, sounds=None, gm=None, log=print):
     index = []
     for name, meter, kit_spec, tempos, sw, fill, room, db, pat in GROOVES:
         sf2, bank, prog, ch = kit(sounds, gm, kit_spec)
-        for bpm in tempos:
+        for bpm in three_tempos(tempos):
             fn = "%s-%d.wav" % (slug(name), bpm)
             path = os.path.join(folder, fn)
             index.append({"name": name, "file": fn, "bpm": bpm, "meter": meter, "bars": LOOP_BARS, "kit": kit_spec[1]})
@@ -433,6 +466,12 @@ def build_drums(out, sounds=None, gm=None, log=print):
             loop = y[:n].copy()
             loop += y[n:2 * n]                    # (what rings past the loop's end comes in at its start: seamless)
             loop = wrap_room(loop, room, len(name), DRUM_SR)
+            rms = float(np.sqrt(np.mean(loop ** 2))) or 1.0
+            loop *= 10 ** (db / 20.0) / rms
+            peak = float(np.max(np.abs(loop)))
+            if peak > 0.89:
+                loop *= 0.89 / peak
+            loop = glue(loop, DRUM_SR)                  # (10.5: the drum bus - glue and a touch of tape)
             rms = float(np.sqrt(np.mean(loop ** 2))) or 1.0
             loop *= 10 ** (db / 20.0) / rms
             peak = float(np.max(np.abs(loop)))
@@ -712,7 +751,19 @@ def ambient(style, ki, pads, sounds=None, orchestra=None, gm=None):
             at += len(run) * step + rng.uniform(1.8, 3.2)
         x = play("Harp Rain", sounds, orchestra, gm, notes, n, gain=0.6)
         x = np.stack([circular_reverb(x[:, c], seconds=4.0, wet=0.55, seed=60 + c, dark=8000) for c in range(2)], axis=1)
-    return x * (0.6 / (float(np.max(np.abs(x))) or 1.0))
+    return amb_level(x)
+
+
+AMB_RMS, AMB_PEAK = 0.1, 0.7
+
+
+def amb_level(x):
+    """(10.5) Every ambient loop at the same loudness (RMS -20 dBFS), unless its peaks would pass -3 dBFS (a sparse loop
+    - a few bells, a harp run - then sits a little quieter). Before, each was peak-normalised, so the dense ones were
+    much louder than the sparse ones at the same fader."""
+    g = AMB_RMS / (float(np.sqrt(np.mean(x ** 2))) or 1.0)
+    peak = float(np.max(np.abs(x))) * g
+    return x * (g * AMB_PEAK / peak if peak > AMB_PEAK else g)
 
 
 def build_ambient(out, pads, sounds=None, orchestra=None, gm=None, log=print):

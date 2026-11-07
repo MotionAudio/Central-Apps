@@ -1108,6 +1108,406 @@
     {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
     {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
    ]
+  },
+  {
+   "id": "nearer-my-god-to-thee",
+   "title": "Nearer, My God, to Thee",
+   "words": "Sarah F. Adams (1841)",
+   "music": "BETHANY, Lowell Mason (1856)",
+   "public_domain": {"words": 1841, "music": 1856, "writers_died": 1872},
+   "key": "G", "bpm": 80, "meter": 4, "style": "hall-ballad",
+   "chords": {
+    "verse": ["G", "G D@3", "G", "D", "G", "C G@3", "D", "G", "C", "G", "D", "G", "G", "C G@3", "G D@3", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|Nearer, my|God, to ^Thee,|nearer to|Thee! /|E'en though it|be a ^cross|that raiseth|me, /|still all my|song shall be,|nearer, my|God, to Thee; /|nearer, my|God, to ^Thee,|nearer ^to|Thee! /",
+    "Verse 2": "|Though like the|wander^er,|the sun gone|down, /|darkness be|over ^me,|my rest a|stone; /|yet in my|dreams I'd be|nearer, my|God, to Thee; /|nearer, my|God, to ^Thee,|nearer ^to|Thee! /",
+    "Verse 3": "|There let the|way ap^pear,|steps unto|heaven; /|all that Thou|sendest ^me,|in mercy|given; /|angels to|beckon me|nearer, my|God, to Thee; /|nearer, my|God, to ^Thee,|nearer ^to|Thee! /",
+    "Verse 4": "|Then, with my|waking ^thoughts|bright with Thy|praise, /|out of my|stony ^griefs|Bethel I'll|raise; /|so by my|woes to be|nearer, my|God, to Thee; /|nearer, my|God, to ^Thee,|nearer ^to|Thee! /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "my-jesus-i-love-thee",
+   "title": "My Jesus, I Love Thee",
+   "words": "William R. Featherston (1864)",
+   "music": "GORDON, Adoniram J. Gordon (1876)",
+   "public_domain": {"words": 1864, "music": 1876, "writers_died": 1895},
+   "key": "F", "bpm": 100, "meter": 3, "style": "ballad-68",
+   "chords": {
+    "verse": ["F", "Bb", "F", "C", "F", "Bb", "F C@3", "F", "Bb", "F", "C", "F", "F", "Bb", "F C@3", "F"],
+    "intro": ["F", "Bb", "C", "F"],
+    "interlude": ["Bb", "F", "C", "F"],
+    "outro": ["Bb", "F", "C", "F"]
+   },
+   "lyrics": {
+    "Verse 1": "My|Jesus, I|love Thee, I|know Thou art|mine; / for|Thee all the|follies of|sin I ^re~|sign. / My|gracious Re~|deemer, my|Savior art|Thou; / if|ever I|loved Thee, my|Jesus, ^'tis|now. /",
+    "Verse 2": "I|love Thee be~|cause Thou hast|first loved|me, / and|purchased my|pardon on|Calvary's ^|tree. / I|love Thee for|wearing the|thorns on Thy|brow; / if|ever I|loved Thee, my|Jesus, ^'tis|now. /",
+    "Verse 3": "In|mansions of|glory and|endless de~|light, / I'll|ever a~|dore Thee in|heaven so ^|bright; / I'll|sing with the|glittering|crown on my|brow; / if|ever I|loved Thee, my|Jesus, ^'tis|now. /",
+    "Verse 4": "I'll|love Thee in|life, I will|love Thee in|death, / and|praise Thee as|long as Thou|lendest me ^|breath; / and|say when the|death dew lies|cold on my|brow, / if|ever I|loved Thee, my|Jesus, ^'tis|now. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "fairest-lord-jesus",
+   "title": "Fairest Lord Jesus",
+   "words": "Munster Gesangbuch (1677); translated by Joseph A. Seiss (1873)",
+   "music": "CRUSADERS' HYMN, Schlesische Volkslieder (1842)",
+   "public_domain": {"words": 1873, "music": 1842, "writers_died": 1904},
+   "key": "Eb", "bpm": 76, "meter": 4, "style": "piano-anthem",
+   "chords": {
+    "verse": ["Eb", "Ab Eb@3", "Bb", "Eb", "Eb", "Ab Eb@3", "Bb", "Eb", "Ab", "Eb", "Bb", "Eb", "Ab Bb@3", "Eb"],
+    "intro": ["Eb", "Ab", "Bb", "Eb"],
+    "interlude": ["Ab", "Eb", "Bb", "Eb"],
+    "outro": ["Ab", "Eb", "Bb", "Eb"]
+   },
+   "lyrics": {
+    "Verse 1": "|Fairest Lord|Je^sus, /|Ruler of|all nature, /|O Thou of|God and ^man the|Son, /|Thee will I|cherish, /|Thee will I|honor, /|Thou, my soul's|glory, ^joy, and|crown. /",
+    "Verse 2": "|Fair are the|mea^dows, /|fairer still the|woodlands, /|robed in the|blooming ^garb of|spring; /|Jesus is|fairer, /|Jesus is|purer, /|who makes the|woeful ^heart to|sing. /",
+    "Verse 3": "|Fair is the|sun^shine, /|fairer still the|moonlight, /|and all the|twinkling ^starry|host; /|Jesus shines|brighter, /|Jesus shines|purer /|than all the|angels ^heaven can|boast. /",
+    "Verse 4": "|Beautiful|Sav^ior! /|Lord of all the|nations! /|Son of God|and Son ^of|Man! /|Glory and|honor, /|praise, ado~|ration, /|now and for~|ever^more be|Thine! /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:11-14", "role": "tag", "lyrics": "Verse 4@11-14", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "standing-on-the-promises",
+   "title": "Standing on the Promises",
+   "words": "R. Kelso Carter (1886)",
+   "music": "PROMISES, R. Kelso Carter (1886)",
+   "public_domain": {"words": 1886, "music": 1886, "writers_died": 1928},
+   "key": "G", "bpm": 112, "meter": 4, "style": "anthem-drive",
+   "chords": {
+    "verse": ["G", "G", "C", "G", "G", "C", "D", "G"],
+    "refrain": ["G", "G", "C", "G", "G", "C", "D", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|Standing on the promises of|Christ my King,|through eternal ages|let His praises ring; /|glory in the highest,|I will shout and sing,|standing on the promises|of God. /",
+    "Verse 2": "|Standing on the promises that|cannot fail,|when the howling storms of|doubt and fear assail, /|by the living Word of|God I shall prevail,|standing on the promises|of God. /",
+    "Verse 3": "|Standing on the promises I|cannot fall,|listening every moment|to the Spirit's call, /|resting in my Savior|as my all in all,|standing on the promises|of God. /",
+    "Refrain": "|Standing,|standing,|standing on the promises of|God my Savior; /|standing,|standing,|I'm standing on the promises|of God. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Refrain 3", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "softly-and-tenderly",
+   "title": "Softly and Tenderly",
+   "words": "Will L. Thompson (1880)",
+   "music": "THOMPSON, Will L. Thompson (1880)",
+   "public_domain": {"words": 1880, "music": 1880, "writers_died": 1909},
+   "key": "G", "bpm": 66, "meter": 4, "style": "piano-ballad",
+   "chords": {
+    "verse": ["G", "C G@3", "G", "D", "G", "C G@3", "G D@3", "G"],
+    "refrain": ["G", "C", "G", "D", "G", "C G@3", "G D@3", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|Softly and tenderly|Jesus is ^calling,|calling for you and|for me; /|see, on the portals He's|waiting and ^watching,|watching for ^you and|for me. /",
+    "Verse 2": "|Why should we tarry when|Jesus is ^pleading,|pleading for you and|for me? /|Why should we linger and|heed not His ^mercies,|mercies for ^you and|for me? /",
+    "Verse 3": "|Oh, for the wonderful|love He has ^promised,|promised for you and|for me! /|Though we have sinned, He has|mercy and ^pardon,|pardon for ^you and|for me. /",
+    "Refrain": "|Come home,|come home,|ye who are weary, come|home; /|earnestly, tenderly,|Jesus is ^calling,|calling, O ^sinner, come|home! /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Refrain 3", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "jesus-loves-me",
+   "title": "Jesus Loves Me",
+   "words": "Anna B. Warner (1860)",
+   "music": "JESUS LOVES ME, William B. Bradbury (1862)",
+   "public_domain": {"words": 1860, "music": 1862, "writers_died": 1915},
+   "key": "C", "bpm": 92, "meter": 4, "style": "piano-ballad",
+   "chords": {
+    "verse": ["C", "F C@3", "C", "G", "C", "F C@3", "C G@3", "C"],
+    "refrain": ["C", "F", "C", "G", "C", "F", "C G@3", "C"],
+    "intro": ["C", "F", "G", "C"],
+    "interlude": ["F", "C", "G", "C"],
+    "outro": ["F", "C", "G", "C"]
+   },
+   "lyrics": {
+    "Verse 1": "|Jesus loves me,|this I ^know,|for the Bible|tells me so; /|little ones to|Him be^long;|they are weak, ^but|He is strong. /",
+    "Verse 2": "|Jesus loves me,|He who ^died|heaven's gate to|open wide; /|He will wash a~|way my ^sin,|let His little ^child|come in. /",
+    "Verse 3": "|Jesus loves me!|He will ^stay|close beside me|all the way; /|Thou hast bled and|died for ^me,|I will hence^forth|live for Thee. /",
+    "Refrain": "|Yes, Jesus|loves me!|Yes, Jesus|loves me! /|Yes, Jesus|loves me!|The Bible ^tells|me so. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Refrain 3", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "angels-we-have-heard",
+   "title": "Angels We Have Heard on High",
+   "words": "French carol; translated by James Chadwick (1862)",
+   "music": "GLORIA, French carol (1855)",
+   "public_domain": {"words": 1862, "music": 1855, "writers_died": 1882},
+   "key": "F", "bpm": 104, "meter": 4, "style": "christmas-anthem", "season": "christmas",
+   "chords": {
+    "verse": ["F", "C F@3", "F", "C", "F", "C F@3", "F C@3", "F"],
+    "refrain": ["F Dm@3", "Gm C@3", "F Dm@3", "Gm C@3", "F Bb@3", "F C@3", "F", "F"],
+    "intro": ["F", "Bb", "C", "F"],
+    "interlude": ["Bb", "F", "C", "F"],
+    "outro": ["Bb", "F", "C", "F"]
+   },
+   "lyrics": {
+    "Verse 1": "|Angels we have|heard on ^high,|sweetly singing|o'er the plains, /|and the mountains|in re^ply,|echoing ^their|joyous strains. /",
+    "Verse 2": "|Shepherds, why this|jubi^lee?|Why your joyous|strains prolong? /|What the gladsome|tidings ^be|which inspire ^your|heavenly song? /",
+    "Verse 3": "|Come to Bethlehem|and ^see|Him whose birth the|angels sing; /|come, adore on|bended ^knee|Christ the Lord, ^the|newborn King. /",
+    "Refrain": "|Glo~|~|~|~ri~|a, / ^in ex~|celsis ^De~|o. /|"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Refrain 3", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "o-little-town",
+   "title": "O Little Town of Bethlehem",
+   "words": "Phillips Brooks (1868)",
+   "music": "ST. LOUIS, Lewis H. Redner (1868)",
+   "public_domain": {"words": 1868, "music": 1868, "writers_died": 1908},
+   "key": "F", "bpm": 84, "meter": 4, "style": "hall-ballad", "season": "christmas",
+   "chords": {
+    "verse": ["F", "Bb F@3", "C", "F", "F", "Bb", "C", "F", "F", "Dm", "C", "F", "F", "Bb F@3", "C", "F"],
+    "intro": ["F", "Bb", "C", "F"],
+    "interlude": ["Bb", "F", "C", "F"],
+    "outro": ["Bb", "F", "C", "F"]
+   },
+   "lyrics": {
+    "Verse 1": "O|little town of|Bethle^hem, how|still we see thee|lie! / A~|bove thy deep and|dreamless sleep the|silent stars go|by; / yet|in thy dark streets|shineth the|everlasting|Light; / the|hopes and fears of|all the ^years are|met in thee to~|night. /",
+    "Verse 2": "For|Christ is born of|Ma^ry, and|gathered all a~|bove, / while|mortals sleep, the|angels keep their|watch of wondering|love. / O|morning stars, to~|gether pro~|claim the holy|birth, / and|praises sing to|God the ^King, and|peace to men on|earth. /",
+    "Verse 3": "How|silently, how|silent^ly the|wondrous gift is|given! / So|God imparts to|human hearts the|blessings of His|heaven. / No|ear may hear His|coming, but|in this world of|sin, / where|meek souls will re~|ceive Him ^still, the|dear Christ enters|in. /",
+    "Verse 4": "O|holy Child of|Bethle^hem, de~|scend to us, we|pray; / cast|out our sin and|enter in; be|born in us to~|day. / We|hear the Christmas|angels the|great glad tidings|tell; / O|come to us, a~|bide with ^us, our|Lord Emmanu~|el! /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "pre", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Verse 3", "chords": "verse", "role": "chorus", "lyrics": "Verse 3", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-16", "role": "tag", "lyrics": "Verse 4@13-16", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "the-solid-rock",
+   "title": "The Solid Rock (My Hope Is Built)",
+   "words": "Edward Mote (1834)",
+   "music": "SOLID ROCK, William B. Bradbury (1863)",
+   "public_domain": {"words": 1834, "music": 1863, "writers_died": 1874},
+   "key": "G", "bpm": 88, "meter": 4, "style": "anthem-ride",
+   "chords": {
+    "verse": ["G", "C G@3", "D", "G", "G", "C", "G D@3", "G"],
+    "refrain": ["G", "D", "G", "C", "G", "D", "G", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|My hope is built on|nothing ^less than|Jesus' blood and|righteousness; /|I dare not trust the|sweetest frame, but|wholly lean ^on|Jesus' name. /",
+    "Verse 2": "|When darkness veils His|lovely ^face, I|rest on His un~|changing grace; /|in every high and|stormy gale, my|anchor holds ^with~|in the veil. /",
+    "Verse 3": "|His oath, His covenant,|His ^blood sup~|port me in the|whelming flood; /|when all around my|soul gives way, He|then is all ^my|hope and stay. /",
+    "Verse 4": "|When He shall come with|trumpet ^sound, O|may I then in|Him be found; /|dressed in His righteous~|ness alone,|faultless to ^stand be~|fore the throne. /",
+    "Refrain": "|On Christ the solid|Rock I stand;|all other ground is|sinking sand, /|all other ground|is sinking|sand. /|"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Refrain 3", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Refrain 4", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "guide-me-o-thou-great-jehovah",
+   "title": "Guide Me, O Thou Great Jehovah",
+   "words": "William Williams (1745); translated by Peter Williams (1771)",
+   "music": "CWM RHONDDA, John Hughes (1907)",
+   "public_domain": {"words": 1771, "music": 1907, "writers_died": 1932},
+   "key": "G", "bpm": 84, "meter": 4, "style": "fortress",
+   "chords": {
+    "verse": ["G", "C G@3", "G", "D", "G", "C G@3", "D", "G", "C", "G", "Em", "D", "C D@3", "G"],
+    "intro": ["G", "C", "D", "G"],
+    "interlude": ["C", "G", "D", "G"],
+    "outro": ["C", "G", "D", "G"]
+   },
+   "lyrics": {
+    "Verse 1": "|Guide me, O Thou|great Je^hovah,|pilgrim through this|barren land; /|I am weak, but|Thou art ^mighty;|hold me with Thy|powerful hand. /|Bread of heaven,|Bread of heaven,|feed me till I|want no more; /|feed me ^till I|want no more. /",
+    "Verse 2": "|Open now the|crystal ^fountain,|whence the healing|stream doth flow; /|let the fire and|cloudy ^pillar|lead me all my|journey through. /|Strong Deliverer,|strong Deliverer,|be Thou still my|strength and shield; /|be Thou ^still my|strength and shield. /",
+    "Verse 3": "|When I tread the|verge of ^Jordan,|bid my anxious|fears subside; /|death of death, and|hell's de^struction,|land me safe on|Canaan's side. /|Songs of praises,|songs of praises,|I will ever|give to Thee; /|I will ^ever|give to Thee. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Verse 2", "chords": "verse", "role": "chorus", "lyrics": "Verse 2", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "final", "lyrics": "Verse 3", "energy": 3},
+    {"name": "Tag", "chords": "verse:13-14", "role": "tag", "lyrics": "Verse 3@13-14", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "trust-and-obey",
+   "title": "Trust and Obey",
+   "words": "John H. Sammis (1887)",
+   "music": "TRUST AND OBEY, Daniel B. Towner (1887)",
+   "public_domain": {"words": 1887, "music": 1887, "writers_died": 1919},
+   "key": "F", "bpm": 120, "meter": 3, "style": "gospel-68-up",
+   "chords": {
+    "verse": ["F", "F", "Bb", "F", "F", "F", "C", "C", "F", "F", "Bb", "F", "F", "C", "F", "F"],
+    "refrain": ["F", "F", "C", "C", "Bb", "F", "C", "F"],
+    "intro": ["F", "Bb", "C", "F"],
+    "interlude": ["Bb", "F", "C", "F"],
+    "outro": ["Bb", "F", "C", "F"]
+   },
+   "lyrics": {
+    "Verse 1": "When we|walk with the|Lord in the|light of His|Word, / what a|glory He|sheds on our|way! /|While we|do His good|will, He a~|bides with us|still, / and with|all who will|trust and o~|bey. /|",
+    "Verse 2": "Not a|burden we|bear, not a|sorrow we|share, / but our|toil He doth|richly re~|pay; /|not a|grief or a|loss, not a|frown or a|cross, / but is|blest if we|trust and o~|bey. /|",
+    "Verse 3": "But we|never can|prove the de~|lights of His|love / until|all on the|altar we|lay; /|for the|favor He|shows, for the|joy He be~|stows, / are for|them who will|trust and o~|bey. /|",
+    "Verse 4": "Then in|fellowship|sweet we will|sit at His|feet, / or we'll|walk by His|side in the|way; /|what He|says we will|do, where He|sends we will|go; / never|fear, only|trust and o~|bey. /|",
+    "Refrain": "|Trust and o~|bey, / for there's|no other|way / to be|happy in|Jesus, / but to|trust and o~|bey. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Refrain 3", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Refrain 4", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
+  },
+  {
+   "id": "he-leadeth-me",
+   "title": "He Leadeth Me",
+   "words": "Joseph H. Gilmore (1862)",
+   "music": "HE LEADETH ME, William B. Bradbury (1864)",
+   "public_domain": {"words": 1862, "music": 1864, "writers_died": 1918},
+   "key": "D", "bpm": 80, "meter": 4, "style": "piano-anthem",
+   "chords": {
+    "verse": ["D", "G D@3", "A", "D", "D", "G", "D A@3", "D"],
+    "refrain": ["D", "G D@3", "A", "D", "D", "G D@3", "D A@3", "D"],
+    "intro": ["D", "G", "A", "D"],
+    "interlude": ["G", "D", "A", "D"],
+    "outro": ["G", "D", "A", "D"]
+   },
+   "lyrics": {
+    "Verse 1": "|He leadeth me! O|blessed ^thought! O|words with heavenly|comfort fraught! /|Whate'er I do, wher~|e'er I be,|still 'tis God's ^hand that|leadeth me. /",
+    "Verse 2": "|Sometimes 'mid scenes of|deepest ^gloom, some~|times where Eden's|bowers bloom, /|by waters still, o'er|troubled sea,|still 'tis His ^hand that|leadeth me. /",
+    "Verse 3": "|Lord, I would clasp Thy|hand in ^mine, nor|ever murmur|nor repine; /|content, whatever|lot I see,|since 'tis my ^God that|leadeth me. /",
+    "Verse 4": "|And when my task on|earth is ^done, when|by Thy grace the|victory's won, /|e'en death's cold wave I|will not flee,|since God through ^Jordan|leadeth me. /",
+    "Refrain": "|He leadeth me,|He lead^eth me,|by His own hand He|leadeth me; /|His faithful follower|I would ^be,|for by His ^hand He|leadeth me. /"
+   },
+   "form": [
+    {"name": "Intro", "chords": "intro", "role": "intro", "energy": 0},
+    {"name": "Verse 1", "chords": "verse", "role": "verse", "lyrics": "Verse 1", "energy": 0},
+    {"name": "Refrain 1", "chords": "refrain", "role": "pre", "lyrics": "Refrain", "energy": 1},
+    {"name": "Verse 2", "chords": "verse", "role": "verse2", "lyrics": "Verse 2", "energy": 1},
+    {"name": "Refrain 2", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Interlude", "chords": "interlude", "role": "interlude", "energy": 2},
+    {"name": "Verse 3", "chords": "verse", "role": "drop", "lyrics": "Verse 3", "energy": 1},
+    {"name": "Refrain 3", "chords": "refrain", "role": "chorus", "lyrics": "Refrain", "energy": 2},
+    {"name": "Bridge", "chords": "interlude*2", "role": "bridge", "energy": 2},
+    {"name": "Verse 4", "chords": "verse", "role": "final", "lyrics": "Verse 4", "energy": 3},
+    {"name": "Refrain 4", "chords": "refrain", "role": "final", "lyrics": "Refrain", "energy": 3},
+    {"name": "Tag", "chords": "refrain:5-8", "role": "tag", "lyrics": "Refrain@5-8", "energy": 1},
+    {"name": "Outro", "chords": "outro", "role": "outro", "energy": 0}
+   ]
   }
  ]
 }

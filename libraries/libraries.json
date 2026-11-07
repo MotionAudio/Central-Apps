@@ -3,11 +3,11 @@
  "libraries": [
   {
    "id": "central-keys-library",
-   "approxMB": 660,
+   "approxMB": 732,
    "plan": "keys",
    "version": "1.4",
    "title": "Central Keys Library",
-   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; eighteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, Ember and Selah Strings - a grand piano and a string section stretched into clouds - and Sunday Bright, Easter Brass and Christmas Bells) - with worship-ready presets; and ten synths made by us, each its own kind (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells). 10.5: real electric pianos - a Wurlitzer EP200, a CP80 electric grand and a Pianet T (Greg Sullivan's recordings, CC-BY 3.0) - with six presets for them.",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; eighteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, Ember and Selah Strings - a grand piano and a string section stretched into clouds - and Sunday Bright, Easter Brass and Christmas Bells) - with worship-ready presets; and ten synths made by us, each its own kind (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells). 10.5: real electric pianos - a Wurlitzer EP200, a CP80 electric grand and a Pianet T (Greg Sullivan's recordings, CC-BY 3.0) - with six presets for them And the Pop Grand - AKAI's Splendid Grand (public domain), the bright, even piano of a thousand records - with three presets.",
    "sounds": [
     {
      "name": "Central Keys Pianos",
@@ -107,6 +107,19 @@
        "text": "Greg Sullivan E-Pianos (Wurlitzer EP200, Yamaha CP80, Hohner Pianet T) - SFZ by kinwie",
        "license": "CC-BY 3.0",
        "url": "https://github.com/sfzinstruments/GregSullivan.E-Pianos/tree/8c3e581acda3594b553948ff0222d4f84a698376"
+      }
+     ]
+    },
+    {
+     "name": "Central Keys Pop Grand",
+     "source": "sfz",
+     "license": "Public domain",
+     "credit": "Splendid Grand Piano - sampled by AKAI and released as public domain (2000); the SFZ mapping from sfzinstruments",
+     "sources": [
+      {
+       "text": "Splendid Grand Piano - AKAI (released as public domain in 2000), SFZ on sfzinstruments",
+       "license": "Public domain",
+       "url": "https://github.com/sfzinstruments/SplendidGrandPiano/tree/1c595d827b7fd7f0be3134aaed0f90b3662a09cf"
       }
      ]
     }
@@ -970,16 +983,90 @@
       ]
      ],
      "sound": "wurlitzer & pad|wurlitzer"
+    },
+    {
+     "name": "Pop Grand Worship",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.3,
+        "Ratio": 2
+       }
+      ],
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.4,
+        "Late": 22
+       }
+      ]
+     ],
+     "sound": "pop grand"
+    },
+    {
+     "name": "Pop Grand Ballad",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.4,
+        "Late": 28
+       }
+      ]
+     ],
+     "sound": "soft pop grand|pop grand"
+    },
+    {
+     "name": "Pop Grand Stage",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.25,
+        "Ratio": 3
+       }
+      ],
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 20,
+        "Mix": 10
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.8
+       }
+      ]
+     ],
+     "sound": "pop grand"
     }
    ]
   },
   {
    "id": "central-instrument-library",
-   "approxMB": 620,
+   "approxMB": 660,
    "plan": "instrument",
    "version": "1.3",
    "title": "Central Instrument Library",
-   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell. 10.5: a Lo-fi Kit, a Quiet Upright Bass and a Banjo (all CC0), and twelve more loops - a worship pocket, a tom groove, a four-bar builder, gospel 12/8, a country two-step, soft pop, two lo-fi beats, a processional march, tambourine and shaker, a djembe groove and timpani under a hymn.",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell. 10.5: a Lo-fi Kit, a Vintage Kit, a Quiet Upright Bass and a Banjo (all CC0), and twelve more loops, every groove at three tempos - a worship pocket, a tom groove, a four-bar builder, gospel 12/8, a country two-step, soft pop, two lo-fi beats, a processional march, tambourine and shaker, a djembe groove and timpani under a hymn.",
    "sounds": [
     {
      "name": "Central Instrument Harps",
@@ -1037,7 +1124,7 @@
      "name": "Central Instrument Drum Kits",
      "source": "sfz",
      "license": "CC0 1.0",
-     "credit": "Virtuosity Drums; Big Rusty Drums and Unruly Drums by Karoryfer Samples - CC0 1.0; the Lo-fi Kit (10.5) is Gogodze Phu Vol II by Karoryfer Samples (CC0 1.0)",
+     "credit": "Virtuosity Drums; Big Rusty Drums and Unruly Drums by Karoryfer Samples - CC0 1.0; the Lo-fi Kit (10.5) is Gogodze Phu Vol II by Karoryfer Samples (CC0 1.0); the Vintage Kit (10.5) is Swirly Drums by Karoryfer Samples (CC0 1.0)",
      "sources": [
       {
        "text": "Virtuosity Drums - Austin McMahon, recorded at Virtuosity Musical Instruments, Boston",
@@ -1058,6 +1145,11 @@
        "text": "Gogodze Phu Vol II - Karoryfer Samples",
        "license": "CC0 1.0",
        "url": "https://github.com/sfzinstruments/karoryfer.gogodze-phu-vol-ii/tree/69a0274cdc39c99c3098cde1bc3789690de86d62"
+      },
+      {
+       "text": "Swirly Drums - Karoryfer Samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sfzinstruments/karoryfer.swirly-drums/tree/c40dafe0011cb2e54c0c220ff0fa308a11fc60f5"
       }
      ]
     },
@@ -1677,7 +1769,7 @@
      "set": "drums",
      "name": "Drum loops",
      "license": "Motion Audio + CC0 1.0",
-     "credit": "Drum and percussion loops played by Motion Audio (tools/make-loops.py) on the library's own kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums, Gogodze Phu Vol II (the Lo-fi Kit), VCSL hand and orchestral percussion - CC0 1.0)",
+     "credit": "Drum and percussion loops played by Motion Audio (tools/make-loops.py) on the library's own kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums, Gogodze Phu Vol II (the Lo-fi Kit), Swirly Drums (the Vintage Kit), VCSL hand and orchestral percussion - CC0 1.0)",
      "sources": [
       {
        "text": "Grooves written and rendered by Motion Audio (tools/make-loops.py)",
@@ -4706,7 +4798,7 @@
    "plan": "pads",
    "version": "1.3",
    "title": "Central Pads Library",
-   "summary": "41 pads for the pad pedal in all 12 keys, each built its own way (its own voices, movement, stereo and reverb) and each a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting): warm, air, choir aah, ooh and hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning; Sunday Keys (the modern worship pad); nine made from real recordings (Ember, Halo, Selah, Dawn, Frozen Piano, Bowed Glass, Vibes, Harp Wash, Cathedral Organ); and tide, vowels, tape, sparkle, eighties, reed, swell guitar, breathe, tanpura, horns and flute choir. Plus Central Pads Swells - swells, risers, downlifters and an arrival in every key at 4, 8 and 16 seconds, and an air bed for between songs - and eight ambient loops for the texture channels in every key (Sparkle, Drift, Breath, Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain). Comes with every other plan too. 35 more pads, moving pads and more swells come in Central Pads Extra, a second download with the same key. 10.5: seven more ambient loops in every key - Piano Arps, Organ Swell, Strings Rise, Bell Tower, Guitar Arpeggio, Wurlitzer Haze and Hum Drone.",
+   "summary": "41 pads for the pad pedal in all 12 keys, each built its own way (its own voices, movement, stereo and reverb) and each a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting): warm, air, choir aah, ooh and hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning; Sunday Keys (the modern worship pad); nine made from real recordings (Ember, Halo, Selah, Dawn, Frozen Piano, Bowed Glass, Vibes, Harp Wash, Cathedral Organ); and tide, vowels, tape, sparkle, eighties, reed, swell guitar, breathe, tanpura, horns and flute choir. Plus Central Pads Swells - swells, risers, downlifters and an arrival in every key at 4, 8 and 16 seconds, and an air bed for between songs - and eight ambient loops for the texture channels in every key (Sparkle, Drift, Breath, Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain). Comes with every other plan too. 35 more pads, moving pads and more swells come in Central Pads Extra, a second download with the same key. 10.5: seven more ambient loops in every key - Piano Arps, Organ Swell, Strings Rise, Bell Tower, Guitar Arpeggio, Wurlitzer Haze and Hum Drone Every pad now at one loudness (10.5).",
    "pads": [
     {
      "name": "Warm",
@@ -5301,9 +5393,9 @@
    "id": "central-pads-extra",
    "approxMB": 750,
    "plan": "pads",
-   "version": "1.0",
+   "version": "1.1",
    "title": "Central Pads Extra",
-   "summary": "35 more pads for the pad pedal in all 12 keys, each built its own way: Sunday Keys in five more colours (warm, bright, dark, air, cinematic), Ambient Guitar and Synth Swell; Christmas Bells, Music Box, Easter Brass, Advent Glass and Candlelight; pads made from real recordings - oboe, clarinet, bassoon, flute, trumpet, trombone, violas, contrabasses, marimba, kalimba, mbira, ocarina, recorders, harmonica, sax, zither, a Renaissance organ and wine glasses; and Granular Choir, Pluck Cloud, Phaser Pad, Lo-fi Keys and Wide Fifths. Plus six moving pads for the texture channels that pulse in time with the song (eighths, sixteenths, heartbeat, trance gate, pump, bar swell) and Central Pads Swells Extra - choir, brass and breath swells, shimmer rises, an outro wash and a tape stop in every key, noise uplifters and a sub drop. A second download with the same Pads key: comes with every plan.",
+   "summary": "35 more pads for the pad pedal in all 12 keys, each built its own way: Sunday Keys in five more colours (warm, bright, dark, air, cinematic), Ambient Guitar and Synth Swell; Christmas Bells, Music Box, Easter Brass, Advent Glass and Candlelight; pads made from real recordings - oboe, clarinet, bassoon, flute, trumpet, trombone, violas, contrabasses, marimba, kalimba, mbira, ocarina, recorders, harmonica, sax, zither, a Renaissance organ and wine glasses; and Granular Choir, Pluck Cloud, Phaser Pad, Lo-fi Keys and Wide Fifths. Plus six moving pads for the texture channels that pulse in time with the song (eighths, sixteenths, heartbeat, trance gate, pump, bar swell) and Central Pads Swells Extra - choir, brass and breath swells, shimmer rises, an outro wash and a tape stop in every key, noise uplifters and a sub drop. A second download with the same Pads key: comes with every plan. 1.1 (10.5): every pad at the same loudness as the others.",
    "pads": [
     {
      "name": "Sunday Warm",
@@ -5904,11 +5996,11 @@
   },
   {
    "id": "central-pads-more",
-   "approxMB": 360,
+   "approxMB": 900,
    "plan": "pads",
    "version": "1.0",
    "title": "Central Pads More",
-   "summary": "18 more pads for the pad pedal in all 12 keys (10.5): Sunday Shimmer, Deep Worship, Analog Strings (a 70s string machine), Glass Choir, Prayer Room, Cathedral Choir, Rising Tide, Organ Pad, Choir and Strings, Still Waters, Chapel Harmonium, Pentecost Fire and Night Sky, and five made from real recordings - Celtic Air (flutes and a harp), Glacier (violins frozen in a shimmer), Soft Brass (horns and trombones), Harvest (marimba and strings) and Heartstrings (cellos and violas breathing). Plus six more moving pads for the texture channels (dotted eighths, sixteenth shimmer, a slow breath, push and pull, a quarter swell and a half-time pulse). A third download with the same Pads key: comes with every plan.",
+   "summary": "24 more pads for the pad pedal in all 12 keys (10.5), each a 24-second seamless loop so its movement takes longer to come round: Sunday Shimmer, Deep Worship, Analog Strings (a 70s string machine), Glass Choir, Prayer Room, Cathedral Choir, Rising Tide, Organ Pad, Choir and Strings, Still Waters, Chapel Harmonium, Pentecost Fire, Night Sky, Communion, Tape Strings, Kingdom Come (the big one for the last chorus), Advent Waiting, Gospel Organ (the Leslie on fast), Rain on the Roof, and five made from real recordings - Celtic Air (flutes and a harp), Glacier (violins frozen in a shimmer), Soft Brass (horns and trombones), Harvest (marimba and strings) and Heartstrings (cellos and violas breathing). Plus six more moving pads for the texture channels (dotted eighths, sixteenth shimmer, a slow breath, push and pull, a quarter swell and a half-time pulse). A third download with the same Pads key: comes with every plan.",
    "pads": [
     {
      "name": "Sunday Shimmer",
@@ -6153,6 +6245,93 @@
        "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
        "license": "CC0 1.0",
        "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
+      }
+     ]
+    },
+    {
+     "name": "Communion",
+     "license": "Motion Audio - sold as Central Pads (made from CC0 1.0 recordings)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a Steinway grand in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Tape Strings",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      }
+     ]
+    },
+    {
+     "name": "Kingdom Come",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      }
+     ]
+    },
+    {
+     "name": "Advent Waiting",
+     "license": "Motion Audio - sold as Central Pads (made from CC0 1.0 recordings)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from tubular bells in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Gospel Organ",
+     "license": "Motion Audio - sold as Central Pads",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py: synthesised, no recording)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      }
+     ]
+    },
+    {
+     "name": "Rain on the Roof",
+     "license": "Motion Audio - sold as Central Pads (made from CC0 1.0 recordings)",
+     "credit": "Made by Motion Audio (tools/make-pad-loops.py) from a Steinway grand in VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+       "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
       }
      ]
     }

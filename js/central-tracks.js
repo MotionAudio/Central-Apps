@@ -13,7 +13,7 @@
   var esc = PP.escapeHtml, LS = "central-tracks";
   // (10.0: the preview shows Motion Audio's own hymn multitracks - public-domain hymns in our arrangements, hymns/hymns.json;
   // 10.2: each with its 30-second preview from the "central-tracks" release, so they can be heard before a server is set;
-  // 10.3: all of them - the test checks this list against hymns.json; 10.5: 34, with Cloudflare the previews' home)
+  // 10.3: all of them - the test checks this list against hymns.json; 10.5: 46, with Cloudflare the previews' home)
   var HYMN = "https://libraries.motionaudio.org/central-tracks/";   // (10.5: Cloudflare, where the website's HYMNS_BASE_URL points; the GitHub release "central-tracks" until 10.4)
   var PREVIEW = [
     { id: "p1", title: "Amazing Grace", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 72, price: 20, preview: HYMN + "amazing-grace--amazing-grace-preview.mp3" },
@@ -49,7 +49,19 @@
     { id: "h31", title: "Silent Night", artist: "Motion Audio", kind: "Multitrack", key: "Bb", bpm: 92, price: 20, preview: HYMN + "silent-night--silent-night-preview.mp3" },
     { id: "h32", title: "Hark! The Herald Angels Sing", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 104, price: 20, preview: HYMN + "hark-the-herald--hark-the-herald-preview.mp3" },
     { id: "h33", title: "Joy to the World", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 100, price: 20, preview: HYMN + "joy-to-the-world--joy-to-the-world-preview.mp3" },
-    { id: "h34", title: "Christ the Lord Is Risen Today", artist: "Motion Audio", kind: "Multitrack", key: "C", bpm: 92, price: 20, preview: HYMN + "christ-the-lord-is-risen--christ-the-lord-is-risen-preview.mp3" },
+    { id: "h34", title: "Christ the Lord Is Risen Today", artist: "Motion Audio", kind: "Multitrack", key: "C", bpm: 92, price: 20, preview: HYMN + "christ-the-lord-is-risen--christ-the-lord-is-risen-preview.mp3" },,
+    { id: "h35", title: "Nearer, My God, to Thee", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 80, price: 20, preview: HYMN + "nearer-my-god-to-thee--nearer-my-god-to-thee-preview.mp3" },
+    { id: "h36", title: "My Jesus, I Love Thee", artist: "Motion Audio", kind: "Multitrack", key: "F", bpm: 100, price: 20, preview: HYMN + "my-jesus-i-love-thee--my-jesus-i-love-thee-preview.mp3" },
+    { id: "h37", title: "Fairest Lord Jesus", artist: "Motion Audio", kind: "Multitrack", key: "Eb", bpm: 76, price: 20, preview: HYMN + "fairest-lord-jesus--fairest-lord-jesus-preview.mp3" },
+    { id: "h38", title: "Standing on the Promises", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 112, price: 20, preview: HYMN + "standing-on-the-promises--standing-on-the-promises-preview.mp3" },
+    { id: "h39", title: "Softly and Tenderly", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 66, price: 20, preview: HYMN + "softly-and-tenderly--softly-and-tenderly-preview.mp3" },
+    { id: "h40", title: "Jesus Loves Me", artist: "Motion Audio", kind: "Multitrack", key: "C", bpm: 92, price: 20, preview: HYMN + "jesus-loves-me--jesus-loves-me-preview.mp3" },
+    { id: "h41", title: "Angels We Have Heard on High", artist: "Motion Audio", kind: "Multitrack", key: "F", bpm: 104, price: 20, preview: HYMN + "angels-we-have-heard--angels-we-have-heard-preview.mp3" },
+    { id: "h42", title: "O Little Town of Bethlehem", artist: "Motion Audio", kind: "Multitrack", key: "F", bpm: 84, price: 20, preview: HYMN + "o-little-town--o-little-town-preview.mp3" },
+    { id: "h43", title: "The Solid Rock (My Hope Is Built)", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 88, price: 20, preview: HYMN + "the-solid-rock--the-solid-rock-preview.mp3" },
+    { id: "h44", title: "Guide Me, O Thou Great Jehovah", artist: "Motion Audio", kind: "Multitrack", key: "G", bpm: 84, price: 20, preview: HYMN + "guide-me-o-thou-great-jehovah--guide-me-o-thou-great-jehovah-preview.mp3" },
+    { id: "h45", title: "Trust and Obey", artist: "Motion Audio", kind: "Multitrack", key: "F", bpm: 120, price: 20, preview: HYMN + "trust-and-obey--trust-and-obey-preview.mp3" },
+    { id: "h46", title: "He Leadeth Me", artist: "Motion Audio", kind: "Multitrack", key: "D", bpm: 80, price: 20, preview: HYMN + "he-leadeth-me--he-leadeth-me-preview.mp3" }
     { id: "p6", title: "Warm Swell Pad (all 12 keys)", artist: "Motion Audio", kind: "Pad", key: "", bpm: 0, price: 9.99 },
     { id: "p7", title: "Felt Upright (sampled)", artist: "Grace Hill Keys", kind: "Sound", key: "", bpm: 0, price: 4.99, stars: 4 },
     { id: "p8", title: "Worship Lead Board (ambient)", artist: "M. Ortiz", kind: "Board", key: "", bpm: 0, price: 1.99, stars: 3 },
