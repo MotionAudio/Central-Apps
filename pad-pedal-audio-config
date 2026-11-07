@@ -29,7 +29,7 @@ DATA = "/data/pad-pedal"
 LAYOUTS = {2: ["FL", "FR"], 4: ["FL", "FR", "RL", "RR"], 6: ["FL", "FR", "FC", "LFE", "RL", "RR"], 8: ["FL", "FR", "FC", "LFE", "RL", "RR", "SL", "SR"]}
 CARD_PATTERNS = [
     ("jack", r"padpedal_jack|alsa_output\.platform-bcm2835_audio\..*|alsa_output\..*bcm2835.*|alsa_output\..*[Hh]eadphones.*", "Headphone jack", 2),
-    ("i2s", r"alsa_output\.platform-soc_sound\..*|alsa_output\..*hifiberry.*|alsa_output\..*sndrpihifiberry.*|alsa_output\.platform-.*i2s.*", "DAC board", 2),
+    ("i2s", r"alsa_output\.platform-soc_sound\..*|alsa_output\..*[Cc]entral[Pp]edal.*|alsa_output\..*hifiberry.*|alsa_output\..*sndrpihifiberry.*|alsa_output\.platform-.*i2s.*", "DAC board", 2),
     ("usb", r"alsa_output\.usb-.*", "USB interface", None),
     ("hdmi0", r"alsa_output\.platform-fef00700\.hdmi\..*|alsa_output\..*hdmi.*0.*", "HDMI 1", 2),
     ("hdmi1", r"alsa_output\.platform-fef05700\.hdmi\..*|alsa_output\..*hdmi.*1.*", "HDMI 2", 2),
@@ -40,7 +40,7 @@ def dac_overlay():
     """True when config.txt loads the DAC board's overlay (what "A DAC board is fitted" sets)."""
     for path in ("/boot/firmware/config.txt", "/boot/config.txt"):
         try:
-            return any(re.match(r"^\s*dtoverlay=hifiberry-dac\b", ln) for ln in open(path))
+            return any(re.match(r"^\s*dtoverlay=(hifiberry-dac|central-pedal-audio)\b", ln) for ln in open(path))
         except OSError:
             continue
     return False
@@ -84,7 +84,7 @@ def pw_sinks(env):
 # The ALSA card behind a sink names it better than PipeWire's node name, which changes between OS versions (the Pi 4's
 # jack is "platform-bcm2835_audio" on some, "platform-fe00b840.mailbox" on others): (kind, card id / name pattern)
 CARD_IDS = [("usb", r"(?i)\|usb$"), ("jack", r"(?i)^(headphones|bcm2835)"), ("hdmi0", r"(?i)^vc4hdmi0?$|^vc4hdmi0"), ("hdmi1", r"(?i)^vc4hdmi1"),
-            ("i2s", r"(?i)hifiberry|sndrpi|pcm510|i2s|dac")]
+            ("i2s", r"(?i)hifiberry|sndrpi|pcm510|i2s|dac|centralpedal")]
 
 
 def kind_of(sink):

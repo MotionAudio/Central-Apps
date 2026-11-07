@@ -7,6 +7,8 @@
 #   pad-pedal-system screen <id>|off            the touch screen, from /opt/pad-pedal/screens.json (downloads the maker's driver when needed)
 #   pad-pedal-system wifi scan|status|connect [hidden]|forget|country <CC>   Wi-Fi (connect reads the SSID and the password on stdin)
 #   pad-pedal-system dac on|off                 the I2S DAC board (PCM5102A, "hifiberry-dac") for click / cues
+#   pad-pedal-system board central-main-v1|none the Central Pedal main board (docs/MAIN-BOARD.md): SPI, MIDI UART, fan,
+#                                               power button, its sound card (instrument in + outs 3-4)
 #   pad-pedal-system audio hdmi|nohdmi usbfirst|jackfirst   which cards join the combined output (applied at login)
 #   pad-pedal-system hostname <name>            rename the Pad Pedal (<name>.local)
 #   pad-pedal-system factory-done               the factory test is over: its marker leaves the boot partition
@@ -360,6 +362,29 @@ PY
       sleep 1
     fi
     sync; echo "DAC board: ${2:-on}" ;;
+  board)   # the Central Pedal main board's config.txt lines, after a restart (docs/MAIN-BOARD.md)
+    boot_rw
+    sed -i -E '/^dtoverlay=(hifiberry-dac|central-pedal-audio|midi-uart0|gpio-fan|gpio-poweroff)(,|:|$)/d; /^# Central Pedal main board$/d' "$CONFIG"
+    if [ "${2:-none}" = "central-main-v1" ]; then
+      [ -f "$BOOT/overlays/central-pedal-audio.dtbo" ] || echo "  warning: $BOOT/overlays/central-pedal-audio.dtbo is missing - run setup-pi.sh again" >&2
+      set_config dtparam=i2c_arm on
+      set_config dtparam=spi on
+      set_config enable_uart 1
+      {
+        echo "# Central Pedal main board"
+        echo "dtoverlay=central-pedal-audio"
+        echo "dtoverlay=midi-uart0"
+        echo "dtoverlay=gpio-fan,gpiopin=26,temp=60000"
+        echo "dtoverlay=gpio-poweroff,gpiopin=24,active_low=1"
+      } >> "$CONFIG"
+      # the MIDI jacks need UART0 to themselves: no serial console on it
+      sed -i -E 's/(^| )console=(serial0|ttyAMA0),[0-9]+//g' "$CMDLINE"
+      systemctl disable --now serial-getty@ttyAMA0.service serial-getty@serial0.service 2>/dev/null || true
+      audio_json dac true
+    else
+      audio_json dac false
+    fi
+    sync; echo "control board: ${2:-none} (takes effect after a restart)" ;;
   jack)   # the Pi's headphone jack (its sound card exists only with dtparam=audio=on), after a restart
     if [ "${2:-on}" = on ]; then config_all "dtparam=audio" on; else boot_rw; sed -i -E '/^dtparam=audio=on$/d' "$CONFIG"; fi
     sync; echo "headphone jack: ${2:-on} (takes effect after a restart)" ;;
@@ -493,7 +518,8 @@ PY
   status)
     "$0" safe-mode status
     echo "tft=$(grep -oE '^dtoverlay=(waveshare35a|waveshare35b|waveshare35c|piscreen|tft35a|tinylcd35|pitft35-resistive)' "$CONFIG" | head -1 | cut -d= -f2)"
-    echo "dac=$(grep -q '^dtoverlay=hifiberry-dac' "$CONFIG" && echo on || echo off)"
+    echo "dac=$(grep -qE '^dtoverlay=(hifiberry-dac|central-pedal-audio)' "$CONFIG" && echo on || echo off)"
+    echo "board=$(grep -q '^dtoverlay=central-pedal-audio' "$CONFIG" && echo central-main-v1 || echo none)"
     cat "$DATA/audio.json" 2>/dev/null || true ;;
-  *) echo "usage: $0 safe-mode|screen|tft|wifi|setup-ap|factory-done|dac|jack|audio|hostname|wifi-import|update|restart-app|boot-tune|status" >&2; exit 1 ;;
+  *) echo "usage: $0 safe-mode|screen|tft|wifi|setup-ap|factory-done|dac|board|jack|audio|hostname|wifi-import|update|restart-app|boot-tune|status" >&2; exit 1 ;;
 esac

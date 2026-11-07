@@ -101,7 +101,10 @@
           "</select>" + (shared.length ? '<br><small class="rt-shared">mixed with ' + esc(shared.join(" and ")) + "</small>" : "") + "</td><td>" + esc(now) + "</td></tr>";
       }).join("") + looperRow(r, opts, n, live, avail) + "</tbody></table>" +
       '<p class="muted">' + (avail <= 2 ? (onPi() ? "Right now this Central Pedal only has its headphone jack (outputs 1–2), so everything plays there. " : "This device has 2 outputs, so everything plays on 1–2. ") + "Anything set to an output that isn't there is played on 1–2 instead. With a DAC board, 3–4 are its outputs; a USB audio interface adds 5 and up." : "1–2 are the headphone jack (left, right) and 3–4 the DAC board. A USB audio interface adds its outputs from 5 up as soon as it's plugged in. Parts sent to the same output are mixed together, and anything set to an output that isn't there plays on 1–2.") + "</p>" +
-      (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- a DAC board can't be found by itself; leave this off when there's none, so nothing is sent to it</small></label>" : "");
+      (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- a DAC board can't be found by itself; leave this off when there's none, so nothing is sent to it</small></label>" +
+        // (10.6) the Central Pedal main board: its pin map, sound card (instrument in + 3–4), MIDI jacks, fan and power button
+        '<label class="toggle rt-board"><input type="checkbox" data-rtboard' + (st && st.board ? " checked" : "") + "> Central Pedal main board fitted <small class=\"muted\">- 8 footswitches, 6 push-knobs, 2 faders, instrument input, MIDI jacks; outputs 3–4 on the board, 5–6 (and the headphone jack) on its USB DAC. Restart after changing.</small></label>" +
+        (st && st.battery ? '<p class="muted rt-battery">Battery ' + st.battery.percent + " % · " + st.battery.volts + " V" + (st.battery.charging ? " · charging" : "") + (st.battery.low ? " · LOW - plug in the charger" : "") + "</p>" : "") : "");
   }
   // the looper (LOOPER tab): on the instrument's output, or one of its own
   function looperRow(r, opts, n, live, avail) {
@@ -131,6 +134,11 @@
     var el = e.target; if (!el || !el.hasAttribute || !el.hasAttribute("data-rtdac")) return;
     send({ type: "system", action: "dac", value: el.checked ? "on" : "off" });
     PP.setStatus(el.checked ? "DAC board on - setting up outputs 3–4 now…" : "DAC board off - everything goes to the headphone jack (1–2) now…");
+  });
+  document.addEventListener("change", function (e) {   // (10.6) the main board on / off
+    var el = e.target; if (!el || !el.hasAttribute || !el.hasAttribute("data-rtboard")) return;
+    send({ type: "system", action: "board", value: el.checked ? "central-main-v1" : "none" });
+    PP.setStatus(el.checked ? "Main board set up - restart the pedal to switch on its sound card, MIDI jacks and fan." : "Main board off - back to the hand-wired pins. Restart the pedal.");
   });
   F.on("audioReapplied", function (m) { PP.setStatus(m.ok ? "Outputs ready." : "Couldn't set up the outputs: " + (m.message || "")); renderRouting(); });
 

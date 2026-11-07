@@ -1,0 +1,56 @@
+// Central Pedal main board - one sound card for the board's I2S audio (docs/MAIN-BOARD.md)
+//   PCM1808 ADC (instrument input) -> GPIO 20 (PCM_DIN), and it is the I2S clock master (its own 12.288 MHz oscillator)
+//   PCM5102A DAC (outputs 3-4)     <- GPIO 21 (PCM_DOUT), clocked from the same BCK / LRCK
+//   GPIO 18 / 19 (BCK / LRCK) are INPUTS on the Pi: the Pi is the I2S slave.
+// The PCM1808 has no kernel driver of its own; the ADAU7002 driver (a fixed I2S capture codec with no registers)
+// stands in for it. Build:  dtc -@ -I dts -O dtb -o central-pedal-audio.dtbo central-pedal-audio-overlay.dts
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2711";
+
+	fragment@0 {
+		target = <&i2s_clk_consumer>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			cp_dac: pcm5102a-codec {
+				#sound-dai-cells = <0>;
+				compatible = "ti,pcm5102a";
+				status = "okay";
+			};
+			cp_adc: pcm1808-codec {
+				#sound-dai-cells = <0>;
+				compatible = "adi,adau7002";
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&sound>;
+		__overlay__ {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "CentralPedal";
+			simple-audio-card,format = "i2s";
+			simple-audio-card,bitclock-master = <&cp_codec>;
+			simple-audio-card,frame-master = <&cp_codec>;
+			status = "okay";
+
+			cp_cpu: simple-audio-card,cpu {
+				sound-dai = <&i2s_clk_consumer>;
+				dai-tdm-slot-num = <2>;
+				dai-tdm-slot-width = <32>;
+			};
+			cp_codec: simple-audio-card,codec {
+				sound-dai = <&cp_dac>, <&cp_adc>;
+			};
+		};
+	};
+};

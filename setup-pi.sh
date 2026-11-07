@@ -67,7 +67,7 @@ apt-get install -y --no-install-recommends \
   i2c-tools alsa-utils poppler-utils espeak-ng fonts-dejavu-core avahi-daemon cloud-guest-utils rfkill
 apt-get install -y --no-install-recommends chromium \
   || apt-get install -y --no-install-recommends chromium-browser
-for optional in dnsmasq-base fonts-noto-color-emoji ffmpeg musescore-general-soundfont-small python3-lgpio python3-smbus python3-smbus2 python3-rpi-lgpio python3-mido python3-rtmidi overlayroot dbus-user-session bubblewrap python3-seccomp; do
+for optional in dnsmasq-base fonts-noto-color-emoji ffmpeg musescore-general-soundfont-small python3-lgpio python3-smbus python3-smbus2 python3-rpi-lgpio python3-mido python3-rtmidi python3-spidev device-tree-compiler overlayroot dbus-user-session bubblewrap python3-seccomp; do
   apt-get install -y --no-install-recommends "$optional" >/dev/null 2>&1 \
     && echo "    + $optional" || echo "    (skipped $optional - not in this release)"
 done
@@ -136,6 +136,15 @@ install -m 644 "$SRC/central-usage/build/icon.png" /opt/pad-pedal/central-usage/
 [ -f "$SRC/wiring.html" ] && install -m 644 "$SRC/wiring.html" /opt/pad-pedal/wiring.html
 [ -f "$SRC/README.md" ] && install -m 644 "$SRC/README.md" /opt/pad-pedal/README.md
 install -m 755 "$SRC/pedal-driver.py"        /opt/pad-pedal/pedal-driver.py
+# (10.6) the Central Pedal main board's sound card overlay (docs/MAIN-BOARD.md) - built here so it matches this kernel's dtc
+if [ -f "$SRC/overlays/central-pedal-audio-overlay.dts" ]; then
+  install -d "$(dirname "$CONFIG")/overlays"
+  if command -v dtc >/dev/null && dtc -@ -q -I dts -O dtb -o "$(dirname "$CONFIG")/overlays/central-pedal-audio.dtbo" "$SRC/overlays/central-pedal-audio-overlay.dts"; then
+    echo "    + central-pedal-audio overlay (main board)"
+  else
+    warn "couldn't build the main board's audio overlay (device-tree-compiler missing?)"
+  fi
+fi
 install -m 644 "$SRC/instrument_host.py"     /opt/pad-pedal/instrument_host.py
 install -m 644 "$SRC/sources.py"            /opt/pad-pedal/sources.py
 install -m 644 "$SRC/libraries.py"          /opt/pad-pedal/libraries.py   # (the sound libraries: Settings → Packages → Libraries)

@@ -25,6 +25,7 @@
   var BCM_TO_PIN = { 2: 3, 3: 5, 4: 7, 14: 8, 15: 10, 17: 11, 18: 12, 27: 13, 22: 15, 23: 16, 24: 18, 10: 19, 9: 21, 25: 22, 11: 23, 8: 24, 7: 26, 0: 27, 1: 28, 5: 29, 6: 31, 12: 32, 13: 33, 19: 35, 16: 36, 26: 37, 20: 38, 21: 40 };
   var hello = null, devices = { mouse: false, keyboard: false, usb: [] }, learning = null, midiLearn = null;
 
+  function boardDefaults() { return hello && Array.isArray(hello.boardInputs) && hello.boardInputs.length ? hello.boardInputs : DEFAULT_INPUTS; }
   function inputs() {
     var p = project();
     if (!Array.isArray(p.inputs) || !p.inputs.length) p.inputs = JSON.parse(JSON.stringify(DEFAULT_INPUTS));
@@ -38,6 +39,8 @@
     if (i.midi) return window.CCSurface ? window.CCSurface.describe(i) : "MIDI " + String(i.midi.msg || i.midi.type).toUpperCase() + " " + i.midi.number + (i.midi.channel ? " ch" + i.midi.channel : "");
     if (i.kind === "encoder") return i.gpio_a != null ? "GPIO " + i.gpio_a + " / " + i.gpio_b + (i.gpio_button != null ? " · push GPIO " + i.gpio_button : "") : "not wired";
     if (i.gpio != null) return "GPIO " + i.gpio + " (pin " + (BCM_TO_PIN[i.gpio] || "?") + ")";
+    if (i.expander_pin != null) return "Main board expander · pin " + i.expander_pin;
+    if (i.adc && String(i.adc.chip || "").toLowerCase() === "mcp3208") return "Main board ADC · CH" + i.adc.channel;
     if (i.adc) return "ADS1115 " + i.adc.address + " · A" + i.adc.channel;
     return "not wired";
   }
@@ -67,6 +70,13 @@
     var groups = {}; A.list(kind).forEach(function (a) { (groups[a.group] = groups[a.group] || []).push(a); });
     return '<select data-cf="' + field + '">' + Object.keys(groups).map(function (g) { return '<optgroup label="' + g + '">' + groups[g].map(function (a) { return '<option value="' + a.id + '"' + (a.id === selected ? " selected" : "") + ">" + esc(a.label) + "</option>"; }).join("") + "</optgroup>"; }).join("") + "</select>";
   }
+  // (10.6) a knob / fader / expression pedal's own range and curve: e.g. a fader that only swells the pad from 20 % to 80 %
+  var CURVES = [["linear", "linear"], ["slow", "slow start (volume)"], ["fast", "fast start"], ["s", "S-curve"]];
+  function rangeControls(e) {
+    var r = e.range || {}, lo = Math.round((r.min != null ? r.min : 0) * 100), hi = Math.round((r.max != null ? r.max : 1) * 100);
+    return '<small>from</small><input data-cf="rmin" type="number" min="0" max="100" value="' + lo + '" title="lowest value, %" style="width:4em"><small>to</small><input data-cf="rmax" type="number" min="0" max="100" value="' + hi + '" title="highest value, %" style="width:4em"><small>%</small>' +
+      '<select data-cf="rcurve" title="how the value follows the control">' + CURVES.map(function (c) { return '<option value="' + c[0] + '"' + ((r.curve || "linear") === c[0] ? " selected" : "") + ">" + c[1] + "</option>"; }).join("") + "</select>";
+  }
   function renderConfigure() {
     var root = $("#cfRows"); if (!root) return;
     var map = A.mapping(), list = inputs();
@@ -76,7 +86,7 @@
       html += '<div class="cf-act">' + actionSelect("action", kind, e.action) + argControl(e, e.action) + "</div>";
       if (i.kind === "button") html += '<div class="cf-hold"><small>hold</small>' + actionSelect("hold", "trigger", e.hold ? e.hold.action : "none") + (e.hold ? argControl(e.hold, e.hold.action).replace('data-cf="arg-', 'data-cf="holdarg-') : "") + "</div>";
       else if (i.kind === "encoder") html += '<div class="cf-hold"><small>press</small>' + actionSelect("press", "trigger", e.press ? e.press.action : "none") + '<small>hold</small>' + actionSelect("hold", "trigger", e.hold ? e.hold.action : "none") + "</div>";
-      else html += '<div class="cf-hold"><label class="toggle"><input type="checkbox" data-cf="invert"' + (i.invert ? " checked" : "") + "> invert</label></div>";
+      else html += '<div class="cf-hold"><label class="toggle"><input type="checkbox" data-cf="invert"' + (i.invert ? " checked" : "") + "> invert</label>" + rangeControls(e) + "</div>";
       return html + "</div>";
     }).join("");
   }
@@ -85,6 +95,13 @@
     var id = row.dataset.input, map = A.mapping(), entry = map[id] || (map[id] = { action: "none" }), spec = byId(id);
     if (f === "name") { if (spec) { spec.name = e.target.value; saveInputs(); } return; }
     if (f === "invert") { if (spec) { spec.invert = e.target.checked; saveInputs(); } return; }
+    if (f === "rmin" || f === "rmax" || f === "rcurve") {
+      var r = entry.range || (entry.range = { min: 0, max: 1, curve: "linear" });
+      if (f === "rcurve") r.curve = e.target.value;
+      else r[f === "rmin" ? "min" : "max"] = Math.max(0, Math.min(1, (Number(e.target.value) || 0) / 100));
+      if (r.min === 0 && r.max === 1 && r.curve === "linear") delete entry.range;
+      PP.persistSoon(); return;
+    }
     if (f === "action") { entry.action = e.target.value; entry.args = {}; if (A.ACTIONS[entry.action] && A.ACTIONS[entry.action].arg === "pad") entry.args.index = 0; }
     else if (f === "hold") { if (e.target.value === "none") delete entry.hold; else entry.hold = { action: e.target.value, args: {} }; }
     else if (f === "press") { if (e.target.value === "none") delete entry.press; else entry.press = { action: e.target.value, args: {} }; }
@@ -155,7 +172,23 @@
   F.on("hello", function (m) {
     hello = m;
     if (Array.isArray(m.inputs) && m.inputs.length) { project().inputs = m.inputs.map(function (i) { var o = {}; Object.keys(i).forEach(function (k) { if (k !== "needs_free") o[k] = i[k]; }); return o; }); keepMidiInputs(); PP.persistSoon(); }
+    fillBoardJobs(m);
     renderLearn(); renderConfigure();
+  });
+  // (10.6) the main board's new controls (knob clicks, external switches) start with its default jobs - nothing already set is touched
+  function fillBoardJobs(m) {
+    if (!m || !m.board || !A.boardDefaults) return;
+    var map = A.mapping(), def = A.boardDefaults(), changed = false;
+    inputs().forEach(function (i) { if (!map[i.id] && def[i.id]) { map[i.id] = JSON.parse(JSON.stringify(def[i.id])); changed = true; } });
+    if (changed) { PP.persistSoon(); A.modeChanged(); }
+  }
+  F.on("notice", function (m) { if (m && m.text && PP.setStatus) PP.setStatus(String(m.text)); });   // (the board's power button)
+  F.on("boardChanged", function (m) {
+    if (Array.isArray(m.inputs)) { project().inputs = m.inputs.slice(); keepMidiInputs(); }
+    if (hello) { hello.board = m.board; }
+    if (m.board && A.boardDefaults && confirm("Central Pedal main board set up. Use its default jobs for the footswitches, knobs and faders? (You can change every one in Configure.)")) project().mapping.all = A.boardDefaults();
+    else fillBoardJobs(m);
+    PP.persistSoon(); A.modeChanged(); renderLearn(); renderConfigure();
   });
   // the controls the app learned itself (MIDI and computer keys) are kept in midiInputs: the driver only knows the board and USB ones
   function learnedOnly() { return inputs().filter(function (i) { return i.midi || i.key; }); }
@@ -210,7 +243,7 @@
     $("#lnAddNew").addEventListener("click", function () { addLearned(null); });
     $("#lnAddMidiButton").addEventListener("click", function () { addMidi("button"); });
     $("#lnAddMidiKnob").addEventListener("click", function () { addMidi("knob"); });
-    $("#lnResetBoard").addEventListener("click", function () { if (!confirm("Put the board inputs back to the default pins?")) return; project().inputs = JSON.parse(JSON.stringify(DEFAULT_INPUTS)).concat(inputs().filter(function (i) { return i.usb || i.midi || i.key; })); saveInputs(); renderLearn(); renderConfigure(); });
+    $("#lnResetBoard").addEventListener("click", function () { if (!confirm("Put the board inputs back to the default pins?")) return; project().inputs = JSON.parse(JSON.stringify(boardDefaults())).concat(inputs().filter(function (i) { return i.usb || i.midi || i.key; })); saveInputs(); renderLearn(); renderConfigure(); });
     keepMidiInputs();
   }
   wire(); renderConfigure(); renderLearn();

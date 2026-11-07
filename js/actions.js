@@ -259,7 +259,24 @@
 
   // ---- default mapping: ONE layout for everything (12 buttons, 6 knobs, 2 sliders, expression, encoder).
   // Pads follow the tracks when a song has tracks, so there is no separate pad / tracks layout any more.
+  // (10.6) the Central Pedal main board: 8 footswitches, 6 push-knobs, 2 faders (expression A / B), 2 external switches
+  function boardDefaults() {
+    var m = {};
+    m.b1 = { action: "playAll", hold: { action: "stopAll" } }; m.b2 = { action: "nextSection" };
+    m.b3 = { action: "prevSection", hold: { action: "restartSection" } }; m.b4 = { action: "playSelected", hold: { action: "layer" } };
+    m.b5 = { action: "nextSong", hold: { action: "nextSongPlay" } }; m.b6 = { action: "prevSong" };
+    m.b7 = { action: "tap", hold: { action: "freeze" } }; m.b8 = { action: "toggleClick", hold: { action: "toggleCues" } };
+    m.k1 = { action: "padLevel" }; m.k2 = { action: "tone" }; m.k3 = { action: "reverb" };
+    m.k4 = { action: "tracksLevel" }; m.k5 = { action: "clickLevel" }; m.k6 = { action: "instrumentLevel" };
+    m.k1c = { action: "selectNextPad" }; m.k2c = { action: "keyUp", hold: { action: "keyDown" } }; m.k3c = { action: "freeze" };
+    m.k4c = { action: "repeatSection" }; m.k5c = { action: "countIn" }; m.k6c = { action: "tuner" };
+    m.s1 = { action: "expression" }; m.s2 = { action: "instrumentExpression" };
+    m.x1 = { action: "nextSection" }; m.x2 = { action: "prevSection" };
+    return m;
+  }
+  function onMainBoard() { var h = window.PPConfigure && window.PPConfigure.hello && window.PPConfigure.hello(); return !!(h && h.board); }
   function defaults() {
+    if (onMainBoard()) return boardDefaults();
     var m = {};
     m.b1 = { action: "playAll" }; m.b2 = { action: "stopAll", hold: { action: "panic" } };
     m.b3 = { action: "prevSection" }; m.b4 = { action: "nextSection" };
@@ -302,9 +319,19 @@
     if (m.event === "press") { held[m.id] = { fired: false }; if (ACTIONS[e.action] && ACTIONS[e.action].kind === "trigger") runX(e.action, e.args); else if (e.press) runX(e.press.action, e.press.args); }
     else if (m.event === "hold") { if (e.hold) { held[m.id] = { fired: true }; runX(e.hold.action, e.hold.args); } }
     else if (m.event === "release") { var a = ACTIONS[e.action]; if (a && a.release) { try { a.release(e.args || {}); } catch (_) { } } delete held[m.id]; sendLedsSoon(); }
-    else if (typeof m.value === "number") { var c = ACTIONS[e.action]; if (c && c.kind === "continuous") runX(e.action, e.args, { value: clamp(m.value, 0, 1), id: m.id }); }
+    else if (typeof m.value === "number") { var c = ACTIONS[e.action]; if (c && c.kind === "continuous") runX(e.action, e.args, { value: shape(clamp(m.value, 0, 1), e.range), id: m.id }); }
     else if (typeof m.delta === "number") { var s = ACTIONS[e.action]; if (s && s.kind === "step") runX(e.action, e.args, { delta: m.delta < 0 ? -1 : 1, id: m.id }); }
     flash(m.id);
+  }
+  // (10.6) a continuous control's own range and curve (Configure tab: "from __ to __ %", curve)
+  function shape(v, r) {
+    if (!r) return v;
+    var c = r.curve || "linear";
+    if (c === "slow") v = v * v;                                  // fine control at the bottom (volume swells)
+    else if (c === "fast") v = Math.sqrt(v);
+    else if (c === "s") v = v * v * (3 - 2 * v);
+    var lo = r.min != null ? Number(r.min) : 0, hi = r.max != null ? Number(r.max) : 1;
+    return clamp(lo + (hi - lo) * v, 0, 1);
   }
   var flashTimers = {};
   function flash(id) { var el = document.querySelector('[data-input-id="' + id + '"]'); if (!el) return; el.classList.add("live"); clearTimeout(flashTimers[id]); flashTimers[id] = setTimeout(function () { el.classList.remove("live"); }, 350); }
@@ -380,5 +407,5 @@
   function modeChanged() { lastLeds = ""; sendLedsSoon(); if (window.PPConfigure) window.PPConfigure.render(); }
 
   function list(kind) { return Object.keys(ACTIONS).map(function (k) { return ACTIONS[k]; }).filter(function (a) { return !a.hidden && (!kind || a.kind === kind || a.id === "none"); }); }   // (hidden: the small screen's own)
-  window.PPActions = { ACTIONS: ACTIONS, list: list, muted: function (b) { return !!mutes[b]; }, busLevel: busLevel, setBusLevel: setBusLevel, toggleMute: toggleMute, TAB_NAMES: TAB_NAMES, run: run, onControl: onControl, midiInput: midiInput, keyInput: keyInput, mapping: mapping, defaults: defaults, mode: mode, sendLeds: sendLedsSoon, modeChanged: modeChanged, entryFor: entryFor };
+  window.PPActions = { ACTIONS: ACTIONS, list: list, muted: function (b) { return !!mutes[b]; }, busLevel: busLevel, setBusLevel: setBusLevel, toggleMute: toggleMute, TAB_NAMES: TAB_NAMES, run: run, onControl: onControl, midiInput: midiInput, keyInput: keyInput, mapping: mapping, defaults: defaults, boardDefaults: boardDefaults, shape: shape, mode: mode, sendLeds: sendLedsSoon, modeChanged: modeChanged, entryFor: entryFor };
 })();

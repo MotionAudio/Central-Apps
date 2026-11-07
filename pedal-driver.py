@@ -308,6 +308,8 @@ def touch_kind(config):
 
 def reserved_pins(config):
     pins = set(RESERVED_ALWAYS)
+    if config.get("board_pins"):   # (the Central Pedal main board: SPI ADC, MIDI, I2S in, fan, status LED ...)
+        pins.update(int(p) for p in config["board_pins"])
     if screen_on(config):
         s = screen_by_id(config.get("app_root"), touch_screen_id(config))
         pins.update((s or {}).get("pins") or RESERVED_TFT)
@@ -392,6 +394,299 @@ class MCP23017:
         self._w16(self.OLATA, self.olat & 0xFFFF)
 
 
+# ---------------------------------------------------------------------------
+# Central Pedal main board (10.6): MCP3208 knobs/faders on SPI, PCA9685 footswitch lights
+# and INA226 battery monitor on I2C, MIDI on the board's TRS jacks (UART0). docs/MAIN-BOARD.md
+# ---------------------------------------------------------------------------
+class MCP3208:
+    """12-bit, 8-channel SPI ADC (the main board's 6 knobs + 2 faders). Reads 0..4095."""
+
+    def __init__(self, bus=0, device=0, speed_hz=1000000):
+        import spidev   # python3-spidev
+        self.key = "spi%d.%d" % (bus, device)
+        self.spi = spidev.SpiDev()
+        self.spi.open(bus, device)
+        self.spi.max_speed_hz = speed_hz
+        self.spi.mode = 0
+
+    def read(self, channel):
+        channel = int(channel) & 7
+        r = self.spi.xfer2([0x06 | (channel >> 2), (channel & 3) << 6, 0])
+        return ((r[1] & 0x0F) << 8) | r[2]
+
+    def close(self):
+        try:
+            self.spi.close()
+        except Exception:
+            pass
+
+
+def adc_key(adc):
+    """The key an ADC is kept under: 0x48.. for an ADS1115, "spi0.0" for an MCP3208."""
+    if str(adc.get("chip", "")).lower() == "mcp3208":
+        return "spi%d.%d" % (int(adc.get("bus", 0)), int(adc.get("cs", 0)))
+    return parse_address(adc["address"])
+
+
+class PCA9685:
+    """16-channel 12-bit PWM driver (the main board's footswitch lights, channels 0-7)."""
+    MODE1, MODE2, LED0, PRESCALE = 0x00, 0x01, 0x06, 0xFE
+
+    def __init__(self, bus, address, freq_hz=1000):
+        self.bus = bus
+        self.address = address
+        self.lock = threading.Lock()
+        prescale = max(3, min(255, int(round(25000000.0 / (4096 * freq_hz))) - 1))
+        self.bus.write_byte_data(address, self.MODE1, 0x10)          # sleep, to set the prescaler
+        self.bus.write_byte_data(address, self.PRESCALE, prescale)
+        self.bus.write_byte_data(address, self.MODE1, 0x20)          # wake, auto-increment
+        time.sleep(0.001)
+        self.bus.write_byte_data(address, self.MODE2, 0x04 if not self._open_drain else 0x00)
+        for ch in range(16):
+            self.set(ch, 0.0)
+
+    _open_drain = True   # LEDs hang from 5.1 V through a resistor and the PCA9685 sinks them (MAIN-BOARD.md)
+
+    def set(self, channel, level):
+        """level 0..1 = how bright (an open-drain output is inverted here so 1 = fully lit)."""
+        level = min(1.0, max(0.0, float(level)))
+        if self._open_drain:
+            level = 1.0 - level
+        if level >= 0.999:
+            data = [0x00, 0x10, 0x00, 0x00]          # full on
+        elif level <= 0.001:
+            data = [0x00, 0x00, 0x00, 0x10]          # full off
+        else:
+            off = int(level * 4095)
+            data = [0x00, 0x00, off & 0xFF, off >> 8]
+        with self.lock:
+            self.bus.write_i2c_block_data(self.address, self.LED0 + 4 * int(channel), data)
+
+
+class _PcaLed:
+    """One PCA9685 channel with the gpiozero LED calls update_leds() uses (on / off / blink)."""
+
+    def __init__(self, chip, channel, brightness=1.0, dim=0.0):
+        self.chip, self.channel = chip, int(channel)
+        self.brightness, self.dim = float(brightness), float(dim)
+        self._stop = threading.Event()
+        self._thread = None
+
+    def _halt(self):
+        self._stop.set()
+        if self._thread and self._thread is not threading.current_thread():
+            self._thread.join(timeout=0.3)
+        self._thread = None
+
+    def on(self):
+        self._halt()
+        self.chip.set(self.channel, self.brightness)
+
+    def off(self):
+        self._halt()
+        self.chip.set(self.channel, self.dim)
+
+    def blink(self, on_time=0.5, off_time=0.5, background=True, **_kw):
+        self._halt()
+        self._stop = threading.Event()
+        stop = self._stop
+
+        def loop():
+            while not stop.is_set():
+                self.chip.set(self.channel, self.brightness)
+                if stop.wait(on_time):
+                    break
+                self.chip.set(self.channel, self.dim)
+                stop.wait(off_time)
+        self._thread = threading.Thread(target=loop, daemon=True)
+        self._thread.start()
+
+    def close(self):
+        self._halt()
+        try:
+            self.chip.set(self.channel, 0.0)
+        except Exception:
+            pass
+
+
+class INA226:
+    """Battery volts / amps (main board: 5 mOhm shunt, I2C 0x40)."""
+
+    def __init__(self, bus, address=0x40, shunt_ohm=0.005):
+        self.bus, self.address, self.shunt = bus, address, float(shunt_ohm)
+        self.bus.write_i2c_block_data(address, 0x00, [0x45, 0x27])   # 16 averages, 1.1 ms conversions, continuous
+
+    def _r16(self, reg):
+        hi, lo = self.bus.read_i2c_block_data(self.address, reg, 2)
+        v = (hi << 8) | lo
+        return v - 65536 if v & 0x8000 else v
+
+    def read(self):
+        volts = (self._r16(0x02) & 0xFFFF) * 0.00125
+        amps = self._r16(0x01) * 0.0000025 / self.shunt
+        return volts, amps
+
+
+# 2S Li-ion resting voltage -> charge (per pack, 2 cells); under load it reads a little low, which is the safe side
+BATTERY_2S_CURVE = [(6.0, 0), (6.6, 5), (7.0, 15), (7.2, 30), (7.4, 50), (7.6, 65), (7.8, 78), (8.0, 88), (8.2, 96), (8.4, 100)]
+
+
+def battery_percent(volts, curve=BATTERY_2S_CURVE):
+    if volts <= curve[0][0]:
+        return 0
+    for (v0, p0), (v1, p1) in zip(curve, curve[1:]):
+        if volts <= v1:
+            return int(round(p0 + (p1 - p0) * (volts - v0) / (v1 - v0)))
+    return 100
+
+
+class MidiStream:
+    """Raw MIDI bytes -> whole messages (running status, real-time bytes in between, SysEx skipped)."""
+    LEN = {0x80: 2, 0x90: 2, 0xA0: 2, 0xB0: 2, 0xC0: 1, 0xD0: 1, 0xE0: 2}
+    SYS = {0xF1: 1, 0xF2: 2, 0xF3: 1}
+
+    def __init__(self):
+        self.status, self.need, self.data, self.sysex = None, 0, [], False
+
+    def feed(self, chunk):
+        out = []
+        for b in chunk:
+            if b >= 0xF8:                      # real-time: clock, start, continue, stop - can sit inside a message
+                out.append([b])
+                continue
+            if b == 0xF0:
+                self.sysex, self.status = True, None
+                continue
+            if b == 0xF7:
+                self.sysex = False
+                continue
+            if self.sysex:
+                continue
+            if b & 0x80:
+                if b in self.SYS:
+                    self.status, self.need, self.data = b, self.SYS[b], []
+                elif b >= 0xF0:
+                    self.status = None
+                    out.append([b])
+                else:
+                    self.status, self.need, self.data = b, self.LEN[b & 0xF0], []
+                continue
+            if self.status is None:
+                continue
+            self.data.append(b)
+            if len(self.data) == self.need:
+                out.append([self.status] + self.data)
+                self.data = []
+                if self.status >= 0xF0:
+                    self.status = None
+        return out
+
+
+class UartMidiPort:
+    """The main board's TRS MIDI IN / OUT on UART0. dtoverlay=midi-uart0 makes a 38400 request run at 31250."""
+    NAME = "Central Pedal MIDI"
+
+    def __init__(self, path, on_bytes):
+        import termios
+        self.fd = os.open(path, os.O_RDWR | os.O_NOCTTY)
+        attrs = termios.tcgetattr(self.fd)
+        attrs[0] = 0                                   # iflag: raw
+        attrs[1] = 0                                   # oflag
+        attrs[2] = termios.CS8 | termios.CREAD | termios.CLOCAL
+        attrs[3] = 0                                   # lflag
+        attrs[4] = attrs[5] = termios.B38400
+        attrs[6][termios.VMIN], attrs[6][termios.VTIME] = 1, 0
+        termios.tcsetattr(self.fd, termios.TCSANOW, attrs)
+        self.on_bytes = on_bytes
+        self.parser = MidiStream()
+        self.lock = threading.Lock()
+        self.closed = False
+        threading.Thread(target=self._reader, daemon=True).start()
+
+    def _reader(self):
+        while not self.closed:
+            try:
+                chunk = os.read(self.fd, 64)
+            except OSError:
+                if self.closed:
+                    return
+                time.sleep(0.2)
+                continue
+            for msg in self.parser.feed(chunk):
+                try:
+                    self.on_bytes(msg)
+                except Exception as error:
+                    log.debug("UART MIDI message failed (%s)", error)
+
+    def send(self, data):
+        with self.lock:
+            os.write(self.fd, bytes(int(b) & 0xFF for b in data))
+
+    def close(self):
+        self.closed = True
+        try:
+            os.close(self.fd)
+        except OSError:
+            pass
+
+
+# The board's own pin map. Settings → Control board → "Central Pedal main board" puts it in hardware.json;
+# every input stays programmable (Configure tab) and re-learnable (Learn tab) as before.
+CENTRAL_BOARD_V1 = {
+    "board": "central-main-v1",
+    "inputs": (
+        [{"id": "b%d" % (i + 1), "name": "Footswitch %d" % (i + 1), "kind": "button", "gpio": g} for i, g in enumerate([5, 6, 12, 13, 16, 17, 22, 23])]
+        + [{"id": "k%d" % (i + 1), "name": n, "kind": "knob", "adc": {"chip": "mcp3208", "bus": 0, "cs": 0, "channel": i}}
+           for i, n in enumerate(["Left knob 1", "Left knob 2", "Left knob 3", "Right knob 1", "Right knob 2", "Right knob 3"])]
+        + [{"id": "s1", "name": "Left fader (expression A)", "kind": "slider", "adc": {"chip": "mcp3208", "bus": 0, "cs": 0, "channel": 6}},
+           {"id": "s2", "name": "Right fader (expression B)", "kind": "slider", "adc": {"chip": "mcp3208", "bus": 0, "cs": 0, "channel": 7}}]
+        # on the board's MCP23017 (I2C 0x20): every knob's push-click, and the external footswitch jack's two switches
+        + [{"id": "k%dc" % (i + 1), "name": n + " (push)", "kind": "button", "expander_pin": i}
+           for i, n in enumerate(["Left knob 1", "Left knob 2", "Left knob 3", "Right knob 1", "Right knob 2", "Right knob 3"])]
+        + [{"id": "x1", "name": "External footswitch A", "kind": "button", "expander_pin": 6},
+           {"id": "x2", "name": "External footswitch B", "kind": "button", "expander_pin": 7}]
+    ),
+    "leds": ([{"id": "led%d" % (i + 1), "pca9685": {"address": "0x41", "channel": i}, "follows": "b%d" % (i + 1)} for i in range(8)]
+             + [{"id": "status", "gpio": 27, "follows": "@running"}]),
+    "analog_min_raw": 12,
+    "analog_max_raw": 4083,
+    "led_brightness": 1.0,
+    "led_dim": 0.06,                 # an "off" footswitch light glows faintly so you can find the switch on a dark stage
+    # MCP23017 at 0x20: the inputs above with "expander_pin" (knob clicks 0-5, external footswitches 6-7) and the
+    # charger's status line (pin 8, read-only). Pins 9-15 are spare.
+    "expander": {"address": "0x20", "buttons": [], "status": {"charging": 8}, "leds": []},
+    "battery": {"chip": "ina226", "address": "0x40", "shunt_ohm": 0.005},
+    "midi_uart": "/dev/ttyAMA0",
+    # the front power button's controller (LTC2954) pulls GPIO 4 low when it's pressed with the pedal on:
+    # shut down cleanly at once; dtoverlay=gpio-poweroff on GPIO 24 then tells it to cut the power
+    "shutdown_gpio": 4,
+    "shutdown_hold_s": 0,
+    "instrument_detect_gpio": 7,
+    "i2s_dac": True,
+    "tft_overlay": "none",
+    # GPIOs the board uses for other jobs (the Learn tab won't put a footswitch on them)
+    "board_pins": [2, 3, 4, 7, 8, 9, 10, 11, 14, 15, 18, 19, 20, 21, 24, 25, 26, 27],
+}
+BOARDS = {"central-main-v1": CENTRAL_BOARD_V1}
+
+
+def apply_board(config, board):
+    """Put a board's pin map into a hardware.json dict ("" / "none" = back to the hand-wired defaults)."""
+    preset = BOARDS.get(board)
+    for k in ("board", "battery", "midi_uart", "shutdown_gpio", "shutdown_hold_s", "instrument_detect_gpio", "board_pins", "led_brightness", "led_dim"):
+        config.pop(k, None)
+    if not preset:
+        config["expander"] = None
+        config["inputs"] = copy.deepcopy(DEFAULT_INPUTS)
+        config["leds"] = []
+        config["analog_min_raw"] = DEFAULT_CONFIG["analog_min_raw"]
+        config["analog_max_raw"] = DEFAULT_CONFIG["analog_max_raw"]
+        return config
+    for k, v in preset.items():
+        config[k] = copy.deepcopy(v)
+    return config
+
+
 def open_i2c_bus(number):
     for module in ("smbus2", "smbus"):
         try:
@@ -411,8 +706,10 @@ class AnalogInput:
     def __init__(self, spec, config):
         self.id = spec["id"]
         self.spec = spec
-        self.address = parse_address(spec["adc"]["address"])
+        self.address = adc_key(spec["adc"])
         self.channel = int(spec["adc"]["channel"])
+        self.spi = isinstance(self.address, str)
+        self.auto_span = 450 if self.spi else 3000   # (12-bit MCP3208 vs the ADS1115's ~26000)
         self.auto = bool(spec.get("auto_calibrate")) or spec.get("kind") == "expression"
         self.invert = bool(spec.get("invert"))
         self.lo = float(spec.get("min_raw", config["analog_min_raw"]))
@@ -429,7 +726,7 @@ class AnalogInput:
         if self.auto:
             self.seen_lo = raw if self.seen_lo is None else min(self.seen_lo, raw)
             self.seen_hi = raw if self.seen_hi is None else max(self.seen_hi, raw)
-            if self.seen_hi - self.seen_lo >= 3000:
+            if self.seen_hi - self.seen_lo >= self.auto_span:
                 lo, hi = self.seen_lo, self.seen_hi
         value = min(1.0, max(0.0, (raw - lo) / max(1.0, hi - lo)))
         if self.invert:
@@ -3086,6 +3383,21 @@ class Midi:
         except Exception as error:
             log.info("MIDI disabled (%s) - install python3-mido python3-rtmidi", error)
 
+    uart = None
+
+    def open_uart(self, path):
+        """The Central Pedal main board's TRS MIDI IN / OUT (UART0); a USB MIDI device still works beside it."""
+        if not (path and self.available and os.path.exists(path)):
+            return False
+        try:
+            self.uart = UartMidiPort(path, lambda data: self.on_message(UartMidiPort.NAME, self.mido.Message.from_bytes(data)))
+            log.info("MIDI jacks on %s", path)
+            return True
+        except Exception as error:
+            log.warning("MIDI jacks on %s unavailable (%s) - is dtoverlay=midi-uart0 set and the serial console off?", path, error)
+            self.uart = None
+            return False
+
     def add_listener(self, fn):
         self.listeners = getattr(self, "listeners", [])
         self.listeners.append(fn)
@@ -3158,6 +3470,14 @@ class Midi:
 
     def send_raw(self, message, port=None):
         sent = 0
+        if self.uart and (not port or port == UartMidiPort.NAME or midi_short_name(port) == midi_short_name(UartMidiPort.NAME)):
+            try:
+                self.uart.send(message.bytes())
+                sent += 1
+            except Exception as error:
+                log.debug("MIDI jack send failed (%s)", error)
+            if port:
+                return sent
         with self.lock:
             names = list(self.outputs.keys())
             if port and port not in self.outputs:   # (an input's name: the output of the same device)
@@ -3204,7 +3524,7 @@ class Midi:
         next_tick = time.perf_counter()
         while not self.clock_stop.is_set():
             period = 60.0 / max(20.0, min(300.0, self.transport["bpm"])) / 24.0
-            if self.transport["running"] and self.outputs:
+            if self.transport["running"] and (self.outputs or self.uart):
                 try:
                     self.send_raw(self.mido.Message("clock"))
                 except Exception:
@@ -10213,6 +10533,8 @@ class PedalDriver:
             "version": VERSION,
             "inputs": self.config.get("inputs") or [],
             "reservedPins": reserved_pins(self.config),
+            "board": self.config.get("board") or "",
+            "boardInputs": (BOARDS.get(self.config.get("board") or "") or {}).get("inputs"),
             "screen35": screen_on(self.config),
             "screenAvailable": os.path.exists(SYSTEM_SCRIPT) or self.fb_override is not None,
             "screenOverlay": self.config.get("tft_overlay_choice") or "waveshare35a",
@@ -11093,6 +11415,9 @@ class PedalDriver:
             "connectedDisplays": connected_displays(),
             "screens": read_json(os.environ.get("CC_SCREENS", "/tmp/central-control-screens.json"), None),
             "i2sDac": bool(self.config.get("i2s_dac", True)),
+            "board": self.config.get("board") or "",
+            "battery": self.battery_status(),
+            "instrumentPlugged": self.instrument_plugged(),
             "lanPort": self.config["lan_port"],
             "companion": "http://%s.local:%s/" % (socket.gethostname(), self.config["lan_port"]),
             "charts": shutil.which("pdftoppm") is not None,
@@ -11186,6 +11511,15 @@ class PedalDriver:
                     self.emit({"type": "audioCardTest", "sink": name, "desc": desc, "ok": ok, "error": err})
                     time.sleep(0.4)
                 self.emit({"type": "audioCardTest", "done": True, "count": len(sinks)})
+                return
+            elif action == "board":   # Settings → Control board: the Central Pedal main board's pin map, or the hand-wired one
+                board = value if value in BOARDS else "none"
+                apply_board(self.config, board)
+                self.save_config()
+                run_privileged(SYSTEM_SCRIPT, "board", board)   # (config.txt: SPI, MIDI UART, fan, the board's sound card - after a restart)
+                self.reload_hardware()
+                self.emit({"type": "boardChanged", "board": self.config.get("board") or "", "inputs": self.config.get("inputs"), "restart": True})
+                self.emit(self.system_status())
                 return
             elif action == "dac" and value in ("on", "off"):   # the DAC board (outputs 3-4): it can't be detected - this says so
                 self.config["i2s_dac"] = value == "on"
@@ -11349,6 +11683,11 @@ class PedalDriver:
         if bus is None:
             return
         self.i2c_bus = bus
+        if self.config.get("board") and "spi0.0" not in self.adcs:
+            try:
+                self.adcs["spi0.0"] = MCP3208(0, 0)
+            except Exception:
+                self.adcs["spi0.0"] = None
         for address in (0x48, 0x49, 0x4A, 0x4B):
             if self.adcs.get(address):
                 continue
@@ -11366,15 +11705,20 @@ class PedalDriver:
         for address, adc in list(self.adcs.items()):
             if not adc:
                 continue
-            for channel in range(4):
+            spi = isinstance(address, str)
+            for channel in range(8 if spi else 4):
                 try:
                     raw = adc.read(channel)
                 except Exception:
                     continue
                 key = (address, channel)
                 base = self.analog_baseline.setdefault(key, raw)
-                if abs(raw - base) > 2600:
-                    self.learned({"adc": {"address": "0x%02x" % address, "channel": channel}})
+                if abs(raw - base) > (400 if spi else 2600):
+                    if spi:
+                        bus_n, cs = address[3:].split(".")
+                        self.learned({"adc": {"chip": "mcp3208", "bus": int(bus_n), "cs": int(cs), "channel": channel}})
+                    else:
+                        self.learned({"adc": {"address": "0x%02x" % address, "channel": channel}})
                     return
 
     # ----- touch calibration ---------------------------------------------------
@@ -11397,7 +11741,8 @@ class PedalDriver:
         for led_id, entry in self.leds.items():
             if led_id in held:   # (the factory test is blinking it)
                 continue
-            state = self.led_states.get(entry.get("follows") or led_id, "off")
+            follows = entry.get("follows") or led_id
+            state = "on" if follows == "@running" else self.led_states.get(follows, "off")
             led = entry["led"]
             try:
                 if state == "on":
@@ -11485,19 +11830,75 @@ class PedalDriver:
                 self.devices.append(led)
             except Exception as error:
                 log.warning("LED %s on GPIO %s unavailable (%s)", spec.get("id"), spec.get("gpio"), error)
+        self.start_board_gpio(Button, kw)
         log.info("GPIO ready: %d buttons, %d LEDs, encoder %s", len(self.buttons), len(self.leds), "on" if self.encoder_ok else "off")
+
+    def start_board_gpio(self, Button, kw):
+        """The main board's shutdown button (hold 2 s = shut down cleanly) and the instrument jack's plug switch."""
+        pin = self.config.get("shutdown_gpio")
+        if pin is not None:
+            try:
+                hold = float(self.config.get("shutdown_hold_s", 2.0))
+                b = Button(int(pin), pull_up=True, bounce_time=0.05, hold_time=max(0.1, hold), **kw)
+
+                def down():
+                    log.info("shutting down (the power button)")
+                    self.emit({"type": "notice", "text": "Shutting down…"})
+                    run_privileged("/usr/sbin/shutdown", "-h", "now")
+                if hold <= 0:
+                    b.when_pressed = down
+                else:
+                    b.when_pressed = lambda: self.emit({"type": "notice", "text": "Keep holding to shut down…"})
+                    b.when_held = down
+                self.devices.append(b)
+            except Exception as error:
+                log.warning("shutdown button on GPIO %s unavailable (%s)", pin, error)
+        pin = self.config.get("instrument_detect_gpio")
+        if pin is not None:
+            try:
+                # the jack's switch closes to ground when NOTHING is plugged in (a normally-closed tip switch)
+                b = Button(int(pin), pull_up=True, bounce_time=0.1, **kw)
+                report = lambda plugged: self.emit({"type": "instrumentJack", "plugged": plugged})
+                b.when_pressed = lambda: report(False)
+                b.when_released = lambda: report(True)
+                self.instrument_jack = b
+                self.devices.append(b)
+            except Exception as error:
+                log.warning("instrument plug detect on GPIO %s unavailable (%s)", pin, error)
+
+    def instrument_plugged(self):
+        b = getattr(self, "instrument_jack", None)
+        try:
+            return None if b is None else not b.is_pressed
+        except Exception:
+            return None
 
     # ----- ADS1115 / MCP23017 -------------------------------------------------------
     def start_analog(self):
         specs = [s for s in (self.config.get("inputs") or []) if s.get("adc")]
         bus = self.i2c_bus if self.i2c_bus is not None else open_i2c_bus(self.config["i2c_bus"])
-        if bus is None:
-            for spec in specs:
-                spec["active"] = False
-            return
         self.i2c_bus = bus
         for spec in specs:
-            analog = AnalogInput(spec, self.config)
+            try:
+                analog = AnalogInput(spec, self.config)
+            except Exception as error:
+                log.warning("%s: bad ADC setting (%s)", spec.get("id"), error)
+                spec["active"] = False
+                continue
+            if analog.spi and analog.address not in self.adcs:   # the main board's MCP3208 on SPI
+                adc = spec["adc"]
+                try:
+                    chip = MCP3208(int(adc.get("bus", 0)), int(adc.get("cs", 0)))
+                    chip.read(0)
+                    self.adcs[analog.address] = chip
+                    self.devices.append(chip)
+                    log.info("MCP3208 on %s", analog.address)
+                except Exception as error:
+                    log.warning("no MCP3208 on %s (%s) - is dtparam=spi=on set and python3-spidev installed?", analog.address, error)
+                    self.adcs[analog.address] = None
+            if bus is None and not analog.spi:
+                spec["active"] = False
+                continue
             if analog.address not in self.adcs:
                 adc = ADS1115(bus, analog.address)
                 try:
@@ -11517,7 +11918,11 @@ class PedalDriver:
         if exp:
             try:
                 chip = MCP23017(bus, parse_address(exp.get("address", "0x20")))
-                in_mask = sum(1 << int(b["pin"]) for b in exp.get("buttons") or [])
+                # inputs that live on the expander ("expander_pin", the main board) are footswitches like any other
+                pinned = [{"id": i["id"], "name": i.get("name"), "pin": int(i["expander_pin"])} for i in (self.config.get("inputs") or [])
+                          if i.get("kind") == "button" and i.get("expander_pin") is not None]
+                exp = dict(exp, buttons=list(exp.get("buttons") or []) + pinned)
+                in_mask = sum(1 << int(b["pin"]) for b in exp.get("buttons") or []) | sum(1 << int(v) for v in (exp.get("status") or {}).values())
                 out_mask = sum(1 << int(l["pin"]) for l in exp.get("leds") or [])
                 chip.setup(in_mask, out_mask)
                 self.expander_state = chip.read()
@@ -11525,12 +11930,62 @@ class PedalDriver:
                 self.expander_buttons = list(exp.get("buttons") or [])
                 for l in exp.get("leds") or []:
                     self.leds[l["id"]] = {"led": _ExpanderLed(chip, int(l["pin"])), "follows": l.get("follows")}
+                for spec in self.config.get("inputs") or []:
+                    if spec.get("expander_pin") is not None:
+                        spec["active"] = True
                 log.info("MCP23017 at 0x%02x: %d buttons, %d LEDs", chip.address, len(self.expander_buttons), len(exp.get("leds") or []))
             except Exception as error:
                 log.warning("MCP23017 expander unavailable (%s)", error)
         for led in self.config.get("leds") or []:
             if led.get("expander") is not None and self.expander:
                 self.leds[led["id"]] = {"led": _ExpanderLed(self.expander, int(led["expander"])), "follows": led.get("follows")}
+        self.start_board_i2c(bus)
+
+    def start_board_i2c(self, bus):
+        """The main board's I2C parts: PCA9685 footswitch lights and the INA226 battery monitor."""
+        if bus is None:
+            return
+        chips = {}
+        for led in self.config.get("leds") or []:
+            pca = led.get("pca9685")
+            if not pca:
+                continue
+            address = parse_address(pca.get("address", "0x41"))
+            if address not in chips:
+                try:
+                    chips[address] = PCA9685(bus, address)
+                    log.info("PCA9685 lights at 0x%02x", address)
+                except Exception as error:
+                    log.warning("no PCA9685 at 0x%02x (%s) - footswitch lights off", address, error)
+                    chips[address] = None
+            if chips[address]:
+                light = _PcaLed(chips[address], int(pca.get("channel", 0)), led.get("brightness", self.config.get("led_brightness", 1.0)),
+                                led.get("dim", self.config.get("led_dim", 0.0)))
+                self.leds[led["id"]] = {"led": light, "follows": led.get("follows")}
+                self.devices.append(light)
+        bat = self.config.get("battery")
+        self.battery = None
+        if bat and str(bat.get("chip", "ina226")).lower() == "ina226":
+            try:
+                self.battery = INA226(bus, parse_address(bat.get("address", "0x40")), bat.get("shunt_ohm", 0.005))
+                log.info("battery monitor (INA226) ready")
+            except Exception as error:
+                log.warning("battery monitor unavailable (%s)", error)
+
+    def battery_status(self):
+        """{volts, amps, percent, charging} from the main board's INA226 (None without one)."""
+        chip = getattr(self, "battery", None)
+        if not chip:
+            return None
+        try:
+            volts, amps = chip.read()
+        except Exception as error:
+            log.debug("battery read failed (%s)", error)
+            return None
+        # the shunt sits between the pack and the 5.1 V supply: current OUT of the pack is positive
+        line = getattr(self, "charging_line", None)
+        return {"volts": round(volts, 2), "amps": round(amps, 2), "watts": round(volts * amps, 1), "percent": battery_percent(volts),
+                "charging": bool(line) if line is not None else amps < -0.05, "low": volts < 6.6}
 
     def poll_analog_once(self):
         messages = []
@@ -11543,7 +11998,7 @@ class PedalDriver:
             value = analog.update(raw)
             if value is not None:
                 if self.learn and self.learn["kind"] in ("knob", "slider", "expression") and analog.sent is not None and abs(value - (self.analog_baseline.get(analog.id, value))) > 0.1:
-                    self.learned({"adc": {"address": "0x%02x" % analog.address, "channel": analog.channel}})
+                    self.learned({"adc": dict(analog.spec["adc"]) if analog.spi else {"address": "0x%02x" % analog.address, "channel": analog.channel}})
                     return messages
                 self.analog_baseline.setdefault(analog.id, value)
                 messages.append({"type": "control", "id": analog.id, "value": value})
@@ -11552,10 +12007,23 @@ class PedalDriver:
                 state = self.expander.read()
                 changed = state ^ self.expander_state
                 self.expander_state = state
+                now = time.monotonic()
+                held_at = self.__dict__.setdefault("expander_down", {})
                 for b in self.expander_buttons:
                     bit = 1 << int(b["pin"])
                     if changed & bit:
-                        self.button_event(b["id"], "release" if state & bit else "press")
+                        if state & bit:
+                            held_at.pop(b["id"], None)
+                            self.button_event(b["id"], "release")
+                        else:
+                            held_at[b["id"]] = now
+                            self.button_event(b["id"], "press")
+                    elif b["id"] in held_at and held_at[b["id"]] and now - held_at[b["id"]] >= float(self.config["hold_s"]):
+                        held_at[b["id"]] = None   # (once per press)
+                        self.button_event(b["id"], "hold")
+                status = (self.config.get("expander") or {}).get("status") or {}
+                if "charging" in status:
+                    self.charging_line = not (state >> int(status["charging"])) & 1   # (the charger pulls it low while charging)
             except Exception as error:
                 log.debug("expander read failed (%s)", error)
         self.poll_learn_analog()
@@ -11670,6 +12138,7 @@ class PedalDriver:
         tasks = []
         if self.config.get("midi", True):
             self.midi = Midi(self.emit, want_out=bool(self.config.get("midi_out", True)))
+            self.midi.open_uart(self.config.get("midi_uart"))
             if self.midi.available:
                 tasks.append(asyncio.create_task(self.midi.loop()))
         self.link = LinkSync(self.emit, enabled=bool(self.config.get("link", True)))

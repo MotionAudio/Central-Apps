@@ -76,7 +76,7 @@ FILES=(setup-pi.sh index.html css/pad-pedal.css css/parts.css css/live.css css/f
        pedal-driver.py hardware.json pad-pedal-driver.service pad-pedal-wifi-import.service pad-pedal-bootlog pad-pedal-bootlog.service pad-pedal-bootlog.timer pad-pedal-system pad-pedal-session pad-pedal-audio-config
        xinitrc bash_profile firstboot.sh pad-pedal-firstboot.service 99-pad-pedal-usb.rules 99-pad-pedal-touch.conf pad-pedal-safe-mode pad-pedal.sudoers
        starting.html 99-central-control-vc4.conf fonts/fonts.css fonts/inter-latin.woff2 fonts/inter-latin-ext.woff2 fonts/OFL.txt fonts/archivo-latin.woff2 fonts/archivo-latin-ext.woff2 fonts/OFL-Archivo.txt
-       README.md wiring.html
+       README.md wiring.html overlays/central-pedal-audio-overlay.dts
        central-usage/app/app.js central-usage/app/center-link.js central-usage/app/devices.js central-usage/app/lock.js central-usage/app/services-tab.js central-usage/app/countdown.js central-usage/app/chords.js central-usage/app/fixturelib.js central-usage/app/index.html central-usage/app/inear-client.js central-usage/app/inear-ui.js central-usage/app/inear.css central-usage/app/inears.js central-usage/app/instrument-shim.js central-usage/app/instrument-tab.js central-usage/app/instrument.html central-usage/app/io.js central-usage/app/lights-ai.js central-usage/app/lights-auto.js central-usage/app/lights.js central-usage/app/lyrics-listen.js central-usage/app/mix.js central-usage/app/mixer-model.js central-usage/app/mixlink.js central-usage/app/output.html central-usage/app/parts-tab.js central-usage/app/phone.html central-usage/app/remote.html central-usage/app/roles.js central-usage/app/settings.js central-usage/app/slides.js central-usage/app/style.css central-usage/app/timecode.js central-usage/app/updates.js central-usage/app/video.css central-usage/app/video.js  central-usage/build/icon.png)
 for f in "${FILES[@]}"; do
   [ -f "$HERE/$f" ] || die "missing $f - keep all the Central Pedal OS files in one folder"
@@ -190,7 +190,7 @@ printf '#!/bin/sh\nexit 101\n' > "$MNT/usr/sbin/policy-rc.d"; chmod +x "$MNT/usr
 [ -f "$MNT/etc/ld.so.preload" ] && mv "$MNT/etc/ld.so.preload" "$MNT/etc/ld.so.preload.padpedal"
 [ "$ARCH" = "aarch64" ] || cp /usr/bin/qemu-aarch64-static "$MNT/usr/bin/" 2>/dev/null || true
 
-mkdir -p "$MNT/tmp/pad-pedal-src/js/vendor" "$MNT/tmp/pad-pedal-src/companion" "$MNT/tmp/pad-pedal-src/css" "$MNT/tmp/pad-pedal-src/fonts" "$MNT/tmp/pad-pedal-src/central-usage/app" "$MNT/tmp/pad-pedal-src/central-usage/build"
+mkdir -p "$MNT/tmp/pad-pedal-src/js/vendor" "$MNT/tmp/pad-pedal-src/companion" "$MNT/tmp/pad-pedal-src/css" "$MNT/tmp/pad-pedal-src/fonts" "$MNT/tmp/pad-pedal-src/central-usage/app" "$MNT/tmp/pad-pedal-src/central-usage/build" "$MNT/tmp/pad-pedal-src/overlays"
 for f in "${FILES[@]}"; do cp "$HERE/$f" "$MNT/tmp/pad-pedal-src/$f"; done
 # every app file in those folders, not only the ones listed above (setup-pi.sh installs the folders whole)
 cp "$HERE"/css/*.css "$MNT/tmp/pad-pedal-src/css/"; cp "$HERE"/js/*.js "$MNT/tmp/pad-pedal-src/js/"; cp "$HERE"/js/vendor/*.js "$MNT/tmp/pad-pedal-src/js/vendor/"
