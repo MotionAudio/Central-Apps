@@ -90,7 +90,7 @@
   // so the app, Pedal Control and both small screens see the same ones; the computers keep their own.
   // With licensing off (no website set) every plan is open.
   var PLAN_IDS = ["keys", "plugins", "instrument", "pedals", "pads", "utility"], PK_LS = "cc-packages", OFFLINE_DAYS = 14;
-  var PLAN_NAMES = { keys: "Central Keys", plugins: "Central Plugins", instrument: "Central Instrument", pedals: "Central Pedals", pads: "Central Pads", utility: "Central Utility" };
+  var PLAN_NAMES = { keys: "Central Keys", plugins: "Central Plugins", instrument: "Central Instrument", pedals: "Central Pedals", pads: "Central Pads", utility: "Central Utility", free: "Free" };   // (free: 10.5, Central Starter - not a plan, never in PLAN_IDS)
   var SOUND_PLANS = ["keys", "plugins", "instrument", "pedals"];   // (10.2: these come with Central Pads; Central Utility doesn't)
   var pk = { list: [], msg: "", busy: false };
   try { pk.list = JSON.parse(localStorage.getItem(PK_LS) || "[]") || []; } catch (_) { pk.list = []; }

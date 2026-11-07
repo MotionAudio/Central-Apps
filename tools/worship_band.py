@@ -67,6 +67,8 @@ FLAVORS = {
     "christmas-waltz": dict(groove="waltz", pad="Warm", motif=(0, 1, 2), tone="bright", strings=1.2, keys="pulse", amb="quarter", drv="strum", bells=True),
     "lullaby": dict(groove="waltz", pad="Air", motif=(0, 1, 2), tone="warm", strings=1.0, keys="sparse", amb="swell", drv="whole", bells=True),
     "easter-anthem": dict(groove="drive", pad="Analog", motif=(0, 0.5, 1.5, 2, 3), tone="bright", strings=1.2, keys="pulse", amb="dotted", drv="eighths"),
+    # 10.5, round three: a 3/4 hymn in a real waltz (one beat a bar on the kick, strings and a strummed guitar) - no bells
+    "waltz-anthem": dict(groove="waltz", pad="Strings", motif=(0, 1, 2), tone="bright", strings=1.2, keys="chords", amb="quarter", drv="strum"),
 }
 # the mix's dynamics: each section's level (dB) on every stem - quiet verses, a build, and the final chorus the peak
 DYN = {"intro": -4.0, "verse": -3.0, "verse2": -2.0, "pre": -1.5, "chorus": -0.5, "interlude": -1.0, "drop": -3.5, "bridge": -2.5,
@@ -87,7 +89,7 @@ class Song:
         self.h = hymn
         self.bpm, self.m = hymn["bpm"], hymn["meter"]
         self.beat = 60.0 / self.bpm
-        self.key = _pc(hymn["key"])
+        self.key = HA.key_pc(hymn["key"])
         self.fl = dict(keys="chords", amb="dotted", drv="eighths", bells=False)
         self.fl.update(FLAVORS.get(hymn.get("style"), FLAVORS["ballad-68" if self.m == 3 else "soft-pulse" if self.m == 6 else "anthem-half"]))
         if self.m == 6:

@@ -5,6 +5,13 @@ source of every sound and IR: what it is, its license, its URL). Anyone can down
 or Settings → Packages → Libraries in any app); what's inside only opens with the plan's package key. Central Pads comes
 with every other plan, so its library opens with any package key.
 
+**Central Starter** (10.5.1) is the exception: plan `free`, no key. It holds the stock sounds - the twelve plainest pads
+(Warm, Air, Choir Aah, Shimmer, Strings, Glass, Swell, Deep, Felt, Organ, Analog, Bells), the ten synths we made, six plain
+drum grooves and the Drift and Breath loops, three plain cabinets and an acoustic body, and seven boards of free pedals -
+and every app installs it on its own (the Central Pedal's driver about 90 s after it starts, Central Control / Usage a
+minute after they open, then once a day for a newer version). A loop set can be split between it and a pack: the entry's
+`"only": [names]` takes those grooves, the pack's `"except": [names]` leaves them out (`tools/build-libraries.py loop_wanted`).
+
 | Library | Plan | Sound banks (presets) | Sources and licenses | Size (est.) |
 |---|---|---|---|---|
 | Central Keys Library 1.1 | Central Keys | **Grand Pianos** (Concert Grand - Steinway B, Studio Grand - Kawai, Soft Grand, Grand & FM, FM Piano 2), **Pianos** (Upright, Soft Upright, FM Piano, FM & Upright, Clavisynth, Harpsichord), **Organs** (Pipe Organ with pedals, manual only, Quiet, Swell, Positive), **Mallets** (Vibraphone soft / hard, Marimba, Xylophone, Glockenspiel, Tubular Bells, Church Bells, Hand Chimes, Chime Pad, Vibes & Chimes), **Pads** (Warm, Air, Choir Aah, Choir Ooh, Shimmer, String, Glass, Swell, Worship), **Synths** (10.0: Saw / Square / Soft Lead, Synth Brass, Super Saw, String Machine, Sub Bass, Synth Bass, Pluck, Electric Bells) + 32 presets | VCSL (CC0 1.0); pads and synths made by us (`tools/make-synths.py`) | about 450 MB |

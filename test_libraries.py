@@ -87,15 +87,23 @@ def main():
     return 1 if failures else 0
 
 
+def zf_credits(path):
+    with zipfile.ZipFile(path) as zf:
+        return zf.read("CREDITS.txt").decode("utf-8", "replace")
+
+
 def run(tmp):
     print("The library definitions:")
     defs = BUILD.load_definitions()
-    check("eight libraries: one for each plan (Central Pads, and Central Utility since 10.2), and Central Pads Extra (10.3) and Central Pads More (10.5) - a second and third for the pads plan", sorted(l["plan"] for l in defs) == ["instrument", "keys", "pads", "pads", "pads", "pedals", "plugins", "utility"] and sorted(l["id"] for l in defs if l["plan"] == "pads") == ["central-pads-extra", "central-pads-library", "central-pads-more"], [l["plan"] for l in defs])
+    check("nine libraries: one for each plan (Central Pads, and Central Utility since 10.2), Central Pads Extra (10.3) and Central Pads More (10.5) - a second and third for the pads plan - and the free Central Starter (10.5), first in the list",
+          sorted(l["plan"] for l in defs) == ["free", "instrument", "keys", "pads", "pads", "pads", "pedals", "plugins", "utility"] and sorted(l["id"] for l in defs if l["plan"] == "pads") == ["central-pads-extra", "central-pads-library", "central-pads-more"]
+          and defs[0]["id"] == "central-starter" and defs[0]["plan"] == "free", [l["plan"] for l in defs])
     node = subprocess.run(["node", "-e", "const P=require('./js/pedals.js');console.log(JSON.stringify(P.pedals.map(p=>[p.id,p.tier,Object.keys(p.knobs),!!p.opts.irFile])))"], cwd=HERE, capture_output=True, text=True)
     pedals = {p[0]: p for p in json.loads(node.stdout)}
     bad = []
+    free_irs = {i["name"] for lib in defs if lib["plan"] == "free" for i in lib.get("irs") or []}   # (10.5: the free library's IRs are on every device - any board may name them)
     for lib in defs:
-        irs = {i["name"] for i in lib.get("irs") or []}
+        irs = {i["name"] for i in lib.get("irs") or []} | free_irs
         for b in (lib.get("presets") or []) + (lib.get("boards") or []):
             for it in b["chain"]:
                 p = pedals.get(it[0])
@@ -110,13 +118,19 @@ def run(tmp):
                         bad.append("%s: %s doesn't load IRs" % (b["name"], it[0]))
                     if it[2]["ir"] not in irs:
                         bad.append("%s: the IR %s isn't in %s" % (b["name"], it[2]["ir"], lib["id"]))
-    check("every preset and board is made of real pedals and knobs, and names IRs its library has", not bad, bad)
+    check("every preset and board is made of real pedals and knobs, and names IRs its library (or the free one) has", not bad, bad)
     plans_of = lambda lib: {pedals[it[0]][1] for b in (lib.get("presets") or []) + (lib.get("boards") or []) for it in b["chain"]} - {"free"}
     by = {}
     for l in defs:   # (each plan's first library; Central Pads Extra - 10.3 - is the pads plan's second, by its id)
         by.setdefault(l["plan"], l)
     extra = next(l for l in defs if l["id"] == "central-pads-extra")
     check("Keys and Instrument presets use only free pedals (they need just their own plan)", not plans_of(by["keys"]) and not plans_of(by["instrument"]), (plans_of(by["keys"]), plans_of(by["instrument"])))
+    starter = by["free"]
+    check("(10.5) Central Starter is free through and through: its boards and presets use only free pedals, and nothing in it needs a plan", not plans_of(starter) and starter["id"] == "central-starter"
+          and all(ls.get("only") for ls in starter["loops"]) and len(starter["pads"]) == 12 and len(starter["irs"]) == 4 and len(starter["boards"]) >= 6 and len(starter["presets"]) == 7, plans_of(starter))
+    check("(10.5) the loops a set gives the free library are the ones the pack leaves out (only / except), and the pack keeps the rest",
+          all(set(ls["only"]) == set(next(x for x in pack["loops"] if x["set"] == ls["set"])["except"]) for ls in starter["loops"] for pack in [by["instrument"] if ls["set"] == "drums" else by["pads"]])
+          and BUILD.loop_names(starter) and not (set(BUILD.loop_names(starter)) & set(BUILD.loop_names(by["instrument"]) + BUILD.loop_names(by["pads"]))), BUILD.loop_names(starter))
     check("Plugins boards need nothing but Central Plugins; Pedals boards nothing but Central Pedals", plans_of(by["plugins"]) <= {"plugins"} and plans_of(by["pedals"]) <= {"pedals"}, (plans_of(by["plugins"]), plans_of(by["pedals"])))
     with open(os.path.join(HERE, "server", "src", "libraries-builtin.json"), encoding="utf-8") as handle:
         builtin = json.load(handle)["libraries"]
@@ -130,8 +144,8 @@ def run(tmp):
     ir_dir = os.path.join(tmp, "irs")
     IRS.main(ir_dir)
     files = sorted(os.listdir(ir_dir))
-    names = [i["name"] for i in by["pedals"]["irs"]]
-    check("one WAV for each IR the Central Pedals library lists", sorted(n + ".wav" for n in names) == files, files)
+    names = [i["name"] for i in by["pedals"]["irs"]] + [i["name"] for i in by["free"]["irs"]]   # (10.5: Central Starter's four plain ones too)
+    check("one WAV for each IR the Central Pedals and Central Starter libraries list", sorted(n + ".wav" for n in names) == files, files)
     shapes, rolled = set(), []
     for f in files:
         v, ch, sr, n = read_wav24(os.path.join(ir_dir, f))
@@ -242,8 +256,10 @@ def run(tmp):
     check("Central Pads More: a 24-second seamless loop at the same loudness", okm and LOOPS.loop_seconds("Still Waters") == 24.0 and LOOPS.loop_seconds("Worship") == 12.0 and seamless(mframes)
           and (abs(float(np.sqrt(np.mean(mframes ** 2))) - LOOPS.TARGET_RMS) < 0.01 or abs(float(np.max(np.abs(mframes))) - LOOPS.PEAK_MAX) < 0.01), okm)
     more = next(l for l in defs if l["id"] == "central-pads-more")
-    check("Central Pads: 41 styles, the same ones the library lists; Central Pads Extra: 35 more, none the same; Central Pads More (10.5): 24 more", len(LOOPS.MAIN_NAMES) == 41 and len(set(LOOPS.NAMES)) == 100
-          and LOOPS.MAIN_NAMES == [p["name"] for p in by["pads"]["pads"]] and LOOPS.NAMES[41:76] == [p["name"] for p in extra["pads"]] and LOOPS.NAMES[76:] == [p["name"] for p in more["pads"]] and extra["plan"] == more["plan"] == "pads", LOOPS.NAMES)
+    check("Central Pads: 37 styles (29 of the first 41 and 8 new - 10.5), the same ones the library lists; the 12 plain ones are the free Central Starter's; Central Pads Extra: 35 more, none the same; Central Pads More (10.5): 24 more",
+          len(LOOPS.MAIN_NAMES) == 37 and len(set(LOOPS.NAMES)) == 108 and len(LOOPS.STARTER_NAMES) == 12 and set(LOOPS.STARTER_NAMES) <= set(LOOPS.NAMES[:41]) and not (set(LOOPS.STARTER_NAMES) & set(LOOPS.MAIN_NAMES))
+          and LOOPS.MAIN_NAMES == [p["name"] for p in by["pads"]["pads"]] and LOOPS.STARTER_NAMES == [p["name"] for p in by["free"]["pads"]] and LOOPS.NAMES[41:76] == [p["name"] for p in extra["pads"]]
+          and LOOPS.NAMES[76:100] == [p["name"] for p in more["pads"]] and LOOPS.NAMES[100:] == LOOPS.MAIN_NAMES[29:] and extra["plan"] == more["plan"] == "pads", LOOPS.NAMES)
     pdir2 = LOOPS.build_pulse(os.path.join(tmp, "pulse"), keys=["D"], log=lambda *a: None)
     gw = [e for e in pdir2 if e["key"] == "D"]
     with _wave.open(os.path.join(tmp, "pulse", gw[0]["file"])) as w:
@@ -260,7 +276,7 @@ def run(tmp):
     os.makedirs(snd)
     for s in want:
         tiny_sf2(os.path.join(snd, BUILD.sound_file(s)), s)
-    for pd in by["pads"]["pads"] + extra["pads"] + more["pads"]:   # (Central Pads, Extra and More: a tiny loop per style and key)
+    for pd in by["pads"]["pads"] + extra["pads"] + more["pads"] + by["free"]["pads"]:   # (Central Pads, Extra, More and Starter: a tiny loop per style and key)
         for k in BUILD.PAD_KEYS:
             LOOPS.loop_wav(os.path.join(snd, "pad-loops", BUILD.pad_loop_file(pd["name"], k)), np.zeros(64, np.float32), np.zeros(64, np.float32))
     for lib in defs:   # (10.0: the loops - a tiny one per set; tools/make-loops.py's own checks are in test_content.py)
@@ -347,15 +363,25 @@ def run(tmp):
     extra_e = [e for e in index["libraries"] if e["id"] == "central-pads-extra"][0]
     check("Central Pads Extra's zip: 35 styles, the moving pads with their gates, the extra swells - all with the pads plan, as a second library", extra_e["plan"] == "pads"
           and extra_e["counts"]["pad"] == 35 and extra_e["counts"]["loop"] >= 1 and "Central Pads Swells Extra" in json.dumps(extra_e["contents"]), extra_e["counts"])
-    check("Central Pads' zip: all 41 styles in all 12 keys, with the pads plan", pads_e["counts"]["pad"] == len(by["pads"]["pads"]) == 41 and len(pads_e["contents"]["pads"]) == 41, pads_e["counts"])
+    check("Central Pads' zip: all 37 styles in all 12 keys, with the pads plan", pads_e["counts"]["pad"] == len(by["pads"]["pads"]) == 37 and len(pads_e["contents"]["pads"]) == 37, pads_e["counts"])
     drec = store.install_file(os.path.join(out, pads_e["file"]), expected_sha256=pads_e["sha256"])
     styles = store.pads()
     f_fs = store.pad_file("central-pads-library", "Worship", "F#")
-    check("Central Pads installs: 41 pad styles, each in all 12 keys, with the pads plan", drec["counts"]["pad"] == 41 and len(styles) == 41 and all(len(x["keys"]) == 12 and x["tier"] == "pads" for x in styles), [(x["name"], len(x["keys"])) for x in styles])
+    check("Central Pads installs: 37 pad styles, each in all 12 keys, with the pads plan", drec["counts"]["pad"] == 37 and len(styles) == 37 and all(len(x["keys"]) == 12 and x["tier"] == "pads" for x in styles), [(x["name"], len(x["keys"])) for x in styles])
     check("...a style's loop in a key is found (F# -> Fs.wav, inside the library's own folder)", f_fs and f_fs.endswith(os.path.join("Worship", "Fs.wav")) and os.path.isfile(f_fs), f_fs)
     check("...nothing outside it is (a made-up library, style or key)", not store.pad_file("../x", "Worship", "C") and not store.pad_file("central-pads-library", "Nope", "C") and not store.pad_file("central-pads-library", "Worship", "H"))
     store.remove("central-pads-library")
     check("...and Remove takes the loops away", not store.pads() and not os.path.exists(f_fs))
+    # (10.5) the free Central Starter: it installs like any other, every item with the tier "free" (open with no key), and
+    # its loop sets hold only the grooves and beds the packs leave out
+    starter_e = [e for e in index["libraries"] if e["id"] == "central-starter"][0]
+    srec = store.install_file(os.path.join(out, starter_e["file"]), expected_sha256=starter_e["sha256"])
+    with zipfile.ZipFile(os.path.join(out, starter_e["file"])) as zf:
+        sman = json.loads(zf.read("manifest.json"))
+    check("(10.5) Central Starter installs with the tier \"free\" on everything: its pads, boards, presets, loops and IRs open with no key", srec["plan"] == "free" and srec["tier"] == "free" and sman["planName"] == "Free"
+          and all(it["tier"] == "free" for it in sman["items"]) and srec["counts"]["pad"] == 12 and srec["counts"]["ir"] == 4 and srec["counts"]["board"] == len(by["free"]["boards"]) and srec["counts"]["preset"] == 7
+          and all(x["tier"] == "free" for x in store.pads()) and "needs no key" in zf_credits(os.path.join(out, starter_e["file"])), srec["counts"])
+    store.remove("central-starter")
     old_max = BUILD.MAX_ZIP
     BUILD.MAX_ZIP = 1000
     try:
@@ -428,16 +454,17 @@ def run(tmp):
         bad_refused = False
     except libraries.LibraryError:
         bad_refused = True
-    try:
-        sneak = os.path.join(tmp, "sneak.zip")
-        with zipfile.ZipFile(sneak, "w") as z:
-            z.writestr("manifest.json", json.dumps({"format": 1, "id": "sneaky-lib", "plan": "free", "version": "1.1", "items": [{"kind": "fx", "file": "fx/x.cmfx.json"}]}))
-            z.writestr("fx/x.cmfx.json", fxjson)
-        store.install_file(sneak)
-        sneak_refused = False
-    except libraries.LibraryError:
-        sneak_refused = True
-    check("(10.2) ...a file that isn't a Central FX plugin is refused, and plan \"free\" is only for your own (personal) libraries", bad_refused and sneak_refused)
+    # (10.5: a free library needn't be personal any more - Central Starter is one - so a free zip with a plugin installs as
+    #  an installed library, not as one of yours)
+    sneak = os.path.join(tmp, "sneak.zip")
+    with zipfile.ZipFile(sneak, "w") as z:
+        z.writestr("manifest.json", json.dumps({"format": 1, "id": "sneaky-lib", "plan": "free", "version": "1.1", "items": [{"kind": "fx", "file": "fx/x.cmfx.json"}]}))
+        z.writestr("fx/x.cmfx.json", fxjson)
+    srec2 = store.install_file(sneak)
+    not_mine = [m for m in store.central_fx() if m.get("library") == "sneaky-lib"]
+    check("(10.2) ...a file that isn't a Central FX plugin is refused; (10.5) a free library that isn't yours installs as an installed library, not as one of yours",
+          bad_refused and srec2["plan"] == "free" and not srec2.get("personal") and srec2["source"] == "file" and not_mine and all(m["from"] == "installed" for m in not_mine), (srec2.get("source"), not_mine))
+    store.remove("sneaky-lib")
     store.remove("my-tremolo-abc123")
     check("(10.2) ...and Remove takes it away", not store.central_fx() and not os.path.exists(frec["fx"][0]["file"]))
 

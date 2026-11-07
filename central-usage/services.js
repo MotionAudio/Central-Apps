@@ -22,7 +22,7 @@ const { Talk, isDesk } = require("./talk");
 const { findFfmpeg } = require("./video-service");
 const { Center, BEACON_PORT, salted } = require("./center");
 const hubsync = require("./hubsync");
-const { Libraries } = require("./libraries");
+const { Libraries, newer } = require("./libraries");
 const dgram = require("node:dgram");
 
 function which(cmd) {
@@ -465,6 +465,26 @@ module.exports = function services(app, getWin) {
     try { fs.writeFileSync(f, Buffer.from(bytes)); return Object.assign(libOut(libs.installFile(f, null, "personal")), { saved: f }); } catch (e) { return libErr(e); }
   });
   ipcMain.handle("lib-remove", (_e, id) => { try { libs.remove(String(id || "")); return libOut(null); } catch (e) { return libErr(e); } });
+  // (10.5) the free libraries (Central Starter: the stock sounds) install on their own - a look a minute after the app
+  // opens, then once a day; a newer version replaces the old one. Nothing happens offline (it tries again later), and
+  // nothing when the disk would be left with less than 2 GB. Off with CC_STOCK_LIBRARIES=0 (tests).
+  const stockLibraries = async () => {
+    const idx = await libs.index(); const have = {}; for (const r of libs.listing()) have[r.id] = r;
+    let free = Infinity; try { free = Number((await fs.promises.statfs(userData)).bavail) * Number((await fs.promises.statfs(userData)).bsize); } catch (_) { }
+    for (const l of (idx && idx.libraries) || []) {
+      if (l.plan !== "free" || !l.sha256 || !l.url) continue;
+      const rec = have[l.id]; if (rec && !newer(l.version, rec.version)) continue;
+      if (libs.progress[l.id] && ["downloading", "installing"].includes(libs.progress[l.id].state)) continue;
+      const need = (l.size || 0) * 2.5; if (free - need < 2 * 1024 ** 3) { console.log("stock library " + l.id + " waits: not enough disk"); continue; }
+      free -= need;
+      try { await libs.installUrl(l.url, l.sha256, l.id, l.size, (p) => send("lib-progress", { id: l.id, done: p.done, total: p.total, state: p.state })); send("lib-installed", { installed: libs.listing(), id: l.id }); }
+      catch (e) { console.log("stock library " + l.id + ": " + (e.message || e)); }
+    }
+  };
+  if (process.env.CC_STOCK_LIBRARIES !== "0") {
+    const tick = () => stockLibraries().catch(() => { });
+    setTimeout(tick, 60e3).unref(); setInterval(tick, 24 * 3600e3).unref();
+  }
   // (10.1) community items: the "Allow community plugins" switch (this computer; off by default) and the website's revoke list
   ipcMain.handle("lib-community", (_e, a) => {
     a = a || {};

@@ -22,6 +22,7 @@ const https = require("node:https");
 const http = require("node:http");
 
 const PLANS = ["keys", "instrument", "plugins", "pedals", "pads", "utility"];
+const LIBRARY_PLANS = ["free"].concat(PLANS);   // (10.5: a library can be free - Central Starter, the stock sounds the app installs on its own)
 // (10.2) Central Utility: lighting looks (the lights page lists them), slide templates, lyric backgrounds and graphics
 const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic", "fx"];   // (10.2 fx: a plugin made in Central Production, .cmfx.json)
 const EXTRA_KINDS = { look: "looks", slide: "slides", background: "backgrounds", graphic: "graphics" };
@@ -99,7 +100,7 @@ function tiersSet(folder, owner, lines) {
 }
 function readTiers(folder) {
   const out = {};
-  try { for (const line of fs.readFileSync(path.join(folder, "tiers.txt"), "utf8").split("\n")) { const p = line.trim().split("|"); if (p.length >= 2 && p[0] && p[0][0] !== "#" && ["free"].concat(PLANS).includes(p[1])) out[p[0]] = p[1]; } } catch (_) { }
+  try { for (const line of fs.readFileSync(path.join(folder, "tiers.txt"), "utf8").split("\n")) { const p = line.trim().split("|"); if (p.length >= 2 && p[0] && p[0][0] !== "#" && LIBRARY_PLANS.includes(p[1])) out[p[0]] = p[1]; } } catch (_) { }
   return out;
 }
 
@@ -205,7 +206,7 @@ class Libraries {
           res.on("end", () => {
             let j; try { j = JSON.parse(Buffer.concat(parts).toString("utf8")); } catch (_) { return reject(new Error("the library list can't be read")); }
             const base = String(j.base || u.replace(/[?#].*$/, "").replace(/\/[^/]*$/, ""));   // (the zips sit next to the index, where the redirect ended)
-            const list = (Array.isArray(j.libraries) ? j.libraries : []).filter((l) => l && ID_RE.test(l.id || "") && PLANS.includes(l.plan) && SHA_RE.test(String(l.sha256 || "").toLowerCase()) && l.file)
+            const list = (Array.isArray(j.libraries) ? j.libraries : []).filter((l) => l && ID_RE.test(l.id || "") && LIBRARY_PLANS.includes(l.plan) && SHA_RE.test(String(l.sha256 || "").toLowerCase()) && l.file)
               .map((l) => ({ id: l.id, plan: l.plan, title: l.title || l.id, version: String(l.version || ""), summary: l.summary || "", file: l.file, size: Number(l.size) || 0, sha256: String(l.sha256).toLowerCase(), url: base.replace(/\/$/, "") + "/" + encodeURIComponent(l.file), ready: true, previews: previewsOf(l, base) }));
             const data = { ok: true, source: "release", built: j.built || "", libraries: list };
             this._index = { url, at: Date.now(), data }; resolve(data);
@@ -264,7 +265,7 @@ class Libraries {
     if (!z.has("manifest.json")) throw new Error("that zip isn't a sound library (no manifest.json)");
     try { man = JSON.parse(z.read("manifest.json").toString("utf8")); } catch (_) { throw new Error("that library's manifest.json can't be read"); }
     const personal = !!(man && man.personal === true && man.plan === "free");   // (10.2: something you made in Central Production - yours, open with no plan)
-    if (!man || !ID_RE.test(man.id || "") || !(PLANS.includes(man.plan) || personal) || !VERSION_RE.test(String(man.version || ""))) throw new Error("that library's manifest.json is missing its id, plan or version");
+    if (!man || !ID_RE.test(man.id || "") || !(LIBRARY_PLANS.includes(man.plan) || personal) || !VERSION_RE.test(String(man.version || ""))) throw new Error("that library's manifest.json is missing its id, plan or version");
     if ((Number(man.format) || 1) > 1) throw new Error("that library needs a newer version of the app - update it first");
     if (!Array.isArray(man.items) || !man.items.length) throw new Error("that library has nothing in it");
     let total = 0;

@@ -2,17 +2,590 @@
  "_about": "Written by tools/build-libraries.py --write-builtin from libraries/libraries.json: what /v1/libraries lists until libraries-index.json is published.",
  "libraries": [
   {
+   "id": "central-starter",
+   "plan": "free",
+   "planName": "Free",
+   "title": "Central Starter",
+   "version": "1.0",
+   "summary": "The stock sounds, free in every Central app (10.5) - the apps install it on their own, no key needed: twelve pads for the pad pedal in all 12 keys (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass), each a seamless 12-second loop; ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) with seven presets; six drum grooves at three tempos each (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) and two ambient loops in every key (Drift, Breath) for the texture channels; three plain cabinets and an acoustic body for the IR loader; and seven boards built from the free pedals (clean, worship delay, crunch and chorus electrics, an acoustic, a bass DI and clean keys). The richer pads, grooves, loops, instruments and boards are in the plans' libraries.",
+   "file": "central-starter-1.0.zip",
+   "size": 380000000,
+   "approximate": true,
+   "sha256": null,
+   "url": "https://libraries.motionaudio.org/central-starter-1.0.zip",
+   "contents": {
+    "sounds": [
+     {
+      "name": "Central Keys Synths",
+      "presets": [
+       "Saw Lead",
+       "Square Lead",
+       "Soft Lead",
+       "Synth Brass",
+       "Super Saw",
+       "String Machine",
+       "Sub Bass",
+       "Synth Bass",
+       "Pluck",
+       "Electric Bells"
+      ],
+      "license": "Motion Audio - free, in every app"
+     }
+    ],
+    "presets": [
+     "Worship Saw Lead",
+     "Big Synth Brass",
+     "Super Saw Anthem",
+     "String Machine Pad",
+     "Sub Bass (keys left hand)",
+     "Plucky Arp",
+     "Electric Bells"
+    ],
+    "boards": [
+     "Starter: Clean Electric",
+     "Starter: Worship Delay",
+     "Starter: Crunch",
+     "Starter: Chorus Clean",
+     "Starter: Acoustic",
+     "Starter: Bass DI",
+     "Starter: Keys Clean"
+    ],
+    "irs": [
+     "Central Starter 1x12",
+     "Central Starter 2x12 Clean",
+     "Central Starter Bass 2x10",
+     "Central Starter Acoustic Body"
+    ],
+    "pads": [
+     "Warm",
+     "Air",
+     "Choir Aah",
+     "Shimmer",
+     "Strings",
+     "Glass",
+     "Swell",
+     "Deep",
+     "Felt",
+     "Organ",
+     "Analog",
+     "Bells"
+    ],
+    "loops": [
+     "Drum loops: Worship Eighths",
+     "Drum loops: Rim and Hat",
+     "Drum loops: Half-Time",
+     "Drum loops: Four on the Floor",
+     "Drum loops: Brushes Ballad",
+     "Drum loops: Waltz",
+     "Ambient loops: Drift",
+     "Ambient loops: Breath"
+    ]
+   },
+   "counts": {
+    "sound": 1,
+    "board": 7,
+    "preset": 7,
+    "ir": 4,
+    "click": 0,
+    "pad": 12,
+    "loop": 8
+   },
+   "credits": [
+    "Ambient loops made by Motion Audio (tools/make-loops.py) from our synthesised pads and bells and the libraries' own instruments (piano, harp: VCSL; guitar and bowed bass: Karoryfer; cello: VSCO 2 CE - all CC0 1.0; 10.5: Piano Arps, Organ Swell, Strings Rise, Bell Tower, Guitar Arpeggio, Wurlitzer Haze (the Wurlitzer is Greg Sullivan's, CC-BY 3.0) and Hum Drone)",
+    "Drum and percussion loops played by Motion Audio (tools/make-loops.py) on the library's own kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums, Gogodze Phu Vol II (the Lo-fi Kit), Swirly Drums (the Vintage Kit), VCSL hand and orchestral percussion - CC0 1.0)",
+    "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+    "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+    "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)"
+   ],
+   "sources": [
+    {
+     "item": "Central Keys Synths",
+     "text": "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-synths.py"
+    },
+    {
+     "item": "Central Starter 1x12",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Starter 2x12 Clean",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Starter Bass 2x10",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Central Starter Acoustic Body",
+     "text": "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-irs.py"
+    },
+    {
+     "item": "Warm",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Air",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Choir Aah",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Shimmer",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Strings",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Glass",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Swell",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Deep",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Felt",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Organ",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Analog",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Bells",
+     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
+    },
+    {
+     "item": "Drum loops",
+     "text": "Grooves written and rendered by Motion Audio (tools/make-loops.py)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-loops.py"
+    },
+    {
+     "item": "Drum loops",
+     "text": "Drum samples: sfzinstruments / Karoryfer kits (see the Drum Kits bank)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments"
+    },
+    {
+     "item": "Drum loops",
+     "text": "Hand and orchestral percussion: Versilian Community Sample Library (VCSL) by Versilian Studios (see the Percussion bank)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL"
+    },
+    {
+     "item": "Ambient loops",
+     "text": "Made by Motion Audio (tools/make-loops.py)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-loops.py"
+    },
+    {
+     "item": "Ambient loops",
+     "text": "Piano and harp: Versilian Community Sample Library (VCSL) by Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL"
+    },
+    {
+     "item": "Ambient loops",
+     "text": "Guitar and bowed bass: Karoryfer Samples (Black And Green Guitars, Meatbass)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sfzinstruments"
+    },
+    {
+     "item": "Ambient loops",
+     "text": "Cello: Versilian Studios Chamber Orchestra 2 Community Edition (VSCO 2 CE)",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VSCO-2-CE"
+    },
+    {
+     "item": "Ambient loops",
+     "text": "Greg Sullivan E-Pianos (Wurlitzer EP200, Yamaha CP80, Hohner Pianet T) - SFZ by kinwie",
+     "license": "CC-BY 3.0",
+     "url": "https://github.com/sfzinstruments/GregSullivan.E-Pianos/tree/8c3e581acda3594b553948ff0222d4f84a698376"
+    }
+   ],
+   "previews": [
+    {
+     "kind": "pad",
+     "name": "Warm",
+     "file": "preview--central-starter--pad--warm.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--warm.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Air",
+     "file": "preview--central-starter--pad--air.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--air.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Choir Aah",
+     "file": "preview--central-starter--pad--choir-aah.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--choir-aah.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Shimmer",
+     "file": "preview--central-starter--pad--shimmer.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--shimmer.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Strings",
+     "file": "preview--central-starter--pad--strings.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--strings.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Glass",
+     "file": "preview--central-starter--pad--glass.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--glass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Swell",
+     "file": "preview--central-starter--pad--swell.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--swell.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Deep",
+     "file": "preview--central-starter--pad--deep.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--deep.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Felt",
+     "file": "preview--central-starter--pad--felt.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--felt.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Organ",
+     "file": "preview--central-starter--pad--organ.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--organ.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Analog",
+     "file": "preview--central-starter--pad--analog.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--analog.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Bells",
+     "file": "preview--central-starter--pad--bells.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--pad--bells.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "loops",
+     "name": "Drum loops",
+     "file": "preview--central-starter--loops--drum-loops.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loops--drum-loops.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Worship Eighths",
+     "file": "preview--central-starter--loop--worship-eighths.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--worship-eighths.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Rim and Hat",
+     "file": "preview--central-starter--loop--rim-and-hat.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--rim-and-hat.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Half-Time",
+     "file": "preview--central-starter--loop--half-time.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--half-time.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Four on the Floor",
+     "file": "preview--central-starter--loop--four-on-the-floor.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--four-on-the-floor.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Brushes Ballad",
+     "file": "preview--central-starter--loop--brushes-ballad.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--brushes-ballad.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Waltz",
+     "file": "preview--central-starter--loop--waltz.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--waltz.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loops",
+     "name": "Ambient loops",
+     "file": "preview--central-starter--loops--ambient-loops.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loops--ambient-loops.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Drift",
+     "file": "preview--central-starter--loop--drift.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--drift.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Breath",
+     "file": "preview--central-starter--loop--breath.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--breath.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--saw-lead.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--saw-lead.mp3",
+     "seconds": 30,
+     "preset": "Saw Lead"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--square-lead.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--square-lead.mp3",
+     "seconds": 30,
+     "preset": "Square Lead"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--soft-lead.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--soft-lead.mp3",
+     "seconds": 30,
+     "preset": "Soft Lead"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--synth-brass.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--synth-brass.mp3",
+     "seconds": 30,
+     "preset": "Synth Brass"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--super-saw.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--super-saw.mp3",
+     "seconds": 30,
+     "preset": "Super Saw"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--string-machine.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--string-machine.mp3",
+     "seconds": 30,
+     "preset": "String Machine"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--sub-bass.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--sub-bass.mp3",
+     "seconds": 30,
+     "preset": "Sub Bass"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--synth-bass.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--synth-bass.mp3",
+     "seconds": 30,
+     "preset": "Synth Bass"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--pluck.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--pluck.mp3",
+     "seconds": 30,
+     "preset": "Pluck"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Synths",
+     "file": "preview--central-starter--sound--central-keys-synths--electric-bells.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--central-keys-synths--electric-bells.mp3",
+     "seconds": 30,
+     "preset": "Electric Bells"
+    },
+    {
+     "kind": "preset",
+     "name": "Worship Saw Lead",
+     "file": "preview--central-starter--preset--worship-saw-lead.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--worship-saw-lead.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Big Synth Brass",
+     "file": "preview--central-starter--preset--big-synth-brass.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--big-synth-brass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Super Saw Anthem",
+     "file": "preview--central-starter--preset--super-saw-anthem.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--super-saw-anthem.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "String Machine Pad",
+     "file": "preview--central-starter--preset--string-machine-pad.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--string-machine-pad.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Sub Bass (keys left hand)",
+     "file": "preview--central-starter--preset--sub-bass-keys-left-hand.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--sub-bass-keys-left-hand.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Plucky Arp",
+     "file": "preview--central-starter--preset--plucky-arp.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--plucky-arp.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Electric Bells",
+     "file": "preview--central-starter--preset--electric-bells.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--electric-bells.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Starter 1x12",
+     "file": "preview--central-starter--ir--central-starter-1x12.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--ir--central-starter-1x12.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Starter 2x12 Clean",
+     "file": "preview--central-starter--ir--central-starter-2x12-clean.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--ir--central-starter-2x12-clean.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Starter Bass 2x10",
+     "file": "preview--central-starter--ir--central-starter-bass-2x10.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--ir--central-starter-bass-2x10.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "ir",
+     "name": "Central Starter Acoustic Body",
+     "file": "preview--central-starter--ir--central-starter-acoustic-body.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--ir--central-starter-acoustic-body.mp3",
+     "seconds": 30
+    }
+   ],
+   "previewsExpected": true
+  },
+  {
    "id": "central-keys-library",
    "plan": "keys",
    "planName": "Central Keys",
    "title": "Central Keys Library",
-   "version": "1.4",
-   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; eighteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, Ember and Selah Strings - a grand piano and a string section stretched into clouds - and Sunday Bright, Easter Brass and Christmas Bells) - with worship-ready presets; and ten synths made by us, each its own kind (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells). 10.5: real electric pianos - a Wurlitzer EP200, a CP80 electric grand and a Pianet T (Greg Sullivan's recordings, CC-BY 3.0) - with six presets for them And the Pop Grand - AKAI's Splendid Grand (public domain), the bright, even piano of a thousand records - with three presets.",
-   "file": "central-keys-library-1.4.zip",
-   "size": 732000000,
+   "version": "1.5",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; eighteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, Ember and Selah Strings - a grand piano and a string section stretched into clouds - and Sunday Bright, Easter Brass and Christmas Bells) - with worship-ready presets. 10.5: real electric pianos - a Wurlitzer EP200, a CP80 electric grand and a Pianet T (Greg Sullivan's recordings, CC-BY 3.0) - with six presets for them And the Pop Grand - AKAI's Splendid Grand (public domain), the bright, even piano of a thousand records - with three presets. 1.5: the ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) are now stock in every app - the free Central Starter library - with their presets.",
+   "file": "central-keys-library-1.5.zip",
+   "size": 700000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-keys-library-1.4.zip",
+   "url": "https://libraries.motionaudio.org/central-keys-library-1.5.zip",
    "contents": {
     "sounds": [
      {
@@ -90,22 +663,6 @@
       "license": "Motion Audio - sold with Central Keys (recordings in it: CC0 1.0)"
      },
      {
-      "name": "Central Keys Synths",
-      "presets": [
-       "Saw Lead",
-       "Square Lead",
-       "Soft Lead",
-       "Synth Brass",
-       "Super Saw",
-       "String Machine",
-       "Sub Bass",
-       "Synth Bass",
-       "Pluck",
-       "Electric Bells"
-      ],
-      "license": "Motion Audio"
-     },
-     {
       "name": "Central Keys Electric Pianos",
       "presets": [
        "Wurlitzer EP200",
@@ -159,13 +716,6 @@
      "Easter Brass Swell",
      "Xylophone Bright",
      "Church Bells",
-     "Worship Saw Lead",
-     "Big Synth Brass",
-     "Super Saw Anthem",
-     "String Machine Pad",
-     "Sub Bass (keys left hand)",
-     "Plucky Arp",
-     "Electric Bells",
      "Wurli Worship",
      "Wurli Soft Ballad",
      "CP80 Pop Grand",
@@ -182,9 +732,9 @@
     "loops": []
    },
    "counts": {
-    "sound": 8,
+    "sound": 7,
     "board": 0,
-    "preset": 49,
+    "preset": 42,
     "ir": 0,
     "click": 0,
     "pad": 0,
@@ -193,7 +743,6 @@
    "credits": [
     "Greg Sullivan E-Pianos - Wurlitzer EP200, Yamaha CP80 and Hohner Pianet T, recorded by Greg Sullivan, SFZ by kinwie - CC-BY 3.0 (github.com/sfzinstruments/GregSullivan.E-Pianos)",
     "Made by Motion Audio (tools/make-pads.py); Ember Pad and Selah Strings are made from recordings in VCSL and VSCO 2 CE by Versilian Studios (CC0 1.0)",
-    "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)",
     "Splendid Grand Piano - sampled by AKAI and released as public domain (2000); the SFZ mapping from sfzinstruments",
     "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
    ],
@@ -239,12 +788,6 @@
      "text": "VS Chamber Orchestra 2: Community Edition (VSCO 2 CE) - Versilian Studios",
      "license": "CC0 1.0",
      "url": "https://github.com/sgossner/VSCO-2-CE/tree/6dd651d55dde97fd4028699be9d4481f26917891"
-    },
-    {
-     "item": "Central Keys Synths",
-     "text": "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)",
-     "license": "Motion Audio - sold with Central Keys",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-synths.py"
     },
     {
      "item": "Central Keys Electric Pianos",
@@ -614,86 +1157,6 @@
     },
     {
      "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--saw-lead.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--saw-lead.mp3",
-     "seconds": 30,
-     "preset": "Saw Lead"
-    },
-    {
-     "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--square-lead.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--square-lead.mp3",
-     "seconds": 30,
-     "preset": "Square Lead"
-    },
-    {
-     "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--soft-lead.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--soft-lead.mp3",
-     "seconds": 30,
-     "preset": "Soft Lead"
-    },
-    {
-     "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--synth-brass.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--synth-brass.mp3",
-     "seconds": 30,
-     "preset": "Synth Brass"
-    },
-    {
-     "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--super-saw.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--super-saw.mp3",
-     "seconds": 30,
-     "preset": "Super Saw"
-    },
-    {
-     "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--string-machine.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--string-machine.mp3",
-     "seconds": 30,
-     "preset": "String Machine"
-    },
-    {
-     "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--sub-bass.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--sub-bass.mp3",
-     "seconds": 30,
-     "preset": "Sub Bass"
-    },
-    {
-     "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--synth-bass.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--synth-bass.mp3",
-     "seconds": 30,
-     "preset": "Synth Bass"
-    },
-    {
-     "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--pluck.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--pluck.mp3",
-     "seconds": 30,
-     "preset": "Pluck"
-    },
-    {
-     "kind": "sound",
-     "name": "Central Keys Synths",
-     "file": "preview--central-keys--sound--synths--electric-bells.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--synths--electric-bells.mp3",
-     "seconds": 30,
-     "preset": "Electric Bells"
-    },
-    {
-     "kind": "sound",
      "name": "Central Keys Electric Pianos",
      "file": "preview--central-keys--sound--electric-pianos--wurlitzer-ep200.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-keys--sound--electric-pianos--wurlitzer-ep200.mp3",
@@ -981,55 +1444,6 @@
     },
     {
      "kind": "preset",
-     "name": "Worship Saw Lead",
-     "file": "preview--central-keys--preset--worship-saw-lead.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--worship-saw-lead.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "preset",
-     "name": "Big Synth Brass",
-     "file": "preview--central-keys--preset--big-synth-brass.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--big-synth-brass.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "preset",
-     "name": "Super Saw Anthem",
-     "file": "preview--central-keys--preset--super-saw-anthem.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--super-saw-anthem.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "preset",
-     "name": "String Machine Pad",
-     "file": "preview--central-keys--preset--string-machine-pad.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--string-machine-pad.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "preset",
-     "name": "Sub Bass (keys left hand)",
-     "file": "preview--central-keys--preset--sub-bass-keys-left-hand.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--sub-bass-keys-left-hand.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "preset",
-     "name": "Plucky Arp",
-     "file": "preview--central-keys--preset--plucky-arp.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--plucky-arp.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "preset",
-     "name": "Electric Bells",
-     "file": "preview--central-keys--preset--electric-bells.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--electric-bells.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "preset",
      "name": "Wurli Worship",
      "file": "preview--central-keys--preset--wurli-worship.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-keys--preset--wurli-worship.mp3",
@@ -1099,13 +1513,13 @@
    "plan": "instrument",
    "planName": "Central Instrument",
    "title": "Central Instrument Library",
-   "version": "1.3",
-   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell. 10.5: a Lo-fi Kit, a Vintage Kit, a Quiet Upright Bass and a Banjo (all CC0), and twelve more loops, every groove at three tempos - a worship pocket, a tom groove, a four-bar builder, gospel 12/8, a country two-step, soft pop, two lo-fi beats, a processional march, tambourine and shaker, a djembe groove and timpani under a hymn.",
-   "file": "central-instrument-library-1.3.zip",
+   "version": "1.4",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell. 10.5: a Lo-fi Kit, a Vintage Kit, a Quiet Upright Bass and a Banjo (all CC0), and twelve more loops, every groove at three tempos - a worship pocket, a tom groove, a four-bar builder, gospel 12/8, a country two-step, soft pop, two lo-fi beats, a processional march, tambourine and shaker, a djembe groove and timpani under a hymn. 1.4: six more grooves - an anthem ride in half-time, an acoustic set (cajon, tambourine and shaker), a soft bossa nova and a 70s pocket on the Vintage Kit, a lo-fi 6/8 and a celebration - and the six plainest grooves (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) moved to the free Central Starter library, stock in every app.",
+   "file": "central-instrument-library-1.4.zip",
    "size": 660000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-instrument-library-1.3.zip",
+   "url": "https://libraries.motionaudio.org/central-instrument-library-1.4.zip",
    "contents": {
     "sounds": [
      {
@@ -1231,15 +1645,9 @@
     "irs": [],
     "pads": [],
     "loops": [
-     "Drum loops: Worship Eighths",
      "Drum loops: Big Ride",
-     "Drum loops: Rim and Hat",
-     "Drum loops: Half-Time",
-     "Drum loops: Four on the Floor",
      "Drum loops: Driving Sixteenths",
      "Drum loops: Toms Build",
-     "Drum loops: Brushes Ballad",
-     "Drum loops: Waltz",
      "Drum loops: Brushes Waltz",
      "Drum loops: Gospel Shuffle",
      "Drum loops: Brushes Swing",
@@ -1262,7 +1670,13 @@
      "Drum loops: Processional March",
      "Drum loops: Tambourine and Shaker",
      "Drum loops: Djembe Groove",
-     "Drum loops: Timpani Hymn"
+     "Drum loops: Timpani Hymn",
+     "Drum loops: Anthem Ride Half-Time",
+     "Drum loops: Acoustic Set",
+     "Drum loops: Bossa Nova",
+     "Drum loops: Vintage Pocket",
+     "Drum loops: Lo-fi 6/8",
+     "Drum loops: Celebration"
     ]
    },
    "counts": {
@@ -1420,41 +1834,9 @@
     },
     {
      "kind": "loop",
-     "name": "Worship Eighths",
-     "file": "preview--central-instrument--loop--worship-eighths.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--worship-eighths.mp3",
-     "seconds": 30,
-     "set": "drums"
-    },
-    {
-     "kind": "loop",
      "name": "Big Ride",
      "file": "preview--central-instrument--loop--big-ride.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--big-ride.mp3",
-     "seconds": 30,
-     "set": "drums"
-    },
-    {
-     "kind": "loop",
-     "name": "Rim and Hat",
-     "file": "preview--central-instrument--loop--rim-and-hat.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--rim-and-hat.mp3",
-     "seconds": 30,
-     "set": "drums"
-    },
-    {
-     "kind": "loop",
-     "name": "Half-Time",
-     "file": "preview--central-instrument--loop--half-time.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--half-time.mp3",
-     "seconds": 30,
-     "set": "drums"
-    },
-    {
-     "kind": "loop",
-     "name": "Four on the Floor",
-     "file": "preview--central-instrument--loop--four-on-the-floor.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--four-on-the-floor.mp3",
      "seconds": 30,
      "set": "drums"
     },
@@ -1471,22 +1853,6 @@
      "name": "Toms Build",
      "file": "preview--central-instrument--loop--toms-build.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--toms-build.mp3",
-     "seconds": 30,
-     "set": "drums"
-    },
-    {
-     "kind": "loop",
-     "name": "Brushes Ballad",
-     "file": "preview--central-instrument--loop--brushes-ballad.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--brushes-ballad.mp3",
-     "seconds": 30,
-     "set": "drums"
-    },
-    {
-     "kind": "loop",
-     "name": "Waltz",
-     "file": "preview--central-instrument--loop--waltz.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--waltz.mp3",
      "seconds": 30,
      "set": "drums"
     },
@@ -1671,6 +2037,54 @@
      "name": "Timpani Hymn",
      "file": "preview--central-instrument--loop--timpani-hymn.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--timpani-hymn.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Anthem Ride Half-Time",
+     "file": "preview--central-instrument--loop--anthem-ride-half-time.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--anthem-ride-half-time.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Acoustic Set",
+     "file": "preview--central-instrument--loop--acoustic-set.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--acoustic-set.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Bossa Nova",
+     "file": "preview--central-instrument--loop--bossa-nova.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--bossa-nova.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Vintage Pocket",
+     "file": "preview--central-instrument--loop--vintage-pocket.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--vintage-pocket.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Lo-fi 6/8",
+     "file": "preview--central-instrument--loop--lo-fi-6-8.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--lo-fi-6-8.mp3",
+     "seconds": 30,
+     "set": "drums"
+    },
+    {
+     "kind": "loop",
+     "name": "Celebration",
+     "file": "preview--central-instrument--loop--celebration.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--loop--celebration.mp3",
      "seconds": 30,
      "set": "drums"
     },
@@ -2242,13 +2656,13 @@
    "plan": "plugins",
    "planName": "Central Plugins",
    "title": "Central Plugins Library",
-   "version": "1.3",
-   "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish. 10.5: twelve more boards - keys glue, a Wurli studio chain, a vocal-space pad, lo-fi and mono stage keys, shimmer, dotted and tape-echo electrics, fingerstyle and sparkle acoustics, sub-glue and broadcast bass - and a Wurli Dream preset.",
-   "file": "central-plugins-library-1.3.zip",
+   "version": "1.4",
+   "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish. 10.5: twelve more boards - keys glue, a Wurli studio chain, a vocal-space pad, lo-fi and mono stage keys, shimmer, dotted and tape-echo electrics, fingerstyle and sparkle acoustics, sub-glue and broadcast bass - and a Wurli Dream preset. 1.4: six more boards - a vocal bus polish, a worship electric swell bed, keys tape warmth, an acoustic live-stream chain, a bass parallel squash and a wide, soft pad bus.",
+   "file": "central-plugins-library-1.4.zip",
    "size": 18000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-plugins-library-1.3.zip",
+   "url": "https://libraries.motionaudio.org/central-plugins-library-1.4.zip",
    "contents": {
     "sounds": [
      {
@@ -2299,7 +2713,13 @@
      "Plugins: Acoustic Fingerstyle",
      "Plugins: Acoustic Sparkle",
      "Plugins: Bass Sub Glue",
-     "Plugins: Bass Broadcast"
+     "Plugins: Bass Broadcast",
+     "Plugins: Vocal Bus Polish",
+     "Plugins: Worship Electric Swell Bed",
+     "Plugins: Keys Tape Warmth",
+     "Plugins: Acoustic Live Stream",
+     "Plugins: Bass Parallel Squash",
+     "Plugins: Pad Bus (wide and soft)"
     ],
     "irs": [],
     "pads": [],
@@ -2307,7 +2727,7 @@
    },
    "counts": {
     "sound": 1,
-    "board": 34,
+    "board": 40,
     "preset": 3,
     "ir": 0,
     "click": 0,
@@ -2377,13 +2797,13 @@
    "plan": "pedals",
    "planName": "Central Pedals",
    "title": "Central Pedals Library",
-   "version": "1.3",
-   "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies. 10.5: 26 more impulse responses - a tweed deluxe, a jazz clean 2x12, a greenback 4x12, a 1x15 blues combo, a modern clean 2x12 and a little practice amp (each close, off the cone's edge and in the room), two more bass cabinets, and OM, 12-string, mandolin, ukulele, resonator and acoustic bass bodies - with eighteen boards built on them.",
-   "file": "central-pedals-library-1.3.zip",
+   "version": "1.4",
+   "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies. 10.5: 26 more impulse responses - a tweed deluxe, a jazz clean 2x12, a greenback 4x12, a 1x15 blues combo, a modern clean 2x12 and a little practice amp (each close, off the cone's edge and in the room), two more bass cabinets, and OM, 12-string, mandolin, ukulele, resonator and acoustic bass bodies - with eighteen boards built on them. 1.4: six more boards - a clean amp into the free Starter 1x12, a Uni-Vibe worship clean, an octave-up lead, a spring tweed rhythm, and bass and acoustic chains into the Starter cabinet and body.",
+   "file": "central-pedals-library-1.4.zip",
    "size": 400000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-pedals-library-1.3.zip",
+   "url": "https://libraries.motionaudio.org/central-pedals-library-1.4.zip",
    "contents": {
     "sounds": [],
     "presets": [],
@@ -2431,7 +2851,13 @@
      "Pedals: Mandolin",
      "Pedals: Ukulele",
      "Pedals: Resonator Slide",
-     "Pedals: Acoustic Bass"
+     "Pedals: Acoustic Bass",
+     "Pedals: Starter Cab Clean",
+     "Pedals: Uni-Vibe Worship",
+     "Pedals: Octave-Up Lead",
+     "Pedals: Spring Tweed Rhythm",
+     "Pedals: Bass Starter Cab",
+     "Pedals: Acoustic Starter Body"
     ],
     "irs": [
      "Central 1x12 Open Back",
@@ -2494,7 +2920,7 @@
    },
    "counts": {
     "sound": 0,
-    "board": 44,
+    "board": 50,
     "preset": 0,
     "ir": 54,
     "click": 0,
@@ -3217,13 +3643,13 @@
    "plan": "pads",
    "planName": "Central Pads",
    "title": "Central Pads Library",
-   "version": "1.3",
-   "summary": "41 pads for the pad pedal in all 12 keys, each built its own way (its own voices, movement, stereo and reverb) and each a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting): warm, air, choir aah, ooh and hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning; Sunday Keys (the modern worship pad); nine made from real recordings (Ember, Halo, Selah, Dawn, Frozen Piano, Bowed Glass, Vibes, Harp Wash, Cathedral Organ); and tide, vowels, tape, sparkle, eighties, reed, swell guitar, breathe, tanpura, horns and flute choir. Plus Central Pads Swells - swells, risers, downlifters and an arrival in every key at 4, 8 and 16 seconds, and an air bed for between songs - and eight ambient loops for the texture channels in every key (Sparkle, Drift, Breath, Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain). Comes with every other plan too. 35 more pads, moving pads and more swells come in Central Pads Extra, a second download with the same key. 10.5: seven more ambient loops in every key - Piano Arps, Organ Swell, Strings Rise, Bell Tower, Guitar Arpeggio, Wurlitzer Haze and Hum Drone Every pad now at one loudness (10.5).",
-   "file": "central-pads-library-1.3.zip",
-   "size": 970000000,
+   "version": "1.4",
+   "summary": "37 pads for the pad pedal in all 12 keys, each built its own way (its own voices, movement, stereo and reverb) and each a seamless 12-second stereo loop of the key's chord, played as recorded (no pitch shifting): warm, air, choir aah, ooh and hum, shimmer, strings, bowed, glass, bells, felt, organ, analog, swell, worship, ambient drone, cinematic, deep, heaven and morning; Sunday Keys (the modern worship pad); nine made from real recordings (Ember, Halo, Selah, Dawn, Frozen Piano, Bowed Glass, Vibes, Harp Wash, Cathedral Organ); and tide, vowels, tape, sparkle, eighties, reed, swell guitar, breathe, tanpura, horns and flute choir. Plus Central Pads Swells - swells, risers, downlifters and an arrival in every key at 4, 8 and 16 seconds, and an air bed for between songs - and eight ambient loops for the texture channels in every key (Sparkle, Drift, Breath, Felt Piano, Guitar Swells, Cello Drone, Choir Air and Harp Rain). Comes with every other plan too. 35 more pads, moving pads and more swells come in Central Pads Extra, a second download with the same key. 10.5: seven more ambient loops in every key - Piano Arps, Organ Swell, Strings Rise, Bell Tower, Guitar Arpeggio, Wurlitzer Haze and Hum Drone Every pad now at one loudness (10.5). 1.4: eight more pads - Sunday Choir (the worship choir bed), Hallelujah Brass, Mercy Seat (quiet, for the altar), Living Water (bells and running water), Altar Call (electric piano and low strings), Overture (the film opening), Prairie (an ambient guitar under a wide sky) and Hope Rising (the build into the last chorus) - and the twelve plainest pads (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass) with the Drift and Breath loops moved to the free Central Starter library, stock in every app.",
+   "file": "central-pads-library-1.4.zip",
+   "size": 880000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-pads-library-1.3.zip",
+   "url": "https://libraries.motionaudio.org/central-pads-library-1.4.zip",
    "contents": {
     "sounds": [
      {
@@ -3247,23 +3673,11 @@
     "boards": [],
     "irs": [],
     "pads": [
-     "Warm",
-     "Air",
-     "Choir Aah",
      "Choir Ooh",
-     "Shimmer",
-     "Strings",
-     "Glass",
-     "Swell",
      "Worship",
      "Ambient Drone",
-     "Deep",
      "Heaven",
-     "Felt",
-     "Organ",
-     "Analog",
      "Bowed",
-     "Bells",
      "Choir Hum",
      "Cinematic",
      "Morning",
@@ -3287,12 +3701,18 @@
      "Breathe",
      "Tanpura",
      "Horns",
-     "Flute Choir"
+     "Flute Choir",
+     "Sunday Choir",
+     "Hallelujah Brass",
+     "Mercy Seat",
+     "Living Water",
+     "Altar Call",
+     "Overture",
+     "Prairie",
+     "Hope Rising"
     ],
     "loops": [
      "Ambient loops: Sparkle",
-     "Ambient loops: Drift",
-     "Ambient loops: Breath",
      "Ambient loops: Felt Piano",
      "Ambient loops: Guitar Swells",
      "Ambient loops: Cello Drone",
@@ -3304,7 +3724,10 @@
      "Ambient loops: Bell Tower",
      "Ambient loops: Guitar Arpeggio",
      "Ambient loops: Wurlitzer Haze",
-     "Ambient loops: Hum Drone"
+     "Ambient loops: Hum Drone",
+     "Ambient loops: Vinyl Piano",
+     "Ambient loops: Shimmer Guitar",
+     "Ambient loops: Flute Air"
     ]
    },
    "counts": {
@@ -3313,8 +3736,8 @@
     "preset": 0,
     "ir": 0,
     "click": 0,
-    "pad": 41,
-    "loop": 15
+    "pad": 37,
+    "loop": 16
    },
    "credits": [
     "Ambient loops made by Motion Audio (tools/make-loops.py) from our synthesised pads and bells and the libraries' own instruments (piano, harp: VCSL; guitar and bowed bass: Karoryfer; cello: VSCO 2 CE - all CC0 1.0; 10.5: Piano Arps, Organ Swell, Strings Rise, Bell Tower, Guitar Arpeggio, Wurlitzer Haze (the Wurlitzer is Greg Sullivan's, CC-BY 3.0) and Hum Drone)",
@@ -3325,6 +3748,7 @@
     "Made by Motion Audio (tools/make-pad-loops.py) from a vibraphone in VCSL by Versilian Studios (CC0 1.0)",
     "Made by Motion Audio (tools/make-pad-loops.py) from hand chimes in VCSL by Versilian Studios (CC0 1.0)",
     "Made by Motion Audio (tools/make-pad-loops.py) from violins and cellos in VSCO 2 CE by Versilian Studios (CC0 1.0)",
+    "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py: synthesised, no recording)",
     "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)"
    ],
    "sources": [
@@ -3335,49 +3759,7 @@
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
     },
     {
-     "item": "Warm",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
-     "item": "Air",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
-     "item": "Choir Aah",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
      "item": "Choir Ooh",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
-     "item": "Shimmer",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
-     "item": "Strings",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
-     "item": "Glass",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
-     "item": "Swell",
      "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
      "license": "Motion Audio - sold as Central Pads (and with every other plan)",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
@@ -3395,43 +3777,13 @@
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
     },
     {
-     "item": "Deep",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
      "item": "Heaven",
      "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
      "license": "Motion Audio - sold as Central Pads (and with every other plan)",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
     },
     {
-     "item": "Felt",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
-     "item": "Organ",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
-     "item": "Analog",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
      "item": "Bowed",
-     "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
-     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
-    },
-    {
-     "item": "Bells",
      "text": "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
      "license": "Motion Audio - sold as Central Pads (and with every other plan)",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
@@ -3635,6 +3987,54 @@
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-pads.py"
     },
     {
+     "item": "Sunday Choir",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Hallelujah Brass",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Mercy Seat",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Living Water",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Altar Call",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Overture",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Prairie",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
+     "item": "Hope Rising",
+     "text": "Made by Motion Audio (tools/make-pad-loops.py, tools/pad_voices.py)",
+     "license": "Motion Audio - sold as Central Pads (and with every other plan)",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/pad_voices.py"
+    },
+    {
      "item": "Ambient loops",
      "text": "Made by Motion Audio (tools/make-loops.py)",
      "license": "Motion Audio - sold with Central Pads",
@@ -3668,58 +4068,9 @@
    "previews": [
     {
      "kind": "pad",
-     "name": "Warm",
-     "file": "preview--central-pads--pad--warm.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--warm.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
-     "name": "Air",
-     "file": "preview--central-pads--pad--air.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--air.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
-     "name": "Choir Aah",
-     "file": "preview--central-pads--pad--choir-aah.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--choir-aah.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
      "name": "Choir Ooh",
      "file": "preview--central-pads--pad--choir-ooh.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-pads--pad--choir-ooh.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
-     "name": "Shimmer",
-     "file": "preview--central-pads--pad--shimmer.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--shimmer.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
-     "name": "Strings",
-     "file": "preview--central-pads--pad--strings.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--strings.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
-     "name": "Glass",
-     "file": "preview--central-pads--pad--glass.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--glass.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
-     "name": "Swell",
-     "file": "preview--central-pads--pad--swell.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--swell.mp3",
      "seconds": 30
     },
     {
@@ -3738,13 +4089,6 @@
     },
     {
      "kind": "pad",
-     "name": "Deep",
-     "file": "preview--central-pads--pad--deep.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--deep.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
      "name": "Heaven",
      "file": "preview--central-pads--pad--heaven.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-pads--pad--heaven.mp3",
@@ -3752,37 +4096,9 @@
     },
     {
      "kind": "pad",
-     "name": "Felt",
-     "file": "preview--central-pads--pad--felt.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--felt.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
-     "name": "Organ",
-     "file": "preview--central-pads--pad--organ.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--organ.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
-     "name": "Analog",
-     "file": "preview--central-pads--pad--analog.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--analog.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
      "name": "Bowed",
      "file": "preview--central-pads--pad--bowed.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-pads--pad--bowed.mp3",
-     "seconds": 30
-    },
-    {
-     "kind": "pad",
-     "name": "Bells",
-     "file": "preview--central-pads--pad--bells.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--bells.mp3",
      "seconds": 30
     },
     {
@@ -3954,6 +4270,62 @@
      "seconds": 30
     },
     {
+     "kind": "pad",
+     "name": "Sunday Choir",
+     "file": "preview--central-pads--pad--sunday-choir.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--sunday-choir.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Hallelujah Brass",
+     "file": "preview--central-pads--pad--hallelujah-brass.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--hallelujah-brass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Mercy Seat",
+     "file": "preview--central-pads--pad--mercy-seat.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--mercy-seat.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Living Water",
+     "file": "preview--central-pads--pad--living-water.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--living-water.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Altar Call",
+     "file": "preview--central-pads--pad--altar-call.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--altar-call.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Overture",
+     "file": "preview--central-pads--pad--overture.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--overture.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Prairie",
+     "file": "preview--central-pads--pad--prairie.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--prairie.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "pad",
+     "name": "Hope Rising",
+     "file": "preview--central-pads--pad--hope-rising.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--pad--hope-rising.mp3",
+     "seconds": 30
+    },
+    {
      "kind": "loops",
      "name": "Ambient loops",
      "file": "preview--central-pads--loops--ambient-loops.mp3",
@@ -3966,22 +4338,6 @@
      "name": "Sparkle",
      "file": "preview--central-pads--loop--sparkle.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-pads--loop--sparkle.mp3",
-     "seconds": 30,
-     "set": "ambient"
-    },
-    {
-     "kind": "loop",
-     "name": "Drift",
-     "file": "preview--central-pads--loop--drift.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--loop--drift.mp3",
-     "seconds": 30,
-     "set": "ambient"
-    },
-    {
-     "kind": "loop",
-     "name": "Breath",
-     "file": "preview--central-pads--loop--breath.mp3",
-     "url": "https://libraries.motionaudio.org/preview--central-pads--loop--breath.mp3",
      "seconds": 30,
      "set": "ambient"
     },
@@ -4078,6 +4434,30 @@
      "name": "Hum Drone",
      "file": "preview--central-pads--loop--hum-drone.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-pads--loop--hum-drone.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Vinyl Piano",
+     "file": "preview--central-pads--loop--vinyl-piano.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--loop--vinyl-piano.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Shimmer Guitar",
+     "file": "preview--central-pads--loop--shimmer-guitar.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--loop--shimmer-guitar.mp3",
+     "seconds": 30,
+     "set": "ambient"
+    },
+    {
+     "kind": "loop",
+     "name": "Flute Air",
+     "file": "preview--central-pads--loop--flute-air.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-pads--loop--flute-air.mp3",
      "seconds": 30,
      "set": "ambient"
     },

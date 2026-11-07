@@ -25,14 +25,17 @@ const str = (v, n) => String(v == null ? "" : v).slice(0, n);
 const words = (v, n) => { const t = String(v == null ? "" : v); if (t.length <= n) return t; const cut = t.slice(0, n), sp = cut.lastIndexOf(" "); return (sp > n * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s,;:(-]+$/, "") + "…"; };
 const names = (a, n) => (Array.isArray(a) ? a : []).slice(0, n).map((x) => str(x, 80));
 // one library as the website and the apps get it (only known fields, plain values: the index comes from outside)
+// (10.5) a library can be free: Central Starter, the stock sounds every app installs on its own - no plan, no key
+const FREE = { name: "Free", cents: 0 };
+const planOf = (id) => (id === "free" ? FREE : PLANS[id]);
 function clean(e, base, own) {
-  if (!e || typeof e !== "object" || !/^[a-z0-9-]{3,60}$/.test(e.id || "") || !PLAN_IDS.includes(e.plan)) return null;
+  if (!e || typeof e !== "object" || !/^[a-z0-9-]{3,60}$/.test(e.id || "") || !(PLAN_IDS.includes(e.plan) || e.plan === "free")) return null;
   const file = /^[\w.-]{3,120}\.zip$/.test(e.file || "") ? e.file : e.id + "-" + str(e.version, 20) + ".zip";
   const url = !own && typeof e.url === "string" && /^https:\/\/[^\s"'<>]+$/.test(e.url) ? e.url : base + "/" + file;   // (the built-in list: at LIBRARIES_BASE_URL)
   const c = e.contents || {};
   const sha256 = SHA.test(e.sha256 || "") ? e.sha256 : null;
   return {
-    id: e.id, plan: e.plan, planName: PLANS[e.plan].name, planCents: PLANS[e.plan].cents, title: str(e.title, 80) || PLANS[e.plan].name + " Library",
+    id: e.id, plan: e.plan, planName: planOf(e.plan).name, planCents: planOf(e.plan).cents, title: str(e.title, 80) || planOf(e.plan).name + " Library",
     version: /^\d+(\.\d+){0,3}$/.test(String(e.version || "")) ? String(e.version) : "1.0", summary: words(e.summary, 1200),
     file, size: Math.max(0, Math.round(Number(e.size) || 0)), approximate: !!e.approximate || !sha256, sha256, url, ready: !!sha256,
     contents: {
@@ -85,6 +88,6 @@ export function routes(api, { wrap }) {
   api.get("/libraries", wrap(async (req, res) => {
     const d = await libraries();
     res.set("Cache-Control", "public, max-age=120");
-    res.json({ source: d.source, plans: Object.fromEntries(PLAN_IDS.map((id) => [id, { name: PLANS[id].name, cents: PLANS[id].cents }])), libraries: d.libraries });
+    res.json({ source: d.source, plans: Object.fromEntries(PLAN_IDS.map((id) => [id, { name: PLANS[id].name, cents: PLANS[id].cents }]).concat([["free", FREE]])), libraries: d.libraries });
   }));
 }

@@ -36,7 +36,16 @@ import zipfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFINITIONS = os.path.join(ROOT, "libraries", "libraries.json")
 DEFAULT_BASE = "https://libraries.motionaudio.org"   # (10.5: Cloudflare R2 - the GitHub release "libraries" was its home until 10.4)
-PLANS = {"keys": "Central Keys", "instrument": "Central Instrument", "plugins": "Central Plugins", "pedals": "Central Pedals", "pads": "Central Pads", "utility": "Central Utility"}
+PLANS = {"keys": "Central Keys", "instrument": "Central Instrument", "plugins": "Central Plugins", "pedals": "Central Pedals", "pads": "Central Pads", "utility": "Central Utility",
+         "free": "Free"}   # (10.5: Central Starter - the stock sounds every app installs on its own; no key)
+
+
+def loop_wanted(ls, name):
+    """(10.5) a loop set entry may take part of a set: "only": [names] or "except": [names] - so the plain grooves can be
+    stock (Central Starter) and the rest stay in the pack, both from the same built set."""
+    if ls.get("only") is not None:
+        return name in ls["only"]
+    return name not in (ls.get("except") or [])
 # (10.2) Central Utility: click sets, lighting looks, slide templates, lyric backgrounds, graphics (tools/make-utility.py)
 KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "look", "slide", "background", "graphic")
 UTILITY_KINDS = (("look", "looks"), ("slide", "slides"), ("background", "backgrounds"), ("graphic", "graphics"))
@@ -168,6 +177,8 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
         with open(listing, encoding="utf-8") as handle:
             entries = json.load(handle)
         for e in entries:
+            if not loop_wanted(ls, e["name"]):
+                continue
             src = os.path.join(loops_dir, ls["set"], e["file"])
             arc = "loops/%s/%s" % (ls["set"], e["file"])
             item = {"kind": "loop", "name": e["name"], "set": ls["set"], "group": ls["name"], "file": arc, "tier": tier, "size": os.path.getsize(src), "sha256": sha256_file(src),
@@ -241,8 +252,10 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
     manifest = {"format": FORMAT, "id": lib["id"], "plan": tier, "planName": PLANS[tier], "version": str(lib["version"]), "title": lib["title"],
                 "summary": lib.get("summary", ""), "items": items, "credits": credits, "sources": sources, "built": datetime.date.today().isoformat(),
                 "previews": [{k: p[k] for k in ("kind", "name", "preset", "set", "file", "seconds") if k in p} for p in made]}
-    credit_txt = "%s %s - part of %s\n\n%s\n\nEverything here opens with %s: anyone can download it, the plan's package key unlocks it.\n\n%s\n\nSources (license, where it is):\n%s\n" % (
-        lib["title"], lib["version"], PLANS[tier], lib.get("summary", ""), PLANS[tier], "\n".join("- " + c for c in credits) or "",
+    opens = ("Everything here is free: it comes with every Central app and needs no key." if tier == "free" else
+             "Everything here opens with %s: anyone can download it, the plan's package key unlocks it." % PLANS[tier])
+    credit_txt = "%s %s - %s\n\n%s\n\n%s\n\n%s\n\nSources (license, where it is):\n%s\n" % (
+        lib["title"], lib["version"], "free, in every app" if tier == "free" else "part of " + PLANS[tier], lib.get("summary", ""), opens, "\n".join("- " + c for c in credits) or "",
         "\n".join("- %s: %s - %s - %s" % (s["item"], s["text"], s["license"], s["url"]) for s in sources) or "- (all made by Motion Audio)")
     if any(i["kind"] in ("sound", "ir", "pad", "loop") for i in items):   # (sounds/CREDITS.txt: every source of every sound and IR, with its license and URL)
         blobs.append(("sounds/CREDITS.txt", ("Sources of the sounds and impulse responses in %s %s\n\n%s\n" % (lib["title"], lib["version"], "\n".join(
@@ -332,7 +345,7 @@ def loop_names(lib):
     ml = _load("tools/make-loops.py", "make_loops")
     pv = _load("tools/pad_voices.py", "pad_voices")
     names = {"drums": [g[0] for g in ml.GROOVES], "ambient": list(ml.AMBIENT), "pulse": [p[0] for p in pv.PULSES], "pulse-more": [p[0] for p in pv.PULSES_MORE]}
-    return ["%s: %s" % (ls["name"], n) for ls in lib.get("loops") or [] for n in names.get(ls["set"], [])]
+    return ["%s: %s" % (ls["name"], n) for ls in lib.get("loops") or [] for n in names.get(ls["set"], []) if loop_wanted(ls, n)]
 
 
 def builtin_list(definitions=DEFINITIONS, base_url=DEFAULT_BASE):
@@ -382,7 +395,8 @@ def expected_previews(lib, banks, base_url=DEFAULT_BASE):
     for ls in lib.get("loops") or []:
         add("loops", ls["name"], set=ls["set"])
         for n in names.get(ls["set"], []):
-            add("loop", n, set=ls["set"])
+            if loop_wanted(ls, n):
+                add("loop", n, set=ls["set"])
     for snd in lib.get("sounds") or []:
         for pr in banks.get(snd["name"], []):
             add("sound", snd["name"], pr)

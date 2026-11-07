@@ -246,7 +246,7 @@ class Band:
         self.st = style_of(hymn)
         self.m, self.bpm = hymn["meter"], hymn["bpm"]
         self.feel = self.st["feel"]
-        self.key = _pc(hymn["key"])
+        self.key = key_pc(hymn["key"])
         self.rng = np.random.default_rng(seed)
         self.bars = []
         for si, s in enumerate(secs):
@@ -1342,6 +1342,15 @@ class Band:
 
 def _pc(name):
     return {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11}[name]
+
+
+def key_pc(name):
+    """A song's key as the pitch class its scale is built on: "G" -> G; a minor key ("Em", 10.5 - What Child Is This) ->
+    its relative major (G), so the scale, the fills and the add9 colour all come out Aeolian over its chords."""
+    name = str(name)
+    if name.endswith("m") and len(name) > 1:
+        return (_pc(name[:-1]) + 3) % 12
+    return _pc(name)
 
 
 # ---------------------------------------------------------------- mixing

@@ -40,9 +40,13 @@ NAMES = ["Warm", "Air", "Choir Aah", "Choir Ooh", "Shimmer", "Strings", "Glass",
          # 10.2, more: the worship pads first, then the ones made from recordings, then more synthesised ones
          "Sunday Keys", "Ember", "Halo", "Selah", "Tide", "Dawn", "Frozen Piano", "Bowed Glass", "Vibes", "Harp Wash", "Cathedral Organ",
          "Vowels", "Tape", "Sparkle", "Eighties", "Reed", "Swell Guitar", "Breathe", "Tanpura", "Horns", "Flute Choir"]
-MAIN_NAMES = list(NAMES)            # (Central Pads)
+# (10.5, round three) the twelve plain pads are stock in every app - the free Central Starter library; Central Pads keeps
+# the rest and gains eight more (PV.PACK_NAMES). The order of NAMES never changes (each pad's seed is its place in it).
+STARTER_NAMES = [n for n in NAMES if n in ("Warm", "Air", "Strings", "Shimmer", "Swell", "Analog", "Organ", "Felt", "Bells", "Deep", "Choir Aah", "Glass")]   # (in NAMES' order)
 NAMES += PV.EXTRA_NAMES              # (10.3: Central Pads Extra - after the 41, so theirs stay exactly as they were)
 NAMES += PV.MORE_NAMES               # (10.5: Central Pads More - after those, for the same reason)
+NAMES += PV.PACK_NAMES               # (10.5, round three: Central Pads' eight new ones - after everything, for the same reason)
+MAIN_NAMES = [n for n in NAMES[:41] if n not in STARTER_NAMES] + PV.PACK_NAMES   # (Central Pads: 29 of the first 41, and the 8 new)
 RECORDED = [n for n in NAMES if PV.needs_sources(n)]   # (made from CC0 recordings: they need the download cache)
 STYLES = [(n, PV.STYLES[n]) for n in NAMES]
 

@@ -1266,6 +1266,103 @@ MORE = {
 STYLES.update(MORE)
 MORE_NAMES = list(MORE)
 
+# ---------------------------------------------------------------- 10.5, round three: eight more for Central Pads itself
+# (the twelve plain pads - Warm, Air, Strings... - became stock in every app, the free Central Starter; these take their
+#  place in the pack. After MORE in NAMES, so every other pad's seed stays what it was.)
+def v_water(lp, note, rng):
+    """Running water: pink noise shaped by three slow resonances that wander, with a few bright drips."""
+    f = D.freqs(lp)
+    n = np.stack([D.noise(lp, rng, "pink", 300, 9000) for _ in (0, 1)], 1)
+    out = np.zeros((lp.n, 2))
+    for k, fc in enumerate((900.0, 2100.0, 4300.0)):
+        band = D.filt(n, D.peak(f, fc, 14.0, 2.2) * D.lowpass(f, fc * 2.2, 0.7, 2) * D.highpass(f, fc / 2.2, 0.7, 2))
+        g = 0.5 + 0.5 * lp.lfo((k + 1) / lp.L, rng.uniform(0, 2 * math.pi))
+        out += band * (0.3 + 0.7 * g)[:, None] * (0.6 ** k)
+    drips = np.zeros((lp.n, 2))
+    m = int(0.05 * lp.sr)
+    t = np.arange(m) / lp.sr
+    for _ in range(int(lp.L * 2.5)):
+        at = int(rng.uniform(0, lp.n))
+        fd = rng.uniform(1800, 5200)
+        y = np.sin(2 * math.pi * fd * t * (1 + 0.6 * np.exp(-t / 0.006))) * np.exp(-t / 0.012)
+        idx = (at + np.arange(m)) % lp.n
+        pan = rng.uniform(0.15, 0.85)
+        drips[idx, 0] += y * math.cos(pan * math.pi / 2) * rng.uniform(0.4, 1.0)
+        drips[idx, 1] += y * math.sin(pan * math.pi / 2) * rng.uniform(0.4, 1.0)
+    return out / (D.rms(out) or 1.0) + 0.25 * drips / (D.rms(drips) or 1.0)
+
+
+VOICES.update({"water": v_water})
+
+
+def fx_sunday_choir(lp, x, rng, f0):
+    x = D.sweep(lp, x, lp_curve(lp, 0.35, 0.8, 1, -math.pi / 2), lp4, f0 * 3, f0 * 30)
+    x = D.chorus(lp, vocal_space(lp, x, 90), rate=0.1, depth_ms=3.0, mix=0.3, voices=3)
+    return D.width(D.reverb(lp, D.shimmer(lp, x, rng, 8.0, mix=0.3, amount=0.3, octaves=1), rng, 7.0, mix=0.4, damp=4200, predelay=0.05, width=1.3), 1.4)
+
+
+def fx_hallelujah(lp, x, rng, f0):
+    c = lp_curve(lp, 0.2, 1.0, 1, -math.pi / 2) ** 1.3
+    x = D.sweep(lp, x, c, lp4, f0 * 2.5, f0 * 30) * (0.5 + 0.5 * c)[:, None]
+    x = D.saturate(D.filt(x, D.highpass(D.freqs(lp), 80, 0.7, 2)) / D.rms(x) * 0.45, 1.5)
+    return D.width(D.reverb(lp, x, rng, 5.0, mix=0.45, damp=4500, predelay=0.035, width=1.3), 1.3)
+
+
+def fx_mercy_seat(lp, x, rng, f0):
+    f = D.freqs(lp)
+    x = D.filt(x, D.lowpass(f, 1900, 0.7, 2) * D.highpass(f, 80, 0.7, 2))
+    breath = 0.65 + 0.35 * (0.5 + 0.5 * lp.lfo(1 / lp.L, rng.uniform(0, 6.0)))
+    x = x * breath[:, None]
+    return D.width(D.reverb(lp, vocal_space(lp, x, 90), rng, 9.5, mix=0.6, damp=2600, predelay=0.07, width=1.2), 1.15)
+
+
+def fx_living_water(lp, x, rng, f0):
+    x = D.delay(lp, x, lp.L / 16 * 0.75, feedback=0.4, mix=0.3, tone=6500)
+    x = D.filt(x, D.highpass(D.freqs(lp), 140, 0.7, 2))
+    return D.width(D.shimmer(lp, x, rng, 7.0, mix=0.5, amount=0.4, octaves=1), 1.5)
+
+
+def fx_altar_call(lp, x, rng, f0):
+    f = D.freqs(lp)
+    x = D.filt(x, D.lowpass(f, 3200, 0.7, 2) * D.highpass(f, 60, 0.7, 2))
+    x = D.chorus(lp, x, rate=0.3, depth_ms=3.5, mix=0.3, voices=2)
+    return D.width(D.reverb(lp, vocal_space(lp, x, 80), rng, 6.0, mix=0.5, damp=3400, predelay=0.04, width=1.3), 1.2)
+
+
+def fx_overture(lp, x, rng, f0):
+    c = lp_curve(lp, 0.3, 1.0, 1, -math.pi / 2)
+    x = D.sweep(lp, x, c, lp4, f0 * 3, f0 * 40) * (0.6 + 0.4 * c)[:, None]
+    return D.width(D.reverb(lp, x, rng, 5.5, mix=0.48, damp=5500, predelay=0.04, early=0.6, width=1.3), 1.4)
+
+
+def fx_prairie(lp, x, rng, f0):
+    f = D.freqs(lp)
+    x = D.filt(x, D.lowpass(f, 5200, 0.7, 2) * D.highpass(f, 100, 0.7, 2))
+    x = D.tremolo(lp, x, 3.6, 0.18, math.pi / 2)
+    x = D.delay(lp, x, lp.L / 10, feedback=0.3, mix=0.22, tone=4500)
+    return D.width(D.reverb(lp, x, rng, 4.2, mix=0.45, damp=4800, predelay=0.03, width=1.3), 1.5)
+
+
+def fx_hope_rising(lp, x, rng, f0):
+    c = lp_curve(lp, 0.0, 1.0, 1, -math.pi / 2) ** 1.2
+    x = D.sweep(lp, x, c, lp4, f0 * 2, f0 * 32) * (0.45 + 0.55 * c)[:, None]
+    x = D.chorus(lp, vocal_space(lp, x, 85), rate=0.15, depth_ms=3.0, mix=0.3, voices=3)
+    return D.width(D.shimmer(lp, x, rng, 9.0, mix=0.55, amount=0.45, octaves=2), 1.5)
+
+
+PACK = {
+    "Sunday Choir": {"layers": [(("choir", {"vowel": "a", "singers": 12, "vib_cents": 16}), 0, 1.0), (("choir", {"vowel": "o", "singers": 8, "vib_cents": 12}), 0, 0.5), (("saws", {"n": 5, "detune": 12, "spread": 0.9}), 0, 0.55), ("sub", -1, 0.25)], "fx": fx_sunday_choir, "chord": FIFTH},
+    "Hallelujah Brass": {"layers": [("horns", 0, 1.0), ("brass", 0, 0.6), ("horns", 1, 0.3), (("saws", {"n": 3, "detune": 8, "spread": 0.6}), -1, 0.4), ("sub", -1, 0.3)], "fx": fx_hallelujah, "chord": FIFTH},
+    "Mercy Seat": {"layers": [("felt", 0, 1.0), ("breathsines", 0, 0.5), ("air", 1, 0.18), (("sines", {"ratios": ((1, 1.0), (2, 0.25)), "spread": 1.0}), -1, 0.35)], "fx": fx_mercy_seat, "chord": FIFTH},
+    "Living Water": {"layers": [(("glints", {"per_second": 3.0}), 1, 0.7), ("water", 0, 0.35), (("sines", {"ratios": ((1, 1.0), (2, 0.4), (3, 0.12)), "spread": 1.0}), 0, 0.8), ("kscloud", 0, 0.3)], "fx": fx_living_water, "chord": (0, 7, 12, 14)},
+    "Altar Call": {"layers": [(("ep", {"every": 2.8}), 0, 0.9), (("strings", {"players": 8, "low": True}), -1, 0.5), (("strings", {"players": 8}), 0, 0.4), ("sub", -1, 0.3)], "fx": fx_altar_call, "chord": FIFTH},
+    "Overture": {"layers": [(("strings", {"players": 14}), 0, 1.0), (("strings", {"players": 8, "low": True}), -1, 0.7), ("horns", 0, 0.4), ("bells", 1, 0.2), ("sub", -1, 0.25)], "fx": fx_overture, "chord": FIFTH},
+    "Prairie": {"layers": [("eguitar", 0, 1.0), ("air", 1, 0.2), ("tri", -1, 0.3), (("sines", {"ratios": ((1, 1.0),), "spread": 1.0}), 1, 0.2)], "fx": fx_prairie, "chord": (0, 7, 12, 19)},
+    "Hope Rising": {"layers": [(("pulse", {"n": 3, "detune": 9}), 0, 0.9), (("saws", {"n": 5, "detune": 14, "spread": 0.9}), 0, 0.7), (("choir", {"vowel": "u", "singers": 6, "vib_cents": 12}), 1, 0.35), ("sub", -1, 0.35)], "fx": fx_hope_rising, "chord": FIFTH},
+}
+STYLES.update(PACK)
+PACK_NAMES = list(PACK)
+
 # 10.5: more moving pads (their own loop set, in Central Pads More - Central Pads Extra's files stay as they were)
 PULSES_MORE = [("Dotted Eighths", "Sunday Keys", "9009009009009009"), ("Sixteenth Shimmer", "Shimmer", "9595959595959595"),
                ("Slow Breath", "Air", "~1234567898765432"), ("Push and Pull", "Analog", "9009090090090900"),

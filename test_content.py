@@ -205,7 +205,8 @@ def main():
 
         print("\nThe 10.0 pad styles (tools/make-pad-loops.py):")
         new = ["Felt", "Organ", "Analog", "Bowed", "Bells", "Choir Hum", "Cinematic", "Morning", "Sunday Keys", "Ember", "Tide", "Vowels", "Tanpura", "Swell Guitar",
-               "Sunday Warm", "Synth Swell", "Lo-fi Keys", "Phaser Pad", "Pluck Cloud", "Wide Fifths", "Christmas Bells"]   # (10.3: some of Central Pads Extra)
+               "Sunday Warm", "Synth Swell", "Lo-fi Keys", "Phaser Pad", "Pluck Cloud", "Wide Fifths", "Christmas Bells",   # (10.3: some of Central Pads Extra)
+               "Sunday Choir", "Prairie", "Living Water"]   # (10.5, round three: some of Central Pads' eight new ones)
         import pad_voices as PV
         import pad_sources as PS
         PV.set_sources(PS.Stand())   # (no internet here: stand-in recordings for the styles made from them)

@@ -37,6 +37,7 @@ import zipfile
 log = logging.getLogger("pedal-driver.libraries")
 
 PLANS = ("keys", "instrument", "plugins", "pedals", "pads", "utility")
+LIBRARY_PLANS = PLANS + ("free",)   # (10.5: a library can be free - Central Starter, the stock sounds the apps install on their own)
 # (10.2) Central Utility adds lighting looks, slide templates, lyric backgrounds and graphics: kept here as files and
 # records (Central Control shows them); its clicks join the click sounds a song can pick.
 KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic", "fx")   # (10.2 fx: a plugin you made in Central Production, .cmfx.json)
@@ -76,7 +77,7 @@ def release_index(url=None, timeout=20, max_age=600):
         if not isinstance(lib, dict):
             continue
         sha = str(lib.get("sha256") or "").lower()
-        if not ID_RE.match(str(lib.get("id") or "")) or lib.get("plan") not in PLANS or not SHA_RE.match(sha) or not lib.get("file"):
+        if not ID_RE.match(str(lib.get("id") or "")) or lib.get("plan") not in LIBRARY_PLANS or not SHA_RE.match(sha) or not lib.get("file"):
             continue
         out.append({"id": lib["id"], "plan": lib["plan"], "title": lib.get("title") or lib["id"], "version": str(lib.get("version") or ""),
                     "summary": lib.get("summary") or "", "file": lib["file"], "size": int(lib.get("size") or 0), "sha256": sha,
@@ -148,7 +149,7 @@ def tiers_lines_set(folder, owner, lines):
         pass
 
 
-def read_tiers(folder, allowed=PLANS + ("free",)):
+def read_tiers(folder, allowed=LIBRARY_PLANS):
     """{file prefix: plan} from a folder's tiers.txt."""
     out = {}
     try:
@@ -510,7 +511,7 @@ class LibraryStore:
         except (ValueError, UnicodeDecodeError):
             raise LibraryError("that library's manifest.json can't be read")
         personal = isinstance(man, dict) and man.get("personal") is True and man.get("plan") == "free"   # (10.2: made in Central Production - yours, no plan)
-        if not isinstance(man, dict) or not ID_RE.match(str(man.get("id") or "")) or not (man.get("plan") in PLANS or personal) or not VERSION_RE.match(str(man.get("version") or "")):
+        if not isinstance(man, dict) or not ID_RE.match(str(man.get("id") or "")) or not (man.get("plan") in LIBRARY_PLANS or personal) or not VERSION_RE.match(str(man.get("version") or "")):
             raise LibraryError("that library's manifest.json is missing its id, plan or version")
         if int(man.get("format") or 1) > 1:
             raise LibraryError("that library needs a newer version of the app - update it first")

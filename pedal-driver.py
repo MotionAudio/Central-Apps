@@ -95,7 +95,7 @@ except Exception as _error:
 log = logging.getLogger("pedal-driver")
 
 VERSION = 7
-APP_VERSION = "10.5.0"
+APP_VERSION = "10.5.1"
 # Central Pedal Control (the editor on a Mac): the same app and driver, but it never pairs with the main admin as a
 # pedal and never updates itself (the Mac app updates as a whole); it uploads to a Central Pedal instead
 PEDAL_CONTROL = os.environ.get("CC_PEDAL_CONTROL") == "1"
@@ -7350,6 +7350,55 @@ def library_installed(driver, rec):
         pass
 
 
+def stock_libraries_due(driver, index, min_free=2 * 1024 ** 3):
+    """(10.5) The free libraries (Central Starter) that aren't installed here yet, or have a newer version published:
+    the stock sounds every Central Pedal gets on its own. [{id, url, sha256, size, title, version}] - nothing when the
+    disk would be left with less than min_free after them."""
+    st = library_store(driver)
+    if not st or not isinstance(index, dict):
+        return []
+    have = {r["id"]: r for r in st.listing()}
+    want = []
+    for lib in index.get("libraries") or []:
+        if lib.get("plan") != "free" or not lib.get("sha256") or not lib.get("url"):
+            continue
+        rec = have.get(lib["id"])
+        if rec and not sound_libraries.newer(lib.get("version"), rec.get("version")):
+            continue
+        if (getattr(driver, "_library_jobs", {}).get(lib["id"]) or {}).get("state") in ("downloading", "installing"):
+            continue
+        want.append({"id": lib["id"], "url": lib["url"], "sha256": lib["sha256"], "size": int(lib.get("size") or 0), "title": lib.get("title") or lib["id"], "version": lib.get("version")})
+    try:
+        free = shutil.disk_usage(driver.config["data_root"]).free
+    except OSError:
+        free = 0
+    out = []
+    for w in want:   # (room for the zip, its unpacked files and min_free to spare)
+        need = w["size"] * 2.5
+        if free - need < min_free:
+            log.info("stock library %s %s waits: %d MB free, it needs %d MB", w["id"], w["version"], free / 1e6, need / 1e6)
+            continue
+        free -= need
+        out.append(w)
+    return out
+
+
+def stock_libraries_loop(driver):
+    """(10.5) Installs the free libraries on its own: a look a minute and a half after power-on, then once a day (the
+    list comes from libraries.motionaudio.org; nothing happens offline - it tries again later)."""
+    time.sleep(5 if driver.sim else 90)
+    while True:
+        try:
+            if sound_libraries and library_store(driver):
+                index = sound_libraries.release_index(max_age=0)
+                for w in stock_libraries_due(driver, index):
+                    log.info("stock library %s %s: installing", w["id"], w["version"])
+                    library_install_async(driver, w)
+        except Exception as error:  # noqa: BLE001
+            log.debug("stock libraries: %s", error)
+        time.sleep(24 * 3600)
+
+
 def library_install_async(driver, payload):
     """Downloads and installs a library from the website's list in the background (GET /libraries shows how it goes)."""
     st = library_store(driver)
@@ -11675,6 +11724,9 @@ class PedalDriver:
         self.link = LinkSync(self.emit, enabled=bool(self.config.get("link", True)))
         if self.updater:
             threading.Thread(target=self.update_loop, daemon=True).start()
+        # (10.5) the free Central Starter sounds install on their own (not in a simulation or Pedal Control: hardware.json "stock_libraries": true asks for it there)
+        if self.config.get("stock_libraries", not self.sim and not PEDAL_CONTROL) and os.environ.get("CC_PLAYER") != "1" and self.instrument:
+            threading.Thread(target=stock_libraries_loop, args=(self,), daemon=True, name="stock-libraries").start()
         self.usb = UsbInputs(self)
         if self.usb.available:
             tasks.append(asyncio.create_task(self.usb.loop()))

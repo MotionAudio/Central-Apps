@@ -571,7 +571,10 @@ def make_library_previews(lib, items, out_dir, sounds_dir=None, pads_dir=None, l
             continue
         with open(listing, encoding="utf-8") as f:
             entries = json.load(f)
-        names = list(dict.fromkeys(e["name"] for e in entries))
+        only, skip = ls.get("only"), ls.get("except") or []   # (10.5: part of a set - see build-libraries.py loop_wanted)
+        names = [n for n in dict.fromkeys(e["name"] for e in entries) if (n in only if only is not None else n not in skip)]
+        if not names:
+            continue
         at = lambda e: (os.path.join(loops_dir, ls["set"], e["file"]), e.get("bars"))
         add("loops", ls["name"], loops_audio([at(next(e for e in entries if e["name"] == nm)) for nm in names]), extra={"set": ls["set"]})
         for nm in names:

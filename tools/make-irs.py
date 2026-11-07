@@ -61,6 +61,13 @@ def _variants(cabs):
 
 
 CABS = CABS + _variants(CABS)
+# (10.5, round three) the free Central Starter library's three plain cabinets - one placement each, no variants: a
+# general-purpose 1x12, a clean 2x12 and a bass 2x10 - so a new Central Pedal has a cabinet for anything from the start
+CABS += [
+    ("Central Starter 1x12", dict(hp=(80, 0.7), res=(110, 4, 1.4), peaks=[(500, -2, 1.0), (2200, 2.5, 1.2), (3800, 1, 1.8)], lp=(5800, 4), ripple=1.4, seed=41, room=(1.3, 0.14))),
+    ("Central Starter 2x12 Clean", dict(hp=(75, 0.7), res=(100, 3.5, 1.3), peaks=[(400, -1.5, 0.9), (1500, 1.5, 1.0), (3000, 2, 1.2)], lp=(6500, 4), ripple=1.0, seed=42, room=(1.0, 0.1))),
+    ("Central Starter Bass 2x10", dict(hp=(45, 0.8), res=(70, 4, 1.4), peaks=[(380, -2.5, 0.9), (1300, 2, 1.1), (3000, 2.5, 1.5)], lp=(4800, 4), ripple=1.4, seed=43, room=(0.8, 0.06))),
+]
 
 # acoustic bodies (for a piezo pickup: puts the wood and air back): modes (Hz, dB, decay ms), brightness, seed
 BODIES = [
@@ -75,6 +82,8 @@ BODIES = [
     ("Central Ukulele Body", dict(modes=[(240, 8, 18), (420, 6, 14), (640, 4, 11), (1000, 3, 8), (1600, 2, 6)], bright=0.7, seed=38)),
     ("Central Resonator Body", dict(modes=[(130, 6, 24), (260, 7, 18), (520, 6, 14), (1100, 6, 12), (1900, 5, 10), (3000, 4, 8)], bright=1.0, seed=39)),
     ("Central Acoustic Bass Body", dict(modes=[(62, 9, 48), (124, 7, 32), (180, 4, 26), (300, 3, 18), (520, 2, 12), (800, 1.5, 9)], bright=0.4, seed=40)),
+    # 10.5, round three: the free Central Starter's plain acoustic body (a middle-of-the-road steel-string)
+    ("Central Starter Acoustic Body", dict(modes=[(100, 8.5, 36), (200, 7, 26), (240, 4, 22), (400, 3, 16), (620, 2, 12), (950, 2, 9), (1350, 1, 7)], bright=0.58, seed=44)),
 ]
 
 

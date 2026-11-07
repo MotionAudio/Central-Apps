@@ -2,6 +2,10 @@
 
 The short version of what changed in each release, newest first. Most versions also have their own page in this folder with the full notes.
 
+### 10.5.1
+
+The stock sounds are free in every app: Central Starter (twelve plain pads, the ten synths, six plain grooves, two ambient loops, four plain cabinets and bodies, seven boards) installs on its own with no key. The packs gain eight pads, six grooves, three ambient loops and twelve boards in their place, and Central Tracks eight more hymns (54 in all).
+
 ### 10.5.0
 
 More sounds (a third pads download with 24 pads, real electric pianos and a pop grand, a lo-fi and a vintage kit, a banjo, 26 more cabinet and body impulse responses, 19 more loops with every groove at three tempos, 33 more boards and presets, every pad and loop at one loudness), 26 more Central Tracks hymns, a looper with up to eight loops that each record their own input, loops you make yourself in Central Usage's Studio, and the sound libraries' move to Cloudflare.
