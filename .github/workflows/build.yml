@@ -94,6 +94,7 @@ jobs:
           bash tools/ci-run.sh "shorts test (picking the moments, captions, a whole made-up service through the pinned ffmpeg)" node central-usage/test-shorts.mjs central-usage/native/build/ffmpeg
           CU_SKIP_NATIVE=1 bash central-usage/prepare-shared.sh
           python3 -m pip install --quiet numpy scipy soundfile pyloudnorm   # (the 10.2 hymns and pads: the sampler, loudness, filters)
+          bash tools/ci-run.sh "every script parses (a missing comma would take a whole page down)" bash -c 'for f in js/*.js central-usage/app/*.js server/public/daw/*.js server/public/production/*.js server/public/production/types/*.js; do node --check "$f" || exit 1; done'
           bash tools/ci-run.sh "library test (pedals, plans, the orchestra builder)" python3 test_library.py
           bash tools/ci-run.sh "sound libraries test (definitions, IRs, VCSL builder, zips, installer)" python3 test_libraries.py
           bash tools/ci-run.sh "community items test (plugin switch, revoke list, the wall)" python3 test_community.py
