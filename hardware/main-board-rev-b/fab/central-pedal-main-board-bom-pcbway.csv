@@ -19,7 +19,7 @@ Item #,Designator,Qty,Manufacturer,Mfg Part #,Description / Value,Package/Footpr
 18,"D4,D19",2,,1N4148W,1N4148W,D_SOD-123,SMD,LCSC C81598.
 19,D_ST,1,,0603 green LED (KENTO KT-0603G),Status LED (driver running) - GREEN,LED_0603_1608Metric,SMD,LCSC C12624.
 20,"D_BAR,D_USBA",2,ST,USBLC6-2SC6,USBLC6-2SC6,SOT-23-6,SMD,LCSC C7519.
-21,"ENC1,ENC2,ENC3,ENC4,ENC5,ENC6",6,Bourns,"PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)",Knob,Encoder_PEC11R_Vertical,TH,LCSC C143797. Bourns PEC11R-4220F-S0024 (no nut: the top plate holds it). 20 mm D-shaft.
+21,"ENC1,ENC2,ENC3,ENC4,ENC5,ENC6",6,Bourns,"PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)",Knob,Encoder_PEC11R_Vertical,TH,LCSC C7435302. Bourns PEC11R-4230F-S0024: 30 mm flatted shaft (the enclosure plate is 16 mm up). No nut.
 22,FB1,1,Murata,BLM21PG600SN1D,Ferrite bead 60R@100MHz 3.5 A - FB 60R,L_0805_2012Metric,SMD,LCSC C18305.
 23,F_BAT,1,,SMD1812-750-12V (7.5 A hold PTC),Battery fuse - 7.5A PTC,Fuse_1812_4532Metric,SMD,LCSC C3039825.
 24,F_USBA,1,Bourns,MF-MSMF075-2 (0.75 A hold PTC 1812),USB-A port fuse - 0.75A PTC,Fuse_1812_4532Metric,SMD,LCSC C84140.

@@ -706,7 +706,7 @@ R130       0R                       R_0603_1608Metric                           
 R131       0R                       R_0603_1608Metric                                        C21189       
 R132       0R                       R_0603_1608Metric                                        C21189       
 C140       100n                     C_0603_1608Metric                                        C14663       
-ENC1       KNOB 1                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+ENC1       KNOB 1                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
 R133       10k                      R_0603_1608Metric                                        C25804       
 C141       10n                      C_0603_1608Metric                                        C57112       
 R134       10k                      R_0603_1608Metric                                        C25804       
@@ -719,7 +719,7 @@ R137       0R                       R_0603_1608Metric                           
 R138       0R                       R_0603_1608Metric                                        C21189       
 R139       0R                       R_0603_1608Metric                                        C21189       
 C144       100n                     C_0603_1608Metric                                        C14663       
-ENC2       KNOB 2                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+ENC2       KNOB 2                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
 R140       10k                      R_0603_1608Metric                                        C25804       
 C145       10n                      C_0603_1608Metric                                        C57112       
 R141       10k                      R_0603_1608Metric                                        C25804       
@@ -732,7 +732,7 @@ R144       0R                       R_0603_1608Metric                           
 R145       0R                       R_0603_1608Metric                                        C21189       
 R146       0R                       R_0603_1608Metric                                        C21189       
 C148       100n                     C_0603_1608Metric                                        C14663       
-ENC3       KNOB 3                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+ENC3       KNOB 3                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
 R147       10k                      R_0603_1608Metric                                        C25804       
 C149       10n                      C_0603_1608Metric                                        C57112       
 R148       10k                      R_0603_1608Metric                                        C25804       
@@ -745,7 +745,7 @@ R151       0R                       R_0603_1608Metric                           
 R152       0R                       R_0603_1608Metric                                        C21189       
 R153       0R                       R_0603_1608Metric                                        C21189       
 C152       100n                     C_0603_1608Metric                                        C14663       
-ENC4       KNOB 4                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+ENC4       KNOB 4                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
 R154       10k                      R_0603_1608Metric                                        C25804       
 C153       10n                      C_0603_1608Metric                                        C57112       
 R155       10k                      R_0603_1608Metric                                        C25804       
@@ -758,7 +758,7 @@ R158       0R                       R_0603_1608Metric                           
 R159       0R                       R_0603_1608Metric                                        C21189       
 R160       0R                       R_0603_1608Metric                                        C21189       
 C156       100n                     C_0603_1608Metric                                        C14663       
-ENC5       KNOB 5                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+ENC5       KNOB 5                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
 R161       10k                      R_0603_1608Metric                                        C25804       
 C157       10n                      C_0603_1608Metric                                        C57112       
 R162       10k                      R_0603_1608Metric                                        C25804       
@@ -771,7 +771,7 @@ R165       0R                       R_0603_1608Metric                           
 R166       0R                       R_0603_1608Metric                                        C21189       
 R167       0R                       R_0603_1608Metric                                        C21189       
 C160       100n                     C_0603_1608Metric                                        C14663       
-ENC6       KNOB 6                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+ENC6       KNOB 6                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
 R168       10k                      R_0603_1608Metric                                        C25804       
 C161       10n                      C_0603_1608Metric                                        C57112       
 R169       10k                      R_0603_1608Metric                                        C25804       

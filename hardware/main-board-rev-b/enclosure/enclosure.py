@@ -45,15 +45,13 @@ SCREW_D = 3.4
 # footswitches / lights / knobs / faders / label screens
 FSW_HOLE = 12.6              # M12 bushing
 LED_HOLE = 5.3
-ENC_SHAFT_HOLE = 7.6         # 7 mm bushing passes, no nut
-ENC_WELL_D = 24.0            # the knob sits in a well: the 20 mm shaft is too short for a plate 15.5 mm up
-ENC_WELL_WALL = 1.5
-ENC_WELL_FLOOR_Z = 8.1       # well floor underside (bushing is 7.0 tall; the 7" screen frame top is at 8.0)
-ENC_WELL_FLOOR_T = 2.0
-FADER_BODY_H = 9.2           # Bourns PTA6043 body
-FADER_WELL_FLOOR_T = 2.0
-FADER_WELL = (16.0, 76.0)    # well around the slot (x, y)
+ENC_HOLE = 8.0               # knob shaft through a plain hole (PEC11R-4230F: 30 mm shaft -> 11 mm of shaft above the plate)
+FADER_RECESS = (18.0, 78.0)  # the fader cap runs in a shallow recessed tray (x, y), so the 20.5 mm lever top shows 6 mm
+FADER_RECESS_FLOOR_Z = 12.8  # tray floor underside: above the label-screen modules (12.5) and the fader body (9)
+FADER_RECESS_FLOOR_T = 1.6
 FADER_SLOT = (3.6, 64.0)     # lever slot (x, y): 60 mm travel + lever
+CHAMFER_WIN = 1.2            # 45-degree bezel on the screen and label-screen windows
+EDGE_R = 2.5                 # rounded outer edges (plate top, base bottom)
 OLED_WIN = (23.4, 6.6)       # 0.91" module's visible 22.4 x 5.6 + margin; centre = module origin + 17.5 in x
 OLED_MODULE_H = 12.5         # module top above the board (on its 4-pin socket): nothing may hang lower over it
 # screens
@@ -115,6 +113,18 @@ def slot(x, y, w, l, z0, z1, along="y"):
     return s.translate((x, y, z0))
 
 
+def frustum_cut(X, Y, w, h, c, r=1.0):
+    """45-degree bezel for a w x h window centred on (X, Y) at the plate's top surface: a c-deep frustum"""
+    f = (cq.Workplane("XY").rect(w + 2 * c, h + 2 * c).workplane(offset=-c - 0.001).rect(w, h).loft(combine=True))
+    return f.translate((X, Y, Z_TOP + 0.001))
+
+
+def cone_cut(X, Y, d, c):
+    """countersink-style chamfer on a round hole at the plate's top surface"""
+    cone = cq.Solid.makeCone((d + 2 * c) / 2, d / 2 - 0.001, c + 0.002, pnt=cq.Vector(X, Y, Z_TOP + 0.001), dir=cq.Vector(0, 0, -1))
+    return cq.Workplane("XY").add(cone)
+
+
 def union_all(parts):
     out = None
     for p in parts:
@@ -124,7 +134,7 @@ def union_all(parts):
 
 # ================================================================== BASE
 def make_base():
-    outer = rbox(XO0, YO0, XO1, YO1, Z_BOT, Z_PLATE, R_OUT)
+    outer = rbox(XO0, YO0, XO1, YO1, Z_BOT, Z_PLATE, R_OUT).edges("<Z").fillet(EDGE_R)
     cavity = rbox(XI0, YI0, XI1, YI1, Z_FLOOR, Z_PLATE + 1, R_OUT - WALL)
     base = outer.cut(cavity)
 
@@ -196,7 +206,7 @@ def make_base():
 
 # ================================================================== PLATE
 def make_plate():
-    plate = rbox(XO0, YO0, XO1, YO1, Z_PLATE, Z_TOP, R_OUT)
+    plate = rbox(XO0, YO0, XO1, YO1, Z_PLATE, Z_TOP, R_OUT).edges(">Z").fillet(EDGE_R)
     # alignment lip into the base cavity
     lip = rbox(XI0 + 0.3, YI0 + 0.3, XI1 - 0.3, YI1 - 0.3, Z_PLATE - 2.0, Z_PLATE + 0.01, R_OUT - WALL)
     lip = lip.cut(rbox(XI0 + 2.3, YI0 + 2.3, XI1 - 2.3, YI1 - 2.3, Z_PLATE - 3, Z_PLATE + 1, R_OUT - WALL - 2))
@@ -209,20 +219,20 @@ def make_plate():
         X, Y = P(x, y)
         adds.append(cyl(X, Y, PLATE_BOSS_D, 0.0, Z_PLATE + 0.01))
         cuts.append(cyl(X, Y, INSERT_D, -0.1, INSERT_DEPTH))
-    # knob wells: a cylinder from the top down to the well floor, floor 2 mm thick with the shaft hole
+    # knobs: plain shaft holes with a small top chamfer
     for (x, y) in G["enc"]:
         X, Y = P(x, y)
-        adds.append(cyl(X, Y, ENC_WELL_D + 2 * ENC_WELL_WALL, ENC_WELL_FLOOR_Z, Z_PLATE + 0.01))
-        cuts.append(cyl(X, Y, ENC_WELL_D, ENC_WELL_FLOOR_Z + ENC_WELL_FLOOR_T, Z_TOP + 1))
-        cuts.append(cyl(X, Y, ENC_SHAFT_HOLE, ENC_WELL_FLOOR_Z - 1, Z_TOP + 1))
-    # fader wells: rectangular, floor 2 mm above the fader body, lever slot through it
-    fz0 = FADER_BODY_H + 0.5
+        cuts.append(cyl(X, Y, ENC_HOLE, Z_PLATE - 1, Z_TOP + 1))
+        cuts.append(cone_cut(X, Y, ENC_HOLE, 0.6))
+    # faders: a shallow recessed tray (its floor hangs below the plate) with the lever slot through it
+    fz0 = FADER_RECESS_FLOOR_Z
     for (x, y) in G["fader"]:
         X, Y = P(x, y)
-        ww, wl = FADER_WELL
-        adds.append(rbox(X - ww / 2 - 2, Y - wl / 2 - 2, X + ww / 2 + 2, Y + wl / 2 + 2, fz0, Z_PLATE + 0.01, 2.0))
-        cuts.append(rbox(X - ww / 2, Y - wl / 2, X + ww / 2, Y + wl / 2, fz0 + FADER_WELL_FLOOR_T, Z_TOP + 1, 1.5))
+        ww, wl = FADER_RECESS
+        adds.append(rbox(X - ww / 2 - 2, Y - wl / 2 - 2, X + ww / 2 + 2, Y + wl / 2 + 2, fz0, Z_PLATE + 0.01, 3.0))
+        cuts.append(rbox(X - ww / 2, Y - wl / 2, X + ww / 2, Y + wl / 2, fz0 + FADER_RECESS_FLOOR_T, Z_TOP + 1, 2.0))
         cuts.append(slot(X, Y, FADER_SLOT[0], FADER_SLOT[1], fz0 - 1, Z_TOP + 1, along="y"))
+        cuts.append(frustum_cut(X, Y, ww, wl, CHAMFER_WIN, r=2.0))
     # screens: window + a rim on the underside the screen is clamped into
     for scr in (DISP7, BAR):
         sx, sy = P(*scr["at"])
@@ -233,6 +243,7 @@ def make_plate():
         adds.append(rbox(sx - sw / 2 - 0.3 - RIM_W, sy - sh / 2 - 0.3 - RIM_W, sx + sw / 2 + 0.3 + RIM_W, sy + sh / 2 + 0.3 + back, Z_PLATE - rim_h, Z_PLATE + 0.01, 2.0))
         cuts.append(rbox(sx - sw / 2 - 0.3, sy - sh / 2 - 0.3, sx + sw / 2 + 0.3, sy + sh / 2 + 0.3 + (1.0 if scr is DISP7 else 0.0), Z_PLATE - rim_h - 1, Z_PLATE - 0.001, 0.6))
         cuts.append(rbox(sx - aw / 2 - 1.0, sy - ah / 2 - 1.0, sx + aw / 2 + 1.0, sy + ah / 2 + 1.0, Z_PLATE - 1, Z_TOP + 1, 1.5))
+        cuts.append(frustum_cut(sx, sy, aw + 2.0, ah + 2.0, CHAMFER_WIN, r=1.5))
         # insert bosses for the retainer frame (where there is room - see frame_screws), hook pockets on the other side
         for (bx, by) in frame_screws(scr):
             adds.append(cyl(bx, by, 7.0, Z_PLATE - rim_h, Z_PLATE + 0.01))
@@ -250,9 +261,11 @@ def make_plate():
     for (x, y) in G["led"]:
         X, Y = P(x, y)
         cuts.append(cyl(X, Y, LED_HOLE, Z_PLATE - 1, Z_TOP + 1))
+        cuts.append(cone_cut(X, Y, LED_HOLE, 0.8))
     for (ref, x, y) in G["oled"]:
         X, Y = P(x + 17.5, y)
         cuts.append(rbox(X - OLED_WIN[0] / 2, Y - OLED_WIN[1] / 2, X + OLED_WIN[0] / 2, Y + OLED_WIN[1] / 2, Z_PLATE - 1, Z_TOP + 1, 1.0))
+        cuts.append(frustum_cut(X, Y, OLED_WIN[0], OLED_WIN[1], 0.8, r=1.0))
     # splice-bar insert bosses on the underside along the two seams (butt joints)
     for (X, Y, bd, hd) in splice_boss_points():
         adds2 = cyl(X, Y, bd, Z_PLATE - 6.5, Z_PLATE + 0.01)
@@ -399,6 +412,23 @@ def make_refs():
         sx, sy = P(*scr["at"])
         sw, sh = scr["size"]
         refs[name] = rbox(sx - sw / 2, sy - sh / 2, sx + sw / 2, sy + sh / 2, Z_PLATE - scr["t"], Z_PLATE)
+    # the controls as they will look from the outside (sizes of typical parts: 20 mm knobs, soft-touch footswitch
+    # caps with their M12 nuts, 12 x 22 fader caps, 5 mm LED domes)
+    knobs, fsw, caps, leds = [], [], [], []
+    for (x, y) in G["enc"]:
+        X, Y = P(x, y)
+        knobs.append(cyl(X, Y, 20.0, Z_TOP + 1.5, Z_TOP + 15.0).faces(">Z").edges().fillet(1.5))
+    for (x, y) in G["fsw"]:
+        X, Y = P(x, y)
+        fsw.append(cq.Workplane("XY").polygon(6, 17.0).extrude(2.6).translate((X, Y, Z_TOP)))          # the nut
+        fsw.append(cyl(X, Y, 10.5, Z_TOP + 2.6, Z_TOP + 9.0).faces(">Z").edges().fillet(1.0))         # the plunger cap
+    for (x, y) in G["fader"]:
+        X, Y = P(x, y)
+        caps.append(rbox(X - 6.0, Y - 11.0, X + 6.0, Y + 11.0, FADER_RECESS_FLOOR_Z + FADER_RECESS_FLOOR_T + 0.5, 20.5 + 2.0, 1.5))
+    for (x, y) in G["led"]:
+        X, Y = P(x, y)
+        leds.append(cyl(X, Y, 4.9, 10.0, Z_TOP - 0.4))
+    refs["knobs"], refs["footswitches"], refs["fader_caps"], refs["leds"] = union_all(knobs), union_all(fsw), union_all(caps), union_all(leds)
     return refs
 
 
@@ -501,6 +531,10 @@ if __name__ == "__main__":
     asm.add(refs["pi"], name="ref-raspberry-pi-4", color=cq.Color(0.1, 0.5, 0.2))
     asm.add(refs["display7"], name="ref-7in-display", color=cq.Color(0.05, 0.05, 0.1))
     asm.add(refs["bar_screen"], name="ref-bar-screen", color=cq.Color(0.05, 0.05, 0.1))
+    asm.add(refs["knobs"], name="ref-knobs", color=cq.Color(0.1, 0.1, 0.1))
+    asm.add(refs["footswitches"], name="ref-footswitches", color=cq.Color(0.75, 0.75, 0.78))
+    asm.add(refs["fader_caps"], name="ref-fader-caps", color=cq.Color(0.1, 0.1, 0.1))
+    asm.add(refs["leds"], name="ref-leds", color=cq.Color(1.0, 0.8, 0.2))
     asm.save(os.path.join(OUT, "central-pedal-enclosure.step"))
     print("assembly saved")
 

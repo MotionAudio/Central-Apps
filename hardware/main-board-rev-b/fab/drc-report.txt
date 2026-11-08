@@ -1,5 +1,5 @@
 ** Drc report for out/central-pedal-main-board-routed.kicad_pcb **
-** Created on 2026-11-08 06:32:29 **
+** Created on 2026-11-08 08:42:27 **
 
 ** Found 359 DRC violations **
 [silk_overlap]: Silkscreen overlap

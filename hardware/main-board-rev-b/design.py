@@ -392,11 +392,11 @@ def build():
     # Encoder pads (EasyEDA PEC11R): 1 A, 2 C, 3 B, 4 S1, 5 S2, 7/8 mounting.   Side strips: fader - one knob - two knobs - screen.
     knobs = {1: (52, 84), 2: (80, 52), 3: (80, 120), 4: (W - 80, 52), 5: (W - 80, 120), 6: (W - 52, 84)}
     for k, (x, y) in knobs.items():
-        d.add("ENC%d" % k, "ENC", "KNOB %d" % k, {"1": "ENC%dA" % k, "2": "GND", "3": "ENC%dB" % k, "4": "ENC%dS" % k, "5": "GND", "7": "GND", "8": "GND"}, (x, y), 0, mpn="Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)", lcsc="C143797", desc="Knob %d (click-knob)" % k)
+        d.add("ENC%d" % k, "ENC", "KNOB %d" % k, {"1": "ENC%dA" % k, "2": "GND", "3": "ENC%dB" % k, "4": "ENC%dS" % k, "5": "GND", "7": "GND", "8": "GND"}, (x, y), 0, mpn="Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)", lcsc="C7435302", desc="Knob %d (click-knob)" % k)
         side = 1 if x < W / 2 else -1
         d.col([("R", "10k", "ENC%dA" % k, "3V3"), ("C", "10n", "ENC%dA" % k, "GND"), ("R", "10k", "ENC%dB" % k, "3V3"), ("C", "10n", "ENC%dB" % k, "GND"), ("R", "10k", "ENC%dS" % k, "3V3"), ("C", "10n", "ENC%dS" % k, "GND")], x - side * 10.5, y - 8.5, dy=3.05)
         oled("OLED_K%d" % k, (x - 16.5, y - 17 if k in (1, 6) else y - 20), "Label screen, knob %d" % k, links="right" if k == 1 else "left")
-    n("Knobs are Bourns PEC11R-4220F-S0024 encoders (24 detents, push switch, 20 mm flatted shaft); the top plate has a 7.5 mm clearance hole, no nut (the plate is 15.5 mm up, past the 7 mm bushing). 10k pull-ups + 10n on every A/B/switch line into the MCP23017s.")
+    n("Knobs are Bourns PEC11R-4230F-S0024 encoders (24 detents, push switch, 30 mm flatted shaft - the enclosure's top plate is 16 mm above the board, so 11 mm of shaft shows for the knob); the plate has an 8 mm clearance hole, no nut (the 7 mm bushing never reaches the plate). 10k pull-ups + 10n on every A/B/switch line into the MCP23017s.")
     # faders: Bourns PTA6043 (60 mm travel, 15 mm lever); pads 1/2 at one end (1 = CCW end, 2 = wiper), 3 at the other end, 4-7 mounting
     for ref, x, name, w in (("RV_A", FSW_X[0], "Fader A", "FAD_A_W"), ("RV_B", FSW_X[7], "Fader B", "FAD_B_W")):
         d.add(ref, "FADER", "10k lin slide", {"1": "GND", "2": w, "3": "3V3A", "4": "GND", "5": "GND", "6": "GND", "7": "GND"}, (x, 83.5), 90, mpn="Bourns PTA6043-2015DPB103", lcsc="C17555413", desc=name + " (expression)")

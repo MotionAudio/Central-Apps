@@ -22,7 +22,7 @@ Central Pedal main board rev B - design notes and assumptions
 
 11. MIDI: 3.5 mm TRS type A. Out drives 3.3 V through 33R (tip) / 10R (ring) as the MIDI 3.3 V spec says; in is the classic 6N138 with a 2.2k pull-up to 3.3 V on UART0 RX.
 
-12. Knobs are Bourns PEC11R-4220F-S0024 encoders (24 detents, push switch, 20 mm flatted shaft); the top plate has a 7.5 mm clearance hole, no nut (the plate is 15.5 mm up, past the 7 mm bushing). 10k pull-ups + 10n on every A/B/switch line into the MCP23017s.
+12. Knobs are Bourns PEC11R-4230F-S0024 encoders (24 detents, push switch, 30 mm flatted shaft - the enclosure's top plate is 16 mm above the board, so 11 mm of shaft shows for the knob); the plate has an 8 mm clearance hole, no nut (the 7 mm bushing never reaches the plate). 10k pull-ups + 10n on every A/B/switch line into the MCP23017s.
 
 13. Label screens: 18 x 0.91-inch 128x32 I2C OLED modules in 4-pin sockets behind 3 TCA9548A muxes (0x70-0x72), one module per mux channel, 4.7k pull-ups per channel, powered from 3V3. Modules come in two pin orders: GND-VCC-SCL-SDA (0R links 'A' fitted) and VCC-GND-SCL-SDA (move the two 0R links to 'B').
 

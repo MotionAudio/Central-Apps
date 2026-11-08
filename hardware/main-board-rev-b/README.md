@@ -38,8 +38,13 @@ encoders and faders, the JST headers and the Pi header - has an LCSC number and 
 ## Enclosure
 
 A 3D-printed box for this board and the Pi: `enclosure/` (STEP of the whole assembly, printable tiles as STEP + STL, and the
-CadQuery script that generates them from the routed board). Read `enclosure/README.md` - it lists the dimensions the
-model assumes that should be checked against the parts you actually buy.
+CadQuery script that generates them from the routed board). The top plate sits 16 mm above the board with rounded
+edges and chamfered windows; the footswitches come through it and take their nuts on top, the knobs come through plain
+Ø 8 holes (the BOM's encoders have 30 mm shafts for this), the fader caps run in shallow recessed trays, and the two
+touch screens and 18 label screens sit behind bezelled windows. Read `enclosure/README.md` - it lists the dimensions
+the model assumes that should be checked against the parts you actually buy, and the hardware (inserts, screws, knobs,
+caps) to buy with it. `fab/PCBWAY-ORDER.md` has the PCBWay order settings step by step and how the parts are confirmed
+with them.
 
 ## Regenerating
 
