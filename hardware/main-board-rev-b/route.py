@@ -47,8 +47,7 @@ for fp in board.GetFootprints():
             x, y = p.GetPosition().x / 1000, p.GetPosition().y / 1000                       # um
             dia = max(p.GetDrillSizeX(), p.GetDrillSizeY()) / 1000 + 2 * (250 + 150)
             ko.append("    (keepout \"\" (circle signal %d %d %d))" % (int(dia), int(x), int(-y)))
-cut = build.inner_cutout(board)
-if cut:
+for cut in build.inner_cutouts(board):
     m_ = 300 + 150
     x1, y1, x2, y2 = cut[0] / 1000 - m_, cut[1] / 1000 - m_, cut[2] / 1000 + m_, cut[3] / 1000 + m_
     ko.append("    (keepout \"\" (polygon signal 0  %d %d  %d %d  %d %d  %d %d))" % (x1, -y1, x2, -y1, x2, -y2, x1, -y2))

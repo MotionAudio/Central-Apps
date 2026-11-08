@@ -8,13 +8,14 @@ way, Y = 278 - y), Z up with the board's component side at Z = 0.
 
 Parts (all in central-pedal-enclosure.step, positioned; also one STEP + STL per part):
   base            the tub: floor, four walls, back-panel cut-outs, board bosses, fan grille, battery strap slots
-  plate           the top plate 15.5 mm above the board: footswitch / LED / knob / fader / label-screen openings,
-                  the two screen windows with their frames, bosses down to the board
-  frame7, frameBar  retainer frames that clamp the 7" and the bar screen to the plate's underside
+  plate           the top plate 16 mm above the board: footswitch / LED / knob / fader / label-screen openings,
+                  the two screen windows (bezelled; the screens themselves are screwed to the BOARD and meet the
+                  plate through a foam gasket), bosses down to the board
   plunger         the power-button pusher that sits in the back panel
-  splices         bars that join the plate's four printed tiles on its underside
-  base_tiles / plate_tiles   the base and plate cut into 2 x 2 printable pieces (half-lap seams on the base)
-Reference bodies (board, Pi, screens) are included in the assembly STEP so the fit can be checked in CAD.
+  splices         bars that stiffen the plate's y seam on its underside
+  base_tiles / plate_tiles   the base and plate cut into 2 x 2 printable pieces (half-lap seams on both)
+Reference bodies (board, Pi, screens with their stand-offs, fan, cable plugs, controls) are included in the assembly
+STEP so the fit can be checked in CAD.
 """
 import json
 import math
@@ -55,10 +56,18 @@ EDGE_R = 2.5                 # rounded outer edges (plate top, base bottom)
 OLED_WIN = (23.4, 6.6)       # 0.91" module's visible 22.4 x 5.6 + margin; centre = module origin + 17.5 in x
 OLED_MODULE_H = 12.5         # module top above the board (on its 4-pin socket): nothing may hang lower over it
 # screens
-DISP7 = dict(size=(189.32, 120.24), active=(155.0, 88.0), at=(W / 2, 27.0 + 120.24 / 2), t=7.5)   # Pi Touch Display 2
-BAR = dict(size=(287.0, 70.0), active=(268.0, 58.0), at=(W / 2, 158.0 + 35.0), t=9.5)             # 11.9" 1480x320 bar
-RIM_W, RIM_H = 2.5, None      # screen frames on the plate underside: wall width; height = t + 0.5
-FRAME_T = 2.5                 # retainer frame thickness
+# Both screens are screwed to the board on their own stand-offs (rev B.2), so their heights are fixed by the board:
+#   glass_z = glass front above the board, body_z = the underside of the screen body (outside its stand-offs)
+DISP7 = dict(size=(189.32, 120.24), active=(155.0, 88.0), at=tuple(G["d7_at"]), glass_z=14.92, body_z=8.5,
+             holes=G["d7_holes"], so_d=5.0, brackets=[(dx, dy) for dx in (-70.0, 70.0) for dy in (-35.355, 35.355)], bracket_z=5.5)
+BAR = dict(size=(287.3, 69.8), active=(268.18, 57.98), at=tuple(G["bar_at"]), glass_z=13.65, body_z=6.7,
+           holes=G["bar_holes"], so_d=5.5, brackets=[], bracket_z=None,
+           # from Waveshare's STEP: the driver PCB on the back (its back face 4.0 mm above our board, with a notch in front
+           # of the touch port), four more 4 mm corner posts that also rest on our board, and the parts that hang lowest
+           pcb=(136.5, 159.75, 258.5, 226.25, 4.0), notch=(244.0, 209.0, 259.5, 219.0),
+           posts=[(254.5, 222.85), (254.5, 163.75), (140.5, 163.8), (140.45, 222.8)],
+           low=[(137.5, 187.0, 143.8, 211.0, 1.5), (160.4, 166.3, 168.3, 171.75, 1.36), (237.1, 210.25, 242.5, 218.2, 1.36)])
+GASKET = {id(DISP7): Z_PLATE - 14.92, id(BAR): Z_PLATE - 13.65}      # foam tape between the plate and each glass (1.1 / 2.4 mm)
 # back panel
 JACK_AXIS_Z = 7.8            # 1/4" jack bore above the PCB (Neutrik NMJ6HCD2: verify on the drawing)
 JACK_HOLE = 11.0
@@ -69,12 +78,13 @@ USBA_WIN = (16.0, 9.0, 3.6)
 PWR_HOLE = 5.0
 PWR_Z = 3.5
 # base interior
-FAN_AT, FAN_SIZE, FAN_HOLES = (130.0, 100.0), 40.0, 32.0       # 40 mm fan on the floor, intake grille below it
+FAN_AT, FAN_SIZE, FAN_HOLES = tuple(G["fan_at"]), 40.0, 32.0   # 40 mm fan on the BACK of the board (10 mm stand-offs); exhaust grille in the floor below it
+FAN_STANDOFF = 10.0
 BATT_BAY = (20.0, 100.0, 180.0, 250.0)                         # x0, x1, y0, y1 (board y): strap slots for a 2S pack
 FEET_D = 20.0
 VENT = dict(n=8, w=2.0, h=18.0, pitch=5.0)                      # slot rows in the side walls
 # printable split
-PLATE_SEAM_X, PLATE_SEAM_Y = 203.5, 140.0        # board coordinates; butt joints + splice bars on the underside
+PLATE_SEAM_X, PLATE_SEAM_Y, PLATE_LAP = 203.5, 150.0, 8.0   # board coordinates; half-lap joints (1.5 mm steps) + splice bars on the y seam
 BASE_SEAM_X, BASE_SEAM_Y, BASE_LAP = 185.0, 130.0, 12.0   # half-lap seams
 
 
@@ -145,11 +155,7 @@ def make_base():
         adds.append(cyl(X, Y, BOSS_D, Z_FLOOR - 0.01, -T_PCB))
     # thicker pad behind the USB-C / USB-A / power button so plugs reach them (their faces sit at the board edge)
     adds.append(rbox(6.0, H + 0.5, 62.0, H + GAP + 0.01, -T_PCB - 2.0, 12.0))
-    # fan mount pads (4 x M3 insert) around the 40 mm fan on the floor
     fx, fy = P(*FAN_AT)
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            adds.append(cyl(fx + sx * FAN_HOLES / 2, fy + sy * FAN_HOLES / 2, 7.0, Z_FLOOR - 0.01, Z_FLOOR + 5.0))
     base = base.union(union_all(adds))
 
     cuts = []
@@ -160,10 +166,10 @@ def make_base():
         cuts.append(cyl(X, Y, 6.5, Z_BOT - 1, Z_BOT + 3.0))
     # back panel: 1/4" jacks
     yb0, yb1 = H + 0.4, YO1 + 1          # from the inner pad face through the wall
-    for (ref, x, y) in G["jack"]:
+    for (x, y) in G["jack"]:
         X, _ = P(x, y)
         cuts.append(cq.Workplane("XZ").circle(JACK_HOLE / 2).extrude(-(yb1 - yb0)).translate((X, yb0, JACK_AXIS_Z)))
-    for (ref, x, y) in G["jack35"]:
+    for (x, y) in G["jack35"]:
         X, _ = P(x, y)
         cuts.append(cq.Workplane("XZ").circle(JACK35_HOLE / 2).extrude(-(yb1 - yb0)).translate((X, yb0, JACK35_AXIS_Z)))
     # USB-C, USB-A: rounded windows
@@ -175,16 +181,13 @@ def make_base():
     X, _ = P(*G["SW_PWR"])
     cuts.append(cq.Workplane("XZ").circle(PWR_HOLE / 2).extrude(-(yb1 - yb0)).translate((X, yb0, PWR_Z)))
     cuts.append(cq.Workplane("XZ").circle(4.6).extrude(-1.6).translate((X, yb0, PWR_Z)))
-    # fan: grille (hex-ish ring of holes) + 4 screw holes
+    # fan: exhaust grille (hex-ish ring of holes) in the floor under the fan that hangs off the back of the board
     cuts.append(cyl(fx, fy, 3.0, Z_BOT - 1, Z_FLOOR + 1))
     for ring, n in ((1, 6), (2, 12), (3, 18)):
         rr = ring * 5.6
         for k in range(n):
             a = 2 * math.pi * k / n + (ring % 2) * math.pi / n
             cuts.append(cyl(fx + rr * math.cos(a), fy + rr * math.sin(a), 4.0, Z_BOT - 1, Z_FLOOR + 1))
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            cuts.append(cyl(fx + sx * FAN_HOLES / 2, fy + sy * FAN_HOLES / 2, INSERT_D, Z_FLOOR + 5.0 - INSERT_DEPTH, Z_FLOOR + 6.0))
     # battery bay: two pairs of strap slots (25 mm hook-and-loop strap)
     bx0, bx1, by0, by1 = BATT_BAY
     for xs in (bx0 + 22.0, bx1 - 22.0):
@@ -233,24 +236,13 @@ def make_plate():
         cuts.append(rbox(X - ww / 2, Y - wl / 2, X + ww / 2, Y + wl / 2, fz0 + FADER_RECESS_FLOOR_T, Z_TOP + 1, 2.0))
         cuts.append(slot(X, Y, FADER_SLOT[0], FADER_SLOT[1], fz0 - 1, Z_TOP + 1, along="y"))
         cuts.append(frustum_cut(X, Y, ww, wl, CHAMFER_WIN, r=2.0))
-    # screens: window + a rim on the underside the screen is clamped into
+    # screens: a bezelled window over each screen's active area; the screen itself is on the board, a strip of foam
+    # tape on the plate underside around the window seals the gap (GASKET) to the glass
     for scr in (DISP7, BAR):
         sx, sy = P(*scr["at"])
-        sw, sh = scr["size"]
         aw, ah = scr["active"]
-        rim_h = scr["t"] + 0.5
-        back = 0.0 if scr is DISP7 else RIM_W           # the 7" screen's back edge sits 2.3 mm from the jack bodies: no wall there
-        adds.append(rbox(sx - sw / 2 - 0.3 - RIM_W, sy - sh / 2 - 0.3 - RIM_W, sx + sw / 2 + 0.3 + RIM_W, sy + sh / 2 + 0.3 + back, Z_PLATE - rim_h, Z_PLATE + 0.01, 2.0))
-        cuts.append(rbox(sx - sw / 2 - 0.3, sy - sh / 2 - 0.3, sx + sw / 2 + 0.3, sy + sh / 2 + 0.3 + (1.0 if scr is DISP7 else 0.0), Z_PLATE - rim_h - 1, Z_PLATE - 0.001, 0.6))
         cuts.append(rbox(sx - aw / 2 - 1.0, sy - ah / 2 - 1.0, sx + aw / 2 + 1.0, sy + ah / 2 + 1.0, Z_PLATE - 1, Z_TOP + 1, 1.5))
         cuts.append(frustum_cut(sx, sy, aw + 2.0, ah + 2.0, CHAMFER_WIN, r=1.5))
-        # insert bosses for the retainer frame (where there is room - see frame_screws), hook pockets on the other side
-        for (bx, by) in frame_screws(scr):
-            adds.append(cyl(bx, by, 7.0, Z_PLATE - rim_h, Z_PLATE + 0.01))
-            cuts.append(cyl(bx, by, INSERT_D, Z_PLATE - rim_h - 1, Z_PLATE - rim_h + INSERT_DEPTH))
-    hk7, hkb = hook_geometry(DISP7), hook_geometry(BAR)
-    cuts += hk7["notches"] + hkb["slots"]
-    adds += hkb["blocks"]
     # nothing added under the plate may reach down into a label-screen module
     oled_keep = union_all([rbox(P(x - 2.0, y + 6.5)[0], P(x - 2.0, y + 6.5)[1], P(x + 37.0, y - 6.5)[0], P(x + 37.0, y - 6.5)[1], -1.0, OLED_MODULE_H) for (ref, x, y) in G["oled"]])
     plate = plate.union(union_all(adds).cut(oled_keep))
@@ -311,86 +303,6 @@ def make_splices():
     return bars.cut(holes)
 
 
-def frame_screws(scr):
-    """CAD (X, Y) of the retainer-frame screw bosses.  7" screen: two on its back edge, one each side between the
-    knob wells; bar screen: two at its back corners, one each side above the end footswitches.  The front edge of
-    each frame hooks into pockets instead (there is no room for bosses there)."""
-    sx, sy = P(*scr["at"])
-    sw, sh = scr["size"]
-    edge = 0.3 + RIM_W + 3.5
-    if scr is DISP7:          # three a side, between the knob wells and the label-screen modules; none at the back (jacks)
-        return [(sx + sgn * (sw / 2 + edge), P(0, y)[1]) for sgn in (-1, 1) for y in (42.0, 86.0, 130.0)]
-    return [(sx - sw / 2 - edge, sy + sh / 2 + edge), (sx + sw / 2 + edge, sy + sh / 2 + edge),
-            (sx - sw / 2 - edge, P(0, 175.0)[1]), (sx + sw / 2 + edge, P(0, 175.0)[1])]
-
-
-HOOK_X = (148.0, 242.0)        # board x of the two front tongues of each frame (between label-screen modules)
-TONGUE_W, TONGUE_T = 10.0, 2.0
-
-
-def hook_geometry(scr):
-    """Front edge of each retainer frame hooks under the plate instead of screwing (no room for bosses there).
-    7" frame: its tongues slide into notches cut up into the bar rim's back wall (that wall reaches below the 7"
-    frame).  Bar frame: its tongues slide into catch blocks hung under the bar rim's front wall.
-    Returns dict(tongue_z=(z0, z1), notches=[boxes to cut from the plate], blocks=[boxes to add], slots=[boxes to cut])."""
-    rim_h = scr["t"] + 0.5
-    fz0, fz1 = Z_PLATE - rim_h - FRAME_T, Z_PLATE - rim_h
-    tz0, tz1 = fz0 + (FRAME_T - TONGUE_T) / 2, fz0 + (FRAME_T + TONGUE_T) / 2
-    bsx, bsy = P(*BAR["at"])
-    bsw, bsh = BAR["size"]
-    out = dict(tongue_z=(tz0, tz1), notches=[], blocks=[], slots=[], tongues=[])
-    o = 0.3 + RIM_W
-    if scr is DISP7:
-        wall_y0, wall_y1 = bsy + bsh / 2 + 0.3, bsy + bsh / 2 + o          # bar rim back wall
-        for hx in HOOK_X:
-            X = P(hx, 0)[0]
-            out["notches"].append(rbox(X - TONGUE_W / 2 - 0.3, wall_y0 - 1, X + TONGUE_W / 2 + 0.3, wall_y1 + 1, tz0 - 0.3, tz1 + 0.3))
-            sx, sy = P(*DISP7["at"])
-            fy = sy - DISP7["size"][1] / 2 - o                              # 7" frame front edge
-            out["tongues"].append(rbox(X - TONGUE_W / 2, wall_y0 - 0.5, X + TONGUE_W / 2, fy + 1.0, tz0, tz1))
-    else:
-        wall_y0, wall_y1 = bsy - bsh / 2 - o, bsy - bsh / 2 - 0.3          # bar rim front wall (outer, inner)
-        for hx in HOOK_X:
-            X = P(hx, 0)[0]
-            out["blocks"].append(rbox(X - TONGUE_W / 2 - 2.5, wall_y0 - 1.0, X + TONGUE_W / 2 + 2.5, wall_y1 + 3.0, fz0 - 1.0, Z_PLATE - rim_h + 0.01))
-            out["slots"].append(rbox(X - TONGUE_W / 2 - 0.3, wall_y0 - 2.0, X + TONGUE_W / 2 + 0.3, wall_y1 + 4.0, tz0 - 0.3, tz1 + 0.3))
-            out["tongues"].append(rbox(X - TONGUE_W / 2, wall_y0 - 1.5, X + TONGUE_W / 2, wall_y1 + 2.5, tz0, tz1))
-            out["notches"].append(rbox(X - TONGUE_W / 2 - 2.8, wall_y0 - 1.5, X + TONGUE_W / 2 + 2.8, wall_y1 + 3.5, fz0 - 1, fz1 + 1))   # cut from the FRAME ring
-    return out
-
-
-def make_frame(scr):
-    """retainer frame: clamps the screen up against the plate; screwed at frame_screws(), hooked at the front"""
-    sx, sy = P(*scr["at"])
-    sw, sh = scr["size"]
-    rim_h = scr["t"] + 0.5
-    z0, z1 = Z_PLATE - rim_h - FRAME_T, Z_PLATE - rim_h
-    o = 0.3 + RIM_W                               # out to the rim's outer face
-    ob = 1.5 if scr is DISP7 else o               # back edge: the 7" frame stops short of the jack bodies
-    fr = rbox(sx - sw / 2 - o, sy - sh / 2 - o, sx + sw / 2 + o, sy + sh / 2 + ob, z0, z1, 2.0)
-    fr = fr.cut(rbox(sx - sw / 2 + 12.0, sy - sh / 2 + 12.0, sx + sw / 2 - 12.0, sy + sh / 2 - 12.0, z0 - 1, z1 + 1, 2.0))
-    ears, holes = [], []
-    rx0, rx1 = sx - sw / 2 - o, sx + sw / 2 + o
-    ry0, ry1 = sy - sh / 2 - o, sy + sh / 2 + ob
-    for (bx, by) in frame_screws(scr):
-        ears.append(cyl(bx, by, 7.0, z0, z1))
-        cx, cy = min(max(bx, rx0), rx1), min(max(by, ry0), ry1)     # nearest point of the ring's outline
-        ears.append(rbox(min(bx, cx) - 3.5, min(by, cy) - 3.5, max(bx, cx) + 3.5, max(by, cy) + 3.5, z0, z1))
-        holes.append(cyl(bx, by, SCREW_D, z0 - 1, z1 + 1))
-    hk = hook_geometry(scr)
-    if scr is BAR:
-        fr = fr.cut(union_all(hk["notches"]))
-        # and let the 7" frame's tongues pass: notch the back member where they slide into the rim wall
-        bsx, bsy = P(*BAR["at"])
-        wall_y1 = bsy + BAR["size"][1] / 2 + 0.3 + RIM_W
-        for hx in HOOK_X:
-            X = P(hx, 0)[0]
-            fr = fr.cut(rbox(X - TONGUE_W / 2 - 0.6, wall_y1 - RIM_W - 4.0, X + TONGUE_W / 2 + 0.6, wall_y1 + 1.0, z0 - 1, z1 + 1))
-    fr = fr.union(union_all(ears)).union(union_all(hk["tongues"])).cut(union_all(holes))
-    oled_keep = union_all([rbox(P(x - 2.0, y + 6.5)[0], P(x - 2.0, y + 6.5)[1], P(x + 37.0, y - 6.5)[0], P(x + 37.0, y - 6.5)[1], -1.0, OLED_MODULE_H) for (ref, x, y) in G["oled"]])
-    return fr.cut(oled_keep)
-
-
 def make_plunger():
     X, Yb = P(*G["SW_PWR"])
     yb0 = H + 0.4
@@ -408,10 +320,47 @@ def make_refs():
     px0, py0 = G["pi_holes"][0][0] - 3.5, G["pi_holes"][0][1] - 3.5
     X0, Y1 = P(px0, py0)
     refs["pi"] = rbox(X0, Y1 - 56.0, X0 + 85.0, Y1, -T_PCB - 20.0 - 1.6, -T_PCB - 20.0)
+    # the two screens as mounted on the board: body + stand-offs (+ the 7" display's corner brackets)
     for name, scr in (("display7", DISP7), ("bar_screen", BAR)):
         sx, sy = P(*scr["at"])
         sw, sh = scr["size"]
-        refs[name] = rbox(sx - sw / 2, sy - sh / 2, sx + sw / 2, sy + sh / 2, Z_PLATE - scr["t"], Z_PLATE)
+        body = rbox(sx - sw / 2, sy - sh / 2, sx + sw / 2, sy + sh / 2, scr["body_z"], scr["glass_z"], 3.0)
+        parts = [body] + [cyl(P(x, y)[0], P(x, y)[1], scr["so_d"], 0.0, scr["body_z"] + 0.01) for (x, y) in scr["holes"]]
+        for (dx, dy) in scr["brackets"]:
+            bx, by = P(scr["at"][0] + dx, scr["at"][1] + dy)
+            parts.append(rbox(bx - 4.5, by - 7.5, bx + 4.5, by + 7.5, scr["bracket_z"], scr["body_z"] + 0.01))
+        if "pcb" in scr:
+            x0, y0, x1, y1, z = scr["pcb"]
+            X0, Y0 = P(x0, y1); X1, Y1 = P(x1, y0)
+            pcb = rbox(X0, Y0, X1, Y1, z, scr["body_z"] + 0.01)
+            nx0, ny0, nx1, ny1 = scr["notch"]
+            pcb = pcb.cut(rbox(P(nx0, ny1)[0], P(nx0, ny1)[1], P(nx1, ny0)[0], P(nx1, ny0)[1], z - 1, scr["body_z"] + 1))
+            parts.append(pcb)
+            parts += [cyl(P(x, y)[0], P(x, y)[1], scr["so_d"], 0.0, z + 0.01) for (x, y) in scr["posts"]]
+            for (x0, y0, x1, y1, z) in scr["low"]:
+                parts.append(rbox(P(x0, y1)[0], P(x0, y1)[1], P(x1, y0)[0], P(x1, y0)[1], z, scr["pcb"][4] + 0.01))
+        refs[name] = union_all(parts)
+    # fan on the back of the board: 10 mm stand-offs, 40 x 40 x 10 body
+    fx, fy = P(*FAN_AT)
+    fan = [rbox(fx - 20, fy - 20, fx + 20, fy + 20, -T_PCB - FAN_STANDOFF - 10.0, -T_PCB - FAN_STANDOFF, 2.0)]
+    fan += [cyl(P(x, y)[0], P(x, y)[1], 5.5, -T_PCB - FAN_STANDOFF, -T_PCB + 0.01) for (x, y) in G["fan_holes"]]
+    refs["fan"] = union_all(fan)
+    # cable plugs: the bar screen's HDMI and touch-USB plug bodies sit in their board slots (7 mm thick, centred on
+    # the sockets 2.7 mm above the board) and the Pi's micro-HDMI plug under the board
+    plugs = []
+    for (x0, y0, x1, y1) in G["slots"]:
+        if x1 - x0 < 5:
+            continue                                    # the ribbon slot
+        if x1 - x0 > y1 - y0:                             # touch plug: 10 mm wide housing in the bar PCB's notch
+            yc = (y0 + y1) / 2
+            X0, Y0 = P(x0 + 0.5, yc + 5.0); X1, Y1 = P(x1 - 0.5, yc - 5.0)
+        else:                                              # HDMI plug: 11 x 24 housing hanging in the slot
+            X0, Y0 = P(x0 + 1.0, y1 - 0.5); X1, Y1 = P(x1 - 1.0, y0 + 0.5)
+        plugs.append(rbox(X0, Y0, X1, Y1, -0.8, 6.2, 1.0))
+    pi_hdmi_x = px0 + 39.5                               # micro-HDMI 1 on the Pi
+    X, Y = P(pi_hdmi_x, py0 + 56.0 + 13.0)                    # from 1 mm outside the Pi's front edge, 24 mm long
+    plugs.append(rbox(X - 5.5, Y - 12.0, X + 5.5, Y + 12.0, -T_PCB - 20.0 - 1.6 - 5.0, -T_PCB - 20.0 + 2.5, 1.0))
+    refs["plugs"] = union_all(plugs)
     # the controls as they will look from the outside (sizes of typical parts: 20 mm knobs, soft-touch footswitch
     # caps with their M12 nuts, 12 x 22 fader caps, 5 mm LED domes)
     knobs, fsw, caps, leds = [], [], [], []
@@ -441,11 +390,27 @@ def halfspace(axis, lo, hi):
 
 
 def split_plate(plate):
+    """2 x 2 with half-laps through the plate's thickness: the low-side tile keeps the upper half in the lap zone, the
+    high-side tile the lower half (and whatever hangs below the plate there)."""
     SX, SY = PLATE_SEAM_X, H - PLATE_SEAM_Y
+    half = PLATE_LAP / 2
+    big = 2000.0
+    z_mid = Z_PLATE + T_PLATE / 2
+    upper = rbox(-big, -big, big, big, z_mid, big)
+    lower = rbox(-big, -big, big, big, -big, z_mid)
+
+    def region(axis, side):
+        S = SX if axis == "x" else SY
+        lap = halfspace(axis, S - half, S + half)
+        if side < 0:
+            return halfspace(axis, -big, S - half).union(lap.intersect(upper))
+        return halfspace(axis, S + half, big).union(lap.intersect(lower))
+
     tiles = {}
-    for name, (xa, xb) in (("L", (-1000, SX)), ("R", (SX, 1000))):
-        for name2, (ya, yb) in (("front", (-1000, SY)), ("back", (SY, 1000))):
-            tiles["plate_%s_%s" % (name2, name)] = plate.intersect(halfspace("x", xa, xb)).intersect(halfspace("y", ya, yb))
+    for nx, sx in (("L", -1), ("R", 1)):
+        rx = region("x", sx)
+        for ny, sy in (("front", -1), ("back", 1)):
+            tiles["plate_%s_%s" % (ny, nx)] = plate.intersect(rx).intersect(region("y", sy))
     return tiles
 
 
@@ -512,10 +477,6 @@ if __name__ == "__main__":
     export("plate", plate, stl=False)
     splices = make_splices()
     export("splice-bars", splices)
-    frame7 = make_frame(DISP7)
-    export("frame-7in", frame7)
-    frame_bar = make_frame(BAR)
-    export("frame-bar", frame_bar)
     plunger = make_plunger()
     export("power-plunger", plunger)
     refs = make_refs()
@@ -524,13 +485,13 @@ if __name__ == "__main__":
     asm.add(base, name="base", color=cq.Color(0.12, 0.12, 0.12))
     asm.add(plate, name="plate", color=cq.Color(0.12, 0.12, 0.12))
     asm.add(splices, name="splice-bars", color=cq.Color(0.5, 0.5, 0.5))
-    asm.add(frame7, name="frame-7in", color=cq.Color(0.5, 0.5, 0.5))
-    asm.add(frame_bar, name="frame-bar", color=cq.Color(0.5, 0.5, 0.5))
     asm.add(plunger, name="power-plunger", color=cq.Color(0.83, 0.69, 0.22))
     asm.add(refs["board"], name="ref-main-board", color=cq.Color(0.1, 0.35, 0.15))
     asm.add(refs["pi"], name="ref-raspberry-pi-4", color=cq.Color(0.1, 0.5, 0.2))
     asm.add(refs["display7"], name="ref-7in-display", color=cq.Color(0.05, 0.05, 0.1))
     asm.add(refs["bar_screen"], name="ref-bar-screen", color=cq.Color(0.05, 0.05, 0.1))
+    asm.add(refs["fan"], name="ref-fan", color=cq.Color(0.2, 0.2, 0.2))
+    asm.add(refs["plugs"], name="ref-cable-plugs", color=cq.Color(0.3, 0.3, 0.3))
     asm.add(refs["knobs"], name="ref-knobs", color=cq.Color(0.1, 0.1, 0.1))
     asm.add(refs["footswitches"], name="ref-footswitches", color=cq.Color(0.75, 0.75, 0.78))
     asm.add(refs["fader_caps"], name="ref-fader-caps", color=cq.Color(0.1, 0.1, 0.1))

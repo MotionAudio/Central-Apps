@@ -340,11 +340,15 @@ def stitch(board, pitch=12.0):
     """GND stitching vias on a grid, wherever one fits (ties the four ground layers together)."""
     chk = Checker(board)
     gnd = board.FindNet("GND")
+    cuts = [tuple(v / 1e6 for v in c) for c in build.inner_cutouts(board)]      # the ribbon and plug slots: no via in or near them
     n = 0
     y = 6.0
     while y < design.H - 5:
         x = 6.0
         while x < design.W - 5:
+            if any(c[0] - 1.0 <= x <= c[2] + 1.0 and c[1] - 1.0 <= y <= c[3] + 1.0 for c in cuts):
+                x += pitch
+                continue
             via = pcbnew.PCB_VIA(board)
             via.SetPosition(pcbnew.VECTOR2I(mm(x), mm(y)))
             via.SetViaType(pcbnew.VIATYPE_THROUGH)

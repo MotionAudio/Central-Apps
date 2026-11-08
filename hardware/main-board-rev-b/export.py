@@ -108,6 +108,26 @@ def split_maker(mpn):
         return tuple(mpn.split(" ", 1))
     return ("", mpn)
 
+# Box-build lines: the modules and hardware the assembler fits after soldering (no pick-and-place entry; positions are
+# the silkscreen outlines and the mounting holes in the drawings).  (designator, qty, maker, part number, description, note)
+MECH = [
+    ("DISP7", 1, "Raspberry Pi", "SC1635", "Touch Display 2, 7-inch (1280x720, DSI) - screwed onto the board",
+     "Sits glass-up over the HD7_1-4 holes (silkscreen outline '7in TOUCH DISPLAY 2', ribbon connector toward +x). 4 x M2.5x5 pan-head screws (or the display's own) from the BACK of the board into the display's own four stand-offs. Plug the supplied 15-way ribbon into the display (contacts facing the display's PCB), run it through the slot to the back and leave it coiled for the Pi. Re-terminate the supplied 2-wire power lead with a JST PHR-2 and plug it into J_DISP (red = pin 2 / 5V, black = pin 1 / GND); it passes through the same slot. Available from Digi-Key / Mouser / any Raspberry Pi reseller, or customer-supplied."),
+    ("BAR", 1, "Waveshare", "11.9inch HDMI LCD (SKU 19454)", "11.9-inch 320x1480 IPS capacitive touch bar screen, HDMI - screwed onto the board",
+     "Sits glass-up over the HBAR_1-4 holes (outline '11.9in BAR SCREEN'); the edge with the mini-HDMI / buttons faces the 7-inch display, the touch micro-USB faces +x. 4 x M2.5x5 pan-head screws (or its own) from the BACK into its four brass stand-offs. HDMI cable: plug into the screen's mini-HDMI, the plug body sits in the 'HDMI PLUG' slot, the cable hangs through to the back, left for the Pi's micro-HDMI 1. Touch/power cable (assembler-made, 150 mm): JST PHR-4 to a slim straight micro-USB B male; the plug body lies in the notch of the screen's PCB over the 'TOUCH USB PLUG' slot; PHR-4 into J_USB_BAR (pin 1 = 5V = micro-USB VBUS, 2 = D-, 3 = D+, 4 = GND). The kit's rigid HDMI/USB adapters are not used. Customer-supplied or from Waveshare / Amazon / DigiKey."),
+    ("CBL_HDMI", 1, "", "mini-HDMI male to micro-HDMI male, 300 mm, slim plugs (body <= 11 x 7 mm)", "HDMI lead, bar screen to the Pi",
+     "Straight slim plugs. Bar end plugged by the assembler, Pi end left loose (the Pi is fitted by the customer)."),
+    ("CBL_TOUCH", 1, "", "JST PHR-4 (SPH-002T-P0.5S) to micro-USB 2.0 B male, straight, slim housing (max 10 wide x 6.5 thick x 20 long), 150 mm, 4 wires", "Touch + power lead, J_USB_BAR to the bar screen",
+     "Assembler-made. The plug body lies in the notch of the screen's PCB (6.7 mm under the LCD back) and over the board's TOUCH USB PLUG slot; the cable bends down through the slot. Wire order at the PH plug: 1 5V (USB red), 2 D- (white), 3 D+ (green), 4 GND (black)."),
+    ("FAN1", 1, "Sunon", "MF40100V1-1000U-A99 (or any 40x40x10 mm 5 V 2-wire fan with a JST PH 2.0 plug)", "40 mm 5 V fan on the BACK of the board",
+     "Over the HFAN_1-4 holes (back silkscreen '40mm FAN'), on four M3x10 female-female hex stand-offs; the stand-offs take 4 x M3x6 pan-head screws from the FRONT of the board (fit these before the screens go on), the fan takes 4 x M3x16 screws from behind. Airflow label pointing AWAY from the board (it blows down into the enclosure floor grille). Lead with a JST PHR-2 into J_FAN (pin 2 = 5V = red, pin 1 = FAN- = black); fit a PHR-2 if the fan comes with bare leads or a 2.54 mm plug."),
+    ("HW_M25", 8, "", "M2.5 x 5 mm pan-head machine screw (or the screws supplied with the two screens - they are made for a 1.6 mm Pi board, which is what our board is to them)", "Display and bar-screen mounting screws (4 + 4)", "From the back of the board into the modules' stand-offs. Snug, not tight - the stand-offs are brass."),
+    ("HW_M3SO", 4, "", "M3 x 10 mm female-female hex stand-off, brass or nylon", "Fan stand-offs", ""),
+    ("HW_M3A", 4, "", "M3 x 6 mm pan-head screw", "Fan stand-offs to the board (from the front)", ""),
+    ("HW_M3B", 4, "", "M3 x 16 mm pan-head screw", "Fan to its stand-offs (from behind)", ""),
+    ("HW_PH", 3, "JST", "PHR-2 housing + SPH-002T-P0.5S crimp contacts", "PH plugs for the display power lead and the fan lead (one spare)", ""),
+]
+
 # JLC columns (also what PCBWay's engineers read without trouble)
 bom = "%s/%s-bom.csv" % (FAB, NAME)
 with open(bom, "w", newline="") as fh:
@@ -117,7 +137,9 @@ with open(bom, "w", newline="") as fh:
         refs = ",".join(sorted((p["ref"] for p in ps), key=refsort))
         value = ps[0]["value"] if len({p["value"] for p in ps}) == 1 else describe(ps)
         w.writerow([value, refs, fpname, lcsc, ps[0]["mpn"], len(ps), describe(ps)])
-print("bom:", bom, len(groups), "lines")
+    for ref, qty, mfr, mpn, desc, note in MECH:
+        w.writerow([desc, ref, "box build (see PCBWAY-ORDER.md)", "", (mfr + " " + mpn).strip(), qty, desc + (". " + note if note else "")])
+print("bom:", bom, len(groups), "lines +", len(MECH), "box-build lines")
 
 # PCBWay's assembly BOM template columns
 NOTES = {
@@ -132,6 +154,8 @@ NOTES = {
     "LED5": "5 mm yellow LED, long leg (+) in the square pad, stands 15 mm proud for the top plate.",
     "TACT_RA": "Right-angle tactile switch at the back edge (power button).",
     "VH2": "JST VH 2-pin, back side. PH2 / PH4: JST PH, back side.",
+    "PH2": "JST PH 2-pin, back side. J_DISP takes the 7-inch display's power lead (re-terminated with a PHR-2), J_FAN the fan lead.",
+    "PH4": "JST PH 4-pin, back side. J_USB_BAR takes the bar screen's touch/power lead, J_USB_UP a lead to one of the Pi's USB-A ports (customer).",
 }
 pcbway = "%s/%s-bom-pcbway.csv" % (FAB, NAME)
 with open(pcbway, "w", newline="") as fh:
@@ -146,6 +170,8 @@ with open(pcbway, "w", newline="") as fh:
         desc = describe(ps)
         value = ps[0]["value"] if len({p["value"] for p in ps}) == 1 else ""
         w.writerow([i, refs, len(ps), mfr, mpn_only, (desc + " - " + value) if value and value != desc else (desc or value), fpname, "TH" if is_th(ps[0]) else "SMD", note])
+    for j, (ref, qty, mfr, mpn, desc, note) in enumerate(MECH, len(ordered) + 1):
+        w.writerow([j, ref, qty, mfr, mpn, desc, "module / hardware", "BOX BUILD", note])
 print("pcbway bom:", pcbway)
 
 dnp = sorted((p["ref"] for p in d.parts if p["dnp"]), key=refsort)
@@ -188,6 +214,7 @@ with open("%s/PCBWAY-ORDER.md" % FAB, "w") as fh:
 - Every component has an LCSC number where LCSC stocks it (%(n_lcsc)d of %(n_all)d placements); PCBWay may buy from LCSC, Digi-Key or Mouser by the manufacturer part number
 - Parts LCSC does not stock (sourced by part number / description, see the Notes column): the 10 footswitches, the 18 0.91" OLED modules
 - Through-hole parts to be soldered: footswitches, encoders, faders, 1/4" jacks, 3.5 mm jacks, USB-A, 2x20 header (BACK side), JST headers (BACK side), 5 mm LEDs (stand 15 mm proud), OLED modules (straight into their 4-pin sockets, screen up)
+- Box build after soldering (the last %(n_mech)d BOM lines, type BOX BUILD): the 7" Touch Display 2 and the 11.9" bar screen are screwed onto the FRONT of the board into their own stand-offs, the 40 mm fan onto the BACK on stand-offs, and their leads plugged in - see "Box build" below. The board ships with the screens and fan on it; the customer adds only the Raspberry Pi, the knobs / fader caps and the enclosure
 - Do NOT fit the parts in `not-fitted.txt`
 - Polarity: follow the Gerber silkscreen for diodes, LEDs, electrolytic / polymer caps and ICs (pin 1 marks); the CPL rotations use KiCad's convention - please check them on your assembly preview
 - The HAT EEPROM (U_EEP) may stay blank: the software recognises the board by its chips; `eeprom/` has the image if you can program it
@@ -202,9 +229,12 @@ with open("%s/PCBWAY-ORDER.md" % FAB, "w") as fh:
    Impedance control *No*; Castellated holes *No*; Edge plating *No*; Panelization *No* (one board).
    Stackup: leave their default 4-layer stackup; the inner layers are power/ground planes.
 2. Tick **Assembly Service** on the same page: *Turnkey* (they buy the parts), assembly side **Both sides**,
-   quantity = board quantity, unique parts **%(n_lines)d**, no BGA, no conformal coating, no X-ray needed.
-   "Sensitive / special parts": write *through-hole footswitches, 1/4" jacks and OLED modules hand-soldered; the Pi
-   socket J1 goes on the BOTTOM side*.
+   quantity = board quantity, unique parts **%(n_lines)d** (+ %(n_mech)d box-build lines), no BGA, no conformal coating, no X-ray needed.
+   In the notes / "special requirements" box write: *through-hole footswitches, 1/4" jacks and OLED modules
+   hand-soldered; the Pi socket J1 goes on the BOTTOM side; box build: two display modules screwed to the front and a
+   40 mm fan to the back, three leads plugged in, per PCBWAY-ORDER.md "Box build" and the BOX BUILD lines of the BOM.*
+   PCBWay quotes mechanical assembly by hand from that description (it is a normal service for them; expect a few
+   dollars per board and a question or two from the engineer).
 3. Add to cart, then on the order page upload **`%(name)s-gerbers.zip`** as the PCB file.
 4. In the assembly section upload **`%(name)s-bom-pcbway.csv`** as the BOM and **`%(name)s-cpl.csv`**
    as the pick-and-place (centroid / XY) file. If their form wants an Excel BOM, open the CSV in Excel and
@@ -221,9 +251,33 @@ with open("%s/PCBWAY-ORDER.md" % FAB, "w") as fh:
 7. Approve the quote, pay, and they build. Ask for photos of the first assembled board before the rest - and
    check J1 is on the back and the footswitch LED colour is right.
 
-Not on this board (you buy them): the Raspberry Pi 4 + 2x20 stacking header + M2.5 x 20 standoffs, the 7" Touch
-Display 2, the 11.9" bar screen, the 2S battery pack (JST-VH lead), a 40 mm 5 V fan (JST-PH lead), knobs for the
-six 6 mm D-shafts, two fader caps, the enclosure (see `../enclosure/`).
+## Box build - what goes on after soldering, and where
+
+Front of the board (component side), glass up - the silkscreen outlines show exactly where:
+
+1. **Fan stand-offs first**: 4 x M3x10 F-F hex stand-offs on the BACK over HFAN_1-4, held by M3x6 screws from the
+   FRONT (the screw heads end up under the 7" display, which is why they go in first).
+2. **7" Touch Display 2** over HD7_1-4 (outline "7in TOUCH DISPLAY 2"), ribbon connector end toward +x (the right,
+   seen from the front). 4 x M2.5x5 (or the display's own screws) from the back into the display's four stand-offs. Fit the supplied 15-way ribbon
+   into the display's connector, route it through the 3 x 23 mm slot beside the Pi header to the back, coil and tape
+   it. Cut the 3-way housing off the supplied power lead, crimp a JST PHR-2 (red = pin 2, black = pin 1), through the
+   same slot into **J_DISP** on the back.
+3. **11.9" bar screen** over HBAR_1-4 (outline "11.9in BAR SCREEN"), the mini-HDMI / button edge toward the 7"
+   display, the touch micro-USB toward +x. 4 x M2.5x5 (or its own screws) from the back into its four brass stand-offs. Plug the slim
+   mini-HDMI lead in: its plug body sits in the "HDMI PLUG" slot and the cable hangs through to the back - leave it
+   for the customer's Pi (micro-HDMI 1). Plug the slim micro-USB of the touch lead into the screen's TOUCH port (it faces +x, in a notch of
+   the screen's PCB): its body lies over the "TOUCH USB PLUG" slot, the lead bends down through it to the back into
+   **J_USB_BAR**.
+4. **Fan** on the back over its stand-offs, 4 x M3x16, airflow arrow pointing away from the board, lead into
+   **J_FAN**.
+5. Tape the loose leads (ribbon, HDMI) flat to the back of the board for shipping.
+
+The screens are powered from the board (J_DISP, J_USB_BAR), so a powered board shows the Waveshare splash on the
+bar screen (no HDMI signal yet) and the 7" stays dark until a Pi is plugged in - that is the expected test result.
+
+Not on this board (you buy them): the Raspberry Pi 4 + 2x20 stacking header + M2.5 x 20 standoffs, the 2S battery
+pack (JST-VH lead), knobs for the six 6 mm D-shafts, two fader caps, the enclosure (see `../enclosure/`) with its
+foam screen gaskets.
 
 ## Mechanical (for our top plate, not for PCBWay)
 - A 3 mm top plate sits 16 mm above the board: footswitch bushings (M12, nut on top), the 30 mm encoder shafts (8 mm clearance holes, no nut), fader levers (in recessed trays), LEDs and the OLED windows pass through it; the Raspberry Pi 4 hangs behind the board, component side toward it, on ~20 mm M2.5 standoffs (holes at 166.7/224.7 x 63.8/112.8 mm) - a 2x20 extra-long stacking header (e.g. Adafruit 2223 or any 2x20 'GPIO stacking header' with ~11 mm pins) on the Pi's GPIO pins reaches the board's socket; the Pi's USB / Ethernet block is 16 mm tall, which is why it cannot sit closer. Seen from the front the Pi is not mirrored: pin 1 at the left end of the header
@@ -236,7 +290,7 @@ six 6 mm D-shafts, two fader caps, the enclosure (see `../enclosure/`).
 - `%(name)s-netlist.txt` - every net, pin by pin, for review; `design-notes.txt` - every design assumption
 - `drc-report.txt` - KiCad's design rule check of this exact board
 - `%(name)s.kicad_pcb` / `.kicad_pro` + `custom.pretty/` - the KiCad 7 project
-""" % {"rev": REV, "w": design.W, "h": design.H, "name": NAME, "n_lines": len(groups), "n_all": len([p for p in d.parts if not p["dnp"]]), "n_lcsc": len([p for p in d.parts if not p["dnp"] and p["lcsc"]]), "n_small_vias": n_small_vias})
+""" % {"rev": REV, "w": design.W, "h": design.H, "name": NAME, "n_lines": len(groups), "n_all": len([p for p in d.parts if not p["dnp"]]), "n_lcsc": len([p for p in d.parts if not p["dnp"] and p["lcsc"]]), "n_small_vias": n_small_vias, "n_mech": len(MECH)})
 
 # ---- PDF and PNG renders
 run("kicad-cli", "pcb", "export", "pdf", "--layers", "F.Cu,F.SilkS,F.Fab,Edge.Cuts", "--include-border-title", "-o", "%s/%s-top.pdf" % (FAB, NAME), BOARD)
@@ -249,4 +303,9 @@ shutil.copytree("/home/claude/pcb2/custom.pretty", "%s/custom.pretty" % FAB)
 shutil.copy("%s/drc-report.txt" % OUT, "%s/drc-report.txt" % FAB)
 if os.path.isdir("/home/claude/pcb2/eeprom"):
     shutil.copytree("/home/claude/pcb2/eeprom", "%s/eeprom" % FAB)
+# pictures of the assembled board (from the enclosure model's reference bodies), if they have been rendered
+for pic in ("board-with-screens.png", "board-back-with-fan.png"):
+    src = "%s/enclosure/%s" % (OUT, pic)
+    if os.path.exists(src):
+        shutil.copy(src, FAB)
 print("done:", sorted(os.listdir(FAB)))

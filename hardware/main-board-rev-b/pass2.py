@@ -38,12 +38,23 @@ def seg_point_dist(ax, ay, bx, by, px, py):
     return math.hypot(px - (ax + t * vx), py - (ay + t * vy))
 
 
+def _segs_cross(ax, ay, bx, by, cx, cy, dx, dy):
+    def orient(px, py, qx, qy, rx, ry):
+        return (qx - px) * (ry - py) - (qy - py) * (rx - px)
+    o1, o2 = orient(ax, ay, bx, by, cx, cy), orient(ax, ay, bx, by, dx, dy)
+    o3, o4 = orient(cx, cy, dx, dy, ax, ay), orient(cx, cy, dx, dy, bx, by)
+    return (o1 * o2 < 0) and (o3 * o4 < 0)
+
+
 def seg_rect_dist(ax, ay, bx, by, x1, y1, x2, y2):
     """distance from segment AB to an axis-aligned rectangle (0 if it crosses it)"""
     def inside(x, y):
         return x1 <= x <= x2 and y1 <= y <= y2
     if inside(ax, ay) or inside(bx, by):
         return 0.0
+    for (cx, cy, dx, dy) in ((x1, y1, x2, y1), (x2, y1, x2, y2), (x2, y2, x1, y2), (x1, y2, x1, y1)):
+        if _segs_cross(ax, ay, bx, by, cx, cy, dx, dy):
+            return 0.0
     best = 1e9
     for (cx, cy, dx, dy) in ((x1, y1, x2, y1), (x2, y1, x2, y2), (x2, y2, x1, y2), (x1, y2, x1, y1)):
         best = min(best, seg_point_dist(ax, ay, bx, by, cx, cy), seg_point_dist(ax, ay, bx, by, dx, dy),
@@ -61,7 +72,7 @@ for fp in board.GetFootprints():
     for p in fp.Pads():
         if p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:
             holes.append((p.GetPosition().x / 1e6, p.GetPosition().y / 1e6, max(p.GetDrillSizeX(), p.GetDrillSizeY()) / 2e6, fp.GetReference()))
-cutouts = [tuple(v / 1e6 for v in build.inner_cutout(board))] if build.inner_cutout(board) else []
+cutouts = [tuple(v / 1e6 for v in c) for c in build.inner_cutouts(board)]
 print("NPTH holes:", len(holes), " cut-outs:", cutouts)
 
 doomed = set()

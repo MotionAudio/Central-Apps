@@ -21,10 +21,16 @@ POWER_NETS = ["5V1", "5V2", "3V3", "VSYS", "VBAT", "VBAT_P", "BAT_F", "BAT_RAW",
 PLANE_NETS = ["GND", "5V1", "VBAT", "3V3", "VSYS", "5V2"]
 
 
+_PLUG = None     # one KiCad footprint plugin kept alive: pcbnew.FootprintLoad's temporary can lose its SWIG proxy
+
+
 def load_fp(key):
+    global _PLUG
     lib, name = design.FP[key]
     path = CUSTOM if lib == "custom" else "%s/%s.pretty" % (FP_DIR, lib)
-    fp = pcbnew.FootprintLoad(path, name)
+    if _PLUG is None:
+        _PLUG = pcbnew.IO_MGR.PluginFind(pcbnew.IO_MGR.KICAD_SEXP)
+    fp = _PLUG.FootprintLoad(path, name)
     if fp is None:
         raise SystemExit("footprint missing: %s/%s" % (lib, name))
     return fp
@@ -131,6 +137,32 @@ def inner_cutout(board):
     if not pts:
         return None
     return (min(p.x for p in pts), min(p.y for p in pts), max(p.x for p in pts), max(p.y for p in pts))
+
+
+def inner_cutouts(board):
+    """Every inner Edge.Cuts rectangle (the display-ribbon slot, the cable slots for the bar screen) as a list of
+    bounding boxes (nm: x1, y1, x2, y2).  Segments are clustered by touching end points."""
+    segs = []
+    for d in board.GetDrawings():
+        if d.GetLayer() != pcbnew.Edge_Cuts or d.GetClass() != "PCB_SHAPE":
+            continue
+        a, b = d.GetStart(), d.GetEnd()
+        if all(mm(0.5) < v < mm(design.W - 0.5) for v in (a.x, b.x)) and all(mm(0.5) < v < mm(design.H - 0.5) for v in (a.y, b.y)):
+            segs.append([(a.x, a.y), (b.x, b.y)])
+    groups = []
+    for s in segs:
+        hit = [g for g in groups if any(abs(p[0] - q[0]) < 1000 and abs(p[1] - q[1]) < 1000 for p in s for seg in g for q in seg)]
+        if not hit:
+            groups.append([s])
+        else:
+            hit[0].append(s)
+            for g in hit[1:]:
+                hit[0].extend(g); groups.remove(g)
+    out = []
+    for g in groups:
+        pts = [p for seg in g for p in seg]
+        out.append((min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts)))
+    return out
 
 
 def add_text(board, text, x, y, size=1.5, layer=pcbnew.F_SilkS, rot=0, bold=False):

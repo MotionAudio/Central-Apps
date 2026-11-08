@@ -329,7 +329,7 @@ def main():
     board = pcbnew.LoadBoard(routed)
     rep, counts = fanout.drc(board, "%s/drc-report.txt" % OUT)
     todo = parse_unconnected(rep)
-    print("open connections:", len(todo))
+    print("open connections:", len(todo), flush=True)
     if "--rip" in sys.argv:          # --rip REF PAD : clear the strip in front of that pad first
         i = sys.argv.index("--rip")
         print("ripped nets:", rip_corridor(board, sys.argv[i + 1], sys.argv[i + 2]))
@@ -355,11 +355,12 @@ def main():
             continue
         path = route(grid, S, T)
         if path is None:
-            print("  %s: NO PATH %s -> %s" % (net, a[:3], b[:3]))
+            print("  %s: NO PATH %s -> %s" % (net, a[:3], b[:3]), flush=True)
             continue
         n_t, n_v = lay(board, grid, path, ni)
         done += 1
-        print("  %s: routed %s -> %s (%d segments, %d vias)" % (net, a[:3], b[:3], n_t, n_v))
+        print("  %s: routed %s -> %s (%d segments, %d vias)" % (net, a[:3], b[:3], n_t, n_v), flush=True)
+        pcbnew.SaveBoard(routed, board)          # keep what is done so far (a long run may be cut short)
     filler = pcbnew.ZONE_FILLER(board)
     filler.Fill(board.Zones())
     pcbnew.SaveBoard(routed, board)

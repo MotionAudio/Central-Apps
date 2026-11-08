@@ -123,8 +123,8 @@ nothing - plus the amp's volume. (A USB interface of your own has no room: 8 cha
 
 | Screen | Where | Shows |
 | --- | --- | --- |
-| 7" Raspberry Pi Touch Display 2 (720×1280, turned to landscape) | the board's ribbon connector | the app |
-| 11.9" bar touch screen (320×1480, turned to landscape) | HDMI 1 + USB (hub port 4) | the strip: what's playing, and pages to swipe through - sounds, songs, loops, keys sounds, scenes (`strip.html`) |
+| 7" Raspberry Pi Touch Display 2 (720×1280, turned to landscape) | screwed to the board; ribbon to the Pi's DSI, power from the board (J_DISP) | the app |
+| 11.9" bar touch screen (320×1480, turned to landscape) | screwed to the board; HDMI 1 from the Pi, touch + power from the board (J_USB_BAR, hub port 4) | the strip: what's playing, and pages to swipe through - sounds, songs, loops, keys sounds, scenes (`strip.html`) |
 | Projector / monitor | HDMI 2 | lyrics (or charts, stage display - Settings → Screens) |
 | 18 × 0.91" OLED (128×32, not touch) | above every footswitch, knob and fader | the control's job, and its level while it moves |
 

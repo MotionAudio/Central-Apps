@@ -6,7 +6,14 @@ Touch Display 2 (ribbon), the 11.9" bar touch screen (HDMI 1 + USB), 6 mono 1/4"
 2 external footswitch jacks, MIDI in / out, headphones, USB-C PD charging of a 2S battery, fan, power button. The
 Raspberry Pi 4 hangs behind the board, component side toward it, on ~20 mm M2.5 standoffs - a 2x20 extra-long
 stacking header on its GPIO pins reaches the board's socket (the Pi's USB / Ethernet block is 16 mm tall); a top
-plate sits 15.5 mm above the board.
+plate sits 16 mm above the board.
+
+Rev B.2: the 7" Touch Display 2, the 11.9" bar screen and the 40 mm fan are **screwed to the board by the assembler**
+(the screens on the front into their own stand-offs, the fan on the back on 10 mm stand-offs), their power and touch
+leads plugged into the board's headers, and the two leads for the Pi (display ribbon, HDMI) left coiled on the back.
+Two slots in the board take the bar screen's HDMI and touch-USB plug bodies. What comes back from PCBWay is the
+finished panel; the customer adds the Pi, knobs, fader caps and the enclosure. Details: `fab/PCBWAY-ORDER.md`
+("Box build") and the BOX BUILD lines at the end of the BOM.
 
 Wiring and pin map: `../../docs/MAIN-BOARD.md`. The layout that was approved: `layout-plan.png`.
 
@@ -17,10 +24,11 @@ Everything PCBWay needs is in `fab/` - read `fab/PCBWAY-ORDER.md` first:
 | File | What |
 | --- | --- |
 | `central-pedal-main-board-gerbers.zip` | Gerbers + Excellon drills + drill map (board edge included) |
-| `central-pedal-main-board-bom-pcbway.csv` | BOM in PCBWay's layout: LCSC number + manufacturer part number for every part, sourcing notes |
+| `central-pedal-main-board-bom-pcbway.csv` | BOM in PCBWay's layout: LCSC number + manufacturer part number for every part, sourcing notes; the last lines (type BOX BUILD) are the screens, fan, leads and hardware the assembler fits after soldering |
 | `central-pedal-main-board-bom.csv` | the same BOM in JLC's layout |
 | `central-pedal-main-board-cpl.csv` | Pick-and-place, both sides |
-| `central-pedal-main-board-top.pdf` / `-bottom.pdf` | Assembly drawings |
+| `central-pedal-main-board-top.pdf` / `-bottom.pdf` | Assembly drawings (the silkscreen outlines show where the screens, the plugs and the fan go) |
+| `board-with-screens.png`, `board-back-with-fan.png` | What the assembled board looks like, front and back |
 | `*-front.png`, `*-back.png`, `*-in1.png`, `*-in2.png` | Renders of each copper layer |
 | `central-pedal-main-board-netlist.txt` | Every net and the pins on it, for review |
 | `design-notes.txt` | Every design assumption, numbered |
@@ -41,7 +49,7 @@ A 3D-printed box for this board and the Pi: `enclosure/` (STEP of the whole asse
 CadQuery script that generates them from the routed board). The top plate sits 16 mm above the board with rounded
 edges and chamfered windows; the footswitches come through it and take their nuts on top, the knobs come through plain
 Ø 8 holes (the BOM's encoders have 30 mm shafts for this), the fader caps run in shallow recessed trays, and the two
-touch screens and 18 label screens sit behind bezelled windows. Read `enclosure/README.md` - it lists the dimensions
+touch screens (on the board, meeting the plate through foam gaskets) and 18 label screens sit behind bezelled windows. Read `enclosure/README.md` - it lists the dimensions
 the model assumes that should be checked against the parts you actually buy, and the hardware (inserts, screws, knobs,
 caps) to buy with it. `fab/PCBWAY-ORDER.md` has the PCBWay order settings step by step and how the parts are confirmed
 with them.
@@ -61,6 +69,9 @@ python3 route.py 10 out/pass2-src.kicad_pcb                          # route wha
 python3 cleanup.py && python3 maze.py                                # tidy, then the grid router for the last connections
 python3 pass3.py && python3 route.py 20 out/pass3-src.kicad_pcb --rippable   # optional: let Freerouting rip up and redo the signal routes
 python3 fanout.py --stitch           # widen power tracks, GND stitching vias, final DRC
+python3 screens.py && python3 cleanup.py out/pass6-src.kicad_pcb --no-helpers && python3 route.py 30 out/pass6-src.kicad_pcb
+                                     # rev B.2: screen / fan mounting holes and the two plug slots on the routed board, then route what they cut
+python3 geometry.py                  # -> out/board-geometry.json for the enclosure
 python3 export.py                    # -> out/fab/
 ```
 
