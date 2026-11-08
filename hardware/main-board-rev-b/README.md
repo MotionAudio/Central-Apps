@@ -35,6 +35,12 @@ Tayda SF13P-0102-23.5R-M12, Love My Switches PCB-mount soft touch) and the 18 0.
 I2C; both common pin orders fit with the 0R links). Everything else - including the Neutrik jacks, the Bourns
 encoders and faders, the JST headers and the Pi header - has an LCSC number and was in stock when this was made.
 
+## Enclosure
+
+A 3D-printed box for this board and the Pi: `enclosure/` (STEP of the whole assembly, printable tiles as STEP + STL, and the
+CadQuery script that generates them from the routed board). Read `enclosure/README.md` - it lists the dimensions the
+model assumes that should be checked against the parts you actually buy.
+
 ## Regenerating
 
 `design.py` is the whole design (every part, pin and net). On a machine with KiCad 7 (pcbnew Python + kicad-cli),
