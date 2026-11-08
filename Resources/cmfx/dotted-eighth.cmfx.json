@@ -1,0 +1,204 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "dotted-eighth",
+ "name": "Dotted Eighth Delay",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "plugins",
+ "description": "The dotted-eighth delay of worship guitar, locked to the song's tempo (it takes the BPM from the song where the app knows it).",
+ "params": [
+  {
+   "id": "bpm",
+   "name": "Tempo",
+   "min": 50,
+   "max": 200,
+   "default": 72,
+   "unit": "BPM"
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.85,
+   "default": 0.4
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 1500,
+   "max": 12000,
+   "default": 4500,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "motion",
+   "name": "Motion",
+   "min": 0,
+   "max": 1,
+   "default": 0.2
+  }
+ ],
+ "presets": [
+  {
+   "name": "Lead line",
+   "values": {
+    "feedback": 0.45,
+    "mix": 0.3,
+    "tone": 4500
+   }
+  },
+  {
+   "name": "Ambient swell",
+   "values": {
+    "feedback": 0.6,
+    "mix": 0.4,
+    "tone": 3500,
+    "motion": 0.5
+   }
+  },
+  {
+   "name": "Tight rhythm",
+   "values": {
+    "feedback": 0.25,
+    "mix": 0.22,
+    "tone": 6000
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "tempo",
+    "type": "param",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "param": "bpm"
+    }
+   },
+   {
+    "id": "time",
+    "type": "math",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "op": "divide",
+     "a": 45000
+    }
+   },
+   {
+    "id": "wob",
+    "type": "lfo",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "rate": 0.45,
+     "from": -1.5,
+     "to": 1.5
+    }
+   },
+   {
+    "id": "amt",
+    "type": "param",
+    "x": 240,
+    "y": 610,
+    "props": {
+     "param": "motion"
+    }
+   },
+   {
+    "id": "wobs",
+    "type": "math",
+    "x": 440,
+    "y": 420,
+    "props": {
+     "op": "multiply"
+    }
+   },
+   {
+    "id": "t2",
+    "type": "math",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "op": "add"
+    }
+   },
+   {
+    "id": "echo",
+    "type": "delay",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": {
+      "param": "mix"
+     },
+     "tone": {
+      "param": "tone"
+     },
+     "maxTime": 1000
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "tempo.out",
+    "to": "time.b"
+   },
+   {
+    "from": "wob.out",
+    "to": "wobs.a"
+   },
+   {
+    "from": "amt.out",
+    "to": "wobs.b"
+   },
+   {
+    "from": "time.out",
+    "to": "t2.a"
+   },
+   {
+    "from": "wobs.out",
+    "to": "t2.b"
+   },
+   {
+    "from": "in.out",
+    "to": "echo.in"
+   },
+   {
+    "from": "t2.out",
+    "to": "echo.time"
+   },
+   {
+    "from": "echo.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

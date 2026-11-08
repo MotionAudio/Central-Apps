@@ -1,0 +1,1092 @@
+{
+ "boards": [
+  {
+   "id": "worship-dotted",
+   "name": "Worship Lead: Dotted Eighth",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_studio_comp",
+     "values": {
+      "threshold": -24,
+      "ratio": 3
+     }
+    },
+    {
+     "pedal": "ma_gold_drive",
+     "values": {
+      "drive": 0.3,
+      "tone": 0.55
+     }
+    },
+    {
+     "pedal": "ma_dotted_delay",
+     "values": {
+      "bpm": 72,
+      "feedback": 0.45,
+      "mix": 0.35
+     }
+    },
+    {
+     "pedal": "ma_analog_delay",
+     "values": {
+      "time": 450,
+      "feedback": 0.3,
+      "mix": 0.15
+     }
+    },
+    {
+     "pedal": "ma_shimmer",
+     "values": {
+      "decay": 6,
+      "shimmer": 0.4,
+      "mix": 0.28
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.35
+     }
+    }
+   ]
+  },
+  {
+   "id": "worship-swells",
+   "name": "Worship Swells (volume + shimmer)",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_volume",
+     "values": {}
+    },
+    {
+     "pedal": "ma_opto_comp",
+     "values": {
+      "peak": 0.5
+     }
+    },
+    {
+     "pedal": "ma_dotted_delay",
+     "values": {
+      "bpm": 72,
+      "feedback": 0.55,
+      "mix": 0.4
+     }
+    },
+    {
+     "pedal": "ma_shimmer",
+     "values": {
+      "decay": 10,
+      "shimmer": 0.6,
+      "mix": 0.55
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.25
+     }
+    }
+   ]
+  },
+  {
+   "id": "worship-crunch",
+   "name": "Worship Crunch Lead",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_gate",
+     "values": {}
+    },
+    {
+     "pedal": "ma_mid_drive",
+     "values": {
+      "drive": 0.45
+     }
+    },
+    {
+     "pedal": "ma_dotted_delay",
+     "values": {
+      "bpm": 72,
+      "feedback": 0.4,
+      "mix": 0.3
+     }
+    },
+    {
+     "pedal": "ma_hall",
+     "values": {
+      "decay": 3.5,
+      "mix": 0.25
+     }
+    },
+    {
+     "pedal": "ma_amp_crunch",
+     "values": {
+      "gain": 0.45
+     }
+    }
+   ]
+  },
+  {
+   "id": "worship-rhythm",
+   "name": "Worship Clean Rhythm",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_opto_comp",
+     "values": {
+      "peak": 0.4
+     }
+    },
+    {
+     "pedal": "ma_chorus",
+     "values": {
+      "mix": 0.25
+     }
+    },
+    {
+     "pedal": "ma_digital_delay",
+     "values": {
+      "time": 380,
+      "feedback": 0.25,
+      "mix": 0.18
+     }
+    },
+    {
+     "pedal": "ma_plate",
+     "values": {
+      "decay": 1.6,
+      "mix": 0.2
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.3
+     }
+    }
+   ]
+  },
+  {
+   "id": "ambient-wash",
+   "name": "Ambient Swell Wash",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_swell_verb",
+     "values": {
+      "swell": 700,
+      "decay": 9,
+      "mix": 0.6
+     }
+    },
+    {
+     "pedal": "ma_tape_delay",
+     "values": {
+      "time": 520,
+      "feedback": 0.55,
+      "mix": 0.35
+     }
+    },
+    {
+     "pedal": "ma_shimmer",
+     "values": {
+      "decay": 12,
+      "shimmer": 0.5,
+      "mix": 0.4
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "ambient-freeze",
+   "name": "Ambient Freeze Pad",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_volume",
+     "values": {}
+    },
+    {
+     "pedal": "ma_octave_up",
+     "values": {
+      "octave": 0.3,
+      "dry": 1
+     }
+    },
+    {
+     "pedal": "ma_freeze",
+     "values": {
+      "decay": 8,
+      "mix": 0.6
+     }
+    },
+    {
+     "pedal": "ma_hall",
+     "values": {
+      "decay": 6,
+      "mix": 0.35
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "ambient-reverse",
+   "name": "Ambient Reverse",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_opto_comp",
+     "values": {}
+    },
+    {
+     "pedal": "ma_reverse_delay",
+     "values": {
+      "time": 700,
+      "feedback": 0.35,
+      "mix": 0.5
+     }
+    },
+    {
+     "pedal": "ma_shimmer",
+     "values": {
+      "decay": 8,
+      "mix": 0.4
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.25
+     }
+    }
+   ]
+  },
+  {
+   "id": "blues-spring",
+   "name": "Blues: Clean and Spring",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_blues_drive",
+     "values": {
+      "drive": 0.2
+     }
+    },
+    {
+     "pedal": "ma_harm_trem",
+     "values": {
+      "rate": 4.5,
+      "depth": 0.5
+     }
+    },
+    {
+     "pedal": "ma_spring",
+     "values": {
+      "dwell": 0.55,
+      "mix": 0.3
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.4,
+      "bass": 0.45,
+      "treble": 0.6
+     }
+    }
+   ]
+  },
+  {
+   "id": "blues-gold",
+   "name": "Blues: Gold Horse Push",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_gold_drive",
+     "values": {
+      "drive": 0.4
+     }
+    },
+    {
+     "pedal": "ma_blues_drive",
+     "values": {
+      "drive": 0.45
+     }
+    },
+    {
+     "pedal": "ma_analog_delay",
+     "values": {
+      "time": 300,
+      "feedback": 0.3,
+      "mix": 0.2
+     }
+    },
+    {
+     "pedal": "ma_spring",
+     "values": {
+      "mix": 0.25
+     }
+    },
+    {
+     "pedal": "ma_amp_crunch",
+     "values": {
+      "gain": 0.4
+     }
+    }
+   ]
+  },
+  {
+   "id": "blues-slap",
+   "name": "Blues: Slapback",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_boost",
+     "values": {
+      "gain": 6
+     }
+    },
+    {
+     "pedal": "ma_multihead",
+     "values": {
+      "time": 110,
+      "heads": 1,
+      "feedback": 0.15,
+      "mix": 0.35
+     }
+    },
+    {
+     "pedal": "ma_spring",
+     "values": {
+      "dwell": 0.6,
+      "mix": 0.3
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.45
+     }
+    }
+   ]
+  },
+  {
+   "id": "classic-crunch",
+   "name": "Classic Rock Crunch",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_mid_drive",
+     "values": {
+      "drive": 0.4,
+      "level": 0.6
+     }
+    },
+    {
+     "pedal": "ma_amp_crunch",
+     "values": {
+      "gain": 0.6,
+      "mid": 0.65
+     }
+    },
+    {
+     "pedal": "ma_plate",
+     "values": {
+      "decay": 1.4,
+      "mix": 0.18
+     }
+    }
+   ]
+  },
+  {
+   "id": "modern-metal",
+   "name": "Modern Metal (gate + high gain)",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_gate",
+     "values": {
+      "threshold": -50
+     }
+    },
+    {
+     "pedal": "ma_clear_drive",
+     "values": {
+      "drive": 0.1,
+      "level": 0.75
+     }
+    },
+    {
+     "pedal": "ma_amp_hg",
+     "values": {
+      "gain": 0.7,
+      "mid": 0.35
+     }
+    },
+    {
+     "pedal": "ma_peq",
+     "values": {
+      "lowcut": 70,
+      "midfreq": 500,
+      "mid": -3,
+      "high": 1.5
+     }
+    }
+   ]
+  },
+  {
+   "id": "fuzz-vibe",
+   "name": "Fuzz and Vibe",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_wah",
+     "values": {
+      "position": 0.5
+     }
+    },
+    {
+     "pedal": "ma_ge_fuzz",
+     "values": {
+      "drive": 0.75
+     }
+    },
+    {
+     "pedal": "ma_vibe",
+     "values": {
+      "rate": 1.5,
+      "depth": 0.7
+     }
+    },
+    {
+     "pedal": "ma_amp_crunch",
+     "values": {
+      "gain": 0.35
+     }
+    },
+    {
+     "pedal": "ma_spring",
+     "values": {
+      "mix": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "funk-quack",
+   "name": "Funk Quack",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_squash_comp",
+     "values": {
+      "sens": 0.6
+     }
+    },
+    {
+     "pedal": "ma_env_filter",
+     "values": {
+      "sens": 0.65,
+      "res": 0.7
+     }
+    },
+    {
+     "pedal": "ma_phaser",
+     "values": {
+      "rate": 0.4,
+      "mix": 0.35
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.3
+     }
+    }
+   ]
+  },
+  {
+   "id": "surf-trem",
+   "name": "Surf Trem",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_square_trem",
+     "values": {
+      "rate": 6,
+      "depth": 0.7,
+      "shape": 0.5
+     }
+    },
+    {
+     "pedal": "ma_spring",
+     "values": {
+      "dwell": 0.85,
+      "decay": 0.7,
+      "mix": 0.5
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.4,
+      "treble": 0.7
+     }
+    }
+   ]
+  },
+  {
+   "id": "synth-guitar",
+   "name": "Synth Guitar",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_squash_comp",
+     "values": {}
+    },
+    {
+     "pedal": "ma_octave_down",
+     "values": {
+      "oct1": 0.8,
+      "dry": 0.3
+     }
+    },
+    {
+     "pedal": "ma_synth_filter",
+     "values": {
+      "decay": 400,
+      "res": 0.75
+     }
+    },
+    {
+     "pedal": "ma_digital_delay",
+     "values": {
+      "time": 330,
+      "mix": 0.25
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.25
+     }
+    }
+   ]
+  },
+  {
+   "id": "whammy-lead",
+   "name": "Whammy Lead",
+   "kind": "electric",
+   "chain": [
+    {
+     "pedal": "ma_gate",
+     "values": {}
+    },
+    {
+     "pedal": "ma_whammy",
+     "values": {
+      "range": 12
+     }
+    },
+    {
+     "pedal": "ma_hg_dist",
+     "values": {
+      "drive": 0.55
+     }
+    },
+    {
+     "pedal": "ma_digital_delay",
+     "values": {
+      "time": 420,
+      "feedback": 0.3,
+      "mix": 0.25
+     }
+    },
+    {
+     "pedal": "ma_amp_hg",
+     "values": {
+      "gain": 0.4
+     }
+    }
+   ]
+  },
+  {
+   "id": "acoustic-worship",
+   "name": "Acoustic: Worship (body + plate)",
+   "kind": "acoustic",
+   "chain": [
+    {
+     "pedal": "ma_ac_pre",
+     "values": {
+      "mid": -3,
+      "treble": 2
+     }
+    },
+    {
+     "pedal": "ma_opto_comp",
+     "values": {
+      "peak": 0.4
+     }
+    },
+    {
+     "pedal": "ma_ac_sim",
+     "values": {
+      "body": 0.6,
+      "top": 0.55
+     }
+    },
+    {
+     "pedal": "ma_plate",
+     "values": {
+      "decay": 1.8,
+      "mix": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "acoustic-strum",
+   "name": "Acoustic: Bright Strum",
+   "kind": "acoustic",
+   "chain": [
+    {
+     "pedal": "ma_ac_pre",
+     "values": {
+      "bass": -2,
+      "treble": 4
+     }
+    },
+    {
+     "pedal": "ma_studio_comp",
+     "values": {
+      "threshold": -22,
+      "ratio": 3
+     }
+    },
+    {
+     "pedal": "ma_chorus",
+     "values": {
+      "depth": 0.3,
+      "mix": 0.15
+     }
+    },
+    {
+     "pedal": "ma_hall",
+     "values": {
+      "decay": 2.4,
+      "mix": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "acoustic-ambient",
+   "name": "Acoustic: Ambient Fingerstyle",
+   "kind": "acoustic",
+   "chain": [
+    {
+     "pedal": "ma_ac_pre",
+     "values": {}
+    },
+    {
+     "pedal": "ma_ac_sim",
+     "values": {
+      "body": 0.7
+     }
+    },
+    {
+     "pedal": "ma_dotted_delay",
+     "values": {
+      "bpm": 68,
+      "feedback": 0.4,
+      "mix": 0.25
+     }
+    },
+    {
+     "pedal": "ma_shimmer",
+     "values": {
+      "decay": 7,
+      "shimmer": 0.35,
+      "mix": 0.3
+     }
+    }
+   ]
+  },
+  {
+   "id": "acoustic-loud-room",
+   "name": "Acoustic: Loud Room (feedback notch)",
+   "kind": "acoustic",
+   "chain": [
+    {
+     "pedal": "ma_gate",
+     "values": {
+      "threshold": -60
+     }
+    },
+    {
+     "pedal": "ma_ac_pre",
+     "values": {
+      "bass": -4,
+      "notch": 120,
+      "notchon": 1
+     }
+    },
+    {
+     "pedal": "ma_studio_comp",
+     "values": {
+      "threshold": -20,
+      "ratio": 4
+     }
+    },
+    {
+     "pedal": "ma_geq7",
+     "values": {
+      "b200": -3,
+      "b3k2": 2
+     }
+    }
+   ]
+  },
+  {
+   "id": "bass-grind",
+   "name": "Bass: Modern Grind",
+   "kind": "bass",
+   "chain": [
+    {
+     "pedal": "ma_studio_comp",
+     "values": {
+      "threshold": -24,
+      "ratio": 4,
+      "attack": 15
+     }
+    },
+    {
+     "pedal": "ma_bass_drive",
+     "values": {
+      "drive": 0.55,
+      "blend": 0.6
+     }
+    },
+    {
+     "pedal": "ma_bass_pre",
+     "values": {
+      "bass": 3,
+      "lowmid": -3,
+      "highmid": 3
+     }
+    },
+    {
+     "pedal": "ma_amp_bass",
+     "values": {
+      "gain": 0.35
+     }
+    }
+   ]
+  },
+  {
+   "id": "bass-vintage",
+   "name": "Bass: Vintage Amp",
+   "kind": "bass",
+   "chain": [
+    {
+     "pedal": "ma_opto_comp",
+     "values": {
+      "peak": 0.5
+     }
+    },
+    {
+     "pedal": "ma_amp_bass",
+     "values": {
+      "gain": 0.5,
+      "treble": 0.35,
+      "presence": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "bass-sub-synth",
+   "name": "Bass: Sub Synth",
+   "kind": "bass",
+   "chain": [
+    {
+     "pedal": "ma_gate",
+     "values": {}
+    },
+    {
+     "pedal": "ma_octave_down",
+     "values": {
+      "oct1": 0.8,
+      "dry": 0.5
+     }
+    },
+    {
+     "pedal": "ma_synth_filter",
+     "values": {
+      "fuzz": 0.3,
+      "decay": 350
+     }
+    },
+    {
+     "pedal": "ma_amp_bass",
+     "values": {
+      "gain": 0.3
+     }
+    }
+   ]
+  },
+  {
+   "id": "bass-worship",
+   "name": "Bass: Worship Clean",
+   "kind": "bass",
+   "chain": [
+    {
+     "pedal": "ma_gate",
+     "values": {}
+    },
+    {
+     "pedal": "ma_studio_comp",
+     "values": {
+      "threshold": -26,
+      "ratio": 4,
+      "attack": 20,
+      "release": 200
+     }
+    },
+    {
+     "pedal": "ma_bass_pre",
+     "values": {
+      "bass": 2,
+      "lowmid": -2
+     }
+    },
+    {
+     "pedal": "ma_peq",
+     "values": {
+      "lowcut": 30,
+      "midfreq": 250,
+      "mid": -2,
+      "high": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "bass-funk",
+   "name": "Bass: Funk Filter",
+   "kind": "bass",
+   "chain": [
+    {
+     "pedal": "ma_squash_comp",
+     "values": {
+      "sens": 0.55
+     }
+    },
+    {
+     "pedal": "ma_env_filter",
+     "values": {
+      "sens": 0.55,
+      "range": 0.5,
+      "mode": 1
+     }
+    },
+    {
+     "pedal": "ma_bass_pre",
+     "values": {
+      "treble": 2
+     }
+    }
+   ]
+  },
+  {
+   "id": "keys-suitcase",
+   "name": "Keys: Suitcase EP (trem + phaser)",
+   "kind": "keys",
+   "chain": [
+    {
+     "pedal": "ma_square_trem",
+     "values": {
+      "rate": 4,
+      "depth": 0.4,
+      "shape": 0.1
+     }
+    },
+    {
+     "pedal": "ma_phaser",
+     "values": {
+      "rate": 0.3,
+      "mix": 0.3
+     }
+    },
+    {
+     "pedal": "ma_amp_clean",
+     "values": {
+      "gain": 0.25,
+      "cab": 0
+     }
+    },
+    {
+     "pedal": "ma_spring",
+     "values": {
+      "mix": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "keys-organ-rotary",
+   "name": "Keys: Organ Through a Rotary",
+   "kind": "keys",
+   "chain": [
+    {
+     "pedal": "ma_amp_crunch",
+     "values": {
+      "gain": 0.25,
+      "cab": 0
+     }
+    },
+    {
+     "pedal": "ma_rotary",
+     "values": {
+      "drive": 0.3,
+      "balance": 0.6
+     }
+    },
+    {
+     "pedal": "ma_plate",
+     "values": {
+      "decay": 1.6,
+      "mix": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "keys-pad-shimmer",
+   "name": "Keys: Pad Into Shimmer",
+   "kind": "keys",
+   "chain": [
+    {
+     "pedal": "ma_tri_chorus",
+     "values": {
+      "mix": 0.35
+     }
+    },
+    {
+     "pedal": "ma_dotted_delay",
+     "values": {
+      "bpm": 72,
+      "feedback": 0.5,
+      "mix": 0.3
+     }
+    },
+    {
+     "pedal": "ma_shimmer",
+     "values": {
+      "decay": 12,
+      "shimmer": 0.5,
+      "mix": 0.45
+     }
+    }
+   ]
+  },
+  {
+   "id": "keys-synth-drive",
+   "name": "Keys: Synth Lead Through a Drive",
+   "kind": "keys",
+   "chain": [
+    {
+     "pedal": "ma_clear_drive",
+     "values": {
+      "drive": 0.45
+     }
+    },
+    {
+     "pedal": "ma_analog_delay",
+     "values": {
+      "time": 375,
+      "feedback": 0.4,
+      "mix": 0.25
+     }
+    },
+    {
+     "pedal": "ma_hall",
+     "values": {
+      "decay": 2.5,
+      "mix": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "keys-dirty-wurli",
+   "name": "Keys: Dirty Wurli",
+   "kind": "keys",
+   "chain": [
+    {
+     "pedal": "ma_blues_drive",
+     "values": {
+      "drive": 0.35
+     }
+    },
+    {
+     "pedal": "ma_vibe",
+     "values": {
+      "rate": 1,
+      "depth": 0.5
+     }
+    },
+    {
+     "pedal": "ma_spring",
+     "values": {
+      "mix": 0.2
+     }
+    }
+   ]
+  },
+  {
+   "id": "keys-ambient-piano",
+   "name": "Keys: Ambient Piano",
+   "kind": "keys",
+   "chain": [
+    {
+     "pedal": "ma_swell_verb",
+     "values": {
+      "swell": 300,
+      "decay": 6,
+      "mix": 0.4
+     }
+    },
+    {
+     "pedal": "ma_tape_delay",
+     "values": {
+      "time": 450,
+      "feedback": 0.35,
+      "mix": 0.2
+     }
+    },
+    {
+     "pedal": "ma_hall",
+     "values": {
+      "decay": 4,
+      "mix": 0.3
+     }
+    }
+   ]
+  }
+ ]
+}

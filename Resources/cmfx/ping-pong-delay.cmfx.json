@@ -1,0 +1,163 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "ping-pong-delay",
+ "name": "Ping-Pong Delay",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "plugins",
+ "description": "Repeats that bounce left and right across the stereo field.",
+ "params": [
+  {
+   "id": "time",
+   "tempoSync": true,
+   "name": "Time",
+   "min": 40,
+   "max": 1500,
+   "default": 330,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.9,
+   "default": 0.45
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 1500,
+   "max": 16000,
+   "default": 6000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "width",
+   "name": "Width",
+   "min": 0,
+   "max": 2,
+   "default": 1.3
+  }
+ ],
+ "presets": [
+  {
+   "name": "Bouncy eighths",
+   "values": {
+    "time": 250,
+    "feedback": 0.4,
+    "mix": 0.3
+   }
+  },
+  {
+   "name": "Wide vocal throw",
+   "values": {
+    "time": 420,
+    "feedback": 0.3,
+    "mix": 0.25,
+    "tone": 4000
+   }
+  },
+  {
+   "name": "Dark and long",
+   "values": {
+    "time": 550,
+    "feedback": 0.65,
+    "mix": 0.35,
+    "tone": 2500
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "echo",
+    "type": "delay",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "time": {
+      "param": "time"
+     },
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": 1,
+     "tone": {
+      "param": "tone"
+     },
+     "mode": "pingpong",
+     "maxTime": 1600
+    }
+   },
+   {
+    "id": "wide",
+    "type": "stereo",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "width": {
+      "param": "width"
+     }
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "echo.in"
+   },
+   {
+    "from": "echo.out",
+    "to": "wide.in"
+   },
+   {
+    "from": "wide.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}
