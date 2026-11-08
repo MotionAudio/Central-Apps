@@ -42,8 +42,10 @@ g = {
     "enc": by_fp("ENC"),
     "fader": by_fp("FADER"),
     "oled": [[r] + list(P[r][:2]) for r in sorted(P) if FPK.get(r) == "OLED"],
-    "jack": by_fp("JACK635"),
-    "jack35": by_fp("JACK35"),
+    # 1/4in jacks: the plug AXIS (the footprint origin is a pin, not the axis); PJ-611E: sleeve pads at axis - 7.0 / + 4.2
+    "jack": [[round(min(p.GetPosition().x for p in b.FindFootprintByReference(r).Pads() if p.GetNumber() == "S") / 1e6 + 7.0, 3), 0.0]
+             for r in sorted(P) if FPK.get(r) == "JACK635"],
+    "jack35": [[P[r][0], 0.0] for r in sorted(P) if FPK.get(r) == "JACK35"],          # PJ-320D: the pegs sit on the axis = origin
     "caps_58": by_fp("CPOL"),                       # 6.3 x 5.8 electrolytics: the tallest SMD parts (matter under the 7in display's brackets)
     "opto": by_fp("SMD8_OPTO"),                     # 6N138S, 3.5 mm tall
     "slots": [[round(v / 1e6, 3) for v in c] for c in build.inner_cutouts(b)],

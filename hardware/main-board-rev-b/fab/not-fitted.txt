@@ -1,4 +1,4 @@
-Not fitted (DNP) on rev B - leave these empty:
+Not fitted (DNP) on rev B.3 - leave these empty:
 R7, R77, R78, R83, R84, R89, R90, R95, R96, R101, R102, R107, R108, R113, R114, R119, R120, R125, R126, R131, R132, R138, R139, R145, R146, R152, R153, R159, R160, R166, R167, R173, R174, R178, R179, R183, R184
 
 Solder jumpers (no part): JP_GAIN_A / JP_GAIN_B (bridge for 0 dB instrument inputs), JP_WP (bridge to write-protect the EEPROM).

@@ -19,12 +19,15 @@ for (x, y) in E.G["fsw"]: X, Y = E.P(x, y); parts.append(E.rbox(X - 13.5, Y - 7,
 for (x, y) in E.G["enc"]: X, Y = E.P(x, y); parts.append(E.rbox(X - 6.5, Y - 7.5, X + 6.5, Y + 7.5, 0, 6.5)); parts.append(E.cyl(X, Y, 7.0, 0, 7.0)); parts.append(E.cyl(X, Y, 6.0, 0, 30.0))
 for (x, y) in E.G["fader"]: X, Y = E.P(x, y); parts.append(E.rbox(X - 4.5, Y - 37.5, X + 4.5, Y + 37.5, 0, 9.0)); parts.append(E.rbox(X - 0.75, Y - 2.0, X + 0.75, Y + 2.0, 0, 20.5))
 for (x, y) in E.G["led"]: X, Y = E.P(x, y); parts.append(E.cyl(X, Y, 5.0, 0, 15.0))
-for (x, y) in E.G["jack"]: X, Y = E.P(x, y); parts.append(E.rbox(X - 9.1, Y - 20.2, X + 9.1, Y + 2.9, 0, 15.67))
+for (x, y) in E.G["jack"]:   # HOOYA PJ-611E: body x axis-9.3..+6.5, 24.4 deep, 12.6 tall; 10.1 collar 0.5 long, then the 9.53 bushing 8.2 long
+    X, Y = E.P(x, y); parts.append(E.rbox(X - 9.3, Y - 24.4, X + 6.5, Y, 0, 12.6))
+    parts.append(E.cq.Workplane("XZ").circle(5.05).extrude(-0.5).translate((X, Y, E.JACK_AXIS_Z)))
+    parts.append(E.cq.Workplane("XZ").circle(4.76).extrude(-8.7).translate((X, Y, E.JACK_AXIS_Z)))
 for (x, y) in E.G["jack35"]: X, Y = E.P(x, y); parts.append(E.rbox(X - 3.0, Y - 7.0, X + 3.0, Y + 3.0, 0, 5.0))
 for (x, y) in E.G.get("caps_58", []): X, Y = E.P(x, y); parts.append(E.cyl(X, Y, 6.3, 0, 5.8))
 tall = E.union_all(parts)
 objs = {"base": base, "plate": plate, "splices": spl, "oled_modules": oled, "tall_parts": tall,
-        "board": refs["board"], "pi": refs["pi"], "disp7": refs["display7"], "bar": refs["bar_screen"], "fan": refs["fan"], "plugs": refs["plugs"], "oled_tight": oled_tight}
+        "board": refs["board"], "pi": refs["pi"], "disp7": refs["display7"], "bar": refs["bar_screen"], "fan": refs["fan"], "plugs": refs["plugs"], "oled_tight": oled_tight, "side_io": refs["side_io"]}
 
 
 def vol(s):
@@ -38,7 +41,9 @@ pairs = [("plate", "oled_modules"), ("plate", "tall_parts"), ("plate", "board"),
          ("base", "plate"), ("base", "board"), ("base", "pi"), ("base", "tall_parts"), ("base", "fan"), ("base", "plugs"),
          ("splices", "plate"), ("splices", "tall_parts"), ("splices", "oled_modules"), ("splices", "disp7"), ("splices", "bar"),
          ("disp7", "tall_parts"), ("disp7", "oled_tight"), ("bar", "tall_parts"), ("bar", "oled_tight"), ("disp7", "bar"),
-         ("fan", "pi"), ("plugs", "fan"), ("plugs", "pi"), ("plugs", "disp7"), ("plugs", "bar")]
+         ("fan", "pi"), ("plugs", "fan"), ("plugs", "pi"), ("plugs", "disp7"), ("plugs", "bar"),
+         ("fan", "base"), ("fan", "board"), ("side_io", "pi"), ("side_io", "board"), ("side_io", "tall_parts"), ("side_io", "fan"), ("side_io", "base"),
+         ("pi", "board"), ("pi", "tall_parts")]
 bad = 0
 for a, b in pairs:
     v = vol(objs[a].intersect(objs[b]))

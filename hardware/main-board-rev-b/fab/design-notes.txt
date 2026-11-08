@@ -1,4 +1,4 @@
-Central Pedal main board rev B - design notes and assumptions
+Central Pedal main board rev B.3 - design notes and assumptions
 
  1. The Pi's own 3.3 V pins are not tied to the board's 3V3 (DNP 0R): both are 3.3 V, so I2C/UART/I2S levels match without joining the rails.
 
@@ -22,11 +22,11 @@ Central Pedal main board rev B - design notes and assumptions
 
 11. MIDI: 3.5 mm TRS type A. Out drives 3.3 V through 33R (tip) / 10R (ring) as the MIDI 3.3 V spec says; in is the classic 6N138 with a 2.2k pull-up to 3.3 V on UART0 RX.
 
-12. Knobs are Bourns PEC11R-4230F-S0024 encoders (24 detents, push switch, 30 mm flatted shaft - the enclosure's top plate is 16 mm above the board, so 11 mm of shaft shows for the knob); the plate has an 8 mm clearance hole, no nut (the 7 mm bushing never reaches the plate). 10k pull-ups + 10n on every A/B/switch line into the MCP23017s.
+12. Knobs are EC11-footprint encoders with a push switch and a 30 mm, 6 mm D (half-moon) shaft - the enclosure's top plate is 16 mm above the board, so 11 mm of shaft shows above it. Detents and pulses must be equal (20/20 or 24/24) so one click = one step in the software; a generic EC11 or the Bourns PEC11R-4230F-S0024 both fit the pads. The plate has an 8 mm clearance hole, no nut (the 7 mm bushing never reaches the plate). 10k pull-ups + 10n on every A/B/switch line into the MCP23017s.
 
 13. Label screens: 18 x 0.91-inch 128x32 I2C OLED modules in 4-pin sockets behind 3 TCA9548A muxes (0x70-0x72), one module per mux channel, 4.7k pull-ups per channel, powered from 3V3. Modules come in two pin orders: GND-VCC-SCL-SDA (0R links 'A' fitted) and VCC-GND-SCL-SDA (move the two 0R links to 'B').
 
 14. Cables inside the box: Pi USB-A -> J_USB_UP (JST-PH 4); micro-HDMI 1 on the Pi -> bar screen mini-HDMI (slim lead, plug body in the 'HDMI PLUG' slot); J_USB_BAR -> bar screen TOUCH micro-USB (touch + 5 V, right-angle plug in the 'TOUCH USB PLUG' slot); J_DISP -> Touch Display 2 power (the display's own lead with a PH plug); display ribbon through the slot to the Pi's DSI; J_FAN -> fan; J_BAT -> 2S pack.
 
-15. Rev B.2: the 7-inch Touch Display 2 (centre 195, 94; its four M2.5 Pi stand-offs at 193/251 x 69.5/118.5, 8.5 mm long -> glass 14.92 mm above the board), the 11.9-inch bar screen (centre 195, 193; stand-offs 156.6/214.6 x 170.5/219.45, 4 mm -> glass 13.65 mm up) and a 40 mm fan (back side, centre 116, 116, M3 holes at 32 mm on 10 mm stand-offs) are screwed to the board by the assembler. Nothing taller than 5 mm may sit under the display's corner brackets (x 125 / 265, y 51-66 and 122-137) or taller than 8 mm anywhere under the display; nothing taller than 2.5 mm under the bar screen outside its PCB cut-out (x 136-259, y 160-226, 4 mm). Slots 179.5-192.5 x 129-154 (HDMI plug) and 247.5-271.5 x 207.7-220.7 (touch plug) are board cut-outs.
+15. Rev B.2: the 7-inch Touch Display 2 (centre 195, 94; its four M2.5 Pi stand-offs at 193/251 x 69.5/118.5, 8.5 mm long -> glass 14.92 mm above the board), the 11.9-inch bar screen (centre 195, 193; stand-offs 156.6/214.6 x 170.5/219.45, 4 mm -> glass 13.65 mm up) and a 40 mm fan (back side, centre 116, 116, M3 holes at 32 mm on 10 mm stand-offs) screw onto the board (fitted by the customer; the holes and slots are on the board). Nothing taller than 5 mm may sit under the display's corner brackets (x 125 / 265, y 51-66 and 122-137) or taller than 8 mm anywhere under the display; nothing taller than 2.5 mm under the bar screen outside its PCB cut-out (x 136-259, y 160-226, 4 mm). Slots 179.5-192.5 x 129-154 (HDMI plug) and 247.5-271.5 x 207.7-220.7 (touch plug) are board cut-outs.
 

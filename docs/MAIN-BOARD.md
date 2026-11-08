@@ -73,7 +73,7 @@ uses it); GPIO 12/13 are the headphone audio, so the Learn tab keeps them reserv
 | 0x6b | BQ25798 | 2S buck-boost charger with power path: 8.4 V, 2 A charge, 3 A in (set by the driver; the PROG resistor gives the same) |
 | 0x70, 0x71, 0x72 | TCA9548A ×3 | label-screen muxes: 0x70 ch 0–7 = footswitches 1–8 · 0x71 ch 0–1 = footswitches 9–10, ch 2–7 = knobs 1–6 · 0x72 ch 0–1 = faders A, B. Every channel has one 0.91" 128×32 SSD1306 OLED at 0x3c |
 
-Knobs are Bourns PEC11R-4230F-S0024 encoders (24 detents, push, 30 mm shaft so a knob sits above the 16 mm-high top plate). One detent = one step; a knob set to a level job
+Knobs are EC11 encoders with a push switch and a 30 mm shaft (so a knob sits above the 16 mm-high top plate), detents = pulses (20/20 or 24/24). One detent = one step; a knob set to a level job
 (volume, tone, a level) keeps its own position and moves it 2 % per detent (6 % when turned quickly). A knob that
 turns the wrong way gets `"reverse": true` in its `expander_enc`.
 

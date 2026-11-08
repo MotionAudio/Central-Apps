@@ -23,6 +23,7 @@ TW = 0.2               # track width (the Default net class)
 CLR = 0.15             # clearance
 VIA_D, VIA_DRILL = 0.5, 0.25
 EDGE = 0.5
+VIA_COST = float(os.environ.get("MAZE_VIA", "12"))   # a via costs as much as this many 0.1 mm grid steps
 LAYERS = (pcbnew.F_Cu, pcbnew.B_Cu, pcbnew.In2_Cu)   # In2 (5V1 plane) allowed as a last resort, at a high cost
 _KEEP = []   # removed items stay referenced: letting Python free them corrupts the board
 
@@ -88,29 +89,47 @@ class Grid:
     def _mark(self, arr, mask):
         arr |= mask
 
-    def _dist_seg(self, a, b):
+    def _sl(self, xa, ya, xb, yb):
+        """grid slice covering the box (None if it misses the window)"""
+        i0 = max(0, int(np.floor((xa - self.x0) / STEP))); i1 = min(self.nx, int(np.ceil((xb - self.x0) / STEP)) + 1)
+        j0 = max(0, int(np.floor((ya - self.y0) / STEP))); j1 = min(self.ny, int(np.ceil((yb - self.y0) / STEP)) + 1)
+        if i0 >= i1 or j0 >= j1:
+            return None
+        return (slice(j0, j1), slice(i0, i1))
+
+    def _dist_seg(self, a, b, sl=None):
+        X = self.X if sl is None else self.X[sl]
+        Y = self.Y if sl is None else self.Y[sl]
         ax, ay = a
         bx, by = b
         dx, dy = bx - ax, by - ay
         L2 = dx * dx + dy * dy
         if L2 == 0:
-            return np.hypot(self.X - ax, self.Y - ay)
-        t = np.clip(((self.X - ax) * dx + (self.Y - ay) * dy) / L2, 0, 1)
-        return np.hypot(self.X - (ax + t * dx), self.Y - (ay + t * dy))
+            return np.hypot(X - ax, Y - ay)
+        t = np.clip(((X - ax) * dx + (Y - ay) * dy) / L2, 0, 1)
+        return np.hypot(X - (ax + t * dx), Y - (ay + t * dy))
 
     def _seg(self, layer, a, b, half):
         if layer not in self.block:
             return
-        d = self._dist_seg(a, b)
-        self.block[layer] |= d < half + TW / 2 + CLR
-        self.via_block |= d < half + VIA_D / 2 + CLR
+        r = half + max(TW / 2, VIA_D / 2) + CLR + STEP
+        sl = self._sl(min(a[0], b[0]) - r, min(a[1], b[1]) - r, max(a[0], b[0]) + r, max(a[1], b[1]) + r)
+        if sl is None:
+            return
+        d = self._dist_seg(a, b, sl)
+        self.block[layer][sl] |= d < half + TW / 2 + CLR
+        self.via_block[sl] |= d < half + VIA_D / 2 + CLR
 
     def _seg_all(self, a, b, half, extra, via_too=False, via_extra=0):
-        d = self._dist_seg(a, b)
+        r = half + max(extra, via_extra) + STEP
+        sl = self._sl(min(a[0], b[0]) - r, min(a[1], b[1]) - r, max(a[0], b[0]) + r, max(a[1], b[1]) + r)
+        if sl is None:
+            return
+        d = self._dist_seg(a, b, sl)
         for ly in LAYERS:
-            self.block[ly] |= d < half + extra
+            self.block[ly][sl] |= d < half + extra
         if via_too:
-            self.via_block |= d < half + via_extra
+            self.via_block[sl] |= d < half + via_extra
 
     def _pad(self, pad):
         p = pad.GetPosition()
@@ -118,10 +137,18 @@ class Grid:
         bb = pad.GetBoundingBox()
         hw, hh = bb.GetWidth() / 2e6, bb.GetHeight() / 2e6
         same = pad.GetNetCode() == self.net
+        R = max(hw, hh) + VIA_D / 2 + CLR + 1.0
+        sl = self._sl(cx - R, cy - R, cx + R, cy + R)
+        if sl is None:
+            return
+        X, Y = self.X[sl], self.Y[sl]
         if pad.GetDrillSizeX() > 0:   # the hole: no via on top of it, whatever the net
             r = max(pad.GetDrillSizeX(), pad.GetDrillSizeY()) / 2e6
-            d = np.hypot(self.X - cx, self.Y - cy)
-            self.via_block |= d < r + VIA_DRILL / 2 + 0.3
+            d = np.hypot(X - cx, Y - cy)
+            self.via_block[sl] |= d < r + VIA_DRILL / 2 + 0.3
+            if not same or pad.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:   # hole-to-copper clearance (0.25 rule)
+                for ly in LAYERS:
+                    self.block[ly][sl] |= d < r + TW / 2 + 0.3
         if same:
             return
         if pad.GetShape() == pcbnew.PAD_SHAPE_CUSTOM:
@@ -140,25 +167,29 @@ class Grid:
                         self.via_block[j, i] = True
             return
         # rectangle inflated (conservative for round / rotated pads)
-        inx = np.abs(self.X - cx) < hw + TW / 2 + CLR
-        iny = np.abs(self.Y - cy) < hh + TW / 2 + CLR
+        inx = np.abs(X - cx) < hw + TW / 2 + CLR
+        iny = np.abs(Y - cy) < hh + TW / 2 + CLR
         for ly in LAYERS:
             if pad.IsOnLayer(ly):
-                self.block[ly] |= inx & iny
+                self.block[ly][sl] |= inx & iny
         if any(pad.IsOnLayer(ly) for ly in (pcbnew.F_Cu, pcbnew.B_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu)):
-            self.via_block |= (np.abs(self.X - cx) < hw + VIA_D / 2 + CLR) & (np.abs(self.Y - cy) < hh + VIA_D / 2 + CLR)
+            self.via_block[sl] |= (np.abs(X - cx) < hw + VIA_D / 2 + CLR) & (np.abs(Y - cy) < hh + VIA_D / 2 + CLR)
 
     def _via_item(self, v):
         p = v.GetPosition()
         cx, cy = p.x / 1e6, p.y / 1e6
-        d = np.hypot(self.X - cx, self.Y - cy)
-        self.via_block |= d < v.GetDrill() / 2e6 + VIA_DRILL / 2 + 0.3
+        r = v.GetWidth() / 2e6
+        R = r + VIA_D / 2 + CLR + 0.5
+        sl = self._sl(cx - R, cy - R, cx + R, cy + R)
+        if sl is None:
+            return
+        d = np.hypot(self.X[sl] - cx, self.Y[sl] - cy)
+        self.via_block[sl] |= d < v.GetDrill() / 2e6 + VIA_DRILL / 2 + 0.3
         if v.GetNetCode() == self.net:
             return
-        r = v.GetWidth() / 2e6
         for ly in LAYERS:
-            self.block[ly] |= d < r + TW / 2 + CLR
-        self.via_block |= d < r + VIA_D / 2 + CLR
+            self.block[ly][sl] |= d < r + TW / 2 + CLR
+        self.via_block[sl] |= d < r + VIA_D / 2 + CLR
 
     def cell(self, x, y):
         return int(round((x - self.x0) / STEP)), int(round((y - self.y0) / STEP))
@@ -217,14 +248,21 @@ def route(grid, sources, targets):
     dist = np.full((3, grid.ny, grid.nx), INF)
     prev = {}
     tgt = set((L[ly], i, j) for (i, j, ly) in targets)
+    ti0 = min(i for (i, j, ly) in targets); ti1 = max(i for (i, j, ly) in targets)
+    tj0 = min(j for (i, j, ly) in targets); tj1 = max(j for (i, j, ly) in targets)
+    W_H = float(os.environ.get("MAZE_W", "1.3"))      # weighted A*: >1 trades optimality for speed
+
+    def h(i, j):                                      # octile distance to the target pad's bounding box
+        dx = max(ti0 - i, 0, i - ti1); dy = max(tj0 - j, 0, j - tj1)
+        return W_H * (max(dx, dy) + 0.42 * min(dx, dy))
     heap = []
     for (i, j, ly) in sources:
         dist[L[ly], j, i] = 0
-        heapq.heappush(heap, (0, L[ly], i, j))
+        heapq.heappush(heap, (h(i, j), 0, L[ly], i, j))
     moves = [(1, 0, 1.0), (-1, 0, 1.0), (0, 1, 1.0), (0, -1, 1.0), (1, 1, 1.42), (1, -1, 1.42), (-1, 1, 1.42), (-1, -1, 1.42)]
     src = set((L[ly], i, j) for (i, j, ly) in sources)
     while heap:
-        d, l, i, j = heapq.heappop(heap)
+        _f, d, l, i, j = heapq.heappop(heap)
         if d > dist[l, j, i]:
             continue
         if (l, i, j) in tgt:
@@ -246,20 +284,61 @@ def route(grid, sources, targets):
             if nd < dist[l, nj, ni]:
                 dist[l, nj, ni] = nd
                 prev[(l, ni, nj)] = (l, i, j)
-                heapq.heappush(heap, (nd, l, ni, nj))
+                heapq.heappush(heap, (nd + h(ni, nj), nd, l, ni, nj))
         # via (through-hole: any layer to any layer)
         if not grid.via_block[j, i]:
             for ol in range(3):
                 if ol == l:
                     continue
                 if not grid.block[layers[ol]][j, i] or (ol, i, j) in tgt:
-                    nd = d + 12.0 + (6.0 if ol == 2 else 0.0)
+                    nd = d + VIA_COST + (6.0 if ol == 2 else 0.0)
                     if nd < dist[ol, j, i]:
                         dist[ol, j, i] = nd
                         prev[(ol, i, j)] = (l, i, j)
-                        heapq.heappush(heap, (nd, ol, i, j))
+                        heapq.heappush(heap, (nd + h(i, j), nd, ol, i, j))
     return None
 
+
+def _clear(free, a, b):
+    """True if the straight centreline a -> b (cell coords) stays on free cells (the 4 cells around every sample)"""
+    (i0, j0), (i1, j1) = a, b
+    n = int(max(abs(i1 - i0), abs(j1 - j0)) * 2) + 2
+    t = np.linspace(0.0, 1.0, n)
+    x = i0 + (i1 - i0) * t; y = j0 + (j1 - j0) * t
+    xf, xc = np.floor(x).astype(int), np.ceil(x).astype(int)
+    yf, yc = np.floor(y).astype(int), np.ceil(y).astype(int)
+    ny, nx = free.shape
+    if xf.min() < 0 or yf.min() < 0 or xc.max() >= nx or yc.max() >= ny:
+        return False
+    return bool(free[yf, xf].all() and free[yf, xc].all() and free[yc, xf].all() and free[yc, xc].all())
+
+
+def pull(grid, layer, cells, look=400):
+    """string-pulling: replace the grid staircase by a few straight runs that keep clear of everything
+    (45-degree and orthogonal runs first, so it looks hand-routed; any angle only where those can't reach)"""
+    if len(cells) < 3:
+        return cells
+    free = ~grid.block[layer]
+    for (i, j) in cells:
+        free[j, i] = True
+    out = [cells[0]]
+    k, last = 0, len(cells) - 1
+    while k < last:
+        best = k + 1
+        a = cells[k]
+        for m in range(min(last, k + look), k + 1, -1):
+            di, dj = cells[m][0] - a[0], cells[m][1] - a[1]
+            if (di == 0 or dj == 0 or abs(di) == abs(dj)) and _clear(free, a, cells[m]):
+                best = m
+                break
+        if best < k + 6:
+            for m in range(min(last, k + look), best, -3):
+                if _clear(free, a, cells[m]):
+                    best = m
+                    break
+        out.append(cells[best])
+        k = best
+    return out
 
 def lay(board, grid, path, net):
     layers = [pcbnew.F_Cu, pcbnew.B_Cu, pcbnew.In2_Cu]
@@ -274,13 +353,7 @@ def lay(board, grid, path, net):
     runs.append(cur)
     n_t = n_v = 0
     for k, run in enumerate(runs):
-        pts = [grid.pos(i, j) for (_, i, j) in run]
-        simp = [pts[0]]
-        for a, b, c in zip(pts, pts[1:], pts[2:]):
-            if (b[0] - a[0], b[1] - a[1]) != (c[0] - b[0], c[1] - b[1]):
-                simp.append(b)
-        if len(pts) > 1:
-            simp.append(pts[-1])
+        simp = [grid.pos(i, j) for (i, j) in pull(grid, layers[run[0][0]], [(i, j) for (_, i, j) in run])]
         for a, b in zip(simp, simp[1:]):
             t = pcbnew.PCB_TRACK(board)
             t.SetStart(pcbnew.VECTOR2I(mm(a[0]), mm(a[1])))

@@ -46,7 +46,7 @@ SCREW_D = 3.4
 # footswitches / lights / knobs / faders / label screens
 FSW_HOLE = 12.6              # M12 bushing
 LED_HOLE = 5.3
-ENC_HOLE = 8.0               # knob shaft through a plain hole (PEC11R-4230F: 30 mm shaft -> 11 mm of shaft above the plate)
+ENC_HOLE = 8.0               # knob shaft through a plain hole (EC11, 30 mm shaft -> 11 mm of shaft above the plate)
 FADER_RECESS = (18.0, 78.0)  # the fader cap runs in a shallow recessed tray (x, y), so the 20.5 mm lever top shows 6 mm
 FADER_RECESS_FLOOR_Z = 12.8  # tray floor underside: above the label-screen modules (12.5) and the fader body (9)
 FADER_RECESS_FLOOR_T = 1.6
@@ -69,8 +69,10 @@ BAR = dict(size=(287.3, 69.8), active=(268.18, 57.98), at=tuple(G["bar_at"]), gl
            low=[(137.5, 187.0, 143.8, 211.0, 1.5), (160.4, 166.3, 168.3, 171.75, 1.36), (237.1, 210.25, 242.5, 218.2, 1.36)])
 GASKET = {id(DISP7): Z_PLATE - 14.92, id(BAR): Z_PLATE - 13.65}      # foam tape between the plate and each glass (1.1 / 2.4 mm)
 # back panel
-JACK_AXIS_Z = 7.8            # 1/4" jack bore above the PCB (Neutrik NMJ6HCD2: verify on the drawing)
-JACK_HOLE = 11.0
+JACK_AXIS_Z = 6.3            # 1/4" jack axis above the PCB (HOOYA PJ-611E: 12.6 mm body, axis centred)
+JACK_HOLE = 9.9              # its 3/8in-32 bushing (9.53) through the back panel; nut + washer outside
+JACK_RING = (10.6, 13.0)     # spacer ring on the wall's inside (ID clears the 10.1 mm collar, OD bears on the body face):
+                             # the nut clamps the panel against the jack body, not against the solder joints
 JACK35_AXIS_Z = 2.6          # PJ-320D
 JACK35_HOLE = 9.5            # lets 3.5 mm plug bodies reach the recessed jack
 USBC_WIN = (13.5, 8.0, 1.7)  # w, h, centre z - sized for the plug's overmould
@@ -78,8 +80,19 @@ USBA_WIN = (16.0, 9.0, 3.6)
 PWR_HOLE = 5.0
 PWR_Z = 3.5
 # base interior
-FAN_AT, FAN_SIZE, FAN_HOLES = tuple(G["fan_at"]), 40.0, 32.0   # 40 mm fan on the BACK of the board (10 mm stand-offs); exhaust grille in the floor below it
-FAN_STANDOFF = 10.0
+FAN_AT, FAN_SIZE, FAN_HOLES = (126.0, 112.0), 40.0, 32.0       # 40 mm fan screwed to the base floor (4 x M3 inserts), blowing down through the grille
+FAN_PAD_H = 4.0
+# Raspberry Pi 4: screwed to the base on 4 bosses with M2.5 heat-set inserts (component side up), the board drops onto it
+PI_Z0 = -T_PCB - 20.0 - 1.6         # Pi PCB underside: 20 mm M2.5 male-female standoffs between the Pi and the board
+PI_INSERT = (3.6, 7.0)              # M2.5 heat-set insert hole: diameter, depth (the standoff's 6 mm male thread goes in)
+# right side panel: the Pi's ports come out through panel-mount extension leads (board y of each, kind)
+SIDE_IO_Z = -15.3                   # centred in the 27 mm between the floor and the board
+SIDE_IO = [(42.0, "RJ45"), (84.0, "USB"), (122.0, "USB"), (190.0, "HDMI")]
+IO_SPEC = {   # face cut-out (w, h), mounting-hole slot range (min, max centre-to-centre), screw slot width, body depth inside
+    "RJ45": ((17.0, 14.5), (27.0, 38.0), 3.4, 32.0),
+    "USB": ((15.4, 8.2), (26.0, 32.0), 3.4, 30.0),
+    "HDMI": ((16.2, 7.6), (28.0, 34.0), 3.4, 30.0),
+}
 BATT_BAY = (20.0, 100.0, 180.0, 250.0)                         # x0, x1, y0, y1 (board y): strap slots for a 2S pack
 FEET_D = 20.0
 VENT = dict(n=8, w=2.0, h=18.0, pitch=5.0)                      # slot rows in the side walls
@@ -155,6 +168,19 @@ def make_base():
         adds.append(cyl(X, Y, BOSS_D, Z_FLOOR - 0.01, -T_PCB))
     # thicker pad behind the USB-C / USB-A / power button so plugs reach them (their faces sit at the board edge)
     adds.append(rbox(6.0, H + 0.5, 62.0, H + GAP + 0.01, -T_PCB - 2.0, 12.0))
+    # Raspberry Pi bosses (M2.5 inserts) and fan pads (M3 inserts)
+    for (x, y) in G["pi_holes"]:
+        X, Y = P(x, y)
+        adds.append(cyl(X, Y, 6.5, Z_FLOOR - 0.01, PI_Z0))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            FX, FY = P(*FAN_AT)
+            adds.append(cyl(FX + sx * FAN_HOLES / 2, FY + sy * FAN_HOLES / 2, 7.0, Z_FLOOR - 0.01, Z_FLOOR + FAN_PAD_H))
+    # spacer rings behind the 1/4" jack holes: from the wall's inner face to 0.05 mm short of the jack body face (board edge)
+    for (x, y) in G["jack"]:
+        X, _ = P(x, y)
+        ring = cq.Workplane("XZ").circle(JACK_RING[1] / 2).circle(JACK_RING[0] / 2).extrude(-(GAP - 0.05 + 0.5))
+        adds.append(ring.translate((X, H + 0.05, JACK_AXIS_Z)))
     fx, fy = P(*FAN_AT)
     base = base.union(union_all(adds))
 
@@ -164,6 +190,24 @@ def make_base():
         X, Y = P(x, y)
         cuts.append(cyl(X, Y, SCREW_D, Z_BOT - 1, -T_PCB + 1))
         cuts.append(cyl(X, Y, 6.5, Z_BOT - 1, Z_BOT + 3.0))
+    # insert holes: Pi bosses (M2.5), fan pads (M3)
+    for (x, y) in G["pi_holes"]:
+        X, Y = P(x, y)
+        cuts.append(cyl(X, Y, PI_INSERT[0], PI_Z0 - PI_INSERT[1], PI_Z0 + 0.5))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            FX, FY = P(*FAN_AT)
+            cuts.append(cyl(FX + sx * FAN_HOLES / 2, FY + sy * FAN_HOLES / 2, INSERT_D, Z_FLOOR + FAN_PAD_H - INSERT_DEPTH, Z_FLOOR + FAN_PAD_H + 1))
+    # right side panel: cut-outs + slotted M3 holes for the panel-mount leads (ears 26-38 mm apart all fit)
+    for (yb, kind) in SIDE_IO:
+        (fw, fh), (smin, smax), sw, _ = IO_SPEC[kind]
+        Y = P(0, yb)[1]
+        x0 = XI1 - 1.0
+        cuts.append(cq.Workplane("YZ").rect(fw, fh).extrude(WALL + 2.0).edges("|X").fillet(1.0).translate((x0, Y, SIDE_IO_Z)))
+        for sgn in (-1, 1):
+            yc = Y + sgn * (smin + smax) / 4
+            slot_len = (smax - smin) / 2 + sw
+            cuts.append(cq.Workplane("YZ").slot2D(slot_len, sw).extrude(WALL + 2.0).translate((x0, yc, SIDE_IO_Z)))
     # back panel: 1/4" jacks
     yb0, yb1 = H + 0.4, YO1 + 1          # from the inner pad face through the wall
     for (x, y) in G["jack"]:
@@ -199,7 +243,7 @@ def make_base():
         X, Y = P(x, y)
         cuts.append(cyl(X, Y, FEET_D, Z_BOT - 1, Z_BOT + 1.0))
     # vents: slot rows low in both side walls, near the Pi (right) and the power stage (left)
-    for (xw, yc) in ((XO0, P(0, 90)[1]), (XO1, P(0, 90)[1]), (XO0, P(0, 200)[1]), (XO1, P(0, 200)[1])):
+    for (xw, yc) in ((XO0, P(0, 90)[1]), (XO1, P(0, 240)[1]), (XO0, P(0, 200)[1])):         # right wall: clear of the side I/O
         for k in range(VENT["n"]):
             Y = yc + (k - (VENT["n"] - 1) / 2) * VENT["pitch"]
             cuts.append(cq.Workplane("YZ").rect(VENT["w"], VENT["h"]).extrude(WALL + 2).translate((xw - 1, Y, Z_FLOOR + 4 + VENT["h"] / 2)))
@@ -319,7 +363,14 @@ def make_refs():
     # Pi behind the board, component side up, on 20 mm standoffs; header along the board's back-panel side
     px0, py0 = G["pi_holes"][0][0] - 3.5, G["pi_holes"][0][1] - 3.5
     X0, Y1 = P(px0, py0)
-    refs["pi"] = rbox(X0, Y1 - 56.0, X0 + 85.0, Y1, -T_PCB - 20.0 - 1.6, -T_PCB - 20.0)
+    pi = [rbox(X0, Y1 - 56.0, X0 + 85.0, Y1, PI_Z0, PI_Z0 + 1.6)]
+    # its tall parts (component side up): Ethernet, 2 x 2 USB at the right short edge (2.5 mm overhang), the standoffs
+    for (yc, w, h) in ((10.25, 16.0, 13.5), (29.0, 15.0, 16.0), (47.0, 15.0, 16.0)):
+        Yc = Y1 - yc
+        pi.append(rbox(X0 + 85.0 - 21.0, Yc - w / 2, X0 + 85.0 + 2.5, Yc + w / 2, PI_Z0 + 1.6, PI_Z0 + 1.6 + h))
+    for (x, y) in G["pi_holes"]:
+        pi.append(cq.Workplane("XY").polygon(6, 5.8).extrude(20.0).translate((P(x, y)[0], P(x, y)[1], PI_Z0 + 1.6)))
+    refs["pi"] = union_all(pi)
     # the two screens as mounted on the board: body + stand-offs (+ the 7" display's corner brackets)
     for name, scr in (("display7", DISP7), ("bar_screen", BAR)):
         sx, sy = P(*scr["at"])
@@ -340,11 +391,16 @@ def make_refs():
             for (x0, y0, x1, y1, z) in scr["low"]:
                 parts.append(rbox(P(x0, y1)[0], P(x0, y1)[1], P(x1, y0)[0], P(x1, y0)[1], z, scr["pcb"][4] + 0.01))
         refs[name] = union_all(parts)
-    # fan on the back of the board: 10 mm stand-offs, 40 x 40 x 10 body
+    # fan on the floor pads, 40 x 40 x 10
     fx, fy = P(*FAN_AT)
-    fan = [rbox(fx - 20, fy - 20, fx + 20, fy + 20, -T_PCB - FAN_STANDOFF - 10.0, -T_PCB - FAN_STANDOFF, 2.0)]
-    fan += [cyl(P(x, y)[0], P(x, y)[1], 5.5, -T_PCB - FAN_STANDOFF, -T_PCB + 0.01) for (x, y) in G["fan_holes"]]
-    refs["fan"] = union_all(fan)
+    refs["fan"] = rbox(fx - 20, fy - 20, fx + 20, fy + 20, Z_FLOOR + FAN_PAD_H, Z_FLOOR + FAN_PAD_H + 10.0, 2.0)
+    # panel-mount leads behind the right wall: connector body + the first 15 mm of cable
+    io = []
+    for (yb, kind) in SIDE_IO:
+        (fw, fh), _, _, depth = IO_SPEC[kind]
+        Y = P(0, yb)[1]
+        io.append(rbox(XI1 - depth, Y - fw / 2 - 1.0, XI1 - 0.01, Y + fw / 2 + 1.0, SIDE_IO_Z - fh / 2 - 1.0, SIDE_IO_Z + fh / 2 + 1.0, 1.0))
+    refs["side_io"] = union_all(io)
     # cable plugs: the bar screen's HDMI and touch-USB plug bodies sit in their board slots (7 mm thick, centred on
     # the sockets 2.7 mm above the board) and the Pi's micro-HDMI plug under the board
     plugs = []
@@ -353,7 +409,7 @@ def make_refs():
             continue                                    # the ribbon slot
         if x1 - x0 > y1 - y0:                             # touch plug: 10 mm wide housing in the bar PCB's notch
             yc = (y0 + y1) / 2
-            X0, Y0 = P(x0 + 0.5, yc + 5.0); X1, Y1 = P(x1 - 0.5, yc - 5.0)
+            X0, Y0 = P(x0 + 0.5, yc + 4.7); X1, Y1 = P(x1 - 0.5, yc - 4.7)
         else:                                              # HDMI plug: 11 x 24 housing hanging in the slot
             X0, Y0 = P(x0 + 1.0, y1 - 0.5); X1, Y1 = P(x1 - 1.0, y0 + 0.5)
         plugs.append(rbox(X0, Y0, X1, Y1, -0.8, 6.2, 1.0))
@@ -491,6 +547,7 @@ if __name__ == "__main__":
     asm.add(refs["display7"], name="ref-7in-display", color=cq.Color(0.05, 0.05, 0.1))
     asm.add(refs["bar_screen"], name="ref-bar-screen", color=cq.Color(0.05, 0.05, 0.1))
     asm.add(refs["fan"], name="ref-fan", color=cq.Color(0.2, 0.2, 0.2))
+    asm.add(refs["side_io"], name="ref-side-panel-leads", color=cq.Color(0.3, 0.3, 0.3))
     asm.add(refs["plugs"], name="ref-cable-plugs", color=cq.Color(0.3, 0.3, 0.3))
     asm.add(refs["knobs"], name="ref-knobs", color=cq.Color(0.1, 0.1, 0.1))
     asm.add(refs["footswitches"], name="ref-footswitches", color=cq.Color(0.75, 0.75, 0.78))

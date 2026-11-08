@@ -880,7 +880,7 @@ class QuadratureDecoder:
         self.sign = -1 if reverse else 1
 
     def feed(self, a, b):
-        """a, b: the two lines (0/1). Returns +1 (A leads B - clockwise on the Bourns PEC11R as wired), -1 or 0.
+        """a, b: the two lines (0/1). Returns +1 (A leads B - clockwise on a Bourns PEC11R / most EC11s as wired), -1 or 0.
         A knob that turns the wrong way gets "reverse": true in its expander_enc (Configure tab)."""
         self.state = self.TABLE[self.state & 0x0F][((1 if b else 0) << 1) | (1 if a else 0)]
         d = self.state & 0x30

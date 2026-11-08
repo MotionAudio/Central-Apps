@@ -1,4 +1,4 @@
-Central Pedal main board rev B - every net and the pins on it
+Central Pedal main board rev B.3 - every net and the pins on it
 
 3V3            R7.2  R8.1  R19.2  R20.2  U_INA.1  U_INA.2  U_INA.6  C23.1  R21.2  R22.2  L_3V3.2  R28.1  C39.1  C40.1  C_3V3.1  TP_3V3.1  U_DAC1.20  C50.1  R34.2  U_DAC2.20  C58.1  U_DAC3.20  C66.1  U_USB2.3  U_USB2.10  U_USB2.21  U_USB2.24  R43.2  C72.1  C73.1  R44.2  U_USB3.3  U_USB3.10  U_USB3.21  U_USB3.24  R45.2  C80.1  C81.1  R46.2  U_ADC.4  U_ADC.10  U_ADC.11  C92.1  X_ADC.1  X_ADC.4  C93.1  R54.2  R60.2  U_HP.12  U_HP.20  C108.1  C109.1  R61.2  R67.2  R69.1  R76.2  R77.2  C122.1  R82.2  R83.2  C124.1  R88.2  R89.2  C126.1  R94.2  R95.2  C128.1  R100.2  R101.2  C130.1  R106.2  R107.2  C132.1  R112.2  R113.2  C134.1  R118.2  R119.2  C136.1  R124.2  R125.2  C138.1  R130.2  R131.2  C140.1  R133.2  R134.2  R135.2  R137.2  R138.2  C144.1  R140.2  R141.2  R142.2  R144.2  R145.2  C148.1  R147.2  R148.2  R149.2  R151.2  R152.2  C152.1  R154.2  R155.2  R156.2  R158.2  R159.2  C156.1  R161.2  R162.2  R163.2  R165.2  R166.2  C160.1  R168.2  R169.2  R170.2  R172.2  R173.2  C164.1  R177.2  R178.2  C166.1  R182.2  R183.2  C168.1  U_EXP1.9  C169.1  U_EXP2.9  U_EXP2.15  C170.1  R185.2  R186.2  R187.2  R188.2  R189.2  U_LED.1  U_LED.28  C175.1  C176.1  D_ST.2  U_MUX1.24  C177.1  R191.2  R192.2  R193.2  R194.2  R195.2  R196.2  R197.2  R198.2  R199.2  R200.2  R201.2  R202.2  R203.2  R204.2  R205.2  R206.2  U_MUX2.1  U_MUX2.24  C178.1  R207.2  R208.2  R209.2  R210.2  R211.2  R212.2  R213.2  R214.2  R215.2  R216.2  R217.2  R218.2  R219.2  R220.2  R221.2  R222.2  U_MUX3.2  U_MUX3.24  C179.1  R223.2  R224.2  R225.2  R226.2  R227.2  U_EEP.8  C180.1  JP_WP.2
 3V3A           U_LDO.5  C42.1  C43.1  TP_3V3A.1  U_DAC1.1  U_DAC1.8  C48.1  C49.1  U_DAC2.1  U_DAC2.8  C56.1  C57.1  U_DAC3.1  U_DAC3.8  C64.1  C65.1  U_USB2.2  U_USB2.27  U_USB2.30  C74.1  C75.1  C76.1  U_USB3.2  U_USB3.27  U_USB3.30  C82.1  C83.1  C84.1  U_FADC.8  C119.1  RV_A.3  RV_B.3
@@ -334,16 +334,16 @@ J_USBA     USB-A                    USB_A_Horizontal_AF90                       
 F_USBA     0.75A PTC                Fuse_1812_4532Metric                                     C84140       Bourns MF-MSMF075-2 (0.75 A hold PTC 1812)
 D_USBA     USBLC6-2SC6              SOT-23-6                                                 C7519        ST USBLC6-2SC6
 C2         100n                     C_0603_1608Metric                                        C14663       
-J_EXTA     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
-J_INA      1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
-J_OUT1     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
-J_OUT2     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
-J_OUT3     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
-J_OUT4     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
-J_OUT5     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
-J_OUT6     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
-J_INB      1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
-J_EXTB     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_EXTA     1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
+J_INA      1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
+J_OUT1     1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
+J_OUT2     1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
+J_OUT3     1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
+J_OUT4     1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
+J_OUT5     1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
+J_OUT6     1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
+J_INB      1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
+J_EXTB     1/4in TRS                Jack_6.35mm_HOOYA_PJ-611E_Horizontal                     C309282      HOOYA PJ-611E
 R1         100R                     R_0603_1608Metric                                        C22775       
 R2         100R                     R_0603_1608Metric                                        C22775       
 R3         100R                     R_0603_1608Metric                                        C22775       
@@ -540,7 +540,7 @@ C98        1n                       C_0603_1608Metric                           
 C99        1u                       C_0603_1608Metric                                        C5673        
 JP_GAIN_A  GAIN A 0dB               SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm                        
 C100       100n                     C_0603_1608Metric                                        C14663       
-D2         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D2         ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 R54        10k                      R_0603_1608Metric                                        C25804       
 C101       100n                     C_0603_1608Metric                                        C14663       
 R55        1M                       R_0603_1608Metric                                        C22935       
@@ -553,7 +553,7 @@ C103       1n                       C_0603_1608Metric                           
 C104       1u                       C_0603_1608Metric                                        C5673        
 JP_GAIN_B  GAIN B 0dB               SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm                        
 C105       100n                     C_0603_1608Metric                                        C14663       
-D3         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D3         ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 R60        10k                      R_0603_1608Metric                                        C25804       
 U_HP       TPA6130A2RTJR            TPA6130A2_QFN-20_4x4                                     C130046      TI TPA6130A2RTJR
 C106       1u                       C_0603_1608Metric                                        C5673        
@@ -589,7 +589,7 @@ C120       100n                     C_0603_1608Metric                           
 SW_FS1     FOOTSWITCH 1             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R73        100R                     R_0603_1608Metric                                        C22775       
 C121       100n                     C_0603_1608Metric                                        C14663       
-D5         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D5         ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS1    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R74        330R                     R_0603_1608Metric                                        C23138       
 OLED_FS1   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -601,7 +601,7 @@ C122       100n                     C_0603_1608Metric                           
 SW_FS2     FOOTSWITCH 2             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R79        100R                     R_0603_1608Metric                                        C22775       
 C123       100n                     C_0603_1608Metric                                        C14663       
-D6         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D6         ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS2    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R80        330R                     R_0603_1608Metric                                        C23138       
 OLED_FS2   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -613,7 +613,7 @@ C124       100n                     C_0603_1608Metric                           
 SW_FS3     FOOTSWITCH 3             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R85        100R                     R_0603_1608Metric                                        C22775       
 C125       100n                     C_0603_1608Metric                                        C14663       
-D7         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D7         ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS3    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R86        330R                     R_0603_1608Metric                                        C23138       
 OLED_FS3   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -625,7 +625,7 @@ C126       100n                     C_0603_1608Metric                           
 SW_FS4     FOOTSWITCH 4             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R91        100R                     R_0603_1608Metric                                        C22775       
 C127       100n                     C_0603_1608Metric                                        C14663       
-D8         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D8         ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS4    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R92        330R                     R_0603_1608Metric                                        C23138       
 OLED_FS4   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -637,7 +637,7 @@ C128       100n                     C_0603_1608Metric                           
 SW_FS5     FOOTSWITCH 5             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R97        100R                     R_0603_1608Metric                                        C22775       
 C129       100n                     C_0603_1608Metric                                        C14663       
-D9         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D9         ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS5    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R98        330R                     R_0603_1608Metric                                        C23138       
 OLED_FS5   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -649,7 +649,7 @@ C130       100n                     C_0603_1608Metric                           
 SW_FS6     FOOTSWITCH 6             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R103       100R                     R_0603_1608Metric                                        C22775       
 C131       100n                     C_0603_1608Metric                                        C14663       
-D10        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D10        ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS6    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R104       330R                     R_0603_1608Metric                                        C23138       
 OLED_FS6   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -661,7 +661,7 @@ C132       100n                     C_0603_1608Metric                           
 SW_FS7     FOOTSWITCH 7             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R109       100R                     R_0603_1608Metric                                        C22775       
 C133       100n                     C_0603_1608Metric                                        C14663       
-D11        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D11        ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS7    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R110       330R                     R_0603_1608Metric                                        C23138       
 OLED_FS7   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -673,7 +673,7 @@ C134       100n                     C_0603_1608Metric                           
 SW_FS8     FOOTSWITCH 8             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R115       100R                     R_0603_1608Metric                                        C22775       
 C135       100n                     C_0603_1608Metric                                        C14663       
-D12        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D12        ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS8    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R116       330R                     R_0603_1608Metric                                        C23138       
 OLED_FS8   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -685,7 +685,7 @@ C136       100n                     C_0603_1608Metric                           
 SW_FS9     FOOTSWITCH 9             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R121       100R                     R_0603_1608Metric                                        C22775       
 C137       100n                     C_0603_1608Metric                                        C14663       
-D13        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D13        ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS9    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R122       330R                     R_0603_1608Metric                                        C23138       
 OLED_FS9   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -697,7 +697,7 @@ C138       100n                     C_0603_1608Metric                           
 SW_FS10    FOOTSWITCH 10            Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
 R127       100R                     R_0603_1608Metric                                        C22775       
 C139       100n                     C_0603_1608Metric                                        C14663       
-D14        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D14        ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 LED_FS10   LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
 R128       330R                     R_0603_1608Metric                                        C23138       
 OLED_FS10  OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
@@ -706,7 +706,7 @@ R130       0R                       R_0603_1608Metric                           
 R131       0R                       R_0603_1608Metric                                        C21189       
 R132       0R                       R_0603_1608Metric                                        C21189       
 C140       100n                     C_0603_1608Metric                                        C14663       
-ENC1       KNOB 1                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
+ENC1       KNOB 1                   Encoder_PEC11R_Vertical                                               EC11 encoder, push switch, 30 mm 6 mm D shaft, 20 detents / 20 pulses (generic; Bourns PEC11R-4230F-S0024 fits too)
 R133       10k                      R_0603_1608Metric                                        C25804       
 C141       10n                      C_0603_1608Metric                                        C57112       
 R134       10k                      R_0603_1608Metric                                        C25804       
@@ -719,7 +719,7 @@ R137       0R                       R_0603_1608Metric                           
 R138       0R                       R_0603_1608Metric                                        C21189       
 R139       0R                       R_0603_1608Metric                                        C21189       
 C144       100n                     C_0603_1608Metric                                        C14663       
-ENC2       KNOB 2                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
+ENC2       KNOB 2                   Encoder_PEC11R_Vertical                                               EC11 encoder, push switch, 30 mm 6 mm D shaft, 20 detents / 20 pulses (generic; Bourns PEC11R-4230F-S0024 fits too)
 R140       10k                      R_0603_1608Metric                                        C25804       
 C145       10n                      C_0603_1608Metric                                        C57112       
 R141       10k                      R_0603_1608Metric                                        C25804       
@@ -732,7 +732,7 @@ R144       0R                       R_0603_1608Metric                           
 R145       0R                       R_0603_1608Metric                                        C21189       
 R146       0R                       R_0603_1608Metric                                        C21189       
 C148       100n                     C_0603_1608Metric                                        C14663       
-ENC3       KNOB 3                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
+ENC3       KNOB 3                   Encoder_PEC11R_Vertical                                               EC11 encoder, push switch, 30 mm 6 mm D shaft, 20 detents / 20 pulses (generic; Bourns PEC11R-4230F-S0024 fits too)
 R147       10k                      R_0603_1608Metric                                        C25804       
 C149       10n                      C_0603_1608Metric                                        C57112       
 R148       10k                      R_0603_1608Metric                                        C25804       
@@ -745,7 +745,7 @@ R151       0R                       R_0603_1608Metric                           
 R152       0R                       R_0603_1608Metric                                        C21189       
 R153       0R                       R_0603_1608Metric                                        C21189       
 C152       100n                     C_0603_1608Metric                                        C14663       
-ENC4       KNOB 4                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
+ENC4       KNOB 4                   Encoder_PEC11R_Vertical                                               EC11 encoder, push switch, 30 mm 6 mm D shaft, 20 detents / 20 pulses (generic; Bourns PEC11R-4230F-S0024 fits too)
 R154       10k                      R_0603_1608Metric                                        C25804       
 C153       10n                      C_0603_1608Metric                                        C57112       
 R155       10k                      R_0603_1608Metric                                        C25804       
@@ -758,7 +758,7 @@ R158       0R                       R_0603_1608Metric                           
 R159       0R                       R_0603_1608Metric                                        C21189       
 R160       0R                       R_0603_1608Metric                                        C21189       
 C156       100n                     C_0603_1608Metric                                        C14663       
-ENC5       KNOB 5                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
+ENC5       KNOB 5                   Encoder_PEC11R_Vertical                                               EC11 encoder, push switch, 30 mm 6 mm D shaft, 20 detents / 20 pulses (generic; Bourns PEC11R-4230F-S0024 fits too)
 R161       10k                      R_0603_1608Metric                                        C25804       
 C157       10n                      C_0603_1608Metric                                        C57112       
 R162       10k                      R_0603_1608Metric                                        C25804       
@@ -771,7 +771,7 @@ R165       0R                       R_0603_1608Metric                           
 R166       0R                       R_0603_1608Metric                                        C21189       
 R167       0R                       R_0603_1608Metric                                        C21189       
 C160       100n                     C_0603_1608Metric                                        C14663       
-ENC6       KNOB 6                   Encoder_PEC11R_Vertical                                  C7435302     Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)
+ENC6       KNOB 6                   Encoder_PEC11R_Vertical                                               EC11 encoder, push switch, 30 mm 6 mm D shaft, 20 detents / 20 pulses (generic; Bourns PEC11R-4230F-S0024 fits too)
 R168       10k                      R_0603_1608Metric                                        C25804       
 C161       10n                      C_0603_1608Metric                                        C57112       
 R169       10k                      R_0603_1608Metric                                        C25804       
@@ -809,16 +809,16 @@ C170       100n                     C_0603_1608Metric                           
 R185       10k                      R_0603_1608Metric                                        C25804       
 R186       10k                      R_0603_1608Metric                                        C25804       
 C171       100n                     C_0603_1608Metric                                        C14663       
-D15        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D15        ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 R187       10k                      R_0603_1608Metric                                        C25804       
 C172       100n                     C_0603_1608Metric                                        C14663       
-D16        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D16        ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 R188       10k                      R_0603_1608Metric                                        C25804       
 C173       100n                     C_0603_1608Metric                                        C14663       
-D17        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D17        ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 R189       10k                      R_0603_1608Metric                                        C25804       
 C174       100n                     C_0603_1608Metric                                        C14663       
-D18        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+D18        ESD5Z5.0T1G              D_SOD-523                                                C82044       onsemi ESD5Z5.0T1G
 U_LED      PCA9685PW                TSSOP-28_4.4x9.7mm_P0.65mm                               C2678753     NXP PCA9685PW,118
 C175       100n                     C_0603_1608Metric                                        C14663       
 C176       10u                      C_0603_1608Metric                                        C19702       

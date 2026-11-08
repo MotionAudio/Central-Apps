@@ -57,7 +57,7 @@ FP = {
     "PH2": ("Connector_JST", "JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical"),
     "PH4": ("Connector_JST", "JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical"),
     "VH2": ("Connector_JST", "JST_VH_B2P-VH_1x02_P3.96mm_Vertical"),
-    "JACK635": ("custom", "Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal"),
+    "JACK635": ("custom", "Jack_6.35mm_HOOYA_PJ-611E_Horizontal"),
     "JACK35": ("Connector_Audio", "Jack_3.5mm_PJ320D_Horizontal"),
     "ENC": ("custom", "Encoder_PEC11R_Vertical"),
     "FADER": ("custom", "Fader_PTA6043"),
@@ -82,7 +82,7 @@ LCSC = {
     ("C0603", "4.7u"): "C69335", ("C0603", "10u"): "C19702", ("C0805", "22u"): "C29277", ("C0805", "10u"): "C15850", ("C1210", "22u"): "C52306",
     ("CPOL", "100u 10V"): "C48971041", ("R2512", "5mR"): "C154688", ("L0805", "FB 60R"): "C18305",
     ("LPWR", "2.2uH"): "C408445", ("LPWR", "3.3uH"): "C408446",
-    ("SOD123", "1N4148W"): "C81598", ("SOD523", "PESD5V0S1UB"): "C85390", ("SMA", "SMAJ24A"): "C113962", ("SOT23-6", "USBLC6-2SC6"): "C7519",
+    ("SOD123", "1N4148W"): "C81598", ("SOD523", "ESD5Z5.0T1G"): "C82044", ("SMA", "SMAJ24A"): "C113962", ("SOT23-6", "USBLC6-2SC6"): "C7519",
     ("FUSE1812", "7.5A PTC"): "C3039825", ("XTAL3225", "12MHz"): "C9002", ("OSC3225", "12.288MHz"): "C2896602",
     ("USBC", "USB-C"): "C165948", ("USBA", "USB-A"): "C2345", ("JACK35", "3.5mm TRRS"): "C95562",
     ("PH2", "JST PH 2"): "C5251182", ("PH4", "JST PH 4"): "C131334", ("VH2", "JST VH 2"): "C160315",
@@ -178,7 +178,8 @@ def build():
     d.add("D_USBA", "SOT23-6", "USBLC6-2SC6", {"1": "USBA_DP", "2": "GND", "3": "USBA_DM", "4": "USBA_DM", "5": "USBA_5V", "6": "USBA_DP"}, (58.5, 18.5), 0, mpn="ST USBLC6-2SC6", desc="USB-A ESD")
     d.C("100n", "USBA_5V", "GND", (42, 18.5))
 
-    # 1/4-inch jacks, 21 mm pitch, centred: EXT A, INST A, OUT 1-6, INST B, EXT B   (NMJ6HCD2 rotated 270: plug enters from -y)
+    # 1/4-inch jacks, 21 mm pitch, centred: EXT A, INST A, OUT 1-6, INST B, EXT B   (HOOYA PJ-611E rotated 270: plug enters
+    # from -y, plug axis 8.115 mm left of the anchor, body front face on the board edge, 3/8in bushing + nut through the back panel)
     jacks = [("J_EXTA", "EXTA_T", "EXTA_R", "GND", "", "", "Ext footswitch A (TRS)"),
              ("J_INA", "INST_A", "INST_DET_A", "GND", "GND", "", "Instrument in A"),
              ("J_OUT1", "OUT1", "GND_R1", "GND", "", "", "Output 1"), ("J_OUT2", "OUT2", "GND_R2", "GND", "", "", "Output 2"),
@@ -190,7 +191,7 @@ def build():
     for i, (ref, t, r, s, tn, rn, desc) in enumerate(jacks):
         x = W / 2 - 94.5 + 21 * i
         JX[ref] = x
-        d.add(ref, "JACK635", "1/4in TRS", {"T": t, "R": r, "S": s, "TN": tn, "RN": rn, "SN": ""}, (x, 4.5), 270, mpn="Neutrik NMJ6HCD2", lcsc="C368502", desc=desc)
+        d.add(ref, "JACK635", "1/4in TRS", {"T": t, "R": r, "S": s, "TN": tn, "RN": rn}, (x, 4.5), 270, mpn="HOOYA PJ-611E", lcsc="C309282", desc=desc)
     # impedance-balanced outputs: ring to ground through 100R, right behind each jack
     for k in range(1, 7):
         d.R("100R", "GND_R%d" % k, "GND", (JX["J_OUT%d" % k] - 6, 27), 0)
@@ -342,7 +343,7 @@ def build():
                ("C", "100p", pre, pren), ("R", "4.7k", pre, "ADC_RC_" + ch), ("C", "1n", "ADC_RC_" + ch, "GND"), ("C", "1u", "ADC_RC_" + ch, adc)], ox - 12, yy)
         d.add("JP_GAIN_" + ch, "SJ", "GAIN %s 0dB" % ch, {"1": pre, "2": pren}, (ox + 18, yy), 0, desc="Close = 0 dB for active pickups / keyboards; open = +12 dB")
         d.C("100n", det, "GND", (ox + 22.5, yy))
-        d.D("PESD5V0S1UB", "GND", det, (ox + 25.5, yy), 90, fp="SOD523", mpn="Nexperia PESD5V0S1UB")
+        d.D("ESD5Z5.0T1G", "GND", det, (ox + 25.5, yy), 90, fp="SOD523", mpn="onsemi ESD5Z5.0T1G")
         d.R("10k", det, "3V3", (ox + 28.5, yy))
     n("Instrument inputs: 1 M to a 2.5 V bias, x4 (+12 dB) non-inverting stage, 4.7k/1n anti-alias, into the PCM1808. The jack's TN contact grounds the tip when nothing is plugged in; the ring is a plug-detect to the expander (low = plugged).")
 
@@ -379,7 +380,7 @@ def build():
         d.add("SW_FS%d" % k, "FSW", "FOOTSWITCH %d" % k, {"1": "FS%d" % k, "2": "GND"}, (x, y), 0, mpn="SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)", desc="Footswitch %d" % k)
         d.R("100R", "FS%d" % k, gpio_net, (x - 7, y + 10.5))
         d.C("100n", "FS%d" % k, "GND", (x - 4, y + 10.5))
-        d.D("PESD5V0S1UB", "GND", "FS%d" % k, (x - 1, y + 10.5), 90, fp="SOD523", mpn="Nexperia PESD5V0S1UB")
+        d.D("ESD5Z5.0T1G", "GND", "FS%d" % k, (x - 1, y + 10.5), 90, fp="SOD523", mpn="onsemi ESD5Z5.0T1G")
         d.add("LED_FS%d" % k, "LED5", "LED 5mm", {"1": "LEDK%d" % k, "2": "5V2"}, (x + 14, y - 9), 90, mpn="5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer", lcsc="C2895487", desc="Footswitch %d light" % k)
         d.R("330R", "LEDK%d" % k, led_net, (x + 8, y + 10.5))
         oled("OLED_FS%d" % k, (x - 16.5, oled_y), "Label screen, footswitch %d" % k)
@@ -388,15 +389,15 @@ def build():
     footswitch(9, FSW_X[0], FSW9_Y, "GPIO_FS9", "LED9", 182)
     footswitch(10, FSW_X[7], FSW9_Y, "GPIO_FS10", "LED10", 182)
 
-    # ================================================================ CONTROLS: six click-knobs (PEC11R encoders) + two faders, with label screens
-    # Encoder pads (EasyEDA PEC11R): 1 A, 2 C, 3 B, 4 S1, 5 S2, 7/8 mounting.   Side strips: fader - one knob - two knobs - screen.
+    # ================================================================ CONTROLS: six click-knobs (EC11 encoders, 30 mm shaft) + two faders, with label screens
+    # Encoder pads (EC11 / PEC11R layout): 1 A, 2 C, 3 B, 4 S1, 5 S2, 7/8 mounting.   Side strips: fader - one knob - two knobs - screen.
     knobs = {1: (52, 84), 2: (80, 52), 3: (80, 120), 4: (W - 80, 52), 5: (W - 80, 120), 6: (W - 52, 84)}
     for k, (x, y) in knobs.items():
-        d.add("ENC%d" % k, "ENC", "KNOB %d" % k, {"1": "ENC%dA" % k, "2": "GND", "3": "ENC%dB" % k, "4": "ENC%dS" % k, "5": "GND", "7": "GND", "8": "GND"}, (x, y), 0, mpn="Bourns PEC11R-4230F-S0024 (24 detents, push switch, 30 mm flatted shaft)", lcsc="C7435302", desc="Knob %d (click-knob)" % k)
+        d.add("ENC%d" % k, "ENC", "KNOB %d" % k, {"1": "ENC%dA" % k, "2": "GND", "3": "ENC%dB" % k, "4": "ENC%dS" % k, "5": "GND", "7": "GND", "8": "GND"}, (x, y), 0, mpn="EC11 encoder, push switch, 30 mm 6 mm D shaft, 20 detents / 20 pulses (generic; Bourns PEC11R-4230F-S0024 fits too)", desc="Knob %d (click-knob)" % k)
         side = 1 if x < W / 2 else -1
         d.col([("R", "10k", "ENC%dA" % k, "3V3"), ("C", "10n", "ENC%dA" % k, "GND"), ("R", "10k", "ENC%dB" % k, "3V3"), ("C", "10n", "ENC%dB" % k, "GND"), ("R", "10k", "ENC%dS" % k, "3V3"), ("C", "10n", "ENC%dS" % k, "GND")], x - side * 10.5, y - 8.5, dy=3.05)
         oled("OLED_K%d" % k, (x - 16.5, y - 17 if k in (1, 6) else y - 20), "Label screen, knob %d" % k, links="right" if k == 1 else "left")
-    n("Knobs are Bourns PEC11R-4230F-S0024 encoders (24 detents, push switch, 30 mm flatted shaft - the enclosure's top plate is 16 mm above the board, so 11 mm of shaft shows for the knob); the plate has an 8 mm clearance hole, no nut (the 7 mm bushing never reaches the plate). 10k pull-ups + 10n on every A/B/switch line into the MCP23017s.")
+    n("Knobs are EC11-footprint encoders with a push switch and a 30 mm, 6 mm D (half-moon) shaft - the enclosure's top plate is 16 mm above the board, so 11 mm of shaft shows above it. Detents and pulses must be equal (20/20 or 24/24) so one click = one step in the software; a generic EC11 or the Bourns PEC11R-4230F-S0024 both fit the pads. The plate has an 8 mm clearance hole, no nut (the 7 mm bushing never reaches the plate). 10k pull-ups + 10n on every A/B/switch line into the MCP23017s.")
     # faders: Bourns PTA6043 (60 mm travel, 15 mm lever); pads 1/2 at one end (1 = CCW end, 2 = wiper), 3 at the other end, 4-7 mounting
     for ref, x, name, w in (("RV_A", FSW_X[0], "Fader A", "FAD_A_W"), ("RV_B", FSW_X[7], "Fader B", "FAD_B_W")):
         d.add(ref, "FADER", "10k lin slide", {"1": "GND", "2": w, "3": "3V3A", "4": "GND", "5": "GND", "6": "GND", "7": "GND"}, (x, 83.5), 90, mpn="Bourns PTA6043-2015DPB103", lcsc="C17555413", desc=name + " (expression)")
@@ -424,7 +425,7 @@ def build():
     for i, net in enumerate(("EXTA_T", "EXTA_R", "EXTB_T", "EXTB_R")):
         d.R("10k", net, "3V3", (240 + 3.2 * i, 102), 90)
         d.C("100n", net, "GND", (240 + 3.2 * i, 106), 90)
-        d.D("PESD5V0S1UB", "GND", net, (240 + 3.2 * i, 110), 90, fp="SOD523", mpn="Nexperia PESD5V0S1UB")
+        d.D("ESD5Z5.0T1G", "GND", net, (240 + 3.2 * i, 110), 90, fp="SOD523", mpn="onsemi ESD5Z5.0T1G")
     # PCA9685 (TSSOP-28): 1-5 A0-A4, 6-13 LED0-7, 14 GND, 15-22 LED8-15, 23 EXTCLK, 24 A5, 25 OE, 26 SCL, 27 SDA, 28 VDD   address 0x41 (A0 high), open-drain sinks
     pca = {"1": "3V3", "2": "GND", "3": "GND", "4": "GND", "5": "GND", "14": "GND", "23": "GND", "24": "GND", "25": "GND", "26": "SCL", "27": "SDA", "28": "3V3"}
     for i in range(10):
@@ -471,9 +472,9 @@ def build():
     d.add("J_DISP", "PH2", "JST PH 2", {"1": "GND", "2": "5V2"}, (135, 165), 0, side="B", mpn="JST B2B-PH-K-S", desc="7-inch Touch Display 2 power (its own lead, re-terminated with a JST PH plug: red = pin 2)")
     d.add("J_USB_UP", "PH4", "JST PH 4", {"1": "", "2": "UP_DM", "3": "UP_DP", "4": "GND"}, (250, 165), 0, side="B", mpn="JST B4B-PH-K-S", desc="Hub upstream: short cable to a Pi USB-A port (pin 1 not connected)")
     d.add("J_USB_BAR", "PH4", "JST PH 4", {"1": "5V2", "2": "BAR_DM", "3": "BAR_DP", "4": "GND"}, (270, 165), 0, side="B", mpn="JST B4B-PH-K-S", desc="Bar screen: cable to its micro-USB (touch + power)")
-    d.add("D_BAR", "SOT23-6", "USBLC6-2SC6", {"1": "BAR_DP", "2": "GND", "3": "BAR_DM", "4": "BAR_DM", "5": "5V2", "6": "BAR_DP"}, (270, 158), 0, side="B", mpn="ST USBLC6-2SC6", desc="Bar screen USB ESD")
+    d.add("D_BAR", "SOT23-6", "USBLC6-2SC6", {"1": "BAR_DP", "2": "GND", "3": "BAR_DM", "4": "BAR_DM", "5": "5V2", "6": "BAR_DP"}, (270, 158), 0, mpn="ST USBLC6-2SC6", desc="Bar screen USB ESD")
     n("Cables inside the box: Pi USB-A -> J_USB_UP (JST-PH 4); micro-HDMI 1 on the Pi -> bar screen mini-HDMI (slim lead, plug body in the 'HDMI PLUG' slot); J_USB_BAR -> bar screen TOUCH micro-USB (touch + 5 V, right-angle plug in the 'TOUCH USB PLUG' slot); J_DISP -> Touch Display 2 power (the display's own lead with a PH plug); display ribbon through the slot to the Pi's DSI; J_FAN -> fan; J_BAT -> 2S pack.")
-    n("Rev B.2: the 7-inch Touch Display 2 (centre 195, 94; its four M2.5 Pi stand-offs at 193/251 x 69.5/118.5, 8.5 mm long -> glass 14.92 mm above the board), the 11.9-inch bar screen (centre 195, 193; stand-offs 156.6/214.6 x 170.5/219.45, 4 mm -> glass 13.65 mm up) and a 40 mm fan (back side, centre 116, 116, M3 holes at 32 mm on 10 mm stand-offs) are screwed to the board by the assembler. Nothing taller than 5 mm may sit under the display's corner brackets (x 125 / 265, y 51-66 and 122-137) or taller than 8 mm anywhere under the display; nothing taller than 2.5 mm under the bar screen outside its PCB cut-out (x 136-259, y 160-226, 4 mm). Slots 179.5-192.5 x 129-154 (HDMI plug) and 247.5-271.5 x 207.7-220.7 (touch plug) are board cut-outs.")
+    n("Rev B.2: the 7-inch Touch Display 2 (centre 195, 94; its four M2.5 Pi stand-offs at 193/251 x 69.5/118.5, 8.5 mm long -> glass 14.92 mm above the board), the 11.9-inch bar screen (centre 195, 193; stand-offs 156.6/214.6 x 170.5/219.45, 4 mm -> glass 13.65 mm up) and a 40 mm fan (back side, centre 116, 116, M3 holes at 32 mm on 10 mm stand-offs) screw onto the board (fitted by the customer; the holes and slots are on the board). Nothing taller than 5 mm may sit under the display's corner brackets (x 125 / 265, y 51-66 and 122-137) or taller than 8 mm anywhere under the display; nothing taller than 2.5 mm under the bar screen outside its PCB cut-out (x 136-259, y 160-226, 4 mm). Slots 179.5-192.5 x 129-154 (HDMI plug) and 247.5-271.5 x 207.7-220.7 (touch plug) are board cut-outs.")
 
     # ================================================================ MOUNTING HOLES (M3 to the top plate / standoffs); Pi holes are added by build.py from the header
     holes = [(5, 5), (W - 5, 5), (5, H - 5), (W - 5, H - 5), (75, 5), (W - 75, 5), (5, 150), (W - 5, 150), (92, 150), (W - 92, 150)]
