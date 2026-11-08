@@ -56,7 +56,10 @@ with open(cpl, "w", newline="") as fh:
     w = csv.writer(fh)
     w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
     for r in rows:
-        w.writerow([r["Ref"], "%.3fmm" % float(r["PosX"]), "%.3fmm" % float(r["PosY"]), "Top" if r["Side"] == "top" else "Bottom", "%.1f" % float(r["Rot"])])
+        side = "Top" if r["Side"] == "top" else "Bottom"
+        if by_ref[r["Ref"]]["side"] == "B":
+            side = "Bottom"          # J1: a through-hole socket fitted from the back (its KiCad footprint stays on the front so the pin numbers stay put)
+        w.writerow([r["Ref"], "%.3fmm" % float(r["PosX"]), "%.3fmm" % float(r["PosY"]), side, "%.1f" % float(r["Rot"])])
 print("cpl:", cpl, len(rows), "parts")
 
 
@@ -69,24 +72,51 @@ def is_th(p):
     return p["fp"] in ("LED5", "USBC", "USBA", "PI40", "PH2", "PH4", "VH2", "JACK635", "ENC", "FADER", "FSW", "OLED", "TACT_RA", "JACK35") or "THT" in fpname or "PinSocket" in fpname
 
 
-# ---- BOM, grouped by (value, footprint, part number)
+# ---- BOM, one line per orderable part: (footprint, LCSC number, manufacturer part number - or the value when there is none)
+MAKERS = ("TI", "Nexperia", "Neutrik", "Bourns", "JST", "Sunlord", "ST", "Alpha&Omega", "Microchip", "C&K", "HRO", "Hynetek", "ADI", "Murata",
+          "CoreChips", "Lite-On", "NXP", "onsemi", "Diodes", "Vishay", "Yageo", "Samsung", "TDK", "Kemet", "Panasonic", "XINGLIGHT", "Littelfuse")
 groups = {}
 for p in d.parts:
     if skip(p):
         continue
     lib, fpname = design.FP[p["fp"]]
-    key = (p["value"], fpname, p["mpn"], p["lcsc"] or "")
+    key = (fpname, p["lcsc"] or "", p["mpn"] or p["value"])
     groups.setdefault(key, []).append(p)
 ordered = sorted(groups.items(), key=lambda kv: (kv[1][0]["ref"][0], len(kv[1][0]["ref"]), kv[1][0]["ref"]))
+
+
+def common_prefix(strings):
+    pre = os.path.commonprefix(list(strings))
+    return pre.rstrip("0123456789 -(")
+
+
+def describe(ps):
+    """What one BOM line is: the shared description, else the shared value, else what the descriptions have in common."""
+    descs = {p["desc"] for p in ps}
+    values = {p["value"] for p in ps}
+    if len(descs) == 1 and ps[0]["desc"]:
+        return ps[0]["desc"]
+    if len(values) == 1:
+        return ps[0]["value"]
+    pre = common_prefix(descs)
+    return pre if len(pre) >= 4 else ps[0]["value"]
+
+
+def split_maker(mpn):
+    """'Bourns PEC11R-...' -> ('Bourns', 'PEC11R-...'); a descriptive string stays whole."""
+    if mpn and " " in mpn and mpn.split(" ", 1)[0] in MAKERS:
+        return tuple(mpn.split(" ", 1))
+    return ("", mpn)
 
 # JLC columns (also what PCBWay's engineers read without trouble)
 bom = "%s/%s-bom.csv" % (FAB, NAME)
 with open(bom, "w", newline="") as fh:
     w = csv.writer(fh)
     w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #", "Manufacturer Part Number", "Quantity", "Description"])
-    for (value, fpname, mpn, lcsc), ps in ordered:
+    for (fpname, lcsc, mpn_or_value), ps in ordered:
         refs = ",".join(sorted((p["ref"] for p in ps), key=refsort))
-        w.writerow([value, refs, fpname, lcsc, mpn, len(ps), ps[0]["desc"]])
+        value = ps[0]["value"] if len({p["value"] for p in ps}) == 1 else describe(ps)
+        w.writerow([value, refs, fpname, lcsc, ps[0]["mpn"], len(ps), describe(ps)])
 print("bom:", bom, len(groups), "lines")
 
 # PCBWay's assembly BOM template columns
@@ -98,7 +128,7 @@ NOTES = {
     "JACK635": "Neutrik NMJ6HCD2 horizontal PCB 1/4\" TRS jack, body on the board, barrel through the back panel cut-out.",
     "USBA": "Through-hole USB-A, flush to the back edge.",
     "USBC": "USB-C 16-pin receptacle (hybrid SMD/TH), flush to the back edge.",
-    "PI40": "2x20 female header, 8.5 mm tall, on the BACK of the board (the Pi plugs on from behind).",
+    "PI40": "2x20 female header, 8.5 mm tall, on the BACK of the board (the Pi plugs on from behind through a stacking header; pin 1 = left end, inner row, seen from the front).",
     "LED5": "5 mm yellow LED, long leg (+) in the square pad, stands 15 mm proud for the top plate.",
     "TACT_RA": "Right-angle tactile switch at the back edge (power button).",
     "VH2": "JST VH 2-pin, back side. PH2 / PH4: JST PH, back side.",
@@ -107,13 +137,15 @@ pcbway = "%s/%s-bom-pcbway.csv" % (FAB, NAME)
 with open(pcbway, "w", newline="") as fh:
     w = csv.writer(fh)
     w.writerow(["Item #", "Designator", "Qty", "Manufacturer", "Mfg Part #", "Description / Value", "Package/Footprint", "Type", "Your Instructions / Notes"])
-    for i, ((value, fpname, mpn, lcsc), ps) in enumerate(ordered, 1):
+    for i, ((fpname, lcsc, mpn_or_value), ps) in enumerate(ordered, 1):
         refs = ",".join(sorted((p["ref"] for p in ps), key=refsort))
-        mfr, mpn_only = (mpn.split(" ", 1) + [""])[:2] if mpn and " " in mpn and not mpn.startswith(("0603", "0805", "2x20", "0.91", "SPST")) else ("", mpn)
+        mfr, mpn_only = split_maker(ps[0]["mpn"])
         note = NOTES.get(ps[0]["fp"], "")
         if lcsc:
             note = ("LCSC " + lcsc + ". " + note).strip()
-        w.writerow([i, refs, len(ps), mfr, mpn_only, (ps[0]["desc"] + " - " if ps[0]["desc"] and ps[0]["desc"] != value else "") + value, fpname, "TH" if is_th(ps[0]) else "SMD", note])
+        desc = describe(ps)
+        value = ps[0]["value"] if len({p["value"] for p in ps}) == 1 else ""
+        w.writerow([i, refs, len(ps), mfr, mpn_only, (desc + " - " + value) if value and value != desc else (desc or value), fpname, "TH" if is_th(ps[0]) else "SMD", note])
 print("pcbway bom:", pcbway)
 
 dnp = sorted((p["ref"] for p in d.parts if p["dnp"]), key=refsort)
@@ -121,7 +153,6 @@ with open("%s/not-fitted.txt" % FAB, "w") as fh:
     fh.write("Not fitted (DNP) on %s - leave these empty:\n%s\n\n" % (REV, ", ".join(dnp)))
     fh.write("Solder jumpers (no part): JP_GAIN_A / JP_GAIN_B (bridge for 0 dB instrument inputs), JP_WP (bridge to write-protect the EEPROM).\n")
     fh.write("The OLED 'B' 0R links are DNP: fit them (and remove the 'A' ones) only for VCC-GND-SCL-SDA modules.\n")
-    fh.write("The hub's two 22p crystal caps are DNP (the SL2.1A has them inside).\n")
 
 # ---- netlist as text (the wiring, pin by pin) for the person doing the review
 with open("%s/%s-netlist.txt" % (FAB, NAME), "w") as fh:
@@ -150,8 +181,8 @@ with open("%s/PCBWAY-ORDER.md" % FAB, "w") as fh:
 
 ## Assembly
 - Upload `%(name)s-bom-pcbway.csv` (or `%(name)s-bom.csv`, the JLC layout) and `%(name)s-cpl.csv`
-- Both sides are populated: top = everything, bottom = the Pi header (J1) and the JST headers (battery, fan, display power, USB hub upstream, bar screen) and three SOT23 parts
-- Every component has an LCSC number where LCSC stocks it (518 of 579 placements); PCBWay may buy from LCSC, Digi-Key or Mouser by the manufacturer part number
+- Both sides are populated: top = everything else; BOTTOM = the 2x20 Pi socket J1 (through-hole, body on the bottom, pin 1 = the square hole at the LEFT end of the row seen from the top), the JST headers (battery, fan, display power, USB hub upstream, bar screen) and the bar-screen ESD diode D_BAR
+- Every component has an LCSC number where LCSC stocks it (%(n_lcsc)d of %(n_all)d placements); PCBWay may buy from LCSC, Digi-Key or Mouser by the manufacturer part number
 - Parts LCSC does not stock (sourced by part number / description, see the Notes column): the 10 footswitches, the 18 0.91" OLED modules
 - Through-hole parts to be soldered: footswitches, encoders, faders, 1/4" jacks, 3.5 mm jacks, USB-A, 2x20 header (BACK side), JST headers (BACK side), 5 mm LEDs (stand 15 mm proud), OLED modules (straight into their 4-pin sockets, screen up)
 - Do NOT fit the parts in `not-fitted.txt`
@@ -160,7 +191,7 @@ with open("%s/PCBWAY-ORDER.md" % FAB, "w") as fh:
 - No conformal coating; clean flux (audio board)
 
 ## Mechanical (for our top plate, not for PCBWay)
-- A top plate sits 15.5 mm above the board: footswitch bushings (M12), encoder shafts (7.5 mm clearance, no nut), fader levers, LEDs and the OLED windows pass through it; the Raspberry Pi 4 sits behind the board on 8.5-9 mm M2.5 standoffs (holes at 164.2/222.2 x 63.8/112.8 mm)
+- A top plate sits 15.5 mm above the board: footswitch bushings (M12), encoder shafts (7.5 mm clearance, no nut), fader levers, LEDs and the OLED windows pass through it; the Raspberry Pi 4 hangs behind the board, component side toward it, on ~20 mm M2.5 standoffs (holes at 166.7/224.7 x 63.8/112.8 mm) - a 2x20 extra-long stacking header (e.g. Adafruit 2223 or any 2x20 'GPIO stacking header' with ~11 mm pins) on the Pi's GPIO pins reaches the board's socket; the Pi's USB / Ethernet block is 16 mm tall, which is why it cannot sit closer. Seen from the front the Pi is not mirrored: pin 1 at the left end of the header
 
 ## Files in this folder
 - `%(name)s-gerbers.zip` - Gerbers (RS-274X) + Excellon drills + drill map
@@ -170,7 +201,7 @@ with open("%s/PCBWAY-ORDER.md" % FAB, "w") as fh:
 - `%(name)s-netlist.txt` - every net, pin by pin, for review; `design-notes.txt` - every design assumption
 - `drc-report.txt` - KiCad's design rule check of this exact board
 - `%(name)s.kicad_pcb` / `.kicad_pro` + `custom.pretty/` - the KiCad 7 project
-""" % {"rev": REV, "w": design.W, "h": design.H, "name": NAME})
+""" % {"rev": REV, "w": design.W, "h": design.H, "name": NAME, "n_all": len([p for p in d.parts if not p["dnp"]]), "n_lcsc": len([p for p in d.parts if not p["dnp"] and p["lcsc"]])})
 
 # ---- PDF and PNG renders
 run("kicad-cli", "pcb", "export", "pdf", "--layers", "F.Cu,F.SilkS,F.Fab,Edge.Cuts", "--include-border-title", "-o", "%s/%s-top.pdf" % (FAB, NAME), BOARD)

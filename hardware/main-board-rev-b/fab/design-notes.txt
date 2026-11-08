@@ -1,0 +1,30 @@
+Central Pedal main board rev B - design notes and assumptions
+
+ 1. The Pi's own 3.3 V pins are not tied to the board's 3V3 (DNP 0R): both are 3.3 V, so I2C/UART/I2S levels match without joining the rails.
+
+ 2. HUSB238A in GPIO (stand-alone) mode: ADDR floating, SNK_VSET 11k = 15 V, SNK_ISET 21k = 3 A, EN_N and FLGIN grounded. It runs from VBUS when the board is off, from 3V3 when on. D+/D- and GATE unused; its FAULT output goes to the expander.
+
+ 3. BQ25798 straps: PROG 8.2k = 2S cells at 750 kHz (default VREG 8.40 V, ICHG 1 A, VSYSMIN 7 V); ILIM_HIZ 3.4 V = 3 A input limit; TS held at 0.6 x REGN (normal temperature) because the pack has its own BMS; VAC1/VAC2 tied to VBUS and ACDRV1/2 grounded (no external input FETs); CE grounded = charging enabled; QON only on a test pad. pedal-driver raises ICHG to 2 A over I2C after boot.
+
+ 4. Power button: tap = INT to GPIO 4 (Linux shuts down), Linux then drives GPIO 24 low = KILL = 5 V / 3.3 V off; holding the button ~7 s (1 uF on PDT) forces power off if Linux hangs. The charger keeps running either way.
+
+ 5. Bucks: TPS565208 (internally compensated, 5 A, 4.5-17 V in) x3 from VSYS. 5V1 = Pi + board logic, 5V2 = screens, USB-A, lights, fan, 3V3 = digital. 5.14 V (57.6k/10k) so the Pi sees ~5.05 V after the header.
+
+ 6. DAC 1 hangs on the Pi's I2S (clocks from the PCM1808). DACs 2 and 3 are fed I2S by their own PCM2706C USB bridges, so Linux sees three stereo cards: the HAT card and two USB cards. All six outputs are the same PCM5102A line stage (2.1 Vrms, +8.7 dBu).
+
+ 7. PCM2706C: PSEL low = self-powered, HOST high (a USB host is always present through the on-board hub), VBUS pin to 3.3 V as the datasheet asks for self-powered use, FSEL low = I2S out, TEST high, HID pins low, FUNC3 (unused I2S input) low; SSPND mutes its DAC (XSMT) while the host is suspended.
+
+ 8. SL2.1A hub: single 5 V supply with internal 3.3 V / 1.8 V LDOs (4.7 uF each), 12 MHz crystal (the datasheet says no load capacitors, none fitted). Upstream to a Pi USB port by a short JST-PH -> USB-A cable; port 3 is the back-panel USB-A, port 4 feeds the bar screen's touch and power.
+
+ 9. Instrument inputs: 1 M to a 2.5 V bias, x4 (+12 dB) non-inverting stage, 4.7k/1n anti-alias, into the PCM1808. The jack's TN contact grounds the tip when nothing is plugged in; the ring is a plug-detect to the expander (low = plugged).
+
+10. Headphones = the Pi's own audio device (PWM remapped to GPIO 12/13), filtered and amplified by the TPA6130A2; the app's Output routing sends any bus to it. HP_SD (shutdown) is driven by PCA9685 channel 11 so the amp stays off until the driver is up (no thump).
+
+11. MIDI: 3.5 mm TRS type A. Out drives 3.3 V through 33R (tip) / 10R (ring) as the MIDI 3.3 V spec says; in is the classic 6N138 with a 2.2k pull-up to 3.3 V on UART0 RX.
+
+12. Knobs are Bourns PEC11R-4220F-S0024 encoders (24 detents, push switch, 20 mm flatted shaft); the top plate has a 7.5 mm clearance hole, no nut (the plate is 15.5 mm up, past the 7 mm bushing). 10k pull-ups + 10n on every A/B/switch line into the MCP23017s.
+
+13. Label screens: 18 x 0.91-inch 128x32 I2C OLED modules in 4-pin sockets behind 3 TCA9548A muxes (0x70-0x72), one module per mux channel, 4.7k pull-ups per channel, powered from 3V3. Modules come in two pin orders: GND-VCC-SCL-SDA (0R links 'A' fitted) and VCC-GND-SCL-SDA (move the two 0R links to 'B').
+
+14. Cables inside the box: Pi USB-A -> J_USB_UP (JST-PH 4); micro-HDMI 0 on the Pi -> bar screen HDMI; J_USB_BAR -> bar screen micro-USB (touch + 5 V); J_DISP -> Touch Display 2 power; display ribbon through the slot to the Pi's DSI; J_BAT -> 2S pack.
+

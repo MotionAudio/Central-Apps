@@ -1,0 +1,900 @@
+Central Pedal main board rev B - every net and the pins on it
+
+3V3            R7.2  R8.1  R19.2  R20.2  U_INA.1  U_INA.2  U_INA.6  C23.1  R21.2  R22.2  L_3V3.2  R28.1  C39.1  C40.1  C_3V3.1  TP_3V3.1  U_DAC1.20  C50.1  R34.2  U_DAC2.20  C58.1  U_DAC3.20  C66.1  U_USB2.3  U_USB2.10  U_USB2.21  U_USB2.24  R43.2  C72.1  C73.1  R44.2  U_USB3.3  U_USB3.10  U_USB3.21  U_USB3.24  R45.2  C80.1  C81.1  R46.2  U_ADC.4  U_ADC.10  U_ADC.11  C92.1  X_ADC.1  X_ADC.4  C93.1  R54.2  R60.2  U_HP.12  U_HP.20  C108.1  C109.1  R61.2  R67.2  R69.1  R76.2  R77.2  C122.1  R82.2  R83.2  C124.1  R88.2  R89.2  C126.1  R94.2  R95.2  C128.1  R100.2  R101.2  C130.1  R106.2  R107.2  C132.1  R112.2  R113.2  C134.1  R118.2  R119.2  C136.1  R124.2  R125.2  C138.1  R130.2  R131.2  C140.1  R133.2  R134.2  R135.2  R137.2  R138.2  C144.1  R140.2  R141.2  R142.2  R144.2  R145.2  C148.1  R147.2  R148.2  R149.2  R151.2  R152.2  C152.1  R154.2  R155.2  R156.2  R158.2  R159.2  C156.1  R161.2  R162.2  R163.2  R165.2  R166.2  C160.1  R168.2  R169.2  R170.2  R172.2  R173.2  C164.1  R177.2  R178.2  C166.1  R182.2  R183.2  C168.1  U_EXP1.9  C169.1  U_EXP2.9  U_EXP2.15  C170.1  R185.2  R186.2  R187.2  R188.2  R189.2  U_LED.1  U_LED.28  C175.1  C176.1  D_ST.2  U_MUX1.24  C177.1  R191.2  R192.2  R193.2  R194.2  R195.2  R196.2  R197.2  R198.2  R199.2  R200.2  R201.2  R202.2  R203.2  R204.2  R205.2  R206.2  U_MUX2.1  U_MUX2.24  C178.1  R207.2  R208.2  R209.2  R210.2  R211.2  R212.2  R213.2  R214.2  R215.2  R216.2  R217.2  R218.2  R219.2  R220.2  R221.2  R222.2  U_MUX3.2  U_MUX3.24  C179.1  R223.2  R224.2  R225.2  R226.2  R227.2  U_EEP.8  C180.1  JP_WP.2
+3V3A           U_LDO.5  C42.1  C43.1  TP_3V3A.1  U_DAC1.1  U_DAC1.8  C48.1  C49.1  U_DAC2.1  U_DAC2.8  C56.1  C57.1  U_DAC3.1  U_DAC3.8  C64.1  C65.1  U_USB2.2  U_USB2.27  U_USB2.30  C74.1  C75.1  C76.1  U_USB3.2  U_USB3.27  U_USB3.30  C82.1  C83.1  C84.1  U_FADC.8  C119.1  RV_A.3  RV_B.3
+5V1            J1.2  J1.4  L_5V1.2  R24.1  C29.1  C30.1  C_5V1.1  U_LDO.1  U_LDO.3  C41.1  FB1.1  TP_5V1.1  U_HUB.11  C87.1  C88.1  U_MIDI.8  C118.1
+5V2            F_USBA.1  L_5V2.2  R26.1  C34.1  C35.1  C_5V2.1  TP_5V2.1  LED_FS1.2  LED_FS2.2  LED_FS3.2  LED_FS4.2  LED_FS5.2  LED_FS6.2  LED_FS7.2  LED_FS8.2  LED_FS9.2  LED_FS10.2  D19.1  J_FAN.2  J_DISP.2  J_USB_BAR.1  D_BAR.5
+5VA            FB1.2  C44.1  U_ADC.3  C90.1  C91.1  U_PRE.8  R47.1  C95.1
+ADC_INL        U_ADC.13  C99.2
+ADC_INR        U_ADC.14  C104.2
+ADC_RC_A       R53.2  C98.1  C99.1
+ADC_RC_B       R59.2  C103.1  C104.1
+ADC_SCK        U_ADC.6  X_ADC.3
+ADC_VREF       U_ADC.1  C89.1
+BAR_DM         U_HUB.1  J_USB_BAR.2  D_BAR.3  D_BAR.4
+BAR_DP         U_HUB.2  J_USB_BAR.3  D_BAR.1  D_BAR.6
+BAT_F          F_BAT.2  Q_REV.5  Q_REV.6  Q_REV.7  Q_REV.8
+BAT_RAW        F_BAT.1  J_BAT.2
+BCK2           U_DAC2.13  U_USB2.19
+BCK3           U_DAC3.13  U_USB3.19
+BST1           U_CHG.4  C4.1
+BST2           U_CHG.19  C5.1
+BST_3V3        U_3V3.6  C36.1
+BST_5V1        U_5V1.6  C26.1
+BST_5V2        U_5V2.6  C31.1
+CAPM1          U_DAC1.4  C45.2
+CAPM2          U_DAC2.4  C53.2
+CAPM3          U_DAC3.4  C61.2
+CAPP1          U_DAC1.2  C45.1
+CAPP2          U_DAC2.2  C53.1
+CAPP3          U_DAC3.2  C61.1
+CC1            J_USBC.A5  U_PD.3
+CC2            J_USBC.B5  U_PD.4
+CHG_BATP       U_CHG.18  R18.2
+CHG_ILIM       U_CHG.17  R14.2  R15.1
+CHG_INT        U_CHG.21  R20.1  U_EXP2.3
+CHG_PROG       U_CHG.20  R13.1
+CHG_QON        U_CHG.12  TP_QON.1
+CHG_SDRV       U_CHG.24  C22.1
+CHG_STAT       U_CHG.1  R19.1  U_EXP2.1
+CHG_TS         U_CHG.16  R16.2  R17.1
+CPN            U_HP.17  C106.2
+CPP            U_HP.18  C106.1
+CPVSS          U_HP.15  U_HP.16  C107.1
+DAC1_L         U_DAC1.6  R30.1
+DAC1_R         U_DAC1.7  R32.1
+DAC2_L         U_DAC2.6  R35.1
+DAC2_R         U_DAC2.7  R37.1
+DAC3_L         U_DAC3.6  R39.1
+DAC3_R         U_DAC3.7  R41.1
+DAC_XSMT       J1.13  U_DAC1.17  R34.1
+DIN2           U_DAC2.14  U_USB2.17
+DIN3           U_DAC3.14  U_USB3.17
+EEP_WP         U_EEP.7  JP_WP.1  R228.1
+ENC1A          ENC1.1  R133.1  C141.1  U_EXP1.21
+ENC1B          ENC1.3  R134.1  C142.1  U_EXP1.22
+ENC1S          ENC1.4  R135.1  C143.1  U_EXP1.5
+ENC2A          ENC2.1  R140.1  C145.1  U_EXP1.23
+ENC2B          ENC2.3  R141.1  C146.1  U_EXP1.24
+ENC2S          ENC2.4  R142.1  C147.1  U_EXP1.6
+ENC3A          ENC3.1  R147.1  C149.1  U_EXP1.25
+ENC3B          ENC3.3  R148.1  C150.1  U_EXP1.26
+ENC3S          ENC3.4  R149.1  C151.1  U_EXP1.7
+ENC4A          ENC4.1  R154.1  C153.1  U_EXP1.27
+ENC4B          ENC4.3  R155.1  C154.1  U_EXP1.28
+ENC4S          ENC4.4  R156.1  C155.1  U_EXP1.8
+ENC5A          ENC5.1  R161.1  C157.1  U_EXP1.1
+ENC5B          ENC5.3  R162.1  C158.1  U_EXP1.2
+ENC5S          ENC5.4  R163.1  C159.1  U_EXP2.21
+ENC6A          ENC6.1  R168.1  C161.1  U_EXP1.3
+ENC6B          ENC6.3  R169.1  C162.1  U_EXP1.4
+ENC6S          ENC6.4  R170.1  C163.1  U_EXP2.22
+EN_PWR         U_PWR.6  R23.1  U_5V1.5  U_5V2.5  U_3V3.5
+EXP1_INT       J1.16  U_EXP1.20
+EXP2_INT       J1.22  U_EXP2.20
+EXP_RST        U_EXP1.18  U_EXP2.18  R185.1
+EXTA_R         J_EXTA.R  U_EXP2.24  R187.1  C172.1  D16.1
+EXTA_T         J_EXTA.T  U_EXP2.23  R186.1  C171.1  D15.1
+EXTB_R         J_EXTB.R  U_EXP2.26  R189.1  C174.1  D18.1
+EXTB_T         J_EXTB.T  U_EXP2.25  R188.1  C173.1  D17.1
+F1_L           R30.2  C51.1  R31.1
+F1_R           R32.2  C52.1  R33.1
+F2_L           R35.2  C59.1  R36.1
+F2_R           R37.2  C60.1  R38.1
+F3_L           R39.2  C67.1  R40.1
+F3_R           R41.2  C68.1  R42.1
+FAD_A_ADC      U_FADC.4  R175.2  C165.1
+FAD_A_W        RV_A.2  R175.1
+FAD_B_ADC      U_FADC.5  R180.2  C167.1
+FAD_B_W        RV_B.2  R180.1
+FAN_CTL        J1.37  R229.1
+FAN_G          Q_FAN.1  R229.2  R230.1
+FAN_N          Q_FAN.3  D19.2  J_FAN.1
+FB_3V3         U_3V3.4  R28.2  R29.1
+FB_5V1         U_5V1.4  R24.2  R25.1
+FB_5V2         U_5V2.4  R26.2  R27.1
+FS1            SW_FS1.1  R73.1  C121.1  D5.1
+FS10           SW_FS10.1  R127.1  C139.1  D14.1
+FS2            SW_FS2.1  R79.1  C123.1  D6.1
+FS3            SW_FS3.1  R85.1  C125.1  D7.1
+FS4            SW_FS4.1  R91.1  C127.1  D8.1
+FS5            SW_FS5.1  R97.1  C129.1  D9.1
+FS6            SW_FS6.1  R103.1  C131.1  D10.1
+FS7            SW_FS7.1  R109.1  C133.1  D11.1
+FS8            SW_FS8.1  R115.1  C135.1  D12.1
+FS9            SW_FS9.1  R121.1  C137.1  D13.1
+GND            SW_PWR.2  C1.2  J_USBC.A1  J_USBC.B1  J_USBC.A12  J_USBC.B12  J_USBC.S1  D1.2  J_USBA.4  J_USBA.SH1  J_USBA.SH2  D_USBA.2  C2.2  J_EXTA.S  J_INA.S  J_INA.TN  J_OUT1.S  J_OUT2.S  J_OUT3.S  J_OUT4.S  J_OUT5.S  J_OUT6.S  J_INB.S  J_INB.TN  J_EXTB.S  R1.2  R2.2  R3.2  R4.2  R5.2  R6.2  J_MIDI_OUT.S  J_PHONES.R2  J_PHONES.S  J1.6  J1.9  J1.14  J1.20  J1.25  J1.30  J1.34  J1.39  U_PD.12  U_PD.14  U_PD.17  C3.2  R9.2  R10.2  R11.2  R12.2  U_CHG.10  U_CHG.11  U_CHG.13  U_CHG.27  C6.2  C7.2  C8.2  C9.2  C10.2  C11.2  C12.2  C13.2  C14.2  C15.2  C16.2  C17.2  C18.2  C19.2  C_SYS.2  C20.2  C21.2  R13.2  R15.2  R17.2  C22.2  Q_REV.4  U_INA.7  C23.2  U_PWR.4  C24.2  C25.2  U_5V1.1  R25.2  C27.2  C28.2  C29.2  C30.2  C_5V1.2  U_5V2.1  R27.2  C32.2  C33.2  C34.2  C35.2  C_5V2.2  U_3V3.1  R29.2  C37.2  C38.2  C39.2  C40.2  C_3V3.2  U_LDO.2  C41.2  C42.2  C43.2  C44.2  TP_GND.1  U_DAC1.3  U_DAC1.9  U_DAC1.10  U_DAC1.11  U_DAC1.12  U_DAC1.16  U_DAC1.19  C46.2  C47.2  C48.2  C49.2  C50.2  C51.2  C52.2  U_DAC2.3  U_DAC2.9  U_DAC2.10  U_DAC2.11  U_DAC2.12  U_DAC2.16  U_DAC2.19  C54.2  C55.2  C56.2  C57.2  C58.2  C59.2  C60.2  U_DAC3.3  U_DAC3.9  U_DAC3.10  U_DAC3.11  U_DAC3.12  U_DAC3.16  U_DAC3.19  C62.2  C63.2  C64.2  C65.2  C66.2  C67.2  C68.2  U_USB2.1  U_USB2.4  U_USB2.6  U_USB2.7  U_USB2.8  U_USB2.9  U_USB2.16  U_USB2.20  U_USB2.25  U_USB2.26  U_USB2.31  Y_USB2.2  Y_USB2.4  C69.2  C70.2  C71.2  C72.2  C73.2  C74.2  C75.2  C76.2  U_USB3.1  U_USB3.4  U_USB3.6  U_USB3.7  U_USB3.8  U_USB3.9  U_USB3.16  U_USB3.20  U_USB3.25  U_USB3.26  U_USB3.31  Y_USB3.2  Y_USB3.4  C77.2  C78.2  C79.2  C80.2  C81.2  C82.2  C83.2  C84.2  U_HUB.12  Y_HUB.2  Y_HUB.4  C85.2  C86.2  C87.2  C88.2  U_ADC.2  U_ADC.5  U_ADC.12  C89.2  C90.2  C91.2  C92.2  X_ADC.2  C93.2  U_PRE.4  R48.2  C94.2  C95.2  C98.2  C100.2  D2.2  C103.2  C105.2  D3.2  U_HP.3  U_HP.9  U_HP.10  U_HP.13  U_HP.19  U_HP.21  C107.2  C108.2  C109.2  C110.2  C111.2  C112.2  C113.2  C115.2  C116.2  U_MIDI.5  C118.2  U_FADC.1  U_FADC.3  C119.2  R72.2  C120.2  SW_FS1.2  C121.2  D5.2  R75.2  R78.2  C122.2  SW_FS2.2  C123.2  D6.2  R81.2  R84.2  C124.2  SW_FS3.2  C125.2  D7.2  R87.2  R90.2  C126.2  SW_FS4.2  C127.2  D8.2  R93.2  R96.2  C128.2  SW_FS5.2  C129.2  D9.2  R99.2  R102.2  C130.2  SW_FS6.2  C131.2  D10.2  R105.2  R108.2  C132.2  SW_FS7.2  C133.2  D11.2  R111.2  R114.2  C134.2  SW_FS8.2  C135.2  D12.2  R117.2  R120.2  C136.2  SW_FS9.2  C137.2  D13.2  R123.2  R126.2  C138.2  SW_FS10.2  C139.2  D14.2  R129.2  R132.2  C140.2  ENC1.2  ENC1.5  ENC1.7  ENC1.8  C141.2  C142.2  C143.2  R136.2  R139.2  C144.2  ENC2.2  ENC2.5  ENC2.7  ENC2.8  C145.2  C146.2  C147.2  R143.2  R146.2  C148.2  ENC3.2  ENC3.5  ENC3.7  ENC3.8  C149.2  C150.2  C151.2  R150.2  R153.2  C152.2  ENC4.2  ENC4.5  ENC4.7  ENC4.8  C153.2  C154.2  C155.2  R157.2  R160.2  C156.2  ENC5.2  ENC5.5  ENC5.7  ENC5.8  C157.2  C158.2  C159.2  R164.2  R167.2  C160.2  ENC6.2  ENC6.5  ENC6.7  ENC6.8  C161.2  C162.2  C163.2  R171.2  R174.2  C164.2  RV_A.1  RV_A.4  RV_A.5  RV_A.6  RV_A.7  C165.2  R176.2  R179.2  C166.2  RV_B.1  RV_B.4  RV_B.5  RV_B.6  RV_B.7  C167.2  R181.2  R184.2  C168.2  U_EXP1.10  U_EXP1.15  U_EXP1.16  U_EXP1.17  C169.2  U_EXP2.10  U_EXP2.16  U_EXP2.17  C170.2  C171.2  D15.2  C172.2  D16.2  C173.2  D17.2  C174.2  D18.2  U_LED.2  U_LED.3  U_LED.4  U_LED.5  U_LED.14  U_LED.23  U_LED.24  U_LED.25  C175.2  C176.2  U_MUX1.1  U_MUX1.2  U_MUX1.12  U_MUX1.21  C177.2  U_MUX2.2  U_MUX2.12  U_MUX2.21  C178.2  U_MUX3.1  U_MUX3.12  U_MUX3.21  C179.2  U_EEP.1  U_EEP.2  U_EEP.3  U_EEP.4  C180.2  R228.2  Q_FAN.2  R230.2  J_BAT.1  J_DISP.1  J_USB_UP.4  J_USB_BAR.4  D_BAR.2
+GND_R1         J_OUT1.R  R1.1
+GND_R2         J_OUT2.R  R2.1
+GND_R3         J_OUT3.R  R3.1
+GND_R4         J_OUT4.R  R4.1
+GND_R5         J_OUT5.R  R5.1
+GND_R6         J_OUT6.R  R6.1
+GPIO_FS1       J1.29  R73.2
+GPIO_FS10      J1.15  R127.2
+GPIO_FS2       J1.31  R79.2
+GPIO_FS3       J1.26  R85.2
+GPIO_FS4       J1.24  R91.2
+GPIO_FS5       J1.21  R97.2
+GPIO_FS6       J1.19  R103.2
+GPIO_FS7       J1.23  R109.2
+GPIO_FS8       J1.36  R115.2
+GPIO_FS9       J1.11  R121.2
+HP_GL          U_HP.2  C110.1
+HP_GR          U_HP.4  C111.1
+HP_INL         U_HP.1  C114.2
+HP_INR         U_HP.5  C117.2
+HP_L           J_PHONES.T  U_HP.14
+HP_R           J_PHONES.R1  U_HP.11
+HP_SD          U_HP.6  R61.1  U_LED.18
+HUB_18         U_HUB.14  C86.1
+HUB_33         U_HUB.13  C85.1
+HUB_DM1        U_USB2.22  U_HUB.7
+HUB_DM2        U_USB3.22  U_HUB.5
+HUB_DP1        U_USB2.23  U_HUB.8
+HUB_DP2        U_USB3.23  U_HUB.6
+HUB_XI         U_HUB.16  Y_HUB.1
+HUB_XO         U_HUB.15  Y_HUB.3
+I2S_BCK        J1.12  U_DAC1.13  U_ADC.8
+I2S_DIN        J1.38  U_ADC.9
+I2S_DOUT       J1.40  U_DAC1.14
+I2S_LRCK       J1.35  U_DAC1.15  U_ADC.7
+ID_SC          J1.28  U_EEP.6
+ID_SD          J1.27  U_EEP.5
+INST_A         J_INA.T  C96.1
+INST_B         J_INB.T  C101.1
+INST_DET_A     J_INA.R  C100.1  D2.1  R54.1  U_EXP2.27
+INST_DET_B     J_INB.R  C105.1  D3.1  R60.1  U_EXP2.28
+IN_AC_A        C96.2  R49.1  R50.1
+IN_AC_B        C101.2  R55.1  R56.1
+LDOO1          U_DAC1.18  C47.1
+LDOO2          U_DAC2.18  C55.1
+LDOO3          U_DAC3.18  C63.1
+LED1           R74.2  U_LED.6
+LED10          R128.2  U_LED.16
+LED2           R80.2  U_LED.7
+LED3           R86.2  U_LED.8
+LED4           R92.2  U_LED.9
+LED5           R98.2  U_LED.10
+LED6           R104.2  U_LED.11
+LED7           R110.2  U_LED.12
+LED8           R116.2  U_LED.13
+LED9           R122.2  U_LED.15
+LEDK1          LED_FS1.1  R74.1
+LEDK10         LED_FS10.1  R128.1
+LEDK2          LED_FS2.1  R80.1
+LEDK3          LED_FS3.1  R86.1
+LEDK4          LED_FS4.1  R92.1
+LEDK5          LED_FS5.1  R98.1
+LEDK6          LED_FS6.1  R104.1
+LEDK7          LED_FS7.1  R110.1
+LEDK8          LED_FS8.1  R116.1
+LEDK9          LED_FS9.1  R122.1
+LED_ST         U_LED.17  R190.2
+LED_ST_K       D_ST.1  R190.1
+LRCK2          U_DAC2.15  U_USB2.5
+LRCK3          U_DAC3.15  U_USB3.5
+MIDI_A         U_MIDI.2  R66.2  D4.1
+MIDI_IN_R      J_MIDI_IN.R1  R70.2
+MIDI_IN_T      J_MIDI_IN.T  R66.1
+MIDI_K         U_MIDI.3  R70.1  D4.2
+MIDI_OUT_R     J_MIDI_OUT.R1  R68.2
+MIDI_OUT_T     J_MIDI_OUT.T  R69.2
+MIDI_RX        J1.10  U_MIDI.6  R67.1
+MIDI_TX        J1.8  R68.1
+MUX_RST        U_MUX1.3  U_MUX2.3  U_MUX3.3  R227.1
+OLED_A_P1      OLED_A.1  R176.1  R178.1
+OLED_A_P2      OLED_A.2  R177.1  R179.1
+OLED_B_P1      OLED_B.1  R181.1  R183.1
+OLED_B_P2      OLED_B.2  R182.1  R184.1
+OLED_FS10_P1   OLED_FS10.1  R129.1  R131.1
+OLED_FS10_P2   OLED_FS10.2  R130.1  R132.1
+OLED_FS1_P1    OLED_FS1.1  R75.1  R77.1
+OLED_FS1_P2    OLED_FS1.2  R76.1  R78.1
+OLED_FS2_P1    OLED_FS2.1  R81.1  R83.1
+OLED_FS2_P2    OLED_FS2.2  R82.1  R84.1
+OLED_FS3_P1    OLED_FS3.1  R87.1  R89.1
+OLED_FS3_P2    OLED_FS3.2  R88.1  R90.1
+OLED_FS4_P1    OLED_FS4.1  R93.1  R95.1
+OLED_FS4_P2    OLED_FS4.2  R94.1  R96.1
+OLED_FS5_P1    OLED_FS5.1  R99.1  R101.1
+OLED_FS5_P2    OLED_FS5.2  R100.1  R102.1
+OLED_FS6_P1    OLED_FS6.1  R105.1  R107.1
+OLED_FS6_P2    OLED_FS6.2  R106.1  R108.1
+OLED_FS7_P1    OLED_FS7.1  R111.1  R113.1
+OLED_FS7_P2    OLED_FS7.2  R112.1  R114.1
+OLED_FS8_P1    OLED_FS8.1  R117.1  R119.1
+OLED_FS8_P2    OLED_FS8.2  R118.1  R120.1
+OLED_FS9_P1    OLED_FS9.1  R123.1  R125.1
+OLED_FS9_P2    OLED_FS9.2  R124.1  R126.1
+OLED_K1_P1     OLED_K1.1  R136.1  R138.1
+OLED_K1_P2     OLED_K1.2  R137.1  R139.1
+OLED_K2_P1     OLED_K2.1  R143.1  R145.1
+OLED_K2_P2     OLED_K2.2  R144.1  R146.1
+OLED_K3_P1     OLED_K3.1  R150.1  R152.1
+OLED_K3_P2     OLED_K3.2  R151.1  R153.1
+OLED_K4_P1     OLED_K4.1  R157.1  R159.1
+OLED_K4_P2     OLED_K4.2  R158.1  R160.1
+OLED_K5_P1     OLED_K5.1  R164.1  R166.1
+OLED_K5_P2     OLED_K5.2  R165.1  R167.1
+OLED_K6_P1     OLED_K6.1  R171.1  R173.1
+OLED_K6_P2     OLED_K6.2  R172.1  R174.1
+OUT1           J_OUT1.T  R31.2
+OUT2           J_OUT2.T  R33.2
+OUT3           J_OUT3.T  R36.2
+OUT4           J_OUT4.T  R38.2
+OUT5           J_OUT5.T  R40.2
+OUT6           J_OUT6.T  R42.2
+PB             SW_PWR.1  C1.1  U_PWR.2
+PDT            U_PWR.7  C25.1
+PD_DBG         U_PD.6  R9.1
+PD_FAULT       U_PD.13  U_EXP2.2
+PD_HVDCP       U_PD.7  R10.1
+PD_ISET        U_PD.10  R12.1
+PD_VDD         U_PD.5  C3.1  R8.2
+PD_VSET        U_PD.9  R11.1
+PI_3V3         J1.1  J1.17  R7.1
+PMID           U_CHG.29  C6.1  C7.1  C8.1  C9.1
+PRE_A          U_PRE.1  R52.1  C97.1  R53.1  JP_GAIN_A.1
+PRE_AN         U_PRE.2  R51.1  R52.2  C97.2  JP_GAIN_A.2
+PRE_AP         U_PRE.3  R50.2
+PRE_B          U_PRE.7  R58.1  C102.1  R59.1  JP_GAIN_B.1
+PRE_BN         U_PRE.6  R57.1  R58.2  C102.2  JP_GAIN_B.2
+PRE_BP         U_PRE.5  R56.2
+PWF1_L         R62.2  C112.1  R63.1
+PWF1_R         R64.2  C115.1  R65.1
+PWF2_L         R63.2  C113.1  C114.1
+PWF2_R         R65.2  C116.1  C117.1
+PWM_L          J1.32  R62.1
+PWM_R          J1.33  R64.1
+PWR_INT        J1.7  U_PWR.5  R21.1
+PWR_KILL       J1.18  U_PWR.8  R22.1
+REGN           U_CHG.5  C13.1  R14.1  R16.1
+ROMDT2         U_USB2.15  R43.1
+ROMDT3         U_USB3.15  R45.1
+SCL            J1.5  U_CHG.14  U_INA.5  U_HP.8  U_FADC.10  U_EXP1.12  U_EXP2.12  U_LED.26  U_MUX1.22  U_MUX2.22  U_MUX3.22
+SC_OLED_A      OLED_A.3  U_MUX3.5  R224.1
+SC_OLED_B      OLED_B.3  U_MUX3.7  R226.1
+SC_OLED_FS1    OLED_FS1.3  U_MUX1.5  R192.1
+SC_OLED_FS10   OLED_FS10.3  U_MUX2.7  R210.1
+SC_OLED_FS2    OLED_FS2.3  U_MUX1.7  R194.1
+SC_OLED_FS3    OLED_FS3.3  U_MUX1.9  R196.1
+SC_OLED_FS4    OLED_FS4.3  U_MUX1.11  R198.1
+SC_OLED_FS5    OLED_FS5.3  U_MUX1.14  R200.1
+SC_OLED_FS6    OLED_FS6.3  U_MUX1.16  R202.1
+SC_OLED_FS7    OLED_FS7.3  U_MUX1.18  R204.1
+SC_OLED_FS8    OLED_FS8.3  U_MUX1.20  R206.1
+SC_OLED_FS9    OLED_FS9.3  U_MUX2.5  R208.1
+SC_OLED_K1     OLED_K1.3  U_MUX2.9  R212.1
+SC_OLED_K2     OLED_K2.3  U_MUX2.11  R214.1
+SC_OLED_K3     OLED_K3.3  U_MUX2.14  R216.1
+SC_OLED_K4     OLED_K4.3  U_MUX2.16  R218.1
+SC_OLED_K5     OLED_K5.3  U_MUX2.18  R220.1
+SC_OLED_K6     OLED_K6.3  U_MUX2.20  R222.1
+SDA            J1.3  U_CHG.15  U_INA.4  U_HP.7  U_FADC.9  U_EXP1.13  U_EXP2.13  U_LED.27  U_MUX1.23  U_MUX2.23  U_MUX3.23
+SD_OLED_A      OLED_A.4  U_MUX3.4  R223.1
+SD_OLED_B      OLED_B.4  U_MUX3.6  R225.1
+SD_OLED_FS1    OLED_FS1.4  U_MUX1.4  R191.1
+SD_OLED_FS10   OLED_FS10.4  U_MUX2.6  R209.1
+SD_OLED_FS2    OLED_FS2.4  U_MUX1.6  R193.1
+SD_OLED_FS3    OLED_FS3.4  U_MUX1.8  R195.1
+SD_OLED_FS4    OLED_FS4.4  U_MUX1.10  R197.1
+SD_OLED_FS5    OLED_FS5.4  U_MUX1.13  R199.1
+SD_OLED_FS6    OLED_FS6.4  U_MUX1.15  R201.1
+SD_OLED_FS7    OLED_FS7.4  U_MUX1.17  R203.1
+SD_OLED_FS8    OLED_FS8.4  U_MUX1.19  R205.1
+SD_OLED_FS9    OLED_FS9.4  U_MUX2.4  R207.1
+SD_OLED_K1     OLED_K1.4  U_MUX2.8  R211.1
+SD_OLED_K2     OLED_K2.4  U_MUX2.10  R213.1
+SD_OLED_K3     OLED_K3.4  U_MUX2.13  R215.1
+SD_OLED_K4     OLED_K4.4  U_MUX2.15  R217.1
+SD_OLED_K5     OLED_K5.4  U_MUX2.17  R219.1
+SD_OLED_K6     OLED_K6.4  U_MUX2.19  R221.1
+SPARE1         U_EXP2.4
+SPARE2         U_EXP2.5
+SPARE3         U_EXP2.6
+SPARE4         U_EXP2.7
+SPARE5         U_EXP2.8
+SW1            U_CHG.28  L_CHG.1  C4.2
+SW2            U_CHG.26  L_CHG.2  C5.2
+SW_3V3         U_3V3.2  L_3V3.1  C36.2
+SW_5V1         U_5V1.2  L_5V1.1  C26.2
+SW_5V2         U_5V2.2  L_5V2.1  C31.2
+UP_DM          U_HUB.9  J_USB_UP.2
+UP_DP          U_HUB.10  J_USB_UP.3
+USBA_5V        J_USBA.1  F_USBA.2  D_USBA.5  C2.1
+USBA_DM        J_USBA.2  D_USBA.3  D_USBA.4  U_HUB.3
+USBA_DP        J_USBA.3  D_USBA.1  D_USBA.6  U_HUB.4
+USB_DM         J_USBC.A7  J_USBC.B7  U_CHG.7
+USB_DP         J_USBC.A6  J_USBC.B6  U_CHG.6
+VBAT           U_CHG.22  U_CHG.23  C20.1  C21.1  R_SH.2  U_INA.8  U_INA.9
+VBAT_P         R18.1  Q_REV.1  Q_REV.2  Q_REV.3  R_SH.1  U_INA.10  TP_VBAT.1
+VBIAS          R47.2  R48.1  C94.1  R49.2  R51.2  R55.2  R57.2
+VBUS           J_USBC.A4  J_USBC.B4  J_USBC.A9  J_USBC.B9  D1.1  U_PD.16  U_CHG.2  U_CHG.3  U_CHG.8  U_CHG.9  C10.1  C11.1  C12.1  R71.1
+VBUS_SENSE     U_FADC.6  R71.2  R72.1  C120.1
+VCOM2          U_USB2.32  C71.1
+VCOM3          U_USB3.32  C79.1
+VNEG1          U_DAC1.5  C46.1
+VNEG2          U_DAC2.5  C54.1
+VNEG3          U_DAC3.5  C62.1
+VSYS           U_CHG.25  C14.1  C15.1  C16.1  C17.1  C18.1  C19.1  C_SYS.1  U_PWR.1  C24.1  R23.2  U_5V1.3  C27.1  C28.1  U_5V2.3  C32.1  C33.1  U_3V3.3  C37.1  C38.1  TP_VSYS.1
+XSMT2          U_DAC2.17  U_USB2.11  R44.1
+XSMT3          U_DAC3.17  U_USB3.11  R46.1
+XTI2           U_USB2.12  Y_USB2.1  C69.1
+XTI3           U_USB3.12  Y_USB3.1  C77.1
+XTO2           U_USB2.13  Y_USB2.3  C70.1
+XTO3           U_USB3.13  Y_USB3.3  C78.1
+
+Parts
+SW_PWR     POWER                    SW_Tactile_SPST_Angled_PTS645Vx39-2LFS                   C285519      C&K PTS645VK39-2 LFS
+C1         100n                     C_0603_1608Metric                                        C14663       
+J_USBC     USB-C                    USB_C_Receptacle_HRO_TYPE-C-31-M-12                      C165948      HRO TYPE-C-31-M-12
+D1         SMAJ24A                  D_SMA                                                    C113962      SMAJ24A TVS
+J_USBA     USB-A                    USB_A_Horizontal_AF90                                    C2345        USB-A receptacle, right angle, THT (Jing Extension 902-131A1011D10100)
+F_USBA     0.75A PTC                Fuse_1812_4532Metric                                     C84140       Bourns MF-MSMF075-2 (0.75 A hold PTC 1812)
+D_USBA     USBLC6-2SC6              SOT-23-6                                                 C7519        ST USBLC6-2SC6
+C2         100n                     C_0603_1608Metric                                        C14663       
+J_EXTA     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_INA      1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_OUT1     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_OUT2     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_OUT3     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_OUT4     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_OUT5     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_OUT6     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_INB      1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+J_EXTB     1/4in TRS                Jack_6.35mm_Neutrik_NMJ6HCD2_Horizontal                  C368502      Neutrik NMJ6HCD2
+R1         100R                     R_0603_1608Metric                                        C22775       
+R2         100R                     R_0603_1608Metric                                        C22775       
+R3         100R                     R_0603_1608Metric                                        C22775       
+R4         100R                     R_0603_1608Metric                                        C22775       
+R5         100R                     R_0603_1608Metric                                        C22775       
+R6         100R                     R_0603_1608Metric                                        C22775       
+J_MIDI_IN  3.5mm TRRS               Jack_3.5mm_PJ320D_Horizontal                             C95562       PJ-320D-4A
+J_MIDI_OUT 3.5mm TRRS               Jack_3.5mm_PJ320D_Horizontal                             C95562       PJ-320D-4A
+J_PHONES   3.5mm TRRS               Jack_3.5mm_PJ320D_Horizontal                             C95562       PJ-320D-4A
+J1         RASPBERRY PI 4           PinSocket_2x20_P2.54mm_Vertical                          C5124634     2x20 female header 2.54 mm, 8.5 mm tall (Pi on ~20 mm M2.5 standoffs with a 2x20 extra-long stacking header on its GPIO pins)
+R7         0R                       R_0603_1608Metric                                        C21189       
+U_PD       HUSB238A-BB001           HUSB238A_QFN-16_3x3                                      C24833806    Hynetek HUSB238A-BB001-QN16R
+C3         1u                       C_0603_1608Metric                                        C5673        
+R8         0R                       R_0603_1608Metric                                        C21189       
+R9         900k                     R_0603_1608Metric                                        C55585693    
+R10        900k                     R_0603_1608Metric                                        C55585693    
+R11        11k                      R_0603_1608Metric                                        C25950       
+R12        21k                      R_0603_1608Metric                                        C22956       
+U_CHG      BQ25798RQMR              BQ25798_VQFN-29_4x4                                      C2876593     TI BQ25798RQMR
+L_CHG      2.2uH                    L_Sunlord_MWSA0603S                                      C408445      Sunlord MWSA0603S-2R2MT (2.2 uH, 10 A)
+C4         47n                      C_0603_1608Metric                                        C1622        
+C5         47n                      C_0603_1608Metric                                        C1622        
+C6         10u                      C_0805_2012Metric                                        C15850       
+C7         10u                      C_0805_2012Metric                                        C15850       
+C8         10u                      C_0805_2012Metric                                        C15850       
+C9         100n                     C_0603_1608Metric                                        C14663       
+C10        10u                      C_0805_2012Metric                                        C15850       
+C11        10u                      C_0805_2012Metric                                        C15850       
+C12        100n                     C_0603_1608Metric                                        C14663       
+C13        4.7u                     C_0603_1608Metric                                        C69335       
+C14        10u                      C_0805_2012Metric                                        C15850       
+C15        10u                      C_0805_2012Metric                                        C15850       
+C16        10u                      C_0805_2012Metric                                        C15850       
+C17        10u                      C_0805_2012Metric                                        C15850       
+C18        10u                      C_0805_2012Metric                                        C15850       
+C19        100n                     C_0603_1608Metric                                        C14663       
+C_SYS      100u 10V                 CP_Elec_6.3x5.8                                          C48971041    100uF 10V polymer 6.3x6
+C20        10u                      C_0805_2012Metric                                        C15850       
+C21        10u                      C_0805_2012Metric                                        C15850       
+R13        8.2k                     R_0603_1608Metric                                        C25981       
+R14        10k                      R_0603_1608Metric                                        C25804       
+R15        21k                      R_0603_1608Metric                                        C22956       
+R16        10k                      R_0603_1608Metric                                        C25804       
+R17        15k                      R_0603_1608Metric                                        C22809       
+C22        1n                       C_0603_1608Metric                                        C1588        
+R18        100R                     R_0603_1608Metric                                        C22775       
+R19        10k                      R_0603_1608Metric                                        C25804       
+R20        10k                      R_0603_1608Metric                                        C25804       
+TP_QON     QON                      TestPoint_Pad_D1.5mm                                                  
+F_BAT      7.5A PTC                 Fuse_1812_4532Metric                                     C3039825     SMD1812-750-12V (7.5 A hold PTC)
+Q_REV      AO4407A                  SOIC-8_3.9x4.9mm_P1.27mm                                 C16072       Alpha&Omega AO4407A
+R_SH       5mR                      R_2512_6332Metric                                        C154688      5 mOhm 1% 3 W 2512
+U_INA      INA226AIDGSR             VSSOP-10_3x3mm_P0.5mm                                    C49851       TI INA226AIDGSR
+C23        100n                     C_0603_1608Metric                                        C14663       
+U_PWR      LTC2954CTS8-1            TSOT-23-8                                                C683782      ADI LTC2954CTS8-1#TRPBF
+C24        1u                       C_0603_1608Metric                                        C5673        
+C25        1u                       C_0603_1608Metric                                        C5673        
+R21        100k                     R_0603_1608Metric                                        C25803       
+R22        4.7k                     R_0603_1608Metric                                        C23162       
+R23        100k                     R_0603_1608Metric                                        C25803       
+U_5V1      TPS565208DDCR            TSOT-23-6                                                C2650336     TI TPS565208DDCR
+L_5V1      3.3uH                    L_Sunlord_MWSA0603S                                      C408446      Sunlord MWSA0603S-3R3MT (3.3uH, 8 A)
+C26        100n                     C_0603_1608Metric                                        C14663       
+R24        57.6k                    R_0603_1608Metric                                        C23082       
+R25        10k                      R_0603_1608Metric                                        C25804       
+C27        10u                      C_0805_2012Metric                                        C15850       
+C28        100n                     C_0603_1608Metric                                        C14663       
+C29        22u                      C_0805_2012Metric                                        C29277       
+C30        22u                      C_0805_2012Metric                                        C29277       
+C_5V1      100u 10V                 CP_Elec_6.3x5.8                                          C48971041    100uF 10V polymer 6.3x6
+U_5V2      TPS565208DDCR            TSOT-23-6                                                C2650336     TI TPS565208DDCR
+L_5V2      3.3uH                    L_Sunlord_MWSA0603S                                      C408446      Sunlord MWSA0603S-3R3MT (3.3uH, 8 A)
+C31        100n                     C_0603_1608Metric                                        C14663       
+R26        57.6k                    R_0603_1608Metric                                        C23082       
+R27        10k                      R_0603_1608Metric                                        C25804       
+C32        10u                      C_0805_2012Metric                                        C15850       
+C33        100n                     C_0603_1608Metric                                        C14663       
+C34        22u                      C_0805_2012Metric                                        C29277       
+C35        22u                      C_0805_2012Metric                                        C29277       
+C_5V2      100u 10V                 CP_Elec_6.3x5.8                                          C48971041    100uF 10V polymer 6.3x6
+U_3V3      TPS565208DDCR            TSOT-23-6                                                C2650336     TI TPS565208DDCR
+L_3V3      2.2uH                    L_Sunlord_MWSA0603S                                      C408445      Sunlord MWSA0603S-2R2MT (2.2uH, 8 A)
+C36        100n                     C_0603_1608Metric                                        C14663       
+R28        33.2k                    R_0603_1608Metric                                        C23003       
+R29        10k                      R_0603_1608Metric                                        C25804       
+C37        10u                      C_0805_2012Metric                                        C15850       
+C38        100n                     C_0603_1608Metric                                        C14663       
+C39        22u                      C_0805_2012Metric                                        C29277       
+C40        22u                      C_0805_2012Metric                                        C29277       
+C_3V3      100u 10V                 CP_Elec_6.3x5.8                                          C48971041    100uF 10V polymer 6.3x6
+U_LDO      TLV75533PDBVR            SOT-23-5                                                 C404027      TI TLV75533PDBVR
+C41        1u                       C_0603_1608Metric                                        C5673        
+C42        1u                       C_0603_1608Metric                                        C5673        
+C43        10u                      C_0603_1608Metric                                        C19702       
+FB1        FB 60R                   L_0805_2012Metric                                        C18305       Murata BLM21PG600SN1D
+C44        10u                      C_0603_1608Metric                                        C19702       
+TP_VSYS    VSYS                     TestPoint_Pad_D1.5mm                                                  
+TP_5V1     5V1                      TestPoint_Pad_D1.5mm                                                  
+TP_5V2     5V2                      TestPoint_Pad_D1.5mm                                                  
+TP_3V3     3V3                      TestPoint_Pad_D1.5mm                                                  
+TP_3V3A    3V3A                     TestPoint_Pad_D1.5mm                                                  
+TP_VBAT    VBAT                     TestPoint_Pad_D1.5mm                                                  
+TP_GND     GND                      TestPoint_Pad_D1.5mm                                                  
+U_DAC1     PCM5102APWR              TSSOP-20_4.4x6.5mm_P0.65mm                               C107671      TI PCM5102APWR
+C45        2.2u                     C_0603_1608Metric                                        C23630       
+C46        2.2u                     C_0603_1608Metric                                        C23630       
+C47        2.2u                     C_0603_1608Metric                                        C23630       
+C48        100n                     C_0603_1608Metric                                        C14663       
+C49        10u                      C_0603_1608Metric                                        C19702       
+C50        100n                     C_0603_1608Metric                                        C14663       
+R30        470R                     R_0603_1608Metric                                        C23179       
+C51        2.2n                     C_0603_1608Metric                                        C1604        
+R31        100R                     R_0603_1608Metric                                        C22775       
+R32        470R                     R_0603_1608Metric                                        C23179       
+C52        2.2n                     C_0603_1608Metric                                        C1604        
+R33        100R                     R_0603_1608Metric                                        C22775       
+R34        100k                     R_0603_1608Metric                                        C25803       
+U_DAC2     PCM5102APWR              TSSOP-20_4.4x6.5mm_P0.65mm                               C107671      TI PCM5102APWR
+C53        2.2u                     C_0603_1608Metric                                        C23630       
+C54        2.2u                     C_0603_1608Metric                                        C23630       
+C55        2.2u                     C_0603_1608Metric                                        C23630       
+C56        100n                     C_0603_1608Metric                                        C14663       
+C57        10u                      C_0603_1608Metric                                        C19702       
+C58        100n                     C_0603_1608Metric                                        C14663       
+R35        470R                     R_0603_1608Metric                                        C23179       
+C59        2.2n                     C_0603_1608Metric                                        C1604        
+R36        100R                     R_0603_1608Metric                                        C22775       
+R37        470R                     R_0603_1608Metric                                        C23179       
+C60        2.2n                     C_0603_1608Metric                                        C1604        
+R38        100R                     R_0603_1608Metric                                        C22775       
+U_DAC3     PCM5102APWR              TSSOP-20_4.4x6.5mm_P0.65mm                               C107671      TI PCM5102APWR
+C61        2.2u                     C_0603_1608Metric                                        C23630       
+C62        2.2u                     C_0603_1608Metric                                        C23630       
+C63        2.2u                     C_0603_1608Metric                                        C23630       
+C64        100n                     C_0603_1608Metric                                        C14663       
+C65        10u                      C_0603_1608Metric                                        C19702       
+C66        100n                     C_0603_1608Metric                                        C14663       
+R39        470R                     R_0603_1608Metric                                        C23179       
+C67        2.2n                     C_0603_1608Metric                                        C1604        
+R40        100R                     R_0603_1608Metric                                        C22775       
+R41        470R                     R_0603_1608Metric                                        C23179       
+C68        2.2n                     C_0603_1608Metric                                        C1604        
+R42        100R                     R_0603_1608Metric                                        C22775       
+U_USB2     PCM2706CPJTR             TQFP-32_7x7mm_P0.8mm                                     C2651268     TI PCM2706CPJTR
+Y_USB2     12MHz                    Crystal_SMD_3225-4Pin_3.2x2.5mm                          C9002        12 MHz 3225 crystal 20 pF
+C69        22p                      C_0603_1608Metric                                        C1653        
+C70        22p                      C_0603_1608Metric                                        C1653        
+R43        10k                      R_0603_1608Metric                                        C25804       
+C71        10u                      C_0603_1608Metric                                        C19702       
+C72        100n                     C_0603_1608Metric                                        C14663       
+C73        10u                      C_0603_1608Metric                                        C19702       
+C74        100n                     C_0603_1608Metric                                        C14663       
+C75        10u                      C_0603_1608Metric                                        C19702       
+C76        100n                     C_0603_1608Metric                                        C14663       
+R44        100k                     R_0603_1608Metric                                        C25803       
+U_USB3     PCM2706CPJTR             TQFP-32_7x7mm_P0.8mm                                     C2651268     TI PCM2706CPJTR
+Y_USB3     12MHz                    Crystal_SMD_3225-4Pin_3.2x2.5mm                          C9002        12 MHz 3225 crystal 20 pF
+C77        22p                      C_0603_1608Metric                                        C1653        
+C78        22p                      C_0603_1608Metric                                        C1653        
+R45        10k                      R_0603_1608Metric                                        C25804       
+C79        10u                      C_0603_1608Metric                                        C19702       
+C80        100n                     C_0603_1608Metric                                        C14663       
+C81        10u                      C_0603_1608Metric                                        C19702       
+C82        100n                     C_0603_1608Metric                                        C14663       
+C83        10u                      C_0603_1608Metric                                        C19702       
+C84        100n                     C_0603_1608Metric                                        C14663       
+R46        100k                     R_0603_1608Metric                                        C25803       
+U_HUB      SL2.1A                   SL2.1A_SOP-16                                            C6798314     CoreChips SL2.1A
+Y_HUB      12MHz                    Crystal_SMD_3225-4Pin_3.2x2.5mm                          C9002        12 MHz 3225 crystal 20 pF
+C85        4.7u                     C_0603_1608Metric                                        C69335       
+C86        4.7u                     C_0603_1608Metric                                        C69335       
+C87        10u                      C_0603_1608Metric                                        C19702       
+C88        100n                     C_0603_1608Metric                                        C14663       
+U_ADC      PCM1808PWR               TSSOP-14_4.4x5mm_P0.65mm                                 C55513       TI PCM1808PWR
+C89        10u                      C_0603_1608Metric                                        C19702       
+C90        100n                     C_0603_1608Metric                                        C14663       
+C91        10u                      C_0603_1608Metric                                        C19702       
+C92        100n                     C_0603_1608Metric                                        C14663       
+X_ADC      12.288MHz                Oscillator_SMD_Abracon_ASE-4Pin_3.2x2.5mm                C2896602     12.288 MHz 3.3 V CMOS oscillator 3225
+C93        100n                     C_0603_1608Metric                                        C14663       
+U_PRE      OPA1678IDR               SOIC-8_3.9x4.9mm_P1.27mm                                 C192421      TI OPA1678IDR
+R47        100k                     R_0603_1608Metric                                        C25803       
+R48        100k                     R_0603_1608Metric                                        C25803       
+C94        10u                      C_0603_1608Metric                                        C19702       
+C95        100n                     C_0603_1608Metric                                        C14663       
+C96        100n                     C_0603_1608Metric                                        C14663       
+R49        1M                       R_0603_1608Metric                                        C22935       
+R50        100R                     R_0603_1608Metric                                        C22775       
+R51        10k                      R_0603_1608Metric                                        C25804       
+R52        30k                      R_0603_1608Metric                                        C22984       
+C97        100p                     C_0603_1608Metric                                        C14858       
+R53        4.7k                     R_0603_1608Metric                                        C23162       
+C98        1n                       C_0603_1608Metric                                        C1588        
+C99        1u                       C_0603_1608Metric                                        C5673        
+JP_GAIN_A  GAIN A 0dB               SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm                        
+C100       100n                     C_0603_1608Metric                                        C14663       
+D2         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+R54        10k                      R_0603_1608Metric                                        C25804       
+C101       100n                     C_0603_1608Metric                                        C14663       
+R55        1M                       R_0603_1608Metric                                        C22935       
+R56        100R                     R_0603_1608Metric                                        C22775       
+R57        10k                      R_0603_1608Metric                                        C25804       
+R58        30k                      R_0603_1608Metric                                        C22984       
+C102       100p                     C_0603_1608Metric                                        C14858       
+R59        4.7k                     R_0603_1608Metric                                        C23162       
+C103       1n                       C_0603_1608Metric                                        C1588        
+C104       1u                       C_0603_1608Metric                                        C5673        
+JP_GAIN_B  GAIN B 0dB               SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm                        
+C105       100n                     C_0603_1608Metric                                        C14663       
+D3         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+R60        10k                      R_0603_1608Metric                                        C25804       
+U_HP       TPA6130A2RTJR            TPA6130A2_QFN-20_4x4                                     C130046      TI TPA6130A2RTJR
+C106       1u                       C_0603_1608Metric                                        C5673        
+C107       1u                       C_0603_1608Metric                                        C5673        
+C108       1u                       C_0603_1608Metric                                        C5673        
+C109       1u                       C_0603_1608Metric                                        C5673        
+R61        10k                      R_0603_1608Metric                                        C25804       
+C110       1u                       C_0603_1608Metric                                        C5673        
+C111       1u                       C_0603_1608Metric                                        C5673        
+R62        270R                     R_0603_1608Metric                                        C22966       
+C112       33n                      C_0603_1608Metric                                        C21117       
+R63        150R                     R_0603_1608Metric                                        C22808       
+C113       10n                      C_0603_1608Metric                                        C57112       
+C114       1u                       C_0603_1608Metric                                        C5673        
+R64        270R                     R_0603_1608Metric                                        C22966       
+C115       33n                      C_0603_1608Metric                                        C21117       
+R65        150R                     R_0603_1608Metric                                        C22808       
+C116       10n                      C_0603_1608Metric                                        C57112       
+C117       1u                       C_0603_1608Metric                                        C5673        
+U_MIDI     6N138S                   Opto_6N138S_SMD8                                         C22451885    Lite-On 6N138S-TA1-L (SMD-8, 2.54 mm pitch)
+R66        220R                     R_0603_1608Metric                                        C22962       
+R67        2.2k                     R_0603_1608Metric                                        C4190        
+C118       100n                     C_0603_1608Metric                                        C14663       
+R68        10R                      R_0603_1608Metric                                        C22859       
+R69        33R                      R_0603_1608Metric                                        C23140       
+R70        0R                       R_0603_1608Metric                                        C21189       
+D4         1N4148W                  D_SOD-123                                                C81598       1N4148W
+U_FADC     ADS1115IDGSR             VSSOP-10_3x3mm_P0.5mm                                    C37593       TI ADS1115IDGSR
+C119       100n                     C_0603_1608Metric                                        C14663       
+R71        100k                     R_0603_1608Metric                                        C25803       
+R72        15k                      R_0603_1608Metric                                        C22809       
+C120       100n                     C_0603_1608Metric                                        C14663       
+SW_FS1     FOOTSWITCH 1             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R73        100R                     R_0603_1608Metric                                        C22775       
+C121       100n                     C_0603_1608Metric                                        C14663       
+D5         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS1    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R74        330R                     R_0603_1608Metric                                        C23138       
+OLED_FS1   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R75        0R                       R_0603_1608Metric                                        C21189       
+R76        0R                       R_0603_1608Metric                                        C21189       
+R77        0R                       R_0603_1608Metric                                        C21189       
+R78        0R                       R_0603_1608Metric                                        C21189       
+C122       100n                     C_0603_1608Metric                                        C14663       
+SW_FS2     FOOTSWITCH 2             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R79        100R                     R_0603_1608Metric                                        C22775       
+C123       100n                     C_0603_1608Metric                                        C14663       
+D6         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS2    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R80        330R                     R_0603_1608Metric                                        C23138       
+OLED_FS2   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R81        0R                       R_0603_1608Metric                                        C21189       
+R82        0R                       R_0603_1608Metric                                        C21189       
+R83        0R                       R_0603_1608Metric                                        C21189       
+R84        0R                       R_0603_1608Metric                                        C21189       
+C124       100n                     C_0603_1608Metric                                        C14663       
+SW_FS3     FOOTSWITCH 3             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R85        100R                     R_0603_1608Metric                                        C22775       
+C125       100n                     C_0603_1608Metric                                        C14663       
+D7         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS3    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R86        330R                     R_0603_1608Metric                                        C23138       
+OLED_FS3   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R87        0R                       R_0603_1608Metric                                        C21189       
+R88        0R                       R_0603_1608Metric                                        C21189       
+R89        0R                       R_0603_1608Metric                                        C21189       
+R90        0R                       R_0603_1608Metric                                        C21189       
+C126       100n                     C_0603_1608Metric                                        C14663       
+SW_FS4     FOOTSWITCH 4             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R91        100R                     R_0603_1608Metric                                        C22775       
+C127       100n                     C_0603_1608Metric                                        C14663       
+D8         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS4    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R92        330R                     R_0603_1608Metric                                        C23138       
+OLED_FS4   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R93        0R                       R_0603_1608Metric                                        C21189       
+R94        0R                       R_0603_1608Metric                                        C21189       
+R95        0R                       R_0603_1608Metric                                        C21189       
+R96        0R                       R_0603_1608Metric                                        C21189       
+C128       100n                     C_0603_1608Metric                                        C14663       
+SW_FS5     FOOTSWITCH 5             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R97        100R                     R_0603_1608Metric                                        C22775       
+C129       100n                     C_0603_1608Metric                                        C14663       
+D9         PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS5    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R98        330R                     R_0603_1608Metric                                        C23138       
+OLED_FS5   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R99        0R                       R_0603_1608Metric                                        C21189       
+R100       0R                       R_0603_1608Metric                                        C21189       
+R101       0R                       R_0603_1608Metric                                        C21189       
+R102       0R                       R_0603_1608Metric                                        C21189       
+C130       100n                     C_0603_1608Metric                                        C14663       
+SW_FS6     FOOTSWITCH 6             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R103       100R                     R_0603_1608Metric                                        C22775       
+C131       100n                     C_0603_1608Metric                                        C14663       
+D10        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS6    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R104       330R                     R_0603_1608Metric                                        C23138       
+OLED_FS6   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R105       0R                       R_0603_1608Metric                                        C21189       
+R106       0R                       R_0603_1608Metric                                        C21189       
+R107       0R                       R_0603_1608Metric                                        C21189       
+R108       0R                       R_0603_1608Metric                                        C21189       
+C132       100n                     C_0603_1608Metric                                        C14663       
+SW_FS7     FOOTSWITCH 7             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R109       100R                     R_0603_1608Metric                                        C22775       
+C133       100n                     C_0603_1608Metric                                        C14663       
+D11        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS7    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R110       330R                     R_0603_1608Metric                                        C23138       
+OLED_FS7   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R111       0R                       R_0603_1608Metric                                        C21189       
+R112       0R                       R_0603_1608Metric                                        C21189       
+R113       0R                       R_0603_1608Metric                                        C21189       
+R114       0R                       R_0603_1608Metric                                        C21189       
+C134       100n                     C_0603_1608Metric                                        C14663       
+SW_FS8     FOOTSWITCH 8             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R115       100R                     R_0603_1608Metric                                        C22775       
+C135       100n                     C_0603_1608Metric                                        C14663       
+D12        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS8    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R116       330R                     R_0603_1608Metric                                        C23138       
+OLED_FS8   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R117       0R                       R_0603_1608Metric                                        C21189       
+R118       0R                       R_0603_1608Metric                                        C21189       
+R119       0R                       R_0603_1608Metric                                        C21189       
+R120       0R                       R_0603_1608Metric                                        C21189       
+C136       100n                     C_0603_1608Metric                                        C14663       
+SW_FS9     FOOTSWITCH 9             Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R121       100R                     R_0603_1608Metric                                        C22775       
+C137       100n                     C_0603_1608Metric                                        C14663       
+D13        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS9    LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R122       330R                     R_0603_1608Metric                                        C23138       
+OLED_FS9   OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R123       0R                       R_0603_1608Metric                                        C21189       
+R124       0R                       R_0603_1608Metric                                        C21189       
+R125       0R                       R_0603_1608Metric                                        C21189       
+R126       0R                       R_0603_1608Metric                                        C21189       
+C138       100n                     C_0603_1608Metric                                        C14663       
+SW_FS10    FOOTSWITCH 10            Footswitch_SPST_PCB                                                   SPST momentary soft-touch footswitch, PCB pins (ST P-H-ST8105 / Tayda SF13P-0102-23.5R-M12)
+R127       100R                     R_0603_1608Metric                                        C22775       
+C139       100n                     C_0603_1608Metric                                        C14663       
+D14        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+LED_FS10   LED 5mm                  LED_D5.0mm                                               C2895487     5 mm yellow LED (XINGLIGHT XL-504UYC), on a 10 mm LED spacer
+R128       330R                     R_0603_1608Metric                                        C23138       
+OLED_FS10  OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R129       0R                       R_0603_1608Metric                                        C21189       
+R130       0R                       R_0603_1608Metric                                        C21189       
+R131       0R                       R_0603_1608Metric                                        C21189       
+R132       0R                       R_0603_1608Metric                                        C21189       
+C140       100n                     C_0603_1608Metric                                        C14663       
+ENC1       KNOB 1                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+R133       10k                      R_0603_1608Metric                                        C25804       
+C141       10n                      C_0603_1608Metric                                        C57112       
+R134       10k                      R_0603_1608Metric                                        C25804       
+C142       10n                      C_0603_1608Metric                                        C57112       
+R135       10k                      R_0603_1608Metric                                        C25804       
+C143       10n                      C_0603_1608Metric                                        C57112       
+OLED_K1    OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R136       0R                       R_0603_1608Metric                                        C21189       
+R137       0R                       R_0603_1608Metric                                        C21189       
+R138       0R                       R_0603_1608Metric                                        C21189       
+R139       0R                       R_0603_1608Metric                                        C21189       
+C144       100n                     C_0603_1608Metric                                        C14663       
+ENC2       KNOB 2                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+R140       10k                      R_0603_1608Metric                                        C25804       
+C145       10n                      C_0603_1608Metric                                        C57112       
+R141       10k                      R_0603_1608Metric                                        C25804       
+C146       10n                      C_0603_1608Metric                                        C57112       
+R142       10k                      R_0603_1608Metric                                        C25804       
+C147       10n                      C_0603_1608Metric                                        C57112       
+OLED_K2    OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R143       0R                       R_0603_1608Metric                                        C21189       
+R144       0R                       R_0603_1608Metric                                        C21189       
+R145       0R                       R_0603_1608Metric                                        C21189       
+R146       0R                       R_0603_1608Metric                                        C21189       
+C148       100n                     C_0603_1608Metric                                        C14663       
+ENC3       KNOB 3                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+R147       10k                      R_0603_1608Metric                                        C25804       
+C149       10n                      C_0603_1608Metric                                        C57112       
+R148       10k                      R_0603_1608Metric                                        C25804       
+C150       10n                      C_0603_1608Metric                                        C57112       
+R149       10k                      R_0603_1608Metric                                        C25804       
+C151       10n                      C_0603_1608Metric                                        C57112       
+OLED_K3    OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R150       0R                       R_0603_1608Metric                                        C21189       
+R151       0R                       R_0603_1608Metric                                        C21189       
+R152       0R                       R_0603_1608Metric                                        C21189       
+R153       0R                       R_0603_1608Metric                                        C21189       
+C152       100n                     C_0603_1608Metric                                        C14663       
+ENC4       KNOB 4                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+R154       10k                      R_0603_1608Metric                                        C25804       
+C153       10n                      C_0603_1608Metric                                        C57112       
+R155       10k                      R_0603_1608Metric                                        C25804       
+C154       10n                      C_0603_1608Metric                                        C57112       
+R156       10k                      R_0603_1608Metric                                        C25804       
+C155       10n                      C_0603_1608Metric                                        C57112       
+OLED_K4    OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R157       0R                       R_0603_1608Metric                                        C21189       
+R158       0R                       R_0603_1608Metric                                        C21189       
+R159       0R                       R_0603_1608Metric                                        C21189       
+R160       0R                       R_0603_1608Metric                                        C21189       
+C156       100n                     C_0603_1608Metric                                        C14663       
+ENC5       KNOB 5                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+R161       10k                      R_0603_1608Metric                                        C25804       
+C157       10n                      C_0603_1608Metric                                        C57112       
+R162       10k                      R_0603_1608Metric                                        C25804       
+C158       10n                      C_0603_1608Metric                                        C57112       
+R163       10k                      R_0603_1608Metric                                        C25804       
+C159       10n                      C_0603_1608Metric                                        C57112       
+OLED_K5    OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R164       0R                       R_0603_1608Metric                                        C21189       
+R165       0R                       R_0603_1608Metric                                        C21189       
+R166       0R                       R_0603_1608Metric                                        C21189       
+R167       0R                       R_0603_1608Metric                                        C21189       
+C160       100n                     C_0603_1608Metric                                        C14663       
+ENC6       KNOB 6                   Encoder_PEC11R_Vertical                                  C143797      Bourns PEC11R-4220F-S0024 (24 detents, push switch, 20 mm shaft)
+R168       10k                      R_0603_1608Metric                                        C25804       
+C161       10n                      C_0603_1608Metric                                        C57112       
+R169       10k                      R_0603_1608Metric                                        C25804       
+C162       10n                      C_0603_1608Metric                                        C57112       
+R170       10k                      R_0603_1608Metric                                        C25804       
+C163       10n                      C_0603_1608Metric                                        C57112       
+OLED_K6    OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R171       0R                       R_0603_1608Metric                                        C21189       
+R172       0R                       R_0603_1608Metric                                        C21189       
+R173       0R                       R_0603_1608Metric                                        C21189       
+R174       0R                       R_0603_1608Metric                                        C21189       
+C164       100n                     C_0603_1608Metric                                        C14663       
+RV_A       10k lin slide            Fader_PTA6043                                            C17555413    Bourns PTA6043-2015DPB103
+R175       1k                       R_0603_1608Metric                                        C21190       
+C165       100n                     C_0603_1608Metric                                        C14663       
+OLED_A     OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R176       0R                       R_0603_1608Metric                                        C21189       
+R177       0R                       R_0603_1608Metric                                        C21189       
+R178       0R                       R_0603_1608Metric                                        C21189       
+R179       0R                       R_0603_1608Metric                                        C21189       
+C166       100n                     C_0603_1608Metric                                        C14663       
+RV_B       10k lin slide            Fader_PTA6043                                            C17555413    Bourns PTA6043-2015DPB103
+R180       1k                       R_0603_1608Metric                                        C21190       
+C167       100n                     C_0603_1608Metric                                        C14663       
+OLED_B     OLED 0.91in              OLED_091_I2C_Socket                                                   0.91 inch 128x32 I2C OLED module, SSD1306, 4-pin (GND VCC SCL SDA)
+R181       0R                       R_0603_1608Metric                                        C21189       
+R182       0R                       R_0603_1608Metric                                        C21189       
+R183       0R                       R_0603_1608Metric                                        C21189       
+R184       0R                       R_0603_1608Metric                                        C21189       
+C168       100n                     C_0603_1608Metric                                        C14663       
+U_EXP1     MCP23017-E/SS            SSOP-28_5.3x10.2mm_P0.65mm                               C506653      Microchip MCP23017-E/SS
+C169       100n                     C_0603_1608Metric                                        C14663       
+U_EXP2     MCP23017-E/SS            SSOP-28_5.3x10.2mm_P0.65mm                               C506653      Microchip MCP23017-E/SS
+C170       100n                     C_0603_1608Metric                                        C14663       
+R185       10k                      R_0603_1608Metric                                        C25804       
+R186       10k                      R_0603_1608Metric                                        C25804       
+C171       100n                     C_0603_1608Metric                                        C14663       
+D15        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+R187       10k                      R_0603_1608Metric                                        C25804       
+C172       100n                     C_0603_1608Metric                                        C14663       
+D16        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+R188       10k                      R_0603_1608Metric                                        C25804       
+C173       100n                     C_0603_1608Metric                                        C14663       
+D17        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+R189       10k                      R_0603_1608Metric                                        C25804       
+C174       100n                     C_0603_1608Metric                                        C14663       
+D18        PESD5V0S1UB              D_SOD-523                                                C85390       Nexperia PESD5V0S1UB
+U_LED      PCA9685PW                TSSOP-28_4.4x9.7mm_P0.65mm                               C2678753     NXP PCA9685PW,118
+C175       100n                     C_0603_1608Metric                                        C14663       
+C176       10u                      C_0603_1608Metric                                        C19702       
+D_ST       GREEN                    LED_0603_1608Metric                                      C12624       0603 green LED (KENTO KT-0603G)
+R190       330R                     R_0603_1608Metric                                        C23138       
+U_MUX1     TCA9548APWR              TSSOP-24_4.4x7.8mm_P0.65mm                               C130026      TI TCA9548APWR
+C177       100n                     C_0603_1608Metric                                        C14663       
+R191       4.7k                     R_0603_1608Metric                                        C23162       
+R192       4.7k                     R_0603_1608Metric                                        C23162       
+R193       4.7k                     R_0603_1608Metric                                        C23162       
+R194       4.7k                     R_0603_1608Metric                                        C23162       
+R195       4.7k                     R_0603_1608Metric                                        C23162       
+R196       4.7k                     R_0603_1608Metric                                        C23162       
+R197       4.7k                     R_0603_1608Metric                                        C23162       
+R198       4.7k                     R_0603_1608Metric                                        C23162       
+R199       4.7k                     R_0603_1608Metric                                        C23162       
+R200       4.7k                     R_0603_1608Metric                                        C23162       
+R201       4.7k                     R_0603_1608Metric                                        C23162       
+R202       4.7k                     R_0603_1608Metric                                        C23162       
+R203       4.7k                     R_0603_1608Metric                                        C23162       
+R204       4.7k                     R_0603_1608Metric                                        C23162       
+R205       4.7k                     R_0603_1608Metric                                        C23162       
+R206       4.7k                     R_0603_1608Metric                                        C23162       
+U_MUX2     TCA9548APWR              TSSOP-24_4.4x7.8mm_P0.65mm                               C130026      TI TCA9548APWR
+C178       100n                     C_0603_1608Metric                                        C14663       
+R207       4.7k                     R_0603_1608Metric                                        C23162       
+R208       4.7k                     R_0603_1608Metric                                        C23162       
+R209       4.7k                     R_0603_1608Metric                                        C23162       
+R210       4.7k                     R_0603_1608Metric                                        C23162       
+R211       4.7k                     R_0603_1608Metric                                        C23162       
+R212       4.7k                     R_0603_1608Metric                                        C23162       
+R213       4.7k                     R_0603_1608Metric                                        C23162       
+R214       4.7k                     R_0603_1608Metric                                        C23162       
+R215       4.7k                     R_0603_1608Metric                                        C23162       
+R216       4.7k                     R_0603_1608Metric                                        C23162       
+R217       4.7k                     R_0603_1608Metric                                        C23162       
+R218       4.7k                     R_0603_1608Metric                                        C23162       
+R219       4.7k                     R_0603_1608Metric                                        C23162       
+R220       4.7k                     R_0603_1608Metric                                        C23162       
+R221       4.7k                     R_0603_1608Metric                                        C23162       
+R222       4.7k                     R_0603_1608Metric                                        C23162       
+U_MUX3     TCA9548APWR              TSSOP-24_4.4x7.8mm_P0.65mm                               C130026      TI TCA9548APWR
+C179       100n                     C_0603_1608Metric                                        C14663       
+R223       4.7k                     R_0603_1608Metric                                        C23162       
+R224       4.7k                     R_0603_1608Metric                                        C23162       
+R225       4.7k                     R_0603_1608Metric                                        C23162       
+R226       4.7k                     R_0603_1608Metric                                        C23162       
+R227       10k                      R_0603_1608Metric                                        C25804       
+U_EEP      CAT24C32WI-GT3           SOIC-8_3.9x4.9mm_P1.27mm                                 C81193       onsemi CAT24C32WI-GT3
+C180       100n                     C_0603_1608Metric                                        C14663       
+JP_WP      EEPROM WP                SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm                        
+R228       10k                      R_0603_1608Metric                                        C25804       
+Q_FAN      AO3400A                  SOT-23                                                   C20917       Alpha&Omega AO3400A
+R229       100R                     R_0603_1608Metric                                        C22775       
+R230       10k                      R_0603_1608Metric                                        C25804       
+D19        1N4148W                  D_SOD-123                                                C81598       1N4148W
+J_BAT      JST VH 2                 JST_VH_B2P-VH_1x02_P3.96mm_Vertical                      C160315      JST B2P-VH(LF)(SN)
+J_FAN      JST PH 2                 JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical                    C5251182     JST B2B-PH-K-S
+J_DISP     JST PH 2                 JST_PH_B2B-PH-K_1x02_P2.00mm_Vertical                    C5251182     JST B2B-PH-K-S
+J_USB_UP   JST PH 4                 JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical                    C131334      JST B4B-PH-K-S
+J_USB_BAR  JST PH 4                 JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical                    C131334      JST B4B-PH-K-S
+D_BAR      USBLC6-2SC6              SOT-23-6                                                 C7519        ST USBLC6-2SC6
+H1         M3                       MountingHole_3.2mm_M3                                                 
+H2         M3                       MountingHole_3.2mm_M3                                                 
+H3         M3                       MountingHole_3.2mm_M3                                                 
+H4         M3                       MountingHole_3.2mm_M3                                                 
+H5         M3                       MountingHole_3.2mm_M3                                                 
+H6         M3                       MountingHole_3.2mm_M3                                                 
+H7         M3                       MountingHole_3.2mm_M3                                                 
+H8         M3                       MountingHole_3.2mm_M3                                                 
+H9         M3                       MountingHole_3.2mm_M3                                                 
+H10        M3                       MountingHole_3.2mm_M3                                                 
+H11        M3                       MountingHole_3.2mm_M3                                                 
+H12        M3                       MountingHole_3.2mm_M3                                                 
+H13        M3                       MountingHole_3.2mm_M3                                                 
+H14        M3                       MountingHole_3.2mm_M3                                                 
+H15        M3                       MountingHole_3.2mm_M3                                                 
+H16        M3                       MountingHole_3.2mm_M3                                                 
+H17        M3                       MountingHole_3.2mm_M3                                                 

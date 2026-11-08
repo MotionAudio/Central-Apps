@@ -1,5 +1,8 @@
 # Central Pedal main board - rev A
 
+> **Superseded by rev B** (`../main-board-rev-b/`). Do not build rev A as it is: its Pi header frame (pin numbering, mounting holes,
+> ribbon slot) was laid out for a mirrored Pi, which was corrected on rev B. Kept for reference only.
+
 270 x 160 mm, 4 layers (signal / GND / 5V1 + VBAT island / signal), 1.6 mm, 1 oz, HASL or ENIG, blue or black.
 Stacks behind the Raspberry Pi 4 (2x20 stacking header on the back) with the Raspberry Pi Touch Display 2 in front.
 Wiring and pin map: `../../docs/MAIN-BOARD.md`. Full spec: the "Central Pedal Main Board - Design & Manufacturing Spec" doc.

@@ -77,11 +77,13 @@ def pi_frame(board):
 
 
 def orient_pi_header(board):
-    """Pin 1 (inner row) toward the Pi body (+y, down the board), pins 1/2 at the right end, header centred at x = 135."""
+    """Pin 1 (inner row) toward the Pi body (+y, down the board), pins 1/2 at the LEFT end, header centred on design.PI_HEADER.
+    The Pi hangs behind the board with its component side toward it, so from the front it is seen exactly as in its
+    own top view: header along its top edge, pin 1 at the left, USB / Ethernet at the right."""
     j1 = board.FindFootprintByReference("J1")
     for attempt in range(4):
         (x1, y1), (x2, y2), sign = pi_frame(board)
-        if y1 > y2 and sign < 0:
+        if y1 > y2 and sign > 0:
             break
         j1.SetOrientationDegrees(j1.GetOrientationDegrees() + 90)
     else:
@@ -89,7 +91,7 @@ def orient_pi_header(board):
         j1.Flip(j1.GetPosition(), False)
         for attempt in range(4):
             (x1, y1), (x2, y2), sign = pi_frame(board)
-            if y1 > y2 and sign < 0:
+            if y1 > y2 and sign > 0:
                 break
             j1.SetOrientationDegrees(j1.GetOrientationDegrees() + 90)
     bb = j1.GetBoundingBox(False, False)
@@ -97,7 +99,7 @@ def orient_pi_header(board):
     cy = (bb.GetTop() + bb.GetBottom()) / 2 / 1e6
     j1.Move(pcbnew.VECTOR2I(mm(design.PI_HEADER[0] - cx), mm(design.PI_HEADER[1] - cy)))
     (x1, y1), (x2, y2), sign = pi_frame(board)
-    assert y1 > y2 and sign < 0, (x1, y1, x2, y2, sign)
+    assert y1 > y2 and sign > 0, (x1, y1, x2, y2, sign)
     return (x1, y1), sign
 
 
@@ -114,6 +116,21 @@ def add_line(board, layer, a, b, width=0.1):
 def add_rect(board, layer, x0, y0, x1, y1, width=0.1):
     for a, b in (((x0, y0), (x1, y0)), ((x1, y0), (x1, y1)), ((x1, y1), (x0, y1)), ((x0, y1), (x0, y0))):
         add_line(board, layer, a, b, width)
+
+
+def inner_cutout(board):
+    """Bounding box (nm: x1, y1, x2, y2) of the Edge.Cuts lines that are not on the outer outline - the display-ribbon
+    slot - or None."""
+    pts = []
+    for d in board.GetDrawings():
+        if d.GetLayer() != pcbnew.Edge_Cuts or d.GetClass() != "PCB_SHAPE":
+            continue
+        a, b = d.GetStart(), d.GetEnd()
+        if all(mm(0.5) < v < mm(design.W - 0.5) for v in (a.x, b.x)) and all(mm(0.5) < v < mm(design.H - 0.5) for v in (a.y, b.y)):
+            pts += [a, b]
+    if not pts:
+        return None
+    return (min(p.x for p in pts), min(p.y for p in pts), max(p.x for p in pts), max(p.y for p in pts))
 
 
 def add_text(board, text, x, y, size=1.5, layer=pcbnew.F_SilkS, rot=0, bold=False):

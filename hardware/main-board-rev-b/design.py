@@ -98,7 +98,8 @@ PI_PIN = {  # BCM GPIO -> 40-pin header pin
 PITCH = 48.0                      # footswitch pitch
 FSW_X = [W / 2 - 3.5 * PITCH + PITCH * i for i in range(8)]     # 27 .. 363
 FSW_Y, FSW9_Y = 256.0, 202.0
-PI_HEADER = (194.5, 63.8)         # centre of the 2x20 stacking header on the back (Pi 4 behind the 7-inch screen)
+PI_HEADER = (194.5, 63.8)         # centre of the 2x20 socket on the back (Pi 4 behind the board, component side toward it)
+Y_HUB_AT = (144.0, 84.0)          # hub crystal: left of the hub, clear of the display-ribbon slot
 
 
 class Design:
@@ -212,7 +213,7 @@ def build():
     }
     for g, net in gpio_net.items():
         pi[str(PI_PIN[g])] = net
-    d.add("J1", "PI40", "RASPBERRY PI 4", pi, PI_HEADER, 90, side="B", mpn="2x20 female header 2.54 mm, 8.5 mm tall (Pi on 8.5-9 mm M2.5 standoffs)", lcsc="C5124634", desc="Raspberry Pi 4 GPIO (Pi behind the board)")
+    d.add("J1", "PI40", "RASPBERRY PI 4", pi, PI_HEADER, 90, side="B", mpn="2x20 female header 2.54 mm, 8.5 mm tall (Pi on ~20 mm M2.5 standoffs with a 2x20 extra-long stacking header on its GPIO pins)", lcsc="C5124634", desc="Raspberry Pi 4 GPIO (Pi behind the board)")
     d.R("0R", "PI_3V3", "3V3", (176, 73), 0, dnp=True)
     n("The Pi's own 3.3 V pins are not tied to the board's 3V3 (DNP 0R): both are 3.3 V, so I2C/UART/I2S levels match without joining the rails.")
 
@@ -321,10 +322,9 @@ def build():
     hx, hy = 152, 86
     d.add("U_HUB", "SOP16_HUB", "SL2.1A", {"1": "BAR_DM", "2": "BAR_DP", "3": "USBA_DM", "4": "USBA_DP", "5": "HUB_DM2", "6": "HUB_DP2", "7": "HUB_DM1", "8": "HUB_DP1",
                                           "9": "UP_DM", "10": "UP_DP", "11": "5V1", "12": "GND", "13": "HUB_33", "14": "HUB_18", "15": "HUB_XO", "16": "HUB_XI"}, (hx, hy), 0, mpn="CoreChips SL2.1A", lcsc="C6798314", desc="USB 2.0 hub: Pi -> 2 audio bridges, USB-A, bar screen touch")
-    d.add("Y_HUB", "XTAL3225", "12MHz", {"1": "HUB_XI", "2": "GND", "3": "HUB_XO", "4": "GND"}, (hx + 8, hy + 1), 90, mpn="12 MHz 3225 crystal 20 pF", desc="Hub crystal")
+    d.add("Y_HUB", "XTAL3225", "12MHz", {"1": "HUB_XI", "2": "GND", "3": "HUB_XO", "4": "GND"}, Y_HUB_AT, 0, mpn="12 MHz 3225 crystal 20 pF", desc="Hub crystal")
     d.row([("C", "4.7u", "HUB_33", "GND"), ("C", "4.7u", "HUB_18", "GND"), ("C", "10u", "5V1", "GND"), ("C", "100n", "5V1", "GND")], hx - 7, hy - 7)
-    d.row([("C", "22p", "HUB_XI", "GND", {"dnp": True}), ("C", "22p", "HUB_XO", "GND", {"dnp": True})], hx + 5, hy + 7)
-    n("SL2.1A hub: single 5 V supply with internal 3.3 V / 1.8 V LDOs (4.7 uF each), 12 MHz crystal (the datasheet says no load capacitors; 22 pF pads are there, unfitted). Upstream to a Pi USB port by a short JST-PH -> USB-A cable; port 3 is the back-panel USB-A, port 4 feeds the bar screen's touch and power.")
+    n("SL2.1A hub: single 5 V supply with internal 3.3 V / 1.8 V LDOs (4.7 uF each), 12 MHz crystal (the datasheet says no load capacitors, none fitted). Upstream to a Pi USB port by a short JST-PH -> USB-A cable; port 3 is the back-panel USB-A, port 4 feeds the bar screen's touch and power.")
 
     # instrument inputs A and B: OPA1678 (dual) -> PCM1808 (master, 256fs, 12.288 MHz oscillator)
     px, py = 120, 132
@@ -418,8 +418,8 @@ def build():
     expander("U_EXP1", 0, (270, 88), ["ENC1A", "ENC1B", "ENC2A", "ENC2B", "ENC3A", "ENC3B", "ENC4A", "ENC4B"], ["ENC5A", "ENC5B", "ENC6A", "ENC6B", "ENC1S", "ENC2S", "ENC3S", "ENC4S"], "EXP1_INT", "Expander 1 (0x20): knob encoders")
     expander("U_EXP2", 1, (284, 88), ["ENC5S", "ENC6S", "EXTA_T", "EXTA_R", "EXTB_T", "EXTB_R", "INST_DET_A", "INST_DET_B"], ["CHG_STAT", "PD_FAULT", "CHG_INT", "SPARE1", "SPARE2", "SPARE3", "SPARE4", "SPARE5"], "EXP2_INT", "Expander 2 (0x21): knob clicks, external footswitches, plug detects, charger status")
     d.R("10k", "EXP_RST", "3V3", (272, 80), 0)
-    for i in range(1, 6):
-        d.add("TP_SP%d" % i, "TP", "SPARE%d" % i, {"1": "SPARE%d" % i}, (262 + 3 * i, 73), desc="Spare expander input %d" % i)
+    # (rev B.1: the five spare-input test points that used to sit above the expanders are gone - their fan of tracks
+    #  walled in the expander's charger-status pins; the spare inputs stay on U_EXP2 pins 4-8 for a later revision)
     # external footswitch inputs: pull-up, filter, ESD
     for i, net in enumerate(("EXTA_T", "EXTA_R", "EXTB_T", "EXTB_R")):
         d.R("10k", net, "3V3", (240 + 3.2 * i, 102), 90)

@@ -4,8 +4,10 @@ The main board carries everything physical. **Rev B** (11.0, the current board, 
 one PCB: 10 footswitches with lights, 6 click-knobs, 2 faders, 18 small label screens (one above every control),
 the 7" touch screen (Raspberry Pi Touch Display 2 on the ribbon connector), the 11.9" bar touch screen above the
 footswitches (HDMI 1 + USB), 6 mono 1/4" outputs, 2 instrument inputs, 2 external footswitch jacks, MIDI in/out,
-headphones, USB-C charging of a 2S battery, a fan and a power button. The Raspberry Pi 4 plugs onto the back of
-the board. **Rev A** (10.6, 270 × 160 mm: 8 footswitches, 6 push-pots, 4 outputs) stays supported.
+headphones, USB-C charging of a 2S battery, a fan and a power button. The Raspberry Pi 4 hangs behind the board,
+component side toward it, on ~20 mm M2.5 standoffs: a 2x20 extra-long stacking header on the Pi's GPIO pins reaches
+the board's 2x20 socket (the Pi's USB / Ethernet block is 16 mm tall, so it cannot sit closer). Seen from the
+front, the Pi is not mirrored: header along its top edge, pin 1 at the left end, USB / Ethernet at the right. **Rev A** (10.6, 270 × 160 mm: 8 footswitches, 6 push-pots, 4 outputs) stays supported.
 
 The board lives in `hardware/main-board/` (rev A) and `hardware/main-board-rev-b/` (rev B): the KiCad 7 project,
 the generator that made it (`design.py` = every part, pin and net; `build.py` / `route.py` / `export.py` = board,
@@ -62,7 +64,7 @@ uses it); GPIO 12/13 are the headphone audio, so the Learn tab keeps them reserv
 | Address | Chip | Job |
 | --- | --- | --- |
 | 0x20 | MCP23017 expander 1 | knob encoders: A/B of knobs 1–6 on pins 0–11, the push of knobs 1–4 on pins 12–15 |
-| 0x21 | MCP23017 expander 2 | pins 0–1 push of knobs 5–6 · 2–5 external footswitch A tip / ring, B tip / ring · 6–7 instrument jack A / B plug switch · 8 charger STAT · 9 USB-C PD fault · 10 charger INT · 11–15 spare (test pads) |
+| 0x21 | MCP23017 expander 2 | pins 0–1 push of knobs 5–6 · 2–5 external footswitch A tip / ring, B tip / ring · 6–7 instrument jack A / B plug switch · 8 charger STAT · 9 USB-C PD fault · 10 charger INT · 11–15 spare (no test pads on rev B — bring them out on the next spin if needed) |
 | 0x41 | PCA9685 | channels 0–9 footswitch lights (open-drain sinks, 5 mm yellow LEDs from 5V2 via 330 Ω) · 10 status LED · 11 headphone amp shutdown (HP_SD) |
 | 0x45 | INA226 | battery volts / amps (5 mΩ shunt) |
 | 0x48 | ADS1115 | AIN0 left fader (s1), AIN1 right fader (s2), AIN2 USB input volts (÷7.67) |

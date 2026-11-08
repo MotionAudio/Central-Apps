@@ -19,7 +19,7 @@ OUT = build.OUT
 NAME = build.NAME
 routed = "%s/%s-routed.kicad_pcb" % (OUT, NAME)
 STEP = 0.1             # mm grid
-TW = 0.25              # track width
+TW = 0.2               # track width (the Default net class)
 CLR = 0.15             # clearance
 VIA_D, VIA_DRILL = 0.5, 0.25
 EDGE = 0.5
@@ -39,7 +39,7 @@ def parse_unconnected(report):
             if not m:
                 continue
             x, y, what = float(m.group(1)), float(m.group(2)), m.group(3)
-            pm = re.match(r"Pad (\S+) \[(\w+)\] of (\w+)", what)
+            pm = re.match(r"(?:PTH |NPTH )?[Pp]ad (\S+) \[(\w+)\] of (\w+)", what)
             tm = re.match(r"Track \[(\w+)\] on (\S+)", what)
             vm = re.match(r"Via \[(\w+)\]", what)
             if pm:
@@ -123,6 +123,21 @@ class Grid:
             d = np.hypot(self.X - cx, self.Y - cy)
             self.via_block |= d < r + VIA_DRILL / 2 + 0.3
         if same:
+            return
+        if pad.GetShape() == pcbnew.PAD_SHAPE_CUSTOM:
+            # an L-shaped corner pin (BQ25798): its box would wall in the pins beside it - test the real outline
+            shp = pad.GetEffectiveShape(pcbnew.F_Cu if pad.IsOnLayer(pcbnew.F_Cu) else pcbnew.B_Cu)
+            i0, j0 = self.cell(cx - hw - 1.0, cy - hh - 1.0)
+            i1, j1 = self.cell(cx + hw + 1.0, cy + hh + 1.0)
+            for j in range(max(0, j0), min(self.ny, j1 + 1)):
+                for i in range(max(0, i0), min(self.nx, i1 + 1)):
+                    pt = pcbnew.VECTOR2I(mm(self.x0 + i * STEP), mm(self.y0 + j * STEP))
+                    if shp.Collide(pt, mm(TW / 2 + CLR)):
+                        for ly in LAYERS:
+                            if pad.IsOnLayer(ly):
+                                self.block[ly][j, i] = True
+                    if shp.Collide(pt, mm(VIA_D / 2 + CLR)):
+                        self.via_block[j, i] = True
             return
         # rectangle inflated (conservative for round / rotated pads)
         inx = np.abs(self.X - cx) < hw + TW / 2 + CLR
@@ -301,13 +316,12 @@ def rip_corridor(board, ref, num, length=3.0):
     corridor = pcbnew.SHAPE_SEGMENT(p, far, mm(2 * half))
     ripped = set()
     for t in list(board.GetTracks()):
-        if t.GetClass() != "PCB_TRACK" or t.GetNetCode() == pad.GetNetCode() or t.GetWidth() == mm(0.21):
-            continue
+        if t.GetClass() != "PCB_TRACK" or t.GetNetCode() == pad.GetNetCode() or t.GetWidth() == mm(0.21) or t.GetWidth() >= mm(0.8):
+            continue          # (wide = a hand-routed power trunk: never rip those)
         if t.GetEffectiveShape(t.GetLayer()).Collide(corridor, 0):
             ripped.add(t.GetNetname())
             _KEEP.append(t)
-            _KEEP.append(t)
-        board.Remove(t)
+            board.Remove(t)
     return sorted(ripped)
 
 
@@ -327,11 +341,13 @@ def main():
     for net, a, b in todo:
         ni = board.FindNet(net)
         pts = [(a[3], a[4]) if a[0] == "pad" else (a[1], a[2]), (b[3], b[4]) if b[0] == "pad" else (b[1], b[2])]
-        x0 = max(0.0, min(p[0] for p in pts) - 10)
-        x1 = min(design.W, max(p[0] for p in pts) + 10)
-        y0 = max(0.0, min(p[1] for p in pts) - 10)
-        y1 = min(design.H, max(p[1] for p in pts) + 10)
+        margin = float(sys.argv[sys.argv.index("--margin") + 1]) if "--margin" in sys.argv else 10.0
+        x0 = max(0.0, min(p[0] for p in pts) - margin)
+        x1 = min(design.W, max(p[0] for p in pts) + margin)
+        y0 = max(0.0, min(p[1] for p in pts) - margin)
+        y1 = min(design.H, max(p[1] for p in pts) + margin)
         grid = Grid(board, x0, y0, x1, y1, ni.GetNetCode())
+        grid.block[pcbnew.In2_Cu][:] = True      # rev B: In2 is the 5V1 / 5V2 plane pair - never cut it
         S = item_cells(board, grid, a, ni.GetNetCode())
         T = item_cells(board, grid, b, ni.GetNetCode())
         if not S or not T:

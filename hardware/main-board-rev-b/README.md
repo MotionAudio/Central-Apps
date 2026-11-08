@@ -4,7 +4,9 @@
 one board: 10 footswitches with lights, 6 click-knobs (encoders), 2 faders, 18 label screens, the 7" Raspberry Pi
 Touch Display 2 (ribbon), the 11.9" bar touch screen (HDMI 1 + USB), 6 mono 1/4" outputs, 2 instrument inputs,
 2 external footswitch jacks, MIDI in / out, headphones, USB-C PD charging of a 2S battery, fan, power button. The
-Raspberry Pi 4 plugs onto the BACK of the board (2x20 header, 8.5-9 mm standoffs); a top plate sits 15.5 mm above it.
+Raspberry Pi 4 hangs behind the board, component side toward it, on ~20 mm M2.5 standoffs - a 2x20 extra-long
+stacking header on its GPIO pins reaches the board's socket (the Pi's USB / Ethernet block is 16 mm tall); a top
+plate sits 15.5 mm above the board.
 
 Wiring and pin map: `../../docs/MAIN-BOARD.md`. The layout that was approved: `layout-plan.png`.
 
@@ -35,17 +37,26 @@ encoders and faders, the JST headers and the Pi header - has an LCSC number and 
 
 ## Regenerating
 
-`design.py` is the whole design (every part, pin and net - 579 placements, 324 nets). On a machine with KiCad 7
-(pcbnew Python + kicad-cli), Java 17+ and Freerouting 1.9 (`/home/claude/tools/freerouting.jar` in the scripts):
+`design.py` is the whole design (every part, pin and net). On a machine with KiCad 7 (pcbnew Python + kicad-cli),
+Java 17+ and Freerouting 1.9 (`/home/claude/tools/freerouting.jar` in the scripts), with an X display for
+Freerouting (`Xvfb :99` is started by `route.py`):
 
 ```
 python3 build.py                     # place parts, planes, outline, power trunks -> out/central-pedal-main-board.kicad_pcb
-python3 fanout.py --pre              # plane-pad vias before routing (-> *-prefan.kicad_pcb + prefan.json)
-python3 route.py 14 out/central-pedal-main-board-prefan.kicad_pcb   # Freerouting, SES import, outer GND pours, DRC
-python3 fanout.py && python3 fanout.py --stitch                      # vias for anything left floating, widen, stitch
-python3 maze.py                      # finish any connection the router left open
+python3 fanout.py --pre              # plane-stub vias before routing (-> *-prefan.kicad_pcb + prefan.json)
+python3 route.py 14 out/central-pedal-main-board-prefan.kicad_pcb   # Freerouting (pre-routes fixed), SES import, GND pours, DRC
+python3 pass2.py                     # rip what crossed a hole / the slot, plane stubs in the wrong In2 band -> out/pass2-src.kicad_pcb
+python3 route.py 10 out/pass2-src.kicad_pcb                          # route what is open again
+python3 cleanup.py && python3 maze.py                                # tidy, then the grid router for the last connections
+python3 pass3.py && python3 route.py 20 out/pass3-src.kicad_pcb --rippable   # optional: let Freerouting rip up and redo the signal routes
+python3 fanout.py --stitch           # widen power tracks, GND stitching vias, final DRC
 python3 export.py                    # -> out/fab/
 ```
 
-`fixzones.py` holds the final In2 plane decision (5V1 base + a 5V2 region from y = 156 down); `build.py` makes them
+Things learned on this board, built into the scripts: the pre-routes go to Freerouting as *fixed wires*, not as
+keep-outs (oversized keep-outs walled in the pins next to them and most connections failed); holes without copper
+and the ribbon slot get keep-outs (Freerouting cannot see them); the 5V1 plane polygon is cut where the 5V2 band
+starts, because KiCad exports zone outlines, not fills; a wide trunk or a power via is never ripped by the helper
+scripts (`trunkfix.py` puts any missing one back); `maze.py --rip REF PAD` clears the strip in front of a boxed-in
+pin. `fixzones.py` holds the In2 plane decision (5V1 base + a 5V2 region from y = 156 down); `build.py` makes them
 that way already. `jlc.py KEYWORD` looks a part up in the JLC/LCSC library (stock, price, LCSC number).
