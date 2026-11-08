@@ -1,139 +1,188 @@
 # Central Pedal main board — what goes to what
 
-The main board stacks on the Raspberry Pi 4 and carries everything physical: 8 footswitches, 6 push-knobs,
-2 faders, an external footswitch jack, instrument input, MIDI in/out, 4 line outs + headphones, footswitch
-lights, a fan, a front power button, USB-C charging and a 2S battery. The full hardware spec (parts, power,
-fab settings) is the "Central Pedal Main Board — Design & Manufacturing Spec" doc.
+The main board carries everything physical. **Rev B** (11.0, the current board, 390 × 278 mm) is the whole pedal on
+one PCB: 10 footswitches with lights, 6 click-knobs, 2 faders, 18 small label screens (one above every control),
+the 7" touch screen (Raspberry Pi Touch Display 2 on the ribbon connector), the 11.9" bar touch screen above the
+footswitches (HDMI 1 + USB), 6 mono 1/4" outputs, 2 instrument inputs, 2 external footswitch jacks, MIDI in/out,
+headphones, USB-C charging of a 2S battery, a fan and a power button. The Raspberry Pi 4 plugs onto the back of
+the board. **Rev A** (10.6, 270 × 160 mm: 8 footswitches, 6 push-pots, 4 outputs) stays supported.
 
-The board itself lives in `hardware/main-board/`: the KiCad 7 project (`*.kicad_pcb`, `*.kicad_pro`, the two
-custom footprints), the generator that made it (`design.py` = every part, pin and net; `build.py` / `route.py` /
-`export.py` = board, autoroute, fab files) and `fab/` with the Gerber zip, JLCPCB BOM and CPL, DRC report and
-renders. To change the board, edit `design.py` and run the three scripts on a machine with KiCad 7 and Java.
+The board lives in `hardware/main-board/` (rev A) and `hardware/main-board-rev-b/` (rev B): the KiCad 7 project,
+the generator that made it (`design.py` = every part, pin and net; `build.py` / `route.py` / `export.py` = board,
+autoroute, fab files) and `fab/` with the Gerber zip, BOM (LCSC + manufacturer numbers), pick-and-place, DRC report
+and renders. The full spec (parts, power, fab settings, assumptions) is the "Central Pedal Main Board — Design &
+Manufacturing Spec" doc.
 
-Turn it on in **Settings → Output routing → "Central Pedal main board fitted"**, then restart. That writes the
-board's pin map into `hardware.json` (driver: `CENTRAL_BOARD_V1` in `pedal-driver.py`) and its lines into
-`config.txt` (`pad-pedal-system board central-main-v1`).
+**The software finds the board by itself.** At every start the driver reads the board's HAT EEPROM
+(`/proc/device-tree/hat/product` = "Central Pedal Main Board rev B") or, with a blank EEPROM, checks that the chips
+only rev B has all answer on I2C (a label-screen mux at 0x70, expander 2 at 0x21, the BQ25798 charger at 0x6b).
+Found → its pin map goes into `hardware.json` (`CENTRAL_BOARD_V2` in `pedal-driver.py`) and its lines into
+`config.txt` (`pad-pedal-system board central-main-v2`; they take effect after one restart - Settings says so).
+Gone → back to the hand-wired pins. **Settings → Output routing → Control board** can also pick a board by hand
+(rev B / rev A / none / found by itself); a hand pick always wins. Without any board the software runs exactly as
+before: a 3.5" screen, hand-wired buttons, knobs on ADS1115s.
 
 **Every control is programmable.** Configure tab: any action per control, a second action on hold for every
 footswitch, knob click and external switch, and for every knob and fader its own range ("from __ to __ %") and
-curve (linear, slow start, fast start, S-curve). The faders are expression A and B. Learn tab: any control can be
-re-learned to another pin.
+curve. Learn tab: turn a knob, press a footswitch or an external switch to re-learn which control is which. The
+label screen above each control shows the job it has now (and the pad / song / loop it points at, and its level
+when it moves) - `js/labels.js` works the words out, the driver draws them.
 
-## Raspberry Pi header
+## Rev B — Raspberry Pi header
 
 | Pin | GPIO | Goes to |
 | --- | --- | --- |
-| 2, 4 | — | 5.1 V from the board (back-power — never plug the Pi's own USB-C in too) |
+| 2, 4 | — | 5V1 from the board (back-power — never plug the Pi's own USB-C in too) |
 | 6, 9, 14, 20, 25, 30, 34, 39 | — | Ground |
-| 1, 17 | — | Pi 3.3 V (logic pull-ups only) |
-| 27, 28 | 0 / 1 | HAT ID EEPROM |
-| 3, 5 | 2 / 3 | I2C: INA226 battery 0x45 (A0=A1=VS), PCA9685 lights 0x41, MCP23017 expander 0x20 |
-| 8 | 14 | MIDI OUT (UART0 TX) |
-| 10 | 15 | MIDI IN (UART0 RX, via 6N138) |
-| 12 | 18 | I2S BCK (from the PCM1808 — it is the clock master) |
+| 1, 17 | — | Pi 3.3 V (unused: the board has its own 3V3) |
+| 27, 28 | 0 / 1 | HAT ID EEPROM (CAT24C32, write-protect jumper JP_WP) |
+| 3, 5 | 2 / 3 | I2C (400 kHz): see the I2C map below |
+| 8 | 14 | MIDI OUT (UART0 TX, 33 Ω / 10 Ω) |
+| 10 | 15 | MIDI IN (UART0 RX, via 6N138S) |
+| 12 | 18 | I2S BCK (from the PCM1808 — it is the clock master, 12.288 MHz oscillator) |
 | 35 | 19 | I2S LRCK (from the PCM1808) |
-| 38 | 20 | I2S data in ← PCM1808 (instrument input) |
-| 40 | 21 | I2S data out → PCM5102A (outputs 3–4) |
-| 19, 21, 23, 24 | 10 / 9 / 11 / 8 | SPI0 → MCP3208 (knobs + faders) |
-| 29 | 5 | Footswitch 1 |
-| 31 | 6 | Footswitch 2 |
-| 32 | 12 | Footswitch 3 |
-| 33 | 13 | Footswitch 4 |
-| 36 | 16 | Footswitch 5 |
-| 11 | 17 | Footswitch 6 |
-| 15 | 22 | Footswitch 7 |
-| 16 | 23 | Footswitch 8 |
-| 7 | 4 | Power button controller INT (pressed with the pedal on → clean shutdown) |
-| 18 | 24 | Power controller KILL (`gpio-poweroff`: cuts power after shutdown; 4.7k pull-up to 3V3) |
-| 22 | 25 | DAC 1 mute (PCM5102A XSMT) |
-| 13 | 27 | Status LED (on while the driver runs) |
-| 37 | 26 | Fan on/off (`gpio-fan`, on at 140 °F) |
-| 26 | 7 | Instrument jack plug switch |
+| 38 | 20 | I2S data in ← PCM1808 (instrument inputs A = L, B = R) |
+| 40 | 21 | I2S data out → PCM5102A DAC 1 (outputs 1–2) |
+| 32 | 12 | Headphones left: the Pi's own PWM audio (`dtoverlay=audremap,pins_12_13`) → RC → TPA6130A2 |
+| 33 | 13 | Headphones right |
+| 29, 31, 26, 24, 21, 19, 23 | 5, 6, 7, 8, 9, 10, 11 | Footswitches 1–7 |
+| 36, 11, 15 | 16, 17, 22 | Footswitches 8, 9, 10 |
+| 7 | 4 | Power button controller INT (LTC2954-1: pressed with the pedal on → clean shutdown) |
+| 18 | 24 | Power controller KILL (`gpio-poweroff`: cuts power after shutdown; 4.7k pull-up) |
+| 16 | 23 | Expander 1 INT (knobs) |
+| 22 | 25 | Expander 2 INT (knob pushes, external switches, plug detects, charger lines) |
+| 37 | 26 | Fan on/off (`gpio-fan`, on at 60 °C / 140 °F) |
+| 13 | 27 | DAC 1 mute (PCM5102A XSMT) |
 
-## MCP3208 (SPI0, CE0) — knobs and faders
+Footswitch inputs: 100 Ω series + 100 nF + PESD5V0S1UB at the pin, pull-up inside the Pi. SPI is off (nothing
+uses it); GPIO 12/13 are the headphone audio, so the Learn tab keeps them reserved.
 
-| Channel | Control | Input id | Default job |
-| --- | --- | --- | --- |
-| 0 | Left knob 1 | k1 | Selected pad's level |
-| 1 | Left knob 2 | k2 | Tone (darker ↔ brighter) |
-| 2 | Left knob 3 | k3 | Reverb amount |
-| 3 | Right knob 1 | k4 | Tracks level |
-| 4 | Right knob 2 | k5 | Click level |
-| 5 | Right knob 3 | k6 | Instrument output level |
-| 6 | Left fader | s1 | Expression A: pad swell |
-| 7 | Right fader | s2 | Expression B: instrument expression (volume / wah) |
+## Rev B — I2C map (bus 1, 400 kHz)
 
-## MCP23017 (I2C 0x20) — knob clicks and external footswitches
+| Address | Chip | Job |
+| --- | --- | --- |
+| 0x20 | MCP23017 expander 1 | knob encoders: A/B of knobs 1–6 on pins 0–11, the push of knobs 1–4 on pins 12–15 |
+| 0x21 | MCP23017 expander 2 | pins 0–1 push of knobs 5–6 · 2–5 external footswitch A tip / ring, B tip / ring · 6–7 instrument jack A / B plug switch · 8 charger STAT · 9 USB-C PD fault · 10 charger INT · 11–15 spare (test pads) |
+| 0x41 | PCA9685 | channels 0–9 footswitch lights (open-drain sinks, 5 mm yellow LEDs from 5V2 via 330 Ω) · 10 status LED · 11 headphone amp shutdown (HP_SD) |
+| 0x45 | INA226 | battery volts / amps (5 mΩ shunt) |
+| 0x48 | ADS1115 | AIN0 left fader (s1), AIN1 right fader (s2), AIN2 USB input volts (÷7.67) |
+| 0x50 | CAT24C32 | HAT EEPROM (on the Pi's ID pins, not bus 1) |
+| 0x60 | TPA6130A2 | headphone amp, volume in software (Settings → Output routing → Headphones) |
+| 0x6b | BQ25798 | 2S buck-boost charger with power path: 8.4 V, 2 A charge, 3 A in (set by the driver; the PROG resistor gives the same) |
+| 0x70, 0x71, 0x72 | TCA9548A ×3 | label-screen muxes: 0x70 ch 0–7 = footswitches 1–8 · 0x71 ch 0–1 = footswitches 9–10, ch 2–7 = knobs 1–6 · 0x72 ch 0–1 = faders A, B. Every channel has one 0.91" 128×32 SSD1306 OLED at 0x3c |
 
-| Pin | Control | Input id | Default job |
-| --- | --- | --- | --- |
-| 0 | Left knob 1 push | k1c | Select next pad |
-| 1 | Left knob 2 push | k2c | Key up (hold: key down) |
-| 2 | Left knob 3 push | k3c | Freeze on / off |
-| 3 | Right knob 1 push | k4c | Repeat section on / off |
-| 4 | Right knob 2 push | k5c | Count-in off / 1 / 2 bars |
-| 5 | Right knob 3 push | k6c | Tuner on / off |
-| 6 | External footswitch jack, tip | x1 | Next section |
-| 7 | External footswitch jack, ring | x2 | Previous section |
-| 8 | Charger status (read only) | — | Shows "charging" in Settings |
-| 9–15 | spare | — | — |
+Knobs are Bourns PEC11R-4220F-S0024 encoders (24 detents, push). One detent = one step; a knob set to a level job
+(volume, tone, a level) keeps its own position and moves it 2 % per detent (6 % when turned quickly). A knob that
+turns the wrong way gets `"reverse": true` in its `expander_enc`.
 
-## Footswitches (GPIO) and their lights (PCA9685, I2C 0x41)
+## Rev B — controls and their default jobs
 
-| Footswitch | GPIO | Light channel | Default job | Hold |
+| Control | Input id | Where | Default job | Hold |
 | --- | --- | --- | --- | --- |
-| 1 | 5 | 0 | Play (tracks + pad) | Stop everything |
-| 2 | 6 | 1 | Next section | — |
-| 3 | 12 | 2 | Previous section | Restart section |
-| 4 | 13 | 3 | Play / fade the selected pad | Layer mode |
-| 5 | 16 | 4 | Next song | Next song and play |
-| 6 | 17 | 5 | Previous song | — |
-| 7 | 22 | 6 | Tap tempo | Freeze |
-| 8 | 23 | 7 | Click on / off | Voice cues on / off |
+| Footswitch 1 | b1 | GPIO 5 · light ch 0 | Play (tracks + pad) | Stop everything |
+| Footswitch 2 | b2 | GPIO 6 · ch 1 | Previous section | Restart section |
+| Footswitch 3 | b3 | GPIO 7 · ch 2 | Next section | — |
+| Footswitch 4 | b4 | GPIO 8 · ch 3 | Play / fade the selected pad | Layer mode |
+| Footswitch 5 | b5 | GPIO 9 · ch 4 | Select next pad | — |
+| Footswitch 6 | b6 | GPIO 10 · ch 5 | Looper pedal (tap rec / play / overdub) | — |
+| Footswitch 7 | b7 | GPIO 11 · ch 6 | Tap tempo | Freeze |
+| Footswitch 8 | b8 | GPIO 16 · ch 7 | Click on / off | Voice cues on / off |
+| Footswitch 9 (above 1) | b9 | GPIO 17 · ch 8 | Previous song | — |
+| Footswitch 10 (above 8) | b10 | GPIO 22 · ch 9 | Next song | Next song and play |
+| Left knob 1 / push | k1 / k1c | 0x20 pins 0–1 / 12 | Master volume / Select next pad | — |
+| Left knob 2 / push | k2 / k2c | 0x20 pins 2–3 / 13 | Tone / Key up | Key down |
+| Left knob 3 / push | k3 / k3c | 0x20 pins 4–5 / 14 | Reverb / Freeze | — |
+| Right knob 1 / push | k4 / k4c | 0x20 pins 6–7 / 15 | Tracks level / Repeat section | — |
+| Right knob 2 / push | k5 / k5c | 0x20 pins 8–9 / 0x21 pin 0 | Click level / Count-in | — |
+| Right knob 3 / push | k6 / k6c | 0x20 pins 10–11 / 0x21 pin 1 | Instrument level / Tuner | — |
+| Left fader | s1 | ADS1115 A0 | Expression A: pad swell | — |
+| Right fader | s2 | ADS1115 A1 | Expression B: instrument expression | — |
+| External footswitch A tip / ring | x1 / x2 | 0x21 pins 2 / 3 | Next section / Previous section | — |
+| External footswitch B tip / ring | x3 / x4 | 0x21 pins 4 / 5 | Looper pedal / Stop everything | — |
 
-Each footswitch's 4-pin JST-XH: 1 switch, 2 ground, 3 LED + (5.1 V via 330 Ω), 4 LED − (PCA9685 channel).
-A light follows its footswitch's job: lit when on, a faint glow when off, blinking on the beat for tap tempo.
-
-## Audio
+## Rev B — audio
 
 | Outputs | Where from | Linux sees |
 | --- | --- | --- |
-| 1–2 | Pi's own 3.5 mm jack | `Headphones` card |
-| 3–4 | PCM5102A on I2S | `CentralPedal` card (`central-pedal-audio` overlay) |
-| 5–6 + headphone jack | PCM2706C USB DAC (pigtail to a Pi USB port) → headphone amp with its own volume knob | USB audio card |
-| Instrument in | 1/4" jack → OPA1678 → PCM1808 on I2S | `CentralPedal` card, capture |
+| 1–2 | PCM5102A DAC 1 on I2S | `CentralPedal` card (`central-pedal-audio` overlay), `padpedal_dac` |
+| 3–4 | PCM5102A DAC 2 ← PCM2706C USB bridge on hub port 1 | USB card "Burr-Brown from TI USB Audio DAC" (path …-1.1) |
+| 5–6 | PCM5102A DAC 3 ← PCM2706C USB bridge on hub port 2 | the second "USB Audio DAC" (path …-1.2) |
+| Headphones | the Pi's own audio on GPIO 12/13 → TPA6130A2 | `Headphones` card, `padpedal_jack` |
+| Instrument A / B in | 1/4" jack → OPA1678 (×4, or 0 dB with the solder jumper) → PCM1808 L / R | `CentralPedal` card, capture |
 
-Settings → Output routing sends any bus (tracks, pads, click + cues, instrument, looper) to any output or pair.
-Whatever goes to 5–6 is also what the headphone jack plays.
+The SL2.1A hub (upstream: the board's USB header to a Pi USB port) has the two bridges on ports 1 and 2, the back
+USB-A jack on port 3 and the bar screen's touch on port 4. `pad-pedal-audio-config` makes one 8-channel output:
+1–6 the board's outputs (each slot keeps its place even when a card is missing), 7–8 the headphones. **Settings →
+Output routing** sends any bus (tracks, pads, click + cues, instrument, looper) to any output or pair, and the
+**Headphones** row says what the headphones hear: a mix of everything, a copy of 1–2 / 3–4 / 5–6, the click only, or
+nothing - plus the amp's volume. (A USB interface of your own has no room: 8 channels is the most.)
 
-## config.txt lines the board needs
+## Rev B — screens
+
+| Screen | Where | Shows |
+| --- | --- | --- |
+| 7" Raspberry Pi Touch Display 2 (720×1280, turned to landscape) | the board's ribbon connector | the app |
+| 11.9" bar touch screen (320×1480, turned to landscape) | HDMI 1 + USB (hub port 4) | the strip: what's playing, and pages to swipe through - sounds, songs, loops, keys sounds, scenes (`strip.html`) |
+| Projector / monitor | HDMI 2 | lyrics (or charts, stage display - Settings → Screens) |
+| 18 × 0.91" OLED (128×32, not touch) | above every footswitch, knob and fader | the control's job, and its level while it moves |
+
+**Settings → Output routing → Screen output** moves the app: the board's 7" screen (default), HDMI 1, HDMI 2, or
+the 7" and HDMI 1 together (mirrored). The app looks the same wherever it shows; when it goes to HDMI, the 7"
+screen shows the strip. **Bar screen** picks what the bar shows (the strip, lyrics, charts, stage display,
+nothing). `pad-pedal-session` lays the three screens out (`displays.json`: `main`, `strip`, `rotate1`, `rotate2`).
+
+## Rev B — config.txt lines the board needs
 
 ```
 dtparam=i2c_arm=on
-dtparam=spi=on
+dtparam=i2c_arm_baudrate=400000
+dtparam=audio=on
 enable_uart=1
+dtoverlay=audremap,pins_12_13
 dtoverlay=central-pedal-audio
 dtoverlay=midi-uart0
 dtoverlay=gpio-fan,gpiopin=26,temp=60000
 dtoverlay=gpio-poweroff,gpiopin=24,active_low=1
+dtoverlay=vc4-kms-dsi-ili9881-7inch,rotation=90     (the 7" screen: Settings → Touch screen "dsi-rpi2-7")
 ```
 
-The serial console is taken off UART0 (the MIDI jacks need it); debug over SSH or HDMI. `setup-pi.sh` builds
-`overlays/central-pedal-audio-overlay.dts` into `/boot/firmware/overlays/central-pedal-audio.dtbo`.
+`dtparam=spi=on` is removed (rev B has no SPI chip). The serial console is taken off UART0 (the MIDI jacks need it).
+
+## Rev B — power
+
+USB-C (HUSB238A asks the charger for 15 V / 3 A; 5 V-only adapters still work, slower) → BQ25798 buck-boost
+charger with NVDC power path (the pedal runs from USB and charges at the same time; with no USB it runs from the
+battery) → VSYS → three TPS565208 bucks: 5V1 (Pi + logic), 5V2 (screens, USB-A, lights, fan), 3V3 → TLV75533 3V3A
+and a bead-filtered 5VA for the audio. Battery: 2S Li-ion on a JST-VH → 7.5 A PTC → AO4407A reverse-polarity PFET →
+INA226 5 mΩ shunt → charger BAT pin. Power button: LTC2954-1 (tap = INT to GPIO 4 → clean shutdown; the Pi then
+pulls KILL low to cut power; hold ~7 s = forced off).
 
 ## Checks
 
-`python3 test_main_board.py` — ADC reads and scaling, footswitch lights, battery, MIDI parsing and the pin map,
-against simulated chips. On a real board, follow the bring-up checklist in the spec doc.
+`python3 test_main_board_v2.py` — the rev B preset, detection, the quadrature decoder, both expanders (a knob
+turned, pushed, an external footswitch, plug detect, charger lines), the BQ25798 set-up and status, the TPA6130A2
+volume, the label screens and the driver with all of it, against simulated chips. `python3 test_main_board.py` — rev A.
+`CC_SIM_BOARD=v2 python3 pedal-driver.py --simulate DIR` runs the whole driver against the simulated rev B board.
 
-**Rev A notes:**
+**Rev B notes (check on the first boards):**
+- The BQ25798 register addresses in `BQ25798` follow the datasheet's register map; confirm the part info read
+  (REG48 = 0x19 for a BQ25798) and the charge current on the first board with a meter.
+- The encoder direction: a knob that turns the wrong way gets `"reverse": true` (Configure → the knob → wiring).
+- The two USB DACs are told apart by hub port (…-1.1 = outputs 3–4, …-1.2 = 5–6). If the hub's upstream cable goes
+  to a different Pi USB port the path prefix changes but the last number (the hub port) does not.
 - The audio overlay uses the ADAU7002 driver as a stand-in for the PCM1808 (it has no driver of its own) with the
-  Pi as I2S slave. Confirm on the first boards with `arecord -l` / `aplay -l` before shipping.
-- Power: battery → JST-VH (10 A) → 7.5 A fuse → AO4407A reverse-polarity PFET → INA226 5 mΩ shunt → TPS54560 buck
-  (5.1 V, 5 A, ~600 kHz) → TLV75533 3.3 V LDO. Charger: IP2368 (2S = 6.2k on BAT_NUM, 4.20 V/cell, 2 A) with four
-  AO4406A SO-8 MOSFETs and a 10 µH SRP7028A. Power button: LTC2954-1 (tap = INT to GPIO 4, hold ~10 s = forced off).
-- The rev A board (270 × 160 mm, 4 layers) was laid out and autorouted from `design.py`; it passes KiCad's DRC with
-  no errors and no unconnected nets (the remaining warnings are silkscreen overlaps and thermal-relief notes - see
-  `hardware/main-board/fab/drc-report.txt`). Before ordering a second run, check against the datasheets: the IP2368
-  PCIN/PCON wiring, the TPS54560 compensation values, the TPA6132A2 gain and the push-knob footprint
-  (`custom.pretty/RV09_Push_Vertical`) against the pots you buy.
+  Pi as I2S slave; confirm with `arecord -l` / `aplay -l`.
+- The label screens come in two pin orders; the 0R links "A" (fitted) are for GND-VCC-SCL-SDA modules, move them to
+  "B" for VCC-GND-SCL-SDA ones. A screen that doesn't answer is skipped (Settings shows "label screens n of 18").
+
+---
+
+## Rev A (10.6) — kept for the boards already built
+
+8 footswitches on GPIO 5, 6, 12, 13, 16, 17, 22, 23 (lights on the PCA9685 0x41 channels 0–7), 6 push-pots and 2
+faders on an MCP3208 (SPI0 CE0: knobs ch 0–5, faders 6–7), the pot clicks and the external footswitch jack on an
+MCP23017 at 0x20 (pins 0–5 clicks, 6–7 tip / ring, 8 charger status), INA226 at 0x45, instrument jack plug switch on
+GPIO 7, DAC 1 mute GPIO 25, status LED GPIO 27, MIDI on UART0, I2S as rev B. Audio: 1–2 the Pi's jack, 3–4 the
+board's PCM5102A, 5–6 + headphones its PCM2706C USB DAC (headphone amp with its own volume knob). config.txt:
+`dtparam=spi=on` plus the same overlays as rev B without `audremap`. Power: TPS54560 5.1 V buck, IP2368 charger -
+the parts rev B replaced (their datasheet checks are listed in `hardware/main-board/README.md`).

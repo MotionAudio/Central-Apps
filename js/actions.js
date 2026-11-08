@@ -272,9 +272,42 @@
     m.k4c = { action: "repeatSection" }; m.k5c = { action: "countIn" }; m.k6c = { action: "tuner" };
     m.s1 = { action: "expression" }; m.s2 = { action: "instrumentExpression" };
     m.x1 = { action: "nextSection" }; m.x2 = { action: "prevSection" };
+    if (boardVersion() === "central-main-v2") {   // (11.0) rev B: 10 footswitches, click-knobs, two external footswitch jacks (tip + ring each)
+      m.b1 = { action: "playAll", hold: { action: "stopAll" } }; m.b2 = { action: "prevSection", hold: { action: "restartSection" } }; m.b3 = { action: "nextSection" };
+      m.b4 = { action: "playSelected", hold: { action: "layer" } }; m.b5 = { action: "selectNextPad" }; m.b6 = { action: "looperPedal" };
+      m.b7 = { action: "tap", hold: { action: "freeze" } }; m.b8 = { action: "toggleClick", hold: { action: "toggleCues" } };
+      m.b9 = { action: "prevSong" }; m.b10 = { action: "nextSong", hold: { action: "nextSongPlay" } };
+      m.k1 = { action: "volume" }; m.k4 = { action: "tracksLevel" }; m.k6 = { action: "instrumentLevel" };
+      m.k1c = { action: "selectNextPad" }; m.k6c = { action: "tuner" };
+      m.x3 = { action: "looperPedal" }; m.x4 = { action: "stopAll" };
+    }
     return m;
   }
   function onMainBoard() { var h = window.PPConfigure && window.PPConfigure.hello && window.PPConfigure.hello(); return !!(h && h.board); }
+  function boardVersion() { var h = window.PPConfigure && window.PPConfigure.hello && window.PPConfigure.hello(); return h && h.board ? h.board : ""; }
+
+  // ---- (11.0) click-knobs: a turn sends steps, but most knob jobs want a level. Each knob keeps its own position
+  // (starting from what the job is at now, when that can be read), a detent moves it 2 % - 6 % when turned quickly.
+  var encPos = {}, encLast = {};
+  var CURRENT = {
+    volume: function () { return PP.project().performance.volume; }, tone: function () { return PP.project().performance.tone; },
+    reverb: function () { return PP.project().performance.reverb; }, fade: function () { return PP.project().performance.fade; },
+    morphPos: function () { return PP.project().performance.morph; },
+    padLevel: function () { var p = PP.currentPad(); return p && p.level != null ? p.level / 100 : null; },
+    padVolume: function (a) { var p = PP.project().pads[Number(a && a.index) || 0]; return p && p.level != null ? p.level / 100 : null; },
+    tracksLevel: function () { return T() && T().level ? T().level("tracks") : null; }, clickLevel: function () { return T() && T().level ? T().level("click") : null; },
+    cueLevel: function () { return T() && T().level ? T().level("cue") : null; }, tempoPercent: function () { var s = T() && T().song(); return s ? (T().data(s).tempoPercent - 50) / 100 : null; },
+  };
+  function encoderValue(id) { return encPos[id] == null ? null : encPos[id]; }
+  function nudge(id, e, delta) {
+    var now = performance.now(), quick = encLast[id] && now - encLast[id] < 60; encLast[id] = now;
+    if (encPos[id] == null) {
+      var v = null; try { var g = CURRENT[e.action]; v = g ? g(e.args) : null; } catch (_) { v = null; }
+      encPos[id] = typeof v === "number" && isFinite(v) ? clamp(v, 0, 1) : 0.5;
+    }
+    encPos[id] = clamp(encPos[id] + (delta < 0 ? -1 : 1) * (quick ? 0.06 : 0.02), 0, 1);
+    runX(e.action, e.args, { value: shape(encPos[id], e.range), id: id, raw: encPos[id] });
+  }
   function defaults() {
     if (onMainBoard()) return boardDefaults();
     var m = {};
@@ -320,8 +353,9 @@
     else if (m.event === "hold") { if (e.hold) { held[m.id] = { fired: true }; runX(e.hold.action, e.hold.args); } }
     else if (m.event === "release") { var a = ACTIONS[e.action]; if (a && a.release) { try { a.release(e.args || {}); } catch (_) { } } delete held[m.id]; sendLedsSoon(); }
     else if (typeof m.value === "number") { var c = ACTIONS[e.action]; if (c && c.kind === "continuous") runX(e.action, e.args, { value: shape(clamp(m.value, 0, 1), e.range), id: m.id }); }
-    else if (typeof m.delta === "number") { var s = ACTIONS[e.action]; if (s && s.kind === "step") runX(e.action, e.args, { delta: m.delta < 0 ? -1 : 1, id: m.id }); }
+    else if (typeof m.delta === "number") { var s = ACTIONS[e.action]; if (s && s.kind === "step") runX(e.action, e.args, { delta: m.delta < 0 ? -1 : 1, id: m.id }); else if (s && s.kind === "continuous") nudge(m.id, e, m.delta); }
     flash(m.id);
+    if (window.PPLabels) window.PPLabels.touched(m.id, m);
   }
   // (10.6) a continuous control's own range and curve (Configure tab: "from __ to __ %", curve)
   function shape(v, r) {
@@ -407,5 +441,5 @@
   function modeChanged() { lastLeds = ""; sendLedsSoon(); if (window.PPConfigure) window.PPConfigure.render(); }
 
   function list(kind) { return Object.keys(ACTIONS).map(function (k) { return ACTIONS[k]; }).filter(function (a) { return !a.hidden && (!kind || a.kind === kind || a.id === "none"); }); }   // (hidden: the small screen's own)
-  window.PPActions = { ACTIONS: ACTIONS, list: list, muted: function (b) { return !!mutes[b]; }, busLevel: busLevel, setBusLevel: setBusLevel, toggleMute: toggleMute, TAB_NAMES: TAB_NAMES, run: run, onControl: onControl, midiInput: midiInput, keyInput: keyInput, mapping: mapping, defaults: defaults, boardDefaults: boardDefaults, shape: shape, mode: mode, sendLeds: sendLedsSoon, modeChanged: modeChanged, entryFor: entryFor };
+  window.PPActions = { ACTIONS: ACTIONS, list: list, encoderValue: encoderValue, boardVersion: boardVersion, muted: function (b) { return !!mutes[b]; }, busLevel: busLevel, setBusLevel: setBusLevel, toggleMute: toggleMute, TAB_NAMES: TAB_NAMES, run: run, onControl: onControl, midiInput: midiInput, keyInput: keyInput, mapping: mapping, defaults: defaults, boardDefaults: boardDefaults, shape: shape, mode: mode, sendLeds: sendLedsSoon, modeChanged: modeChanged, entryFor: entryFor };
 })();

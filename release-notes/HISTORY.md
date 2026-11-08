@@ -2,6 +2,10 @@
 
 The short version of what changed in each release, newest first. Most versions also have their own page in this folder with the full notes.
 
+### Unreleased (main-board branch)
+
+The Central Pedal main board rev B: the whole pedal on one board (10 footswitches with lights, 6 click-knobs, 2 faders, 18 label screens, the 7" screen and an 11.9" bar touch screen, 6 outputs + headphones, 2 instrument inputs, USB-C charging) with its PCBWay fab package in `hardware/main-board-rev-b/`. The software finds the board by itself and runs it (label screens, click-knobs, headphones routing and volume, Screen output to the 7" / HDMI 1 / HDMI 2 / mirrored, the bar screen's strip page); without a board nothing changes. Rev A stays supported.
+
 ### 10.5.0
 
 More sounds (a third pads download, real electric pianos, a lo-fi kit, a banjo, 26 more cabinet and body impulse responses, 19 more loops, 30 more boards and presets), 14 more Central Tracks hymns, a looper with up to eight loops that each record their own input, loops you make yourself in Central Usage's Studio, and the sound libraries' move to Cloudflare.

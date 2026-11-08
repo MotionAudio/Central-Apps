@@ -46,6 +46,65 @@ def dac_overlay():
     return False
 
 
+def board_v2(path=None):
+    """True when the Central Pedal main board rev B is the control board (hardware.json): its six outputs are the
+    board's own sound cards and the Pi's audio is the headphone jack."""
+    for p in [path] if path else (os.path.join(DATA, "hardware.json"), "/etc/pad-pedal/hardware.json"):
+        try:
+            with open(p) as handle:
+                return json.load(handle).get("board") == "central-main-v2"
+        except Exception:
+            continue
+    return False
+
+
+def usb_port(sink):
+    """The hub port a USB sound card hangs from (the last number of its USB path: usb-0000:01:00.0-1.2 -> 2), or None."""
+    card = sink[3] if len(sink) > 3 else ""
+    m = re.findall(r"usb-[0-9a-f:.]+-([0-9.]+)", card or "")
+    if not m:
+        return None
+    try:
+        return int(m[0].split(".")[-1])
+    except ValueError:
+        return None
+
+
+def is_board_dac(sink):
+    """One of the rev B board's two USB DACs (PCM2706: "Burr-Brown from TI USB Audio DAC")."""
+    text = (sink[3] if len(sink) > 3 else "") + "|" + sink[1] + "|" + sink[0]
+    return bool(re.search(r"(?i)burr-brown|usb audio dac|pcm27", text))
+
+
+V2_POSITIONS = LAYOUTS[8]
+
+
+def plan_v2(sinks, cfg):
+    """Rev B: outputs 1-2 the board's I2S DAC, 3-4 and 5-6 its two USB DACs (by hub port: 1 then 2), 7-8 the headphone
+    jack (the Pi's own audio, through the board's headphone amp). Every slot keeps its place even when a card is
+    missing, so output 5 is always output 5. A USB interface of your own has no room here (8 channels is the most)."""
+    slots = [None] * 4
+    for sink in sinks:
+        k = kind_of(sink)
+        if k == "i2s" and slots[0] is None:
+            slots[0] = sink
+        elif k == "jack" and slots[3] is None:
+            slots[3] = sink
+    dacs = sorted([s for s in sinks if kind_of(s) == "usb" and is_board_dac(s)], key=lambda s: (usb_port(s) or 99, s[0]))
+    for i, s in enumerate(dacs[:2]):
+        slots[1 + i] = s
+    labels = ["Out 1-2", "Out 3-4", "Out 5-6", "Headphones"]
+    kinds = ["i2s", "usb", "usb", "jack"]
+    out = []
+    for i, sink in enumerate(slots):
+        if sink is None:
+            continue
+        if i == 3 and cfg.get("phones") is False:
+            continue
+        out.append((kinds[i], sink[0], labels[i], 2, V2_POSITIONS[2 * i:2 * i + 2]))
+    return out, V2_POSITIONS
+
+
 def settings():
     cfg = {"hdmi": False, "usbFirst": False}
     try:
@@ -74,7 +133,7 @@ def pw_sinks(env):
                         ch = len((o["info"].get("params") or {}).get("Format", [{}])[0].get("position") or [])
                     except Exception:
                         ch = 2
-                card = "|".join(str(props.get(k) or "") for k in ("alsa.id", "alsa.card_name", "api.alsa.card.name", "device.bus"))
+                card = "|".join(str(props.get(k) or "") for k in ("alsa.id", "alsa.card_name", "api.alsa.card.name", "device.bus", "device.bus-path", "alsa.long_card_name"))
                 sinks.append((props["node.name"], props.get("node.description") or props["node.name"], int(ch or 2), card))
         return sinks
     except Exception:
@@ -83,7 +142,7 @@ def pw_sinks(env):
 
 # The ALSA card behind a sink names it better than PipeWire's node name, which changes between OS versions (the Pi 4's
 # jack is "platform-bcm2835_audio" on some, "platform-fe00b840.mailbox" on others): (kind, card id / name pattern)
-CARD_IDS = [("usb", r"(?i)\|usb$"), ("jack", r"(?i)^(headphones|bcm2835)"), ("hdmi0", r"(?i)^vc4hdmi0?$|^vc4hdmi0"), ("hdmi1", r"(?i)^vc4hdmi1"),
+CARD_IDS = [("usb", r"(?i)\|usb(\||$)"), ("jack", r"(?i)^(headphones|bcm2835)"), ("hdmi0", r"(?i)^vc4hdmi0?$|^vc4hdmi0"), ("hdmi1", r"(?i)^vc4hdmi1"),
             ("i2s", r"(?i)hifiberry|sndrpi|pcm510|i2s|dac|centralpedal")]
 
 
@@ -107,6 +166,10 @@ def kind_of(sink):
 
 def plan(sinks, cfg):
     """Which card gets which channels. Returns ([(kind, node.name, desc, nchannels, positions)], positions)"""
+    if cfg.get("boardV2", board_v2()):
+        planned, positions = plan_v2(sinks, cfg)
+        if planned:
+            return planned, positions
     cards = []
     for kind, pattern, label, fixed in CARD_PATTERNS:
         for sink in sinks:
@@ -144,7 +207,8 @@ def channel_names(planned, positions):
         for kind, name, desc, ch, poss in planned:
             if pos in poss:
                 idx = poss.index(pos)
-                label = desc + " " + (["L", "R"][idx] if ch == 2 else str(idx + 1))
+                m = re.match(r"^Out (\d+)-(\d+)$", desc)   # (rev B: "Out 3-4" -> "Out 3", "Out 4")
+                label = ("Out %s" % (m.group(1), m.group(2))[idx]) if m else desc + " " + (["L", "R"][idx] if ch == 2 else str(idx + 1))
         names.append(label)
     return names
 
@@ -176,7 +240,7 @@ def own_cards(cfg):
     out = []
     j = jack_card()
     if j:
-        out.append(("jack", JACK_NODE, "Headphone jack", j, card_index(j)))
+        out.append(("jack", JACK_NODE, "Headphones" if board_v2() else "Headphone jack", j, card_index(j)))
     d = dac_card() if cfg.get("dac", True) else None
     if d:
         out.append(("i2s", DAC_NODE, "DAC board", d, card_index(d)))

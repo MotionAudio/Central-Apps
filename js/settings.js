@@ -99,13 +99,33 @@
           '<optgroup label="One output (mono)">' + opts.filter(function (o) { return !o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" +
           (n >= 2 ? '<optgroup label="A pair (stereo)">' + opts.filter(function (o) { return o.st; }).map(function (o) { return '<option value="' + o.v + '"' + (o.v === cur ? " selected" : "") + ">" + esc(o.label) + "</option>"; }).join("") + "</optgroup>" : "") +
           "</select>" + (shared.length ? '<br><small class="rt-shared">mixed with ' + esc(shared.join(" and ")) + "</small>" : "") + "</td><td>" + esc(now) + "</td></tr>";
-      }).join("") + looperRow(r, opts, n, live, avail) + "</tbody></table>" +
+      }).join("") + looperRow(r, opts, n, live, avail) + phonesRow(r, st) + "</tbody></table>" +
       '<p class="muted">' + (avail <= 2 ? (onPi() ? "Right now this Central Pedal only has its headphone jack (outputs 1–2), so everything plays there. " : "This device has 2 outputs, so everything plays on 1–2. ") + "Anything set to an output that isn't there is played on 1–2 instead. With a DAC board, 3–4 are its outputs; a USB audio interface adds 5 and up." : "1–2 are the headphone jack (left, right) and 3–4 the DAC board. A USB audio interface adds its outputs from 5 up as soon as it's plugged in. Parts sent to the same output are mixed together, and anything set to an output that isn't there plays on 1–2.") + "</p>" +
       (onPi() ? '<label class="toggle rt-dac"><input type="checkbox" data-rtdac' + (st && st.i2sDac !== false ? " checked" : "") + "> A DAC board is fitted (outputs 3–4) <small class=\"muted\">- a DAC board can't be found by itself; leave this off when there's none, so nothing is sent to it</small></label>" +
         // (10.6) the Central Pedal main board: its pin map, sound card (instrument in + 3–4), MIDI jacks, fan and power button
-        '<label class="toggle rt-board"><input type="checkbox" data-rtboard' + (st && st.board ? " checked" : "") + "> Central Pedal main board fitted <small class=\"muted\">- 8 footswitches, 6 push-knobs, 2 faders, instrument input, MIDI jacks; outputs 3–4 on the board, 5–6 (and the headphone jack) on its USB DAC. Restart after changing.</small></label>" +
+        boardPicker(st) +
         (st && st.battery ? '<p class="muted rt-battery">Battery ' + st.battery.percent + " % · " + st.battery.volts + " V" + (st.battery.charging ? " · charging" : "") + (st.battery.low ? " · LOW - plug in the charger" : "") + "</p>" : "") : "");
   }
+  // (11.0) the main board rev B's headphone jack: what it hears (a mix, a copy of one output pair, the click, nothing) and how loud
+  function phonesRow(r, st) {
+    if (!(st && st.board === "central-main-v2")) return "";
+    var ph = r.phones || { mode: "mix", ch: 1 }, cur = ph.mode === "out" ? "out" + ph.ch : ph.mode, vol = st.phonesVolume == null ? 0.6 : st.phonesVolume;
+    var opts = [["mix", "Everything (a mix of all the outputs)"], ["out1", "The same as outputs 1–2"], ["out3", "The same as outputs 3–4"], ["out5", "The same as outputs 5–6"], ["click", "The click only"], ["off", "Nothing"]];
+    return '<tr class="rt-phones"><td><b>Headphones</b><br><small>the jack on the back</small></td><td><select data-rtphones>' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
+      '<br><label class="rt-phvol"><small>Volume</small> <input type="range" min="0" max="100" value="' + Math.round(vol * 100) + '" data-rtphvol> <output>' + Math.round(vol * 100) + "</output></label></td><td>" +
+      (ph.mode === "off" ? "off" : "7–8" + (st.boardStatus && st.boardStatus.headamp === false ? " · amp not answering" : "")) + "</td></tr>";
+  }
+  document.addEventListener("change", function (e) {
+    var el = e.target; if (!el || !el.hasAttribute) return;
+    if (el.hasAttribute("data-rtphones")) { var r = project().routing, v = el.value; r.phones = /^out/.test(v) ? { mode: "out", ch: Number(v.slice(3)) || 1 } : { mode: v, ch: (r.phones && r.phones.ch) || 1 }; applyRouting(); }
+  });
+  document.addEventListener("input", function (e) {
+    var el = e.target; if (!el || !el.hasAttribute || !el.hasAttribute("data-rtphvol")) return;
+    el.parentNode.querySelector("output").textContent = el.value; clearTimeout(phVolTimer);
+    phVolTimer = setTimeout(function () { send({ type: "system", action: "phones", value: Number(el.value) / 100 }); }, 120);
+  });
+  var phVolTimer = null;
+
   // the looper (LOOPER tab): on the instrument's output, or one of its own
   function looperRow(r, opts, n, live, avail) {
     var bus = r.buses.looper || { follow: true }, follow = bus.follow !== false, cur = follow ? "f" : busValue(bus), ins = r.buses.instrument || { ch: 0 };
@@ -135,10 +155,35 @@
     send({ type: "system", action: "dac", value: el.checked ? "on" : "off" });
     PP.setStatus(el.checked ? "DAC board on - setting up outputs 3–4 now…" : "DAC board off - everything goes to the headphone jack (1–2) now…");
   });
-  document.addEventListener("change", function (e) {   // (10.6) the main board on / off
-    var el = e.target; if (!el || !el.hasAttribute || !el.hasAttribute("data-rtboard")) return;
-    send({ type: "system", action: "board", value: el.checked ? "central-main-v1" : "none" });
-    PP.setStatus(el.checked ? "Main board set up - restart the pedal to switch on its sound card, MIDI jacks and fan." : "Main board off - back to the hand-wired pins. Restart the pedal.");
+  // (10.6 / 11.0) the control board: found by itself (the rev B board says what it is), or picked by hand
+  function boardPicker(st) {
+    var cur = st && st.boardManual ? (st.board || "none") : "auto";
+    var found = st && st.board ? (st.boardName || st.board) : "no main board found - the hand-wired pins";
+    var opts = [["auto", "Found by itself (" + found + ")"], ["central-main-v2", "Central Pedal main board rev B"], ["central-main-v1", "Central Pedal main board (rev A)"], ["none", "No main board (hand-wired pins)"]];
+    return '<label class="rt-board"><span>Control board</span> <select data-rtboard>' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select>" +
+      '<small class="muted">' + (st && st.board === "central-main-v2" ? "10 footswitches, 6 click-knobs, 2 faders, 18 label screens, 2 instrument inputs, 6 outputs + headphones, MIDI jacks, the 7\" screen and the bar screen. " :
+        st && st.board === "central-main-v1" ? "8 footswitches, 6 push-knobs, 2 faders, instrument input, MIDI jacks; outputs 3–4 on the board, 5–6 on its USB DAC. " : "") +
+      (st && st.boardPending ? "<b>Found at this start - restart the pedal to switch on its sound cards, MIDI jacks, screen and fan.</b>" : "Restart after changing.") + "</small></label>" +
+      (st && st.boardStatus ? '<p class="muted rt-boardstatus">Rev B: knobs ' + (st.boardStatus.knobs ? "on" : "<b>not answering</b>") + " · label screens " + (st.boardStatus.labels == null ? "off" : st.boardStatus.labels + " of 18") +
+        " · charger " + (st.boardStatus.charger ? "on" : "<b>not answering</b>") + " · headphone amp " + (st.boardStatus.headamp ? "on" : "<b>not answering</b>") +
+        (st.boardStatus.pdFault === false ? " · <b>USB-C power fault</b>" : "") + "</p>" : "") + screenOutput(st);
+  }
+  // (11.0) rev B: where the app shows, and what the bar screen above the footswitches shows
+  function screenOutput(st) {
+    if (!(st && st.board === "central-main-v2")) return "";
+    var d = st.displays || {}, main = d.main || "builtin", strip = d.strip || "strip";
+    var mains = [["builtin", "The board's 7\" screen"], ["hdmi1", "HDMI 1"], ["hdmi2", "HDMI 2"], ["mirror", "The 7\" screen and HDMI 1 together (the same picture)"]];
+    var strips = [["strip", "Sounds, songs, loops and what's playing (the strip)"], ["lyrics", "Lyrics"], ["charts", "Chord charts"], ["stage", "Stage display"], ["off", "Nothing"]];
+    return '<label class="rt-main"><span>Screen output</span> <select data-rtmain>' + mains.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === main ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + '</select><small class="muted">The app looks the same on any of them. When it goes to HDMI, the 7\" screen shows the strip.</small></label>' +
+      '<label class="rt-strip"><span>Bar screen</span> <select data-rtstrip>' + strips.map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === strip ? " selected" : "") + ">" + o[1] + "</option>"; }).join("") + "</select></label>";
+  }
+  document.addEventListener("change", function (e) {
+    var el = e.target; if (!el || !el.hasAttribute) return;
+    if (el.hasAttribute("data-rtboard")) {
+      send({ type: "system", action: "board", value: el.value });
+      PP.setStatus(el.value === "none" ? "Main board off - back to the hand-wired pins. Restart the pedal." : el.value === "auto" ? "Looking for the main board…" : "Main board set up - restart the pedal to switch on its sound cards, MIDI jacks, screen and fan.");
+    } else if (el.hasAttribute("data-rtmain")) { send({ type: "system", action: "mainScreen", value: el.value }); PP.setStatus("Screen output: " + el.options[el.selectedIndex].text + " - the screens change over in a moment."); }
+    else if (el.hasAttribute("data-rtstrip")) { send({ type: "system", action: "strip", value: el.value }); PP.setStatus("Bar screen: " + el.options[el.selectedIndex].text); }
   });
   F.on("audioReapplied", function (m) { PP.setStatus(m.ok ? "Outputs ready." : "Couldn't set up the outputs: " + (m.message || "")); renderRouting(); });
 

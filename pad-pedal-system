@@ -364,8 +364,28 @@ PY
     sync; echo "DAC board: ${2:-on}" ;;
   board)   # the Central Pedal main board's config.txt lines, after a restart (docs/MAIN-BOARD.md)
     boot_rw
-    sed -i -E '/^dtoverlay=(hifiberry-dac|central-pedal-audio|midi-uart0|gpio-fan|gpio-poweroff)(,|:|$)/d; /^# Central Pedal main board$/d' "$CONFIG"
-    if [ "${2:-none}" = "central-main-v1" ]; then
+    sed -i -E '/^dtoverlay=(hifiberry-dac|central-pedal-audio|midi-uart0|gpio-fan|gpio-poweroff|audremap)(,|:|$)/d; /^# Central Pedal main board( rev B)?$/d; /^dtparam=i2c_arm_baudrate=/d' "$CONFIG"
+    if [ "${2:-none}" = "central-main-v2" ]; then
+      # rev B: I2C at 400 kHz (18 label screens, two expanders, the lights), the Pi's own audio on GPIO 12/13 (the
+      # headphone amp), the board's I2S sound card (outputs 1-2), MIDI on UART0, the fan and the power button; SPI off
+      [ -f "$BOOT/overlays/central-pedal-audio.dtbo" ] || echo "  warning: $BOOT/overlays/central-pedal-audio.dtbo is missing - run setup-pi.sh again" >&2
+      set_config dtparam=i2c_arm on
+      set_config dtparam=i2c_arm_baudrate 400000
+      sed -i -E '/^dtparam=spi=on$/d' "$CONFIG"
+      set_config enable_uart 1
+      config_all "dtparam=audio" on
+      {
+        echo "# Central Pedal main board rev B"
+        echo "dtoverlay=audremap,pins_12_13"
+        echo "dtoverlay=central-pedal-audio"
+        echo "dtoverlay=midi-uart0"
+        echo "dtoverlay=gpio-fan,gpiopin=26,temp=60000"
+        echo "dtoverlay=gpio-poweroff,gpiopin=24,active_low=1"
+      } >> "$CONFIG"
+      sed -i -E 's/(^| )console=(serial0|ttyAMA0),[0-9]+//g' "$CMDLINE"
+      systemctl disable --now serial-getty@ttyAMA0.service serial-getty@serial0.service 2>/dev/null || true
+      audio_json dac true
+    elif [ "${2:-none}" = "central-main-v1" ]; then
       [ -f "$BOOT/overlays/central-pedal-audio.dtbo" ] || echo "  warning: $BOOT/overlays/central-pedal-audio.dtbo is missing - run setup-pi.sh again" >&2
       set_config dtparam=i2c_arm on
       set_config dtparam=spi on

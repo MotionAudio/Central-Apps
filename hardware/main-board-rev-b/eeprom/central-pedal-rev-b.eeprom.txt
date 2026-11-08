@@ -1,0 +1,52 @@
+########################################################################
+# Central Pedal main board rev B - HAT ID EEPROM settings (eepmake format)
+# Make the image:   eepmake central-pedal-rev-b.eeprom.txt central-pedal-rev-b.eep
+# Write it (Pi, JP_WP open):  sudo ./eepflash.sh -w -f=central-pedal-rev-b.eep -t=24c32
+# (eepmake / eepflash.sh come from https://github.com/raspberrypi/hats/tree/master/eepromutils)
+# The Pi then shows /proc/device-tree/hat/product = "Central Pedal Main Board rev B" and the
+# driver picks the board's pin map; with a blank EEPROM it finds the board by its chips instead.
+########################################################################
+
+# Vendor info
+product_uuid 00000000-0000-0000-0000-000000000000   # (eepmake makes a random one when all zero)
+product_id 0x0002
+product_ver 0x0002
+vendor "Motion Audio"
+product "Central Pedal Main Board rev B"
+
+# GPIO bank drive / slew / hysteresis: defaults
+gpio_drive 0
+gpio_slew 0
+gpio_hysteresis 0
+
+# The board back-powers the Pi through the header (5V1): 2 = yes
+back_power 2
+
+# GPIO map: setgpio  GPIO  FUNCTION  PULL   (FUNCTION: INPUT OUTPUT ALT0..ALT5; PULL: DEFAULT UP DOWN NONE)
+# The driver sets the pins it uses; this only states what the board does with each one.
+setgpio  2  ALT0    DEFAULT   # I2C SDA
+setgpio  3  ALT0    DEFAULT   # I2C SCL
+setgpio  4  INPUT   UP        # power button controller INT
+setgpio  5  INPUT   UP        # footswitch 1
+setgpio  6  INPUT   UP        # footswitch 2
+setgpio  7  INPUT   UP        # footswitch 3
+setgpio  8  INPUT   UP        # footswitch 4
+setgpio  9  INPUT   UP        # footswitch 5
+setgpio  10 INPUT   UP        # footswitch 6
+setgpio  11 INPUT   UP        # footswitch 7
+setgpio  12 ALT0    DEFAULT   # headphones PWM L
+setgpio  13 ALT0    DEFAULT   # headphones PWM R
+setgpio  14 ALT0    DEFAULT   # MIDI OUT (UART0 TX)
+setgpio  15 ALT0    DEFAULT   # MIDI IN (UART0 RX)
+setgpio  16 INPUT   UP        # footswitch 8
+setgpio  17 INPUT   UP        # footswitch 9
+setgpio  18 ALT0    DEFAULT   # I2S BCK
+setgpio  19 ALT0    DEFAULT   # I2S LRCK
+setgpio  20 ALT0    DEFAULT   # I2S DIN
+setgpio  21 ALT0    DEFAULT   # I2S DOUT
+setgpio  22 INPUT   UP        # footswitch 10
+setgpio  23 INPUT   UP        # expander 1 INT
+setgpio  24 OUTPUT  DEFAULT   # power controller KILL
+setgpio  25 INPUT   UP        # expander 2 INT
+setgpio  26 OUTPUT  DEFAULT   # fan
+setgpio  27 OUTPUT  DEFAULT   # DAC 1 mute

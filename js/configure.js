@@ -37,9 +37,10 @@
     if (i.usb) return "USB " + (i.usb.name || "") + " · " + (i.usb.codeName || ("key " + i.usb.code) || ("axis " + i.usb.abs));
     if (i.key) return window.CCSurface ? window.CCSurface.describe(i) : "Key " + i.key.code;
     if (i.midi) return window.CCSurface ? window.CCSurface.describe(i) : "MIDI " + String(i.midi.msg || i.midi.type).toUpperCase() + " " + i.midi.number + (i.midi.channel ? " ch" + i.midi.channel : "");
+    if (i.kind === "encoder" && i.expander_enc) return "Main board click-knob · expander " + (i.expander_enc.address || "0x20") + " pins " + i.expander_enc.a + " / " + i.expander_enc.b + (i.expander_enc.reverse ? " · reversed" : "");
     if (i.kind === "encoder") return i.gpio_a != null ? "GPIO " + i.gpio_a + " / " + i.gpio_b + (i.gpio_button != null ? " · push GPIO " + i.gpio_button : "") : "not wired";
     if (i.gpio != null) return "GPIO " + i.gpio + " (pin " + (BCM_TO_PIN[i.gpio] || "?") + ")";
-    if (i.expander_pin != null) return "Main board expander · pin " + i.expander_pin;
+    if (i.expander_pin != null) return "Main board expander" + (i.expander ? " " + i.expander : "") + " · pin " + i.expander_pin;
     if (i.adc && String(i.adc.chip || "").toLowerCase() === "mcp3208") return "Main board ADC · CH" + i.adc.channel;
     if (i.adc) return "ADS1115 " + i.adc.address + " · A" + i.adc.channel;
     return "not wired";
@@ -159,12 +160,14 @@
   F.on("learned", function (m) {
     var spec = byId(m.target); learning = null;
     if (!spec) { renderLearn(); return; }
-    var old = { gpio: spec.gpio, adc: spec.adc, usb: spec.usb, gpio_a: spec.gpio_a, gpio_b: spec.gpio_b, gpio_button: spec.gpio_button };
-    delete spec.gpio; delete spec.adc; delete spec.usb;
+    var old = { gpio: spec.gpio, adc: spec.adc, usb: spec.usb, gpio_a: spec.gpio_a, gpio_b: spec.gpio_b, gpio_button: spec.gpio_button, expander: spec.expander, expander_pin: spec.expander_pin, expander_enc: spec.expander_enc };
+    delete spec.gpio; delete spec.adc; delete spec.usb; delete spec.expander_pin; delete spec.expander; delete spec.expander_enc;
     if (m.input.gpio != null) { if (spec.kind === "encoder") spec.gpio_button = m.input.gpio; else spec.gpio = m.input.gpio; }
     if (m.input.adc) spec.adc = m.input.adc;
     if (m.input.usb) spec.usb = m.input.usb;
-    if (m.alreadyUsedBy) { var other = byId(m.alreadyUsedBy); if (other) { delete other.gpio; delete other.adc; if (old.gpio != null) other.gpio = old.gpio; if (old.adc) other.adc = old.adc; PP.setStatus(spec.name + " learned (swapped with " + other.name + ")"); } }
+    if (m.input.expander_pin != null) { spec.expander_pin = m.input.expander_pin; spec.expander = m.input.expander || "0x20"; }   // (the main board: a knob's push, an external footswitch)
+    if (m.input.expander_enc) { spec.expander_enc = m.input.expander_enc; spec.kind = "encoder"; }                                // (rev B: a click-knob's turn)
+    if (m.alreadyUsedBy) { var other = byId(m.alreadyUsedBy); if (other) { delete other.gpio; delete other.adc; delete other.expander_pin; delete other.expander_enc; if (old.gpio != null) other.gpio = old.gpio; if (old.adc) other.adc = old.adc; if (old.expander_pin != null) { other.expander_pin = old.expander_pin; other.expander = old.expander; } if (old.expander_enc) other.expander_enc = old.expander_enc; PP.setStatus(spec.name + " learned (swapped with " + other.name + ")"); } }
     else PP.setStatus(spec.name + " learned: " + wiringText(spec));
     saveInputs(); renderLearn(); renderConfigure();
   });

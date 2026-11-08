@@ -667,13 +667,69 @@ CENTRAL_BOARD_V1 = {
     # GPIOs the board uses for other jobs (the Learn tab won't put a footswitch on them)
     "board_pins": [2, 3, 4, 7, 8, 9, 10, 11, 14, 15, 18, 19, 20, 21, 24, 25, 26, 27],
 }
-BOARDS = {"central-main-v1": CENTRAL_BOARD_V1}
+# ---------------------------------------------------------------------------
+# Central Pedal main board rev B (11.0): 10 footswitches on the Pi's pins, 6 click-knobs (rotary encoders) and the
+# external footswitch jacks on two MCP23017 expanders, 2 faders on an ADS1115, footswitch lights on a PCA9685,
+# 18 small label screens (0.91" OLED) behind three TCA9548A I2C muxes, a BQ25798 charger, an INA226 battery monitor,
+# a TPA6130A2 headphone amp, MIDI on UART0 and a HAT EEPROM that says what the board is.   docs/MAIN-BOARD.md
+# ---------------------------------------------------------------------------
+V2_FOOTSWITCH_GPIO = [5, 6, 7, 8, 9, 10, 11, 16, 17, 22]        # footswitches 1-8 (front row) and 9-10 (above 1 and 8)
+V2_KNOB_NAMES = ["Left knob 1", "Left knob 2", "Left knob 3", "Right knob 1", "Right knob 2", "Right knob 3"]
+# the 18 label screens: (input id, mux address, mux channel) - one 0.91" OLED above every footswitch, knob and fader
+V2_LABEL_SCREENS = ([("b%d" % (i + 1), "0x70", i) for i in range(8)] + [("b9", "0x71", 0), ("b10", "0x71", 1)]
+                    + [("k%d" % (i + 1), "0x71", 2 + i) for i in range(6)] + [("s1", "0x72", 0), ("s2", "0x72", 1)])
+
+CENTRAL_BOARD_V2 = {
+    "board": "central-main-v2",
+    "inputs": (
+        [{"id": "b%d" % (i + 1), "name": "Footswitch %d" % (i + 1), "kind": "button", "gpio": g} for i, g in enumerate(V2_FOOTSWITCH_GPIO)]
+        # the six click-knobs: rotary encoders on expander 1 (0x20) - A/B on pins 0-11, their push on pins 12-15 (knobs 1-4)
+        # and expander 2 (0x21) pins 0-1 (knobs 5-6). Turning sends steps (delta), the push is a footswitch like any other.
+        + [{"id": "k%d" % (i + 1), "name": n, "kind": "encoder", "expander_enc": {"address": "0x20", "a": 2 * i, "b": 2 * i + 1}} for i, n in enumerate(V2_KNOB_NAMES)]
+        + [{"id": "k%dc" % (i + 1), "name": n + " (push)", "kind": "button", "expander": "0x20" if i < 4 else "0x21", "expander_pin": 12 + i if i < 4 else i - 4}
+           for i, n in enumerate(V2_KNOB_NAMES)]
+        + [{"id": "s1", "name": "Left fader (expression A)", "kind": "slider", "adc": {"address": "0x48", "channel": 0}},
+           {"id": "s2", "name": "Right fader (expression B)", "kind": "slider", "adc": {"address": "0x48", "channel": 1}}]
+        # the two external footswitch jacks (TRS: a single or a double footswitch each) on expander 2
+        + [{"id": "x1", "name": "External footswitch A (tip)", "kind": "button", "expander": "0x21", "expander_pin": 2},
+           {"id": "x2", "name": "External footswitch A (ring)", "kind": "button", "expander": "0x21", "expander_pin": 3},
+           {"id": "x3", "name": "External footswitch B (tip)", "kind": "button", "expander": "0x21", "expander_pin": 4},
+           {"id": "x4", "name": "External footswitch B (ring)", "kind": "button", "expander": "0x21", "expander_pin": 5}]
+    ),
+    "leds": ([{"id": "led%d" % (i + 1), "pca9685": {"address": "0x41", "channel": i}, "follows": "b%d" % (i + 1)} for i in range(10)]
+             + [{"id": "status", "pca9685": {"address": "0x41", "channel": 10}, "follows": "@running"}]),
+    "analog_min_raw": 120,
+    "analog_max_raw": 26300,
+    "led_brightness": 1.0,
+    "led_dim": 0.06,
+    "expander": None,
+    # the two MCP23017s and what hangs off them (the inputs above say which pin they are on); INT lines to GPIO 23 / 25
+    "expanders": [{"address": "0x20", "int_gpio": 23},
+                  {"address": "0x21", "int_gpio": 25, "status": {"instrumentA": 6, "instrumentB": 7, "charging": 8, "pdFault": 9, "chargerInt": 10}}],
+    "battery": {"chip": "ina226", "address": "0x45", "shunt_ohm": 0.005},
+    "charger": {"chip": "bq25798", "address": "0x6b", "charge_a": 2.0, "input_a": 3.0},
+    "headphones": {"chip": "tpa6130a2", "address": "0x60", "enable": {"pca9685": "0x41", "channel": 11}, "volume": 0.6},
+    "labels": {"chip": "ssd1306", "screens": [{"id": i, "mux": m, "channel": c} for i, m, c in V2_LABEL_SCREENS]},
+    "midi_uart": "/dev/ttyAMA0",
+    "shutdown_gpio": 4,
+    "shutdown_hold_s": 0,
+    "instrument_detect_gpio": None,       # (the two jacks' plug switches are on expander 2, pins 6 and 7)
+    "i2s_dac": True,
+    "tft_overlay": "none",
+    "touch_screen": "dsi-rpi2-7",          # the 7" Raspberry Pi Touch Display 2 plugs onto the board's ribbon connector
+    # GPIOs the board uses for other jobs (the Learn tab won't put a footswitch on them)
+    "board_pins": [2, 3, 4, 12, 13, 14, 15, 18, 19, 20, 21, 23, 24, 25, 26, 27],
+}
+BOARDS = {"central-main-v1": CENTRAL_BOARD_V1, "central-main-v2": CENTRAL_BOARD_V2}
+BOARD_NAMES = {"central-main-v1": "Central Pedal main board (rev A)", "central-main-v2": "Central Pedal main board rev B"}
+BOARD_KEYS = ("board", "battery", "charger", "headphones", "labels", "expanders", "midi_uart", "shutdown_gpio", "shutdown_hold_s",
+              "instrument_detect_gpio", "board_pins", "led_brightness", "led_dim")
 
 
 def apply_board(config, board):
     """Put a board's pin map into a hardware.json dict ("" / "none" = back to the hand-wired defaults)."""
     preset = BOARDS.get(board)
-    for k in ("board", "battery", "midi_uart", "shutdown_gpio", "shutdown_hold_s", "instrument_detect_gpio", "board_pins", "led_brightness", "led_dim"):
+    for k in BOARD_KEYS:
         config.pop(k, None)
     if not preset:
         config["expander"] = None
@@ -683,8 +739,481 @@ def apply_board(config, board):
         config["analog_max_raw"] = DEFAULT_CONFIG["analog_max_raw"]
         return config
     for k, v in preset.items():
+        if k == "touch_screen":   # (the board's own screen - unless another one was picked in Settings → Touch screen)
+            if not config.get("touch_screen") or config.get("touch_screen") == "off":
+                config["touch_screen"] = v
+            continue
         config[k] = copy.deepcopy(v)
     return config
+
+
+def detect_board(hat_dir="/proc/device-tree/hat", bus=None):
+    """Which Central Pedal main board is plugged onto the Pi: "central-main-v2" when its HAT EEPROM says so or when
+    the chips only it has all answer on I2C (a label-screen mux at 0x70, expander 2 at 0x21, the BQ25798 at 0x6b);
+    None when there is no board (or a hand-wired one). Rev A has no EEPROM and none of those chips."""
+    try:
+        with open(os.path.join(hat_dir, "product"), "rb") as fh:
+            product = fh.read().decode("utf-8", "replace").strip("\0 \n").lower()
+        if "central pedal" in product and ("rev b" in product or "main board" in product):
+            return "central-main-v2"
+    except OSError:
+        pass
+    if bus is None:
+        return None
+    try:
+        bus.read_byte(0x70)                                 # TCA9548A: its control register
+        bus.read_i2c_block_data(0x21, 0x00, 1)              # MCP23017 #2: IODIRA
+        info = bus.read_i2c_block_data(0x6B, 0x48, 1)[0]    # BQ25798: part information (PN bits 5:3 = 011)
+        if (info >> 3) & 0x7 != 0b011:
+            log.info("the chip at 0x6b is not a BQ25798 (part info 0x%02x) - not the rev B board", info)
+            return None
+        return "central-main-v2"
+    except Exception as error:
+        log.debug("board probe: %s", error)
+        return None
+
+
+def auto_board(config, found):
+    """Put the detected board's pin map in (and take it out again when the board is gone and it was put in by this),
+    unless Settings → Control board was set by hand. True when the config changed."""
+    if config.get("board_manual"):
+        return False
+    current = config.get("board") or ""
+    if found and current != found:
+        apply_board(config, found)
+        config["board_auto"] = found
+        log.info("%s found - using its pin map", BOARD_NAMES.get(found, found))
+        return True
+    if not found and current and config.get("board_auto") == current:
+        apply_board(config, "none")
+        config.pop("board_auto", None)
+        log.info("the %s is not connected - back to the hand-wired pins", BOARD_NAMES.get(current, current))
+        return True
+    return False
+
+
+class BQ25798:
+    """2S buck-boost charger with a power path (I2C 0x6b). Registers per the BQ25798 datasheet (section 9.6):
+    REG01/02 VREG (10 mV), REG03/04 ICHG (10 mA), REG06/07 IINDPM (10 mA), REG10 charger control 1 (watchdog),
+    REG1B/1C charger status 0/1, REG20/21 fault status, REG2E ADC control, REG35/36 VBUS ADC, REG31/32 IBUS ADC."""
+    STATES = {0: "idle", 1: "trickle", 2: "precharge", 3: "charging", 4: "charging", 6: "topping off", 7: "done"}
+
+    def __init__(self, bus, address=0x6B, charge_a=2.0, input_a=3.0, volts=8.4):
+        self.bus, self.address = bus, address
+        self._w16(0x01, int(round(volts * 100)))            # 2S: 8.40 V (the PROG resistor sets the same)
+        self._w16(0x03, int(round(min(5.0, max(0.05, charge_a)) * 100)))
+        self._w16(0x06, int(round(min(3.3, max(0.1, input_a)) * 100)))
+        ctl1 = self._r8(0x10)
+        self._w8(0x10, ctl1 & ~0x07)                        # watchdog off: the settings above stay put
+        self._w8(0x2E, 0x80 | 0x00)                         # ADC on, continuous, 15-bit, no averaging
+        self.ok = True
+
+    def _r8(self, reg):
+        return self.bus.read_i2c_block_data(self.address, reg, 1)[0]
+
+    def _w8(self, reg, value):
+        self.bus.write_i2c_block_data(self.address, reg, [value & 0xFF])
+
+    def _w16(self, reg, value):
+        self.bus.write_i2c_block_data(self.address, reg, [(value >> 8) & 0xFF, value & 0xFF])
+
+    def _r16(self, reg):
+        hi, lo = self.bus.read_i2c_block_data(self.address, reg, 2)
+        v = (hi << 8) | lo
+        return v - 65536 if v & 0x8000 else v
+
+    def status(self):
+        s0, s1 = self._r8(0x1B), self._r8(0x1C)
+        f0, f1 = self._r8(0x20), self._r8(0x21)
+        chg = (s1 >> 5) & 0x7
+        return {"usb": bool(s0 & 0x01), "powerGood": bool(s0 & 0x08), "state": self.STATES.get(chg, "idle"), "charging": chg in (1, 2, 3, 4, 6),
+                "fault": bool(f0 or f1), "faultBits": (f0 << 8) | f1,
+                "usbVolts": round(self._r16(0x35) / 1000.0, 2), "usbAmps": round(self._r16(0x31) / 1000.0, 2)}
+
+    def set_charge_current(self, amps):
+        self._w16(0x03, int(round(min(5.0, max(0.05, float(amps))) * 100)))
+
+    def enable(self, on):
+        ctl0 = self._r8(0x0F)
+        self._w8(0x0F, (ctl0 | 0x20) if on else (ctl0 & ~0x20))   # EN_CHG
+
+
+class TPA6130A2:
+    """Headphone amp with an I2C volume (0x60): REG1 enables (HP_EN_L/R), REG2 volume 0-63 (-59.5 .. +4 dB) + mutes."""
+
+    def __init__(self, bus, address=0x60, volume=0.6):
+        self.bus, self.address = bus, address
+        self.level = None
+        self.bus.write_i2c_block_data(address, 0x01, [0xC0])   # both channels on, stereo, not in software shutdown
+        self.set(volume)
+
+    def set(self, level):
+        level = min(1.0, max(0.0, float(level)))
+        code = int(round(level * 63))
+        data = 0xC0 if code == 0 else code                       # (0 = muted)
+        self.bus.write_i2c_block_data(self.address, 0x02, [data])
+        self.level = level
+
+    def close(self):
+        try:
+            self.bus.write_i2c_block_data(self.address, 0x01, [0x00])
+        except Exception:
+            pass
+
+
+class QuadratureDecoder:
+    """One step per detent from an encoder's A/B lines (the full-step state table: bounce on one line never counts)."""
+    R_START, R_CW_FINAL, R_CW_BEGIN, R_CW_NEXT, R_CCW_BEGIN, R_CCW_FINAL, R_CCW_NEXT = range(7)
+    DIR_CW, DIR_CCW = 0x10, 0x20
+    TABLE = [
+        [R_START, R_CW_BEGIN, R_CCW_BEGIN, R_START],
+        [R_CW_NEXT, R_START, R_CW_FINAL, R_START | DIR_CW],
+        [R_CW_NEXT, R_CW_BEGIN, R_START, R_START],
+        [R_CW_NEXT, R_CW_BEGIN, R_CW_FINAL, R_START],
+        [R_CCW_NEXT, R_START, R_CCW_BEGIN, R_START],
+        [R_CCW_NEXT, R_CCW_FINAL, R_START, R_START | DIR_CCW],
+        [R_CCW_NEXT, R_CCW_FINAL, R_CCW_BEGIN, R_START],
+    ]
+
+    def __init__(self, reverse=False):
+        self.state = self.R_START
+        self.sign = -1 if reverse else 1
+
+    def feed(self, a, b):
+        """a, b: the two lines (0/1). Returns +1 (A leads B - clockwise on the Bourns PEC11R as wired), -1 or 0.
+        A knob that turns the wrong way gets "reverse": true in its expander_enc (Configure tab)."""
+        self.state = self.TABLE[self.state & 0x0F][((1 if b else 0) << 1) | (1 if a else 0)]
+        d = self.state & 0x30
+        return (-self.sign if d == self.DIR_CW else self.sign if d == self.DIR_CCW else 0)
+
+
+class BoardExpanders:
+    """The rev B board's two MCP23017s: encoders (turn = steps, push = a footswitch), the external footswitch jacks,
+    the instrument jacks' plug switches and the charger / PD status lines. Read from their INT lines (GPIO 23 / 25)
+    when gpiozero is here, polled 250 times a second otherwise. Events go to the driver's button_event / emit."""
+    GPINTENA, INTCONA, IOCON = 0x04, 0x08, 0x0A
+
+    def __init__(self, bus, config, on_button, on_step, on_status, pin_factory=None, hold_s=0.8):
+        self.bus = bus
+        self.on_button, self.on_step, self.on_status = on_button, on_step, on_status
+        self.hold_s = float(hold_s or 0.8)
+        self.chips = {}         # address -> MCP23017
+        self.state = {}         # address -> last 16-bit GPIO value
+        self.buttons = {}       # (address, pin) -> input id
+        self.encoders = {}      # (address, a, b) -> (input id, QuadratureDecoder)
+        self.status = {}        # name -> (address, pin)
+        self.status_now = {}
+        self.down = {}          # input id -> press time (None once "hold" went)
+        self.last_change = {}   # (address, pin) -> time (debounce)
+        self.wake = threading.Event()
+        self.stop = threading.Event()
+        self.ints = []
+        self.thread = None
+        for exp in config.get("expanders") or []:
+            address = parse_address(exp.get("address", "0x20"))
+            chip = MCP23017(bus, address)
+            chip.setup(0xFFFF, 0)
+            try:
+                chip._w16(self.INTCONA, 0)            # interrupt on any change ...
+                chip._w16(self.GPINTENA, 0xFFFF)      # ... of any pin; INTA mirrors INTB, active low
+                bus.write_i2c_block_data(address, self.IOCON, [0x40])
+            except Exception as error:
+                log.debug("expander 0x%02x: no interrupts (%s)", address, error)
+            self.chips[address] = chip
+            self.state[address] = chip.read()
+            for name, pin in (exp.get("status") or {}).items():
+                self.status[name] = (address, int(pin))
+                self.status_now[name] = bool((self.state[address] >> int(pin)) & 1)
+            if exp.get("int_gpio") is not None:
+                try:
+                    from gpiozero import Button
+                    kw = {"pin_factory": pin_factory} if pin_factory else {}
+                    b = Button(int(exp["int_gpio"]), pull_up=True, bounce_time=None, **kw)
+                    b.when_pressed = self.wake.set
+                    self.ints.append(b)
+                except Exception as error:
+                    log.debug("expander INT on GPIO %s unavailable (%s) - polling", exp.get("int_gpio"), error)
+        for spec in config.get("inputs") or []:
+            if spec.get("kind") == "button" and spec.get("expander_pin") is not None:
+                address = parse_address(spec.get("expander", "0x20"))
+                if address in self.chips:
+                    self.buttons[(address, int(spec["expander_pin"]))] = spec["id"]
+                    spec["active"] = True
+            enc = spec.get("expander_enc")
+            if spec.get("kind") == "encoder" and enc:
+                address = parse_address(enc.get("address", "0x20"))
+                if address in self.chips:
+                    dec = QuadratureDecoder(reverse=bool(enc.get("reverse")))
+                    st = self.state[address]
+                    dec.feed((st >> int(enc["a"])) & 1, (st >> int(enc["b"])) & 1)
+                    self.encoders[(address, int(enc["a"]), int(enc["b"]))] = (spec["id"], dec)
+                    spec["active"] = True
+
+    def start(self):
+        self.thread = threading.Thread(target=self._loop, name="expanders", daemon=True)
+        self.thread.start()
+        return self
+
+    def _loop(self):
+        period = 0.02 if self.ints else 0.004
+        while not self.stop.is_set():
+            self.wake.wait(period)
+            self.wake.clear()
+            try:
+                self.poll()
+            except Exception as error:
+                log.debug("expander read failed (%s)", error)
+                time.sleep(0.05)
+
+    def poll(self):
+        now = time.monotonic()
+        for address, chip in self.chips.items():
+            st = chip.read()
+            prev = self.state[address]
+            self.state[address] = st
+            changed = st ^ prev
+            for (addr, a, b), (iid, dec) in self.encoders.items():
+                if addr == address and changed & ((1 << a) | (1 << b)):
+                    step = dec.feed((st >> a) & 1, (st >> b) & 1)
+                    if step:
+                        self.on_step(iid, step)
+            for (addr, pin), iid in self.buttons.items():
+                if addr != address:
+                    continue
+                bit = 1 << pin
+                if changed & bit:
+                    if now - self.last_change.get((addr, pin), 0) < 0.015:
+                        continue
+                    self.last_change[(addr, pin)] = now
+                    if st & bit:
+                        self.down.pop(iid, None)
+                        self.on_button(iid, "release")
+                    else:
+                        self.down[iid] = now
+                        self.on_button(iid, "press")
+            for name, (addr, pin) in self.status.items():
+                if addr == address and changed & (1 << pin):
+                    self.status_now[name] = bool((st >> pin) & 1)
+                    self.on_status(name, self.status_now[name])
+        for iid, t0 in list(self.down.items()):
+            if t0 is not None and now - t0 >= self.hold_s:
+                self.down[iid] = None
+                self.on_button(iid, "hold")
+
+    def line(self, name):
+        """A status line's level (True = high), None when the board has no such line."""
+        return self.status_now.get(name)
+
+    def close(self):
+        self.stop.set()
+        self.wake.set()
+        for b in self.ints:
+            try:
+                b.close()
+            except Exception:
+                pass
+        self.ints = []
+
+
+class LabelScreens:
+    """The 18 little 0.91" 128x32 OLED screens (SSD1306, all at 0x3c) behind three TCA9548A muxes (0x70-0x72): one
+    above every footswitch, knob and fader, saying what that control does. The app sends the words (labels.js);
+    a control's value is drawn here the moment it moves. Drawn with PIL, pushed by a thread (I2C is slow: ~15 ms
+    per screen), only the screens whose picture changed."""
+    WIDTH, HEIGHT, ADDRESS = 128, 32, 0x3C
+    INIT = [0xAE, 0xD5, 0x80, 0xA8, 0x1F, 0xD3, 0x00, 0x40, 0x8D, 0x14, 0x20, 0x00, 0xA1, 0xC8, 0xDA, 0x02, 0x81, 0xCF, 0xD9, 0xF1, 0xDB, 0x40, 0xA4, 0xA6, 0x2E, 0xAF]
+
+    def __init__(self, bus, screens, fonts_dir=None, flip=False):
+        from PIL import Image, ImageDraw, ImageFont
+        self.Image, self.ImageDraw = Image, ImageDraw
+        self.bus = bus
+        self.screens = [(str(s["id"]), parse_address(s.get("mux", "0x70")), int(s.get("channel", 0))) for s in screens]
+        self.items = {}         # id -> {"top", "bottom", "value"}
+        self.values = {}        # id -> (value 0..1, until)
+        self.flash = {}         # id -> until (inverted for a moment after a press)
+        self.last = {}          # id -> bytes last pushed
+        self.lock = threading.Lock()
+        self.dirty = set(s[0] for s in self.screens)
+        self.wake = threading.Event()
+        self.stop = threading.Event()
+        self.present = {}
+        self.flip = flip
+        self.font_small = self.font_big = None
+        for path in [os.path.join(fonts_dir, "archivo-semibold.ttf") if fonts_dir else None, "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]:
+            if path and os.path.isfile(path):
+                try:
+                    self.font_small, self.font_big = ImageFont.truetype(path, 10), ImageFont.truetype(path, 16)
+                    break
+                except Exception:
+                    continue
+        if self.font_small is None:
+            self.font_small = self.font_big = ImageFont.load_default()
+        for sid, mux, ch in self.screens:
+            try:
+                self._select(mux, ch)
+                self._cmd(*self.INIT)
+                self.present[sid] = True
+            except Exception as error:
+                self.present[sid] = False
+                log.debug("label screen %s (mux 0x%02x ch %d) not answering: %s", sid, mux, ch, error)
+        self._deselect()
+        log.info("label screens: %d of %d answering", sum(1 for v in self.present.values() if v), len(self.screens))
+        self.thread = threading.Thread(target=self._loop, name="labels", daemon=True)
+        self.thread.start()
+
+    # ----- I2C
+    def _select(self, mux, ch):
+        for m in set(s[1] for s in self.screens):
+            if m != mux:
+                self.bus.write_byte(m, 0x00)
+        self.bus.write_byte(mux, 1 << ch)
+
+    def _deselect(self):
+        for m in set(s[1] for s in self.screens):
+            try:
+                self.bus.write_byte(m, 0x00)
+            except Exception:
+                pass
+
+    def _cmd(self, *cmds):
+        for i in range(0, len(cmds), 16):
+            self.bus.write_i2c_block_data(self.ADDRESS, 0x00, list(cmds[i:i + 16]))
+
+    def _push(self, mux, ch, data):
+        self._select(mux, ch)
+        self._cmd(0x21, 0, self.WIDTH - 1, 0x22, 0, 3)
+        for i in range(0, len(data), 32):
+            self.bus.write_i2c_block_data(self.ADDRESS, 0x40, list(data[i:i + 32]))
+
+    # ----- content
+    def set_items(self, items):
+        """{id: {"top": "Footswitch 1", "bottom": "Warm Pad", "value": 0.5?}} from the app (ids not sent keep theirs)."""
+        changed = []
+        with self.lock:
+            for sid, it in (items or {}).items():
+                if not isinstance(it, dict):
+                    continue
+                cur = self.items.get(sid)
+                new = {"top": str(it.get("top") or "")[:40], "bottom": str(it.get("bottom") or "")[:40]}
+                if it.get("value") is not None:
+                    new["value"] = min(1.0, max(0.0, float(it["value"])))
+                if cur != new:
+                    self.items[sid] = new
+                    changed.append(sid)
+            self.dirty.update(changed)
+        if changed:
+            self.wake.set()
+        return changed
+
+    def show_value(self, sid, value, seconds=1.6):
+        with self.lock:
+            self.values[sid] = (min(1.0, max(0.0, float(value))), time.monotonic() + seconds)
+            self.dirty.add(sid)
+        self.wake.set()
+
+    def pressed(self, sid, seconds=0.25):
+        with self.lock:
+            self.flash[sid] = time.monotonic() + seconds
+            self.dirty.add(sid)
+        self.wake.set()
+
+    def render(self, sid):
+        """The 512 bytes (4 pages x 128 columns) for one screen."""
+        it = self.items.get(sid) or {}
+        now = time.monotonic()
+        value = self.values.get(sid)
+        if value and value[1] < now:
+            value = None
+        img = self.Image.new("1", (self.WIDTH, self.HEIGHT), 0)
+        d = self.ImageDraw.Draw(img)
+        top, bottom = it.get("top") or "", it.get("bottom") or ""
+
+        def width(text, font):
+            try:
+                return d.textlength(text, font=font)
+            except AttributeError:          # (older Pillow)
+                return d.textsize(text, font=font)[0]
+        if value:
+            v = value[0]
+            d.text((0, -1), bottom or top, font=self.font_small, fill=1)
+            d.rectangle((0, 14, self.WIDTH - 1, 27), outline=1, fill=0)
+            d.rectangle((1, 15, 1 + int(v * (self.WIDTH - 3)), 26), fill=1)
+            pct = "%d%%" % int(round(v * 100))
+            d.text((self.WIDTH - width(pct, self.font_small) - 1, -1), pct, font=self.font_small, fill=1)
+        else:
+            if top:
+                d.text((0, -1), top, font=self.font_small, fill=1)
+            text = bottom or "—"
+            font = self.font_big
+            while width(text, font) > self.WIDTH and len(text) > 2:
+                text = text[:-2] + "…"
+            d.text((0, 12 if top else 6), text, font=font, fill=1)
+            if it.get("value") is not None:
+                d.rectangle((0, self.HEIGHT - 2, int(it["value"] * (self.WIDTH - 1)), self.HEIGHT - 1), fill=1)
+        if self.flash.get(sid, 0) > now:
+            img = img.point(lambda p: 1 - p)
+        if self.flip:
+            img = img.rotate(180)
+        px = img.load()
+        out = bytearray(self.WIDTH * 4)
+        for page in range(4):
+            for x in range(self.WIDTH):
+                byte = 0
+                for bit in range(8):
+                    if px[x, page * 8 + bit]:
+                        byte |= 1 << bit
+                out[page * self.WIDTH + x] = byte
+        return bytes(out)
+
+    def _loop(self):
+        while not self.stop.is_set():
+            self.wake.wait(0.25)
+            self.wake.clear()
+            with self.lock:
+                todo = list(self.dirty)
+                self.dirty = set()
+                now = time.monotonic()
+                for sid, (v, until) in list(self.values.items()):
+                    if until < now:
+                        del self.values[sid]
+                        todo.append(sid)
+                for sid, until in list(self.flash.items()):
+                    if until < now:
+                        del self.flash[sid]
+                        todo.append(sid)
+                    else:
+                        self.dirty.add(sid)
+                for sid, (v, until) in self.values.items():
+                    self.dirty.add(sid)
+            for sid in dict.fromkeys(todo):
+                if not self.present.get(sid):
+                    continue
+                try:
+                    with self.lock:
+                        data = self.render(sid)
+                    if self.last.get(sid) == data:
+                        continue
+                    mux, ch = next((m, c) for i, m, c in self.screens if i == sid)
+                    self._push(mux, ch, data)
+                    self.last[sid] = data
+                except Exception as error:
+                    log.debug("label screen %s: %s", sid, error)
+            try:
+                self._deselect()
+            except Exception:
+                pass
+
+    def close(self):
+        self.stop.set()
+        self.wake.set()
+        for sid, mux, ch in self.screens:
+            if self.present.get(sid):
+                try:
+                    self._select(mux, ch)
+                    self._cmd(0xAE)
+                except Exception:
+                    pass
+        self._deselect()
 
 
 def open_i2c_bus(number):
@@ -10376,6 +10905,13 @@ class PedalDriver:
         self.expander_buttons = []
         self.expander_state = 0xFFFF
         self.encoder_ok = False
+        self.expanders = None     # rev B: BoardExpanders (encoders, knob pushes, external footswitches, plug detects)
+        self.labels = None        # rev B: LabelScreens (the 18 little screens)
+        self.charger = None       # rev B: BQ25798
+        self.headamp = None       # rev B: TPA6130A2
+        self.board_status = {}    # rev B: the expander's status lines (charging, PD fault, plug detects)
+        self.strip_clients = set()   # the bar screen's page(s) (strip.html)
+        self.strip_lists = {}        # the app's lists kept for them (pads, scenes, sounds...)
         self.local = None
         self.companion = None
         self.midi = None
@@ -10534,7 +11070,10 @@ class PedalDriver:
             "inputs": self.config.get("inputs") or [],
             "reservedPins": reserved_pins(self.config),
             "board": self.config.get("board") or "",
+            "boardName": BOARD_NAMES.get(self.config.get("board") or "", ""),
+            "boardAuto": bool(self.config.get("board_auto")) and not self.config.get("board_manual"),
             "boardInputs": (BOARDS.get(self.config.get("board") or "") or {}).get("inputs"),
+            "labelScreens": [s["id"] for s in (self.config.get("labels") or {}).get("screens") or []],
             "screen35": screen_on(self.config),
             "screenAvailable": os.path.exists(SYSTEM_SCRIPT) or self.fb_override is not None,
             "screenOverlay": self.config.get("tft_overlay_choice") or "waveshare35a",
@@ -10651,6 +11190,7 @@ class PedalDriver:
         finally:
             self.clients.discard(ws)
             self.app_clients.discard(ws)
+            self.strip_clients.discard(ws)
             log.info("app disconnected")
 
     def public_audio_host(self):
@@ -10851,6 +11391,28 @@ class PedalDriver:
             self.send_to(ws, dict(self.tracks_host_info(), type="tracksHost"))
         elif kind == "miniMirror":
             self.mini_mirror(message)
+        elif kind == "labels":   # rev B: what every footswitch / knob / fader does, for the little screens above them (js/labels.js)
+            self.app_page(ws)
+            if self.labels:
+                self.labels.set_items(message.get("items") or {})
+        elif kind == "strip":    # the bar screen's page (strip.html): says hello, runs actions, picks from lists
+            action = message.get("action")
+            if action == "hello":
+                self.strip_clients.add(ws)
+                self.send_to(ws, {"type": "stripLists", "lists": self.strip_lists})
+                if self.display:
+                    self.send_to(ws, dict(self.display, type="display"))
+                self.send_to(ws, self.system_status())
+            elif action == "run" and message.get("name"):
+                act = {"type": "action", "name": str(message["name"])[:40], "args": message.get("args") or {}, "from": "strip"}
+                for k in ("value", "delta"):
+                    if isinstance(message.get(k), (int, float)):
+                        act[k] = message[k]
+                self.emit(act)
+            elif action == "pick":
+                self.emit({"type": "miniPick", "what": str(message.get("what") or "")[:40], "id": message.get("id"), "target": message.get("target")})
+            elif action == "request":
+                self.emit({"type": "miniRequest", "what": str(message.get("what") or "")[:40], "kind": message.get("kind")})
         elif kind == "touchSelect":
             # what a touch-select knob holds right now (shown on the 3.5" screen)
             self.touch_select = {k: message.get(k) for k in ("knob", "label", "value", "pickup")} if message.get("label") else None
@@ -10878,6 +11440,17 @@ class PedalDriver:
                 self.send_to(ws, {"type": "packages", "packages": read_json(path, [])})
         elif kind in ("miniList", "miniPush"):   # the small screen's lists (effects, scenes, sounds, boards, controls…), from the app
             self.app_page(ws)
+            if kind == "miniPush":
+                for key, value in (message.get("lists") or {}).items():
+                    if isinstance(value, dict):
+                        self.strip_lists[str(key)] = {k: v for k, v in value.items() if k != "kind"}
+            else:
+                what = str(message.get("what") or "") + (":" + str(message["kind"]) if message.get("kind") else "")
+                self.strip_lists[what] = {k: v for k, v in message.items() if k not in ("type", "what", "kind")}
+            if self.strip_clients:
+                sent = {"type": "stripLists", "lists": (message.get("lists") if kind == "miniPush" else {what: self.strip_lists[what]}) or {}}
+                for c in list(self.strip_clients):
+                    self.send_to(c, sent)
             if self.mini:
                 if kind == "miniPush":   # (sent when the app connects and whenever a list changes: the screen never waits)
                     for key, value in (message.get("lists") or {}).items():
@@ -11384,6 +11957,12 @@ class PedalDriver:
         if not d.get("hdmi1"):
             d["hdmi1"] = "app"
         d.setdefault("touchKind", touch_kind(self.config))
+        if self.config.get("board") == "central-main-v2":   # rev B: the app on the board's 7" screen, the bar screen on HDMI 1, lyrics on HDMI 2
+            d.setdefault("main", "builtin")
+            d.setdefault("strip", "strip")
+            d["board"] = "central-main-v2"
+        else:
+            d.pop("board", None)
         return d
 
     def system_status(self):
@@ -11416,8 +11995,16 @@ class PedalDriver:
             "screens": read_json(os.environ.get("CC_SCREENS", "/tmp/central-control-screens.json"), None),
             "i2sDac": bool(self.config.get("i2s_dac", True)),
             "board": self.config.get("board") or "",
+            "boardName": BOARD_NAMES.get(self.config.get("board") or "", ""),
+            "boardAuto": bool(self.config.get("board_auto")) and not self.config.get("board_manual"),
+            "boardPending": self.config.get("board_pending"),
+            "boardManual": bool(self.config.get("board_manual")),
+            "boardStatus": dict(self.board_status, labels=(sum(1 for v in self.labels.present.values() if v) if self.labels else None),
+                                knobs=bool(self.expanders and self.expanders.encoders), charger=bool(self.charger), headamp=bool(self.headamp)) if self.config.get("board") == "central-main-v2" else None,
+            "phonesVolume": self.config.get("phones_volume", (self.config.get("headphones") or {}).get("volume", 0.6)) if self.config.get("headphones") else None,
             "battery": self.battery_status(),
             "instrumentPlugged": self.instrument_plugged(),
+            "instrumentJacks": self.instrument_jacks(),
             "lanPort": self.config["lan_port"],
             "companion": "http://%s.local:%s/" % (socket.gethostname(), self.config["lan_port"]),
             "charts": shutil.which("pdftoppm") is not None,
@@ -11512,14 +12099,59 @@ class PedalDriver:
                     time.sleep(0.4)
                 self.emit({"type": "audioCardTest", "done": True, "count": len(sinks)})
                 return
-            elif action == "board":   # Settings → Control board: the Central Pedal main board's pin map, or the hand-wired one
-                board = value if value in BOARDS else "none"
-                apply_board(self.config, board)
+            elif action == "board":   # Settings → Control board: a main board's pin map, the hand-wired one, or "auto" (found by itself)
+                if value == "auto":
+                    self.config.pop("board_manual", None)
+                    found = detect_board(bus=self.i2c_bus if self.i2c_bus is not None else open_i2c_bus(self.config["i2c_bus"]))
+                    if not auto_board(self.config, found) and not found and self.config.get("board"):
+                        apply_board(self.config, "none")
+                    board = self.config.get("board") or "none"
+                else:
+                    board = value if value in BOARDS else "none"
+                    apply_board(self.config, board)
+                    self.config["board_manual"] = True
+                    self.config.pop("board_auto", None)
                 self.save_config()
-                run_privileged(SYSTEM_SCRIPT, "board", board)   # (config.txt: SPI, MIDI UART, fan, the board's sound card - after a restart)
+                run_privileged(SYSTEM_SCRIPT, "board", board)   # (config.txt: I2C, MIDI UART, fan, power button, the board's sound cards, its screen - after a restart)
+                if board == "central-main-v2" and self.config.get("touch_screen") == "dsi-rpi2-7":
+                    self.set_touch_screen("dsi-rpi2-7")   # (the board's own 7" screen: its config.txt lines)
                 self.reload_hardware()
                 self.emit({"type": "boardChanged", "board": self.config.get("board") or "", "inputs": self.config.get("inputs"), "restart": True})
                 self.emit(self.system_status())
+                return
+            elif action == "mainScreen":   # rev B: where the app shows - the board's 7" screen, HDMI 1, HDMI 2, or the 7" and HDMI 1 together
+                if value in ("builtin", "hdmi1", "hdmi2", "mirror"):
+                    path = os.path.join(self.config["data_root"], "displays.json")
+                    cfg = self.displays_config()
+                    cfg["main"] = value
+                    write_json(path, cfg)
+                    self.emit(self.system_status())
+                return
+            elif action == "strip":   # rev B: what the bar screen shows (strip = sounds / songs / what plays, lyrics, charts, off)
+                if value in ("strip", "lyrics", "charts", "stage", "off"):
+                    path = os.path.join(self.config["data_root"], "displays.json")
+                    cfg = self.displays_config()
+                    cfg["strip"] = value
+                    write_json(path, cfg)
+                    self.emit(self.system_status())
+                return
+            elif action == "phones":   # rev B: the headphone amp's volume (0..1)
+                try:
+                    level = min(1.0, max(0.0, float(value)))
+                except (TypeError, ValueError):
+                    return
+                self.config["phones_volume"] = round(level, 3)
+                self.save_config()
+                if self.headamp:
+                    try:
+                        self.headamp.set(level)
+                    except Exception as error:
+                        log.warning("headphone volume failed (%s)", error)
+                self.emit(self.system_status())
+                return
+            elif action == "labelsTest":   # every little screen shows its own name for a moment (the factory test)
+                if self.labels:
+                    self.labels.set_items({s["id"]: {"top": "Label screen", "bottom": s["id"].upper()} for s in (self.config.get("labels") or {}).get("screens") or []})
                 return
             elif action == "dac" and value in ("on", "off"):   # the DAC board (outputs 3-4): it can't be detected - this says so
                 self.config["i2s_dac"] = value == "on"
@@ -11667,6 +12299,16 @@ class PedalDriver:
                 adc = spec.get("adc")
                 if adc and spec["id"] != target and parse_address(adc["address"]) == parse_address(found["adc"]["address"]) and int(adc["channel"]) == int(found["adc"]["channel"]):
                     already = spec["id"]
+        elif "expander_pin" in found:
+            for spec in self.config.get("inputs") or []:
+                if spec["id"] != target and spec.get("expander_pin") is not None and int(spec["expander_pin"]) == int(found["expander_pin"]) \
+                        and parse_address(spec.get("expander", "0x20")) == parse_address(found.get("expander", "0x20")):
+                    already = spec["id"]
+        elif "expander_enc" in found:
+            for spec in self.config.get("inputs") or []:
+                e = spec.get("expander_enc")
+                if e and spec["id"] != target and parse_address(e.get("address", "0x20")) == parse_address(found["expander_enc"].get("address", "0x20")) and int(e["a"]) == int(found["expander_enc"]["a"]):
+                    already = spec["id"]
         # the press that taught us may still be inside a gpiozero callback: close the scan pins a moment later
         self.learn = None
         if self.loop:
@@ -11764,10 +12406,44 @@ class PedalDriver:
             if spec and spec.get("gpio") is not None:
                 self.learned({"gpio": int(spec["gpio"])})
                 return
+            if spec and spec.get("expander_pin") is not None and self.learn["target"] != input_id:   # (rev B: a knob's push, an external footswitch)
+                self.learned({"expander": spec.get("expander", "0x20"), "expander_pin": int(spec["expander_pin"])})
+                return
+        if event == "press" and self.labels:
+            self.labels.pressed(input_id)
         self.emit({"type": "control", "id": input_id, "event": event})
 
     def analog_event(self, input_id, value):
+        if self.labels:
+            self.labels.show_value(input_id, value)
         self.emit({"type": "control", "id": input_id, "value": round(float(value), 4)})
+
+    def encoder_step(self, input_id, step):
+        """A click-knob turned one detent (rev B: on the expander)."""
+        if self.learn and self.learn["kind"] in ("encoder", "knob") and self.learn["target"] != input_id:
+            spec = self.input_by_id(input_id)
+            if spec and spec.get("expander_enc"):
+                self.learned({"expander_enc": dict(spec["expander_enc"])})
+                return
+        self.emit({"type": "control", "id": input_id, "delta": 1 if step > 0 else -1})
+
+    def board_line(self, name, high):
+        """A status line on the rev B board's expander changed (the chips pull them low when active)."""
+        self.board_status[name] = high
+        if name in ("instrumentA", "instrumentB"):
+            # the jack's switch closes to ground when NOTHING is plugged in (a normally-closed tip switch)
+            self.emit({"type": "instrumentJack", "plugged": bool(high), "jack": name[-1], "jacks": self.instrument_jacks()})
+        elif name == "charging":
+            self.charging_line = not high
+        elif name == "pdFault" and not high:
+            log.warning("the USB-C power chip reports a fault (no PD contract? an adapter that only does 5 V?)")
+
+    def instrument_jacks(self):
+        ex = self.expanders
+        if not ex:
+            return None
+        a, b = ex.line("instrumentA"), ex.line("instrumentB")
+        return {"A": None if a is None else bool(a), "B": None if b is None else bool(b)}
 
     # ----- GPIO ----------------------------------------------------------------
     def start_gpio(self):
@@ -11867,6 +12543,9 @@ class PedalDriver:
                 log.warning("instrument plug detect on GPIO %s unavailable (%s)", pin, error)
 
     def instrument_plugged(self):
+        jacks = self.instrument_jacks()
+        if jacks is not None:
+            return bool(jacks.get("A") or jacks.get("B"))
         b = getattr(self, "instrument_jack", None)
         try:
             return None if b is None else not b.is_pressed
@@ -11971,6 +12650,62 @@ class PedalDriver:
                 log.info("battery monitor (INA226) ready")
             except Exception as error:
                 log.warning("battery monitor unavailable (%s)", error)
+        self.start_board_v2(bus, chips)
+
+    def start_board_v2(self, bus, pca_chips):
+        """The rev B board's other chips: the charger, the headphone amp, the two expanders (knobs, pushes, external
+        footswitches, plug detects, status lines) and the 18 label screens. Each one that doesn't answer is skipped."""
+        cfg = self.config
+        chg = cfg.get("charger")
+        self.charger = None
+        if chg and str(chg.get("chip", "")).lower() == "bq25798":
+            try:
+                self.charger = BQ25798(bus, parse_address(chg.get("address", "0x6b")), float(chg.get("charge_a", 2.0)), float(chg.get("input_a", 3.0)))
+                log.info("charger (BQ25798) ready: %s", self.charger.status())
+            except Exception as error:
+                log.warning("charger (BQ25798) unavailable (%s)", error)
+        hp = cfg.get("headphones")
+        self.headamp = None
+        if hp and str(hp.get("chip", "")).lower() == "tpa6130a2":
+            en = hp.get("enable") or {}
+            pca = pca_chips.get(parse_address(en.get("pca9685", "0x41"))) if en else None
+            if pca:
+                try:
+                    pca.set(int(en.get("channel", 11)), 0.0)   # HP_SD released (high): the amp may run
+                except Exception:
+                    pass
+            try:
+                self.headamp = TPA6130A2(bus, parse_address(hp.get("address", "0x60")), float(cfg.get("phones_volume", hp.get("volume", 0.6))))
+                self.devices.append(self.headamp)
+                log.info("headphone amp (TPA6130A2) ready")
+            except Exception as error:
+                log.warning("headphone amp unavailable (%s)", error)
+        self.expanders = None
+        if cfg.get("expanders"):
+            try:
+                self.expanders = BoardExpanders(bus, cfg, self.button_event, self.encoder_step, self.board_line, pin_factory=self.pin_factory, hold_s=cfg["hold_s"]).start()
+                self.devices.append(self.expanders)
+                for name in ("instrumentA", "instrumentB", "charging", "pdFault"):
+                    v = self.expanders.line(name)
+                    if v is not None:
+                        self.board_status[name] = v
+                self.charging_line = self.expanders.line("charging") is False
+                self.encoder_ok = bool(self.expanders.encoders)
+                log.info("expanders: %d buttons, %d knobs, lines %s", len(self.expanders.buttons), len(self.expanders.encoders), sorted(self.expanders.status))
+            except Exception as error:
+                log.warning("expanders unavailable (%s) - knobs, knob pushes and external footswitches off", error)
+                for spec in cfg.get("inputs") or []:
+                    if spec.get("expander_enc") or spec.get("expander_pin") is not None:
+                        spec["active"] = False
+        self.labels = None
+        lab = cfg.get("labels")
+        if lab and lab.get("screens") and cfg.get("labels_on", True):
+            try:
+                self.labels = LabelScreens(bus, lab["screens"], fonts_dir=os.path.join(cfg.get("app_root") or "", "fonts"), flip=bool(lab.get("flip")))
+                self.devices.append(self.labels)
+                self.labels.set_items({s["id"]: {"top": (self.input_by_id(s["id"]) or {}).get("name") or s["id"], "bottom": ""} for s in lab["screens"]})
+            except Exception as error:
+                log.warning("label screens unavailable (%s)", error)
 
     def battery_status(self):
         """{volts, amps, percent, charging} from the main board's INA226 (None without one)."""
@@ -11984,8 +12719,15 @@ class PedalDriver:
             return None
         # the shunt sits between the pack and the 5.1 V supply: current OUT of the pack is positive
         # current INTO the pack (negative here) is the sure sign of charging; the IP2368's LED1 line only says its gauge is lit
-        return {"volts": round(volts, 2), "amps": round(amps, 2), "watts": round(volts * amps, 1), "percent": battery_percent(volts),
-                "charging": amps < -0.05, "chargerLed": bool(getattr(self, "charging_line", False)), "low": volts < 6.6}
+        out = {"volts": round(volts, 2), "amps": round(amps, 2), "watts": round(volts * amps, 1), "percent": battery_percent(volts),
+               "charging": amps < -0.05, "chargerLed": bool(getattr(self, "charging_line", False)), "low": volts < 6.6}
+        if self.charger:
+            try:
+                c = self.charger.status()
+                out.update({"usb": c["usb"], "usbVolts": c["usbVolts"], "usbAmps": c["usbAmps"], "state": c["state"], "charging": c["charging"] or out["charging"], "fault": c["fault"]})
+            except Exception as error:
+                log.debug("charger read failed (%s)", error)
+        return out
 
     def poll_analog_once(self):
         messages = []
@@ -12054,6 +12796,10 @@ class PedalDriver:
         self.adcs = {}
         self.expander = None
         self.expander_buttons = []
+        self.expanders = None
+        self.labels = None
+        self.charger = None
+        self.headamp = None
         self.encoder_ok = False
         self.start_gpio()
         self.start_analog()
@@ -12229,24 +12975,72 @@ class Simulator:
 
 
 class _SimBus:
+    """A stand-in I2C bus: ADS1115s at the addresses given (volts per channel), and - when "v2" is in the list - the
+    rev B board's chips: expanders (0x20/0x21, pins settable), PCA9685 (0x41), INA226 (0x45), TPA6130A2 (0x60),
+    BQ25798 (0x6b), the label-screen muxes (0x70-0x72) with an SSD1306 (0x3c) on every channel."""
+    V2_ADDRESSES = (0x20, 0x21, 0x3C, 0x41, 0x45, 0x60, 0x6B, 0x70, 0x71, 0x72)
+
     def __init__(self, addresses):
-        self.addresses = set(addresses)
+        self.v2 = "v2" in addresses
+        self.addresses = set(a for a in addresses if a != "v2") | (set(self.V2_ADDRESSES) if self.v2 else set())
         self.mux = {}
         self.volts = {}
+        self.pins = {0x20: 0xFFFF, 0x21: 0xFFFF}        # the expanders' input pins (all high = nothing pressed)
+        self.regs = {}                                  # (addr, reg) -> value, for the chips with plain registers
+        self.oled = {}                                  # (mux, channel) -> bytes drawn
+        self.mux_sel = {}
+        self.lock = threading.Lock()
+
+    def _adc(self, addr):
+        return addr in (0x48, 0x49, 0x4A, 0x4B)
+
+    def write_byte(self, addr, value):
+        if addr not in self.addresses:
+            raise OSError(121, "Remote I/O error")
+        if addr in (0x70, 0x71, 0x72):
+            self.mux_sel[addr] = value
+
+    def write_byte_data(self, addr, reg, value):
+        self.write_i2c_block_data(addr, reg, [value])
+
+    def read_byte(self, addr):
+        if addr not in self.addresses:
+            raise OSError(121, "Remote I/O error")
+        return self.mux_sel.get(addr, 0)
 
     def write_i2c_block_data(self, addr, reg, data):
         if addr not in self.addresses:
             raise OSError(121, "Remote I/O error")
-        if reg == 0x01:
-            self.mux[addr] = ((data[0] >> 4) & 0x7) - 4
+        if self._adc(addr):
+            if reg == 0x01:
+                self.mux[addr] = ((data[0] >> 4) & 0x7) - 4
+            return
+        if addr == 0x3C:
+            sel = next(((m, c) for m, v in self.mux_sel.items() for c in range(8) if v == 1 << c), None)
+            if sel is None:
+                raise OSError(121, "Remote I/O error")
+            if reg == 0x40:
+                self.oled[sel] = (self.oled.get(sel) or b"") + bytes(data)
+            return
+        for i, b in enumerate(data):
+            self.regs[(addr, reg + i)] = b & 0xFF
 
     def read_i2c_block_data(self, addr, reg, length):
         if addr not in self.addresses:
             raise OSError(121, "Remote I/O error")
-        if reg == 0x01:
-            return [0x80, 0x00]
-        raw = int(round(self.volts.get((addr, self.mux.get(addr, 0)), 1.65) / 4.096 * 32767))
-        return [(raw >> 8) & 0xFF, raw & 0xFF]
+        if self._adc(addr):
+            if reg == 0x01:
+                return [0x80, 0x00]
+            raw = int(round(self.volts.get((addr, self.mux.get(addr, 0)), 1.65) / 4.096 * 32767))
+            return [(raw >> 8) & 0xFF, raw & 0xFF]
+        if addr in (0x20, 0x21) and reg in (0x12, 0x10):   # GPIOA/B, INTCAPA/B
+            v = self.pins[addr]
+            return [v & 0xFF, (v >> 8) & 0xFF][:length]
+        if addr == 0x6B and reg == 0x48:
+            return [0b011 << 3 | 0b001]                    # BQ25798, rev 1
+        if addr == 0x45 and reg in (0x01, 0x02):           # shunt: -0.4 A through 5 mOhm (charging), bus: 7.9 V
+            return [0xFC, 0xE0] if reg == 0x01 else [0x18, 0xB0]
+        return [self.regs.get((addr, reg + i), 0) for i in range(length)]
 
 
 
@@ -12299,7 +13093,9 @@ def main():
         from gpiozero.pins.mock import MockFactory
         factory = MockFactory()
         Device.pin_factory = factory
-        bus = _SimBus([0x48, 0x49])
+        bus = _SimBus([0x48, 0x49] + (["v2"] if os.environ.get("CC_SIM_BOARD") == "v2" else []))
+        if os.environ.get("CC_SIM_BOARD") == "v2":
+            apply_board(config, "central-main-v2")
         config["data_root"] = os.path.abspath(args.simulate)
         config["simulated"] = True
         config["app_root"] = os.path.abspath(args.app_root or os.path.dirname(os.path.abspath(__file__)))
@@ -12319,7 +13115,17 @@ def main():
         driver.config_path = os.path.join(config["data_root"], "hardware.json")
         log.info("SIMULATION: data in %s, app from %s", config["data_root"], config["app_root"])
     else:
-        driver = PedalDriver(config)
+        # Is a Central Pedal main board plugged on? Its EEPROM (or its chips) say so: use its pin map without being
+        # asked - and go back to the hand-wired pins when it has gone. Settings → Control board set by hand always wins.
+        bus = open_i2c_bus(config["i2c_bus"]) if not config.get("board_manual") else None
+        found = detect_board(bus=bus)
+        if auto_board(config, found):
+            write_json(config_path if config_path != CONFIG_CANDIDATES[1] else CONFIG_CANDIDATES[0], config)
+            board = config.get("board") or "none"
+            if os.path.exists(SYSTEM_SCRIPT):
+                run_privileged(SYSTEM_SCRIPT, "board", board)   # (config.txt lines for the next start)
+            config["board_pending"] = board
+        driver = PedalDriver(config, i2c_bus=bus)
         driver.config_path = config_path
 
     logging.getLogger().addHandler(UiErrorHandler(driver))

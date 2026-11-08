@@ -1084,6 +1084,7 @@
         projector: { fontSize: proj.fontSize || 7, blank: !!proj.blank, showNext: proj.showNext !== false, align: proj.align || "center", theme: proj.theme || "dark", showSection: proj.showSection !== false },
         pads: p.pads.map(function (pad, i) { return { name: pad.name, playing: engine.playingIndexes().indexOf(i) > -1, selected: i === PP.selected(), level: PP.padLevelOf ? PP.padLevelOf(pad) : 72 }; }),
         mini: miniState(p, t),
+        looper: window.PPLooper && window.PPLooper.tracks ? { sel: window.PPLooper.selected ? window.PPLooper.selected() : 0, loops: (window.PPLooper.tracks() || []).map(function (q, i) { return { state: q.s || "empty", len: q.len || 0, mute: !!q.mute, label: (window.PPLooper.LABEL && window.PPLooper.LABEL[q.s || "empty"]) || "" }; }) } : null,
         performance: p.performance, frozen: !!engine.frozen, click: t ? !!t.click.on : true, cues: t ? !!t.cues.on : true, textures: (p.textures || []).map(function (c) { return { on: !!c.enabled, name: window.PPTextures ? window.PPTextures.byId(c.texture).name : c.texture }; })
       };
       var heavyKey = s ? s.id + "|" + t.duration + "|" + (g ? g.bars.length + ":" + g.bars[0] + ":" + g.bars[g.bars.length - 1] : 0) + "|" + (t.hits ? t.hits.length : 0) + "|" + JSON.stringify(t.tempoMap || []) + "|" + secs.length : "none";
@@ -1637,7 +1638,7 @@
   F.on("hello", function () { loadCueList().then(function () { preloadCountVoice(); }); refreshCharts().then(render); if (project().link && project().link.enabled) send({ type: "link", enabled: true, bpm: song() ? song().bpm : project().tempo.bpm, playing: state.playing }); sendDisplay(); });
 
   // public
-  window.PPTracks = { addClickSet: addClickSet, clickSets: clickSets, moveSectionStart: moveSectionStart, songBars: songBars,
+  window.PPTracks = { level: function (which) { return levels[which] == null ? null : levels[which]; }, addClickSet: addClickSet, clickSets: clickSets, moveSectionStart: moveSectionStart, songBars: songBars,
     state: state, song: song, data: data, grid: grid, pushAll: pushAll, beatsInBar: beatsInBar, flowEntries: flowEntries, flowActive: flowActive, setFlowOn: setFlowOn, queueSection: queueSection, flowRepeat: flowRepeat, flowSkip: flowSkip, flowReset: flowReset, armQueue: function () { queueArmed = !queueArmed; renderFlow(); }, sectionsOf: sectionsOf, sectionAt: sectionAt, timeToBar: timeToBar, barStart: barStart,
     play: play, pause: pause, stop: stop, togglePlay: togglePlay, seek: seek, goSection: goSection, nextSection: nextSection, prevSection: prevSection, restartSection: restartSection, startOver: startOver,
     toggleLoop: toggleLoop, setLoop: setLoop, shiftKey: shiftKey, setTempoPercent: setTempoPercent, setTracksMode: setTracksMode, isPlaying: function () { return state.playing; }, isActive: isActive,

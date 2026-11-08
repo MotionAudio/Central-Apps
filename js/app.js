@@ -38,7 +38,9 @@
       if(r.fbv!==2&&out.clickFallback==="off")out.clickFallback="mix"; // (9.8: "off" was only the old default - on a 2-output device the click is heard on 1-2 unless you pick Nowhere again)
       Object.keys(d.buses).forEach(function(k){var b=r.buses&&r.buses[k];var ch=b&&isFinite(Number(b.ch))?Math.round(Number(b.ch)):d.buses[k].ch;var st=b&&typeof b.st==="boolean"?b.st:out.mode==="stereo";out.buses[k]={ch:clamp(ch,0,32),st:st};});
       // the looper: on the instrument's output unless it has its own (Settings, Output routing)
-      var lb=r.buses&&r.buses.looper;out.buses.looper=lb&&lb.follow===false&&isFinite(Number(lb.ch))?{ch:clamp(Math.round(Number(lb.ch)),0,32),st:typeof lb.st==="boolean"?lb.st:out.mode==="stereo",follow:false}:{ch:out.buses.instrument.ch,st:out.buses.instrument.st,follow:true};return out;}
+      var lb=r.buses&&r.buses.looper;out.buses.looper=lb&&lb.follow===false&&isFinite(Number(lb.ch))?{ch:clamp(Math.round(Number(lb.ch)),0,32),st:typeof lb.st==="boolean"?lb.st:out.mode==="stereo",follow:false}:{ch:out.buses.instrument.ch,st:out.buses.instrument.st,follow:true};
+      // (11.0) the headphones on the main board rev B: a mix of everything, a copy of one output pair, the click alone, or nothing
+      var ph=r.phones||{};out.phones={mode:["mix","out","click","off"].indexOf(ph.mode)>-1?ph.mode:"mix",ch:[1,3,5].indexOf(Number(ph.ch))>-1?Number(ph.ch):1};return out;}
     function defaultProject(){return {version:6,setlistId:id(),tracksMode:false,textures:[],routing:defaultRouting(),audio:{sampleRate:0,latency:"interactive"},instrument:{},midiOut:{},link:{enabled:false},mapping:{},projector:{},display:{},name:"My Central Pedal set",selected:0,theme:{bg:"#111317",panel:"#1A1D22",text:"#ECE7DD",accent:"#E2C27E",blue:"#8DB5DE",line:"#343A44"},pads:Array.from({length:PAD_COUNT},function(_,i){return defaultPad(i);}),library:[],performance:defaultPerformance(),tempo:{bpm:72},songs:[],songIndex:-1,input:defaultInput(),midi:{channel:0,clock:true}};}
     function mergeInto(base,saved){
       if(!saved||typeof saved!=="object")return base;
@@ -334,6 +336,8 @@
     // (the Pad Pedal OS makes one multi-channel output out of the headphone jack, the I2S DAC and any USB interface).
     // "stereo": each bus on a stereo pair. On a plain 2-channel device the buses that don't fit are mixed into 1-2
     // (click: into the mix, to another device, left/right split, or off - project.routing.clickFallback).
+    // the first channel the Pi calls "Headphones" (1-based), when the main board rev B is there; 0 otherwise
+    AudioEngine.prototype.phonesChannel=function(){var F=window.PPFeatures,st=F&&F.systemStatus&&F.systemStatus(),names=st&&st.audio&&st.audio.channels;if(!names)return 0;for(var i=0;i<names.length;i++)if(/^Headphones L/.test(names[i]))return i+1;return 0;};
     AudioEngine.prototype.routeOutput=function(){var c=this.ctx;if(!c)return;var r=project.routing=normalizeRouting(project.routing);
       var self=this;[this.outGain,this.tracksOut,this.clickBus].forEach(function(n){try{n.disconnect();}catch(_){}});
       (this.routeNodes||[]).forEach(function(n){try{n.disconnect();}catch(_){}});this.routeNodes=[];this.merger=null;
@@ -351,6 +355,14 @@
           if(st&&ch<n){var sp=c.createChannelSplitter(2);node.connect(sp);sp.connect(m,0,ch-1);sp.connect(m,1,ch);self.routeNodes.push(sp);self.routing.buses[k]=ch+"-"+(ch+1);}
           else{var mono=c.createGain();mono.channelCount=1;mono.channelCountMode="explicit";mono.channelInterpretation="speakers";node.connect(mono);mono.connect(m,0,ch-1);self.routeNodes.push(mono);self.routing.buses[k]=String(ch);}});
         self.routing.direct={};directs.forEach(function(d){if(d.ch<=n){d.node.connect(m,0,d.ch-1);self.routing.direct[d.id]=d.ch;}});
+        // (11.0) the headphones (main board rev B): a pair of channels named "Headphones" by the Pi - fed a copy of what's chosen
+        var phCh=this.phonesChannel();
+        if(phCh&&phCh+1<=n&&r.phones&&r.phones.mode!=="off"){var pm=r.phones.mode,pc=r.phones.ch||1;self.routing.phones={ch:phCh,mode:pm,of:pc};
+          Object.keys(buses).forEach(function(k){var ch=r.buses[k]?r.buses[k].ch:0,st=stOf(k),node=buses[k];if(!(ch>0))return;
+            var left=pm==="mix"||(pm==="click"&&k==="click")||(pm==="out"&&(ch===pc||(st&&ch===pc))),right=pm==="mix"||(pm==="click"&&k==="click")||(pm==="out"&&(ch===pc+1||(st&&ch===pc)));
+            if(!left&&!right)return;
+            if(st&&left&&right){var sp2=c.createChannelSplitter(2);node.connect(sp2);sp2.connect(m,0,phCh-1);sp2.connect(m,1,phCh);self.routeNodes.push(sp2);}
+            else{var g=c.createGain();g.channelCount=1;g.channelCountMode="explicit";g.channelInterpretation="speakers";node.connect(g);if(left)g.connect(m,0,phCh-1);if(right||(pm!=="out"))g.connect(m,0,phCh);self.routeNodes.push(g);}});}
         m.connect(c.destination);}
       else{try{if(c.destination.channelCount!==2){c.destination.channelCount=2;c.destination.channelCountMode="explicit";c.destination.channelInterpretation="speakers";}}catch(_){}
         var fb=r.clickFallback||"mix";this.routing.buses={tracks:"1-2",pad:"1-2",click:fb==="mix"?"1-2":fb,instrument:"1-2",looper:"1-2"};this.routing.fallback={};

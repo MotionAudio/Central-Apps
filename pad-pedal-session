@@ -5,6 +5,9 @@
 #   touch screen on HDMI or the ribbon port (hdmi / dsi): it is screen 1 and shows the app; the other HDMI port
 #     shows lyrics or chord charts
 #   no touch screen: HDMI 1 the app (or lyrics, charts…), HDMI 2 lyrics for the projector
+#   (11.0) the main board rev B: three screens - its 7" ribbon screen (the app), the bar screen on HDMI 1 (the
+#     strip: sounds / songs / loops / what plays - strip.html) and HDMI 2 (lyrics for the projector). Settings →
+#     Screen output moves the app to HDMI 1 or 2 (the 7" then shows the strip) or mirrors the 7" onto HDMI 1.
 # The app (it plays the tracks) always runs: when no screen shows it, it runs in a window off the screen.
 # What goes where, and each screen's resolution / zoom / edge margin, is in /data/pad-pedal/displays.json
 # (Settings → Screens). Started by ~/.xinitrc; if it exits, ~/.bash_profile starts it again.
@@ -20,7 +23,8 @@ SCREENS="${CC_SCREENS:-/tmp/central-control-screens.json}"
 PROFILE=/data/chromium; [ -d "$PROFILE" ] && [ -w "$PROFILE" ] || PROFILE="$HOME/.config/pad-pedal"
 PROFILE2=/data/chromium-2; [ -d /data ] && [ -w /data ] || PROFILE2="$HOME/.config/pad-pedal-2"
 PROFILE3=/data/chromium-3; [ -d /data ] && [ -w /data ] || PROFILE3="$HOME/.config/pad-pedal-3"
-mkdir -p "$PROFILE/Default" "$PROFILE2/Default" "$PROFILE3/Default" 2>/dev/null
+PROFILE4=/data/chromium-4; [ -d /data ] && [ -w /data ] || PROFILE4="$HOME/.config/pad-pedal-4"
+mkdir -p "$PROFILE/Default" "$PROFILE2/Default" "$PROFILE3/Default" "$PROFILE4/Default" 2>/dev/null
 LOG="${CC_LOG:-/tmp/pad-pedal-session.log}"
 exec >>"$LOG" 2>&1
 echo "=== session start $(date)"
@@ -70,9 +74,15 @@ touch = d.get("touchKind") if d.get("touchKind") in ("spi", "hdmi", "dsi") else 
 h1 = d.get("hdmi1") or "app"
 if touch in ("hdmi", "dsi"): h1 = "app"          # the touch screen is screen 1: it shows the app
 if h1 == "touch" and touch != "spi": h1 = "app"
+board = "v2" if d.get("board") == "central-main-v2" and touch == "dsi" else ""   # (rev B: three screens)
+main = d.get("main") if d.get("main") in ("builtin", "hdmi1", "hdmi2", "mirror") else "builtin"
+strip = d.get("strip") if d.get("strip") in ("strip", "lyrics", "charts", "stage", "off") else "strip"
 out = {"HDMI1": h1, "HDMI2": d.get("hdmi2") or "lyrics", "TOUCHKIND": touch, "CURSOR": d.get("cursor") or "auto",
-       "MODE1": mode(d.get("mode1")), "MODE2": mode(d.get("mode2")), "SCALE": scale,
-       "INSET1": num(d.get("inset1"), 0, 200, 0), "INSET2": num(d.get("inset2"), 0, 200, 0)}
+       "MODE1": mode(d.get("mode1")), "MODE2": mode(d.get("mode2")), "MODE3": mode(d.get("mode3")), "SCALE": scale,
+       "INSET1": num(d.get("inset1"), 0, 200, 0), "INSET2": num(d.get("inset2"), 0, 200, 0), "INSET3": num(d.get("inset3"), 0, 200, 0),
+       "BOARD": board, "MAIN": main, "STRIP": strip,
+       "ROTATE1": d.get("rotate1") if d.get("rotate1") in ("normal", "left", "right", "inverted") else "auto",
+       "ROTATE2": d.get("rotate2") if d.get("rotate2") in ("normal", "left", "right", "inverted") else "auto"}
 for k, v in out.items(): print("%s=%s" % (k, shlex.quote(str(v))))
 PY
 )"
@@ -110,7 +120,14 @@ fi
 hdmi_port() { echo "$1" | sed -nE 's/^HDMI-(A-)?([0-9]+)$/\2/p'; }
 pick_outputs() {
   local all o p1="" p2=""; all="$(xrandr --query 2>/dev/null | awk '$2=="connected"{print $1}')"
-  if [ "$TOUCHKIND" = dsi ] && echo "$all" | grep -qE '^(DSI|DPI)'; then echo "$all" | grep -E '^(DSI|DPI)' | head -1; echo "$all" | grep '^HDMI' | head -1; return; fi
+  if [ "$TOUCHKIND" = dsi ] && echo "$all" | grep -qE '^(DSI|DPI)'; then
+    echo "$all" | grep -E '^(DSI|DPI)' | head -1
+    if [ -n "$BOARD" ]; then   # rev B: the bar screen on HDMI port 1, the projector on port 2 - each on its own line
+      for o in $(echo "$all" | grep '^HDMI'); do case "$(hdmi_port "$o")" in 1) p1="$o" ;; 2) p2="$o" ;; *) [ -z "$p1" ] && p1="$o" || p2="${p2:-$o}" ;; esac; done
+      echo "$p1"; echo "$p2"
+    else echo "$all" | grep '^HDMI' | head -1; fi
+    return
+  fi
   if echo "$all" | grep -q '^HDMI'; then
     for o in $(echo "$all" | grep '^HDMI'); do
       case "$(hdmi_port "$o")" in 1) p1="$o" ;; 2) p2="$o" ;; *) [ -z "$p1" ] && p1="$o" || p2="${p2:-$o}" ;; esac
@@ -146,40 +163,82 @@ mode_args() {   # $1 output, $2 wanted mode ("auto" or WxH[@rate])
 geom() { xrandr --current 2>/dev/null | awk -v o="$1" '$1==o && $2=="connected" { for (i=3;i<=NF;i++) if ($i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+$/) { print $i; exit } }'; }
 root_geom() { xrandr --current 2>/dev/null | sed -nE '1s/.*current ([0-9]+) x ([0-9]+).*/\1x\2+0+0/p'; }
 
-PRI=""; SEC=""; G1=""; G2=""
+# what each screen shows (rev B): WHAT1 the 7" screen, WHAT2 HDMI 1 (the bar screen), WHAT3 HDMI 2
+WHAT1=app; WHAT2=""; WHAT3=""; MIRROR=""
+decide_board() {
+  [ -n "$BOARD" ] || return 0
+  WHAT3="$HDMI2"
+  case "$MAIN" in
+    hdmi1) WHAT1=strip; WHAT2=app ;;
+    hdmi2) WHAT1=strip; WHAT2="$STRIP"; WHAT3=app ;;
+    mirror) WHAT1=app; WHAT2=""; MIRROR=1 ;;
+    *) WHAT1=app; WHAT2="$STRIP" ;;
+  esac
+  [ "$WHAT2" = off ] && WHAT2=""
+  [ "$WHAT3" = off ] && WHAT3=""
+}
+preferred_mode() { xrandr --query 2>/dev/null | awk -v o="$1" '$1==o{f=1; next} f && /^[^ \t]/{f=0} f && /\+/{print $1; exit}'; }
+rotate_for() {   # $1 output, $2 its Settings override: a tall panel (the bar screen is 320x1480, the 7" Touch Display 2 is 720x1280) is turned on its side
+  local m w h
+  [ "$2" != auto ] && { echo "$2"; return; }
+  m="$(preferred_mode "$1")"; w="${m%%x*}"; h="${m##*x}"
+  if [ -n "$w" ] && [ -n "$h" ] && [ "$h" -gt "$w" ] 2>/dev/null; then echo right; else echo normal; fi
+}
+
+PRI=""; SEC=""; TER=""; G1=""; G2=""; G3=""
 layout() {
-  local outs args o
+  local outs args o rot2
   mapfile -t outs < <(pick_outputs)
-  PRI="${outs[0]:-}"; SEC="${outs[1]:-}"
-  [ "$HDMI2" = off ] && SEC=""
+  PRI="${outs[0]:-}"; SEC="${outs[1]:-}"; TER="${outs[2]:-}"
+  decide_board
+  if [ -n "$BOARD" ]; then
+    [ -z "$WHAT2" ] && [ -z "$MIRROR" ] && SEC=""
+    [ -z "$WHAT3" ] && TER=""
+  else
+    [ "$HDMI2" = off ] && SEC=""
+  fi
   args=()
-  if [ -n "$PRI" ] || [ -n "$SEC" ]; then
+  if [ -n "$PRI" ] || [ -n "$SEC" ] || [ -n "$TER" ]; then
     # shellcheck disable=SC2207
-    [ -n "$PRI" ] && args+=(--output "$PRI" $(mode_args "$PRI" "$MODE1") --pos 0x0 --rotate normal --primary)
+    local rot1=normal; [ -n "$BOARD" ] && rot1="$(rotate_for "$PRI" "$ROTATE1")"
+    [ -n "$PRI" ] && args+=(--output "$PRI" $(mode_args "$PRI" "$MODE1") --pos 0x0 --rotate "$rot1" --primary)
     if [ -n "$SEC" ]; then
-      if [ -n "$PRI" ]; then args+=(--output "$SEC" $(mode_args "$SEC" "$MODE2") --rotate normal --right-of "$PRI")
-      else args+=(--output "$SEC" $(mode_args "$SEC" "$MODE2") --pos 0x0 --rotate normal --primary); fi   # (only the second port has a screen)
+      rot2=normal; [ -n "$BOARD" ] && rot2="$(rotate_for "$SEC" "$ROTATE2")"
+      if [ -n "$MIRROR" ] && [ -n "$PRI" ]; then   # the 7" screen's picture on HDMI 1 as well
+        local pm; pm="$(geom_mode "$PRI")"
+        if modes_of "$SEC" | grep -qx "$pm"; then args+=(--output "$SEC" --mode "$pm" --rotate normal --same-as "$PRI")
+        else args+=(--output "$SEC" $(mode_args "$SEC" "$MODE2") --rotate normal --same-as "$PRI" --scale-from "$pm"); fi
+      elif [ -n "$PRI" ]; then args+=(--output "$SEC" $(mode_args "$SEC" "$MODE2") --rotate "$rot2" --right-of "$PRI")
+      else args+=(--output "$SEC" $(mode_args "$SEC" "$MODE2") --pos 0x0 --rotate "$rot2" --primary); fi   # (only the second port has a screen)
+    fi
+    if [ -n "$TER" ]; then
+      if [ -n "$SEC" ]; then args+=(--output "$TER" $(mode_args "$TER" "$MODE3") --rotate normal --right-of "$SEC")
+      elif [ -n "$PRI" ]; then args+=(--output "$TER" $(mode_args "$TER" "$MODE3") --rotate normal --right-of "$PRI")
+      else args+=(--output "$TER" $(mode_args "$TER" "$MODE3") --pos 0x0 --rotate normal --primary); fi
     fi
     # screens X still drives but that are gone (an unplugged projector) or not used: off
     for o in $(xrandr --query 2>/dev/null | awk '$2=="connected" || ($2=="disconnected" && $3 ~ /^[0-9]+x[0-9]+\+/) {print $1}'); do
-      [ "$o" = "$PRI" ] || [ "$o" = "$SEC" ] || args+=(--output "$o" --off)
+      [ "$o" = "$PRI" ] || [ "$o" = "$SEC" ] || [ "$o" = "$TER" ] || args+=(--output "$o" --off)
     done
-    xrandr "${args[@]}" || { echo "xrandr ${args[*]} failed - falling back to --auto"; xrandr ${PRI:+--output "$PRI" --auto --primary} ${SEC:+--output "$SEC" --auto ${PRI:+--right-of "$PRI"}} || true; }
+    xrandr "${args[@]}" || { echo "xrandr ${args[*]} failed - falling back to --auto"; xrandr ${PRI:+--output "$PRI" --auto --primary} ${SEC:+--output "$SEC" --auto ${PRI:+--right-of "$PRI"}} ${TER:+--output "$TER" --auto ${SEC:+--right-of "$SEC"}} || true; }
     sleep 0.4
   fi
   G1=""; [ -n "$PRI" ] && G1="$(geom "$PRI")"
-  if [ -z "$PRI" ] && [ -z "$SEC" ]; then G1="$(root_geom)"; [ -n "$G1" ] || G1="1280x720+0+0"; fi   # (no screen at all: where X is)
+  if [ -z "$PRI" ] && [ -z "$SEC" ] && [ -z "$TER" ]; then G1="$(root_geom)"; [ -n "$G1" ] || G1="1280x720+0+0"; fi   # (no screen at all: where X is)
   [ -n "$PRI" ] && [ -z "$G1" ] && { G1="$(root_geom)"; [ -n "$G1" ] || G1="1280x720+0+0"; }
-  G2=""; [ -n "$SEC" ] && G2="$(geom "$SEC")"
-  echo "layout: ${PRI:-no screen} $G1${SEC:+ · $SEC $G2}"
+  G2=""; [ -n "$SEC" ] && [ -z "$MIRROR" ] && G2="$(geom "$SEC")"
+  G3=""; [ -n "$TER" ] && G3="$(geom "$TER")"
+  echo "layout: ${PRI:-no screen} $G1${SEC:+ · $SEC ${G2:-mirror}}${TER:+ · $TER $G3}${BOARD:+ (rev B: $WHAT1 / ${WHAT2:-off} / ${WHAT3:-off})}"
   map_touch
   write_screens
 }
+geom_mode() { geom "$1" | sed -E 's/\+.*//'; }
 write_screens() {   # for Settings → Screens: the screens, their resolutions, which one is which
   xrandr --query > "$SCREENS.xr" 2>/dev/null
-  python3 - "$PRI" "$SEC" "$G1" "$G2" "$SCREENS" <<'PY'
+  python3 - "$PRI" "$SEC" "$G1" "$G2" "$SCREENS" "$TER" "$G3" <<'PY'
 import json, os, re, sys
 pri, sec, g1, g2, path = sys.argv[1:6]
+ter, g3 = (sys.argv[6] if len(sys.argv) > 6 else ""), (sys.argv[7] if len(sys.argv) > 7 else "")
 outs, cur = [], None
 for line in open(path + ".xr"):
     m = re.match(r"^(\S+) (connected|disconnected)", line)
@@ -193,11 +252,11 @@ for line in open(path + ".xr"):
         if "+" in rates and not cur["preferred"]: cur["preferred"] = size
         if "*" in rates: cur["current"] = size
 for o in outs:
-    o["role"] = "hdmi1" if o["name"] == pri else "hdmi2" if sec and o["name"] == sec else None
-    o["geometry"] = g1 if o["role"] == "hdmi1" else g2 if o["role"] == "hdmi2" else None
+    o["role"] = "hdmi1" if o["name"] == pri else "hdmi2" if sec and o["name"] == sec else "hdmi3" if ter and o["name"] == ter else None
+    o["geometry"] = g1 if o["role"] == "hdmi1" else g2 if o["role"] == "hdmi2" else g3 if o["role"] == "hdmi3" else None
 tmp = path + ".tmp"
 with open(tmp, "w") as f:
-    json.dump({"outputs": [o for o in outs if o["connected"] or o["role"]], "primary": pri or None, "second": sec or None}, f)
+    json.dump({"outputs": [o for o in outs if o["connected"] or o["role"]], "primary": pri or None, "second": sec or None, "third": ter or None}, f)
 os.replace(tmp, path)
 PY
 }
@@ -216,6 +275,7 @@ url_for() {   # $1 what, $2 screen number
   case "$what" in mini|lyrics|charts|stage|slides) CODE="$(code_now)" ;; esac
   case "$what" in
     app) echo "http://127.0.0.1:8766/app/?screen=$2#resume" ;;
+    strip) echo "http://127.0.0.1:8766/app/strip.html?screen=$2" ;;
     mini) echo "http://127.0.0.1:8080/mini?code=$CODE&screen=$2" ;;
     lyrics) echo "http://127.0.0.1:8080/lyrics?code=$CODE&screen=$2" ;;
     charts) echo "http://127.0.0.1:8080/?code=$CODE&screen=$2" ;;
@@ -245,7 +305,7 @@ if grep -qi "raspberry pi" /proc/device-tree/model 2>/dev/null; then
   FLAGS+=(--force-gpu-mem-available-mb="${CC_GPU_MEM_MB:-384}")
 fi
 clean_profile() { sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"[^"]*"/"exit_type":"Normal"/' "$1/Default/Preferences" 2>/dev/null; }
-clean_profile "$PROFILE"; clean_profile "$PROFILE2"
+clean_profile "$PROFILE"; clean_profile "$PROFILE2"; clean_profile "$PROFILE3"; clean_profile "$PROFILE4"
 
 # window rectangle for a screen: its geometry WxH+X+Y minus the edge margin (for screens that cut the edges off)
 rect() {   # $1 geometry, $2 inset -> "x y w h"
@@ -257,24 +317,28 @@ zoom_for() {   # chosen in Settings, or from the screen's width (a 4K monitor ge
   local w="${1%%x*}"
   if [ "$SCALE" != auto ]; then echo "$SCALE"; elif [ "${w:-0}" -ge 3200 ]; then echo 2; elif [ "${w:-0}" -ge 2400 ]; then echo 1.5; else echo 1; fi
 }
-PID0=""; PID1=""; PID2=""
-shows_app() { { [ -n "$G1" ] && [ "$HDMI1" = app ]; } || { [ -n "$SEC" ] && [ "$HDMI2" = app ]; }; }   # (a screen that's there shows it)
+PID0=""; PID1=""; PID2=""; PID3=""
+what_for() {   # what screen $1 shows
+  if [ -n "$BOARD" ]; then case "$1" in 1) echo "$WHAT1" ;; 2) echo "$WHAT2" ;; *) echo "$WHAT3" ;; esac
+  else case "$1" in 1) echo "$HDMI1" ;; *) echo "$HDMI2" ;; esac; fi
+}
+shows_app() { { [ -n "$G1" ] && [ "$(what_for 1)" = app ]; } || { [ -n "$G2" ] && [ "$(what_for 2)" = app ]; } || { [ -n "$G3" ] && [ "$(what_for 3)" = app ]; }; }   # (a screen that's there shows it)
 start_window() {   # $1 screen number
   local n="$1" g inset what url prof X Y W H
-  if [ "$n" = 1 ]; then g="$G1"; inset="$INSET1"; what="$HDMI1"; prof="$PROFILE"; else g="$G2"; inset="$INSET2"; what="$HDMI2"; prof="$PROFILE2"; fi
-  if [ "$what" != app ] && ! shows_app; then [ "$n" = 1 ] && prof="$PROFILE3"; fi   # (the app keeps its own profile, off screen)
-  if [ "$n" = 2 ] && [ "$what" = app ] && { [ "$HDMI1" != app ] || [ -z "$G1" ]; }; then prof="$PROFILE"; fi   # (the app's own profile: its songs and settings)
-  url="$(url_for "$what" "$n")"; [ "$n" = 1 ] && [ -z "$url" ] && url="$(url_for app 1)"
+  case "$n" in 1) g="$G1"; inset="$INSET1"; prof="$PROFILE3" ;; 2) g="$G2"; inset="$INSET2"; prof="$PROFILE2" ;; *) g="$G3"; inset="$INSET3"; prof="$PROFILE4" ;; esac
+  what="$(what_for "$n")"
+  [ "$what" = app ] && prof="$PROFILE"   # (the app's own profile: its songs and settings - wherever it shows)
+  url="$(url_for "$what" "$n")"; [ "$n" = 1 ] && [ -z "$url" ] && [ -z "$BOARD" ] && url="$(url_for app 1)"
   [ -n "$url" ] && [ -n "$g" ] || return 0
   read -r X Y W H <<<"$(rect "$g" "$inset")"
   echo "screen $n: $what at ${W}x${H}+${X}+${Y}, zoom $(zoom_for "$g")"
   "$BROWSER" "${FLAGS[@]}" --class="CentralControl$n" --user-data-dir="$prof" --force-device-scale-factor="$(zoom_for "$g")" \
     --window-position="$X,$Y" --window-size="$W,$H" "$(wrap_url "$url")" &
-  if [ "$n" = 1 ]; then PID1=$!; else PID2=$!; fi
+  case "$n" in 1) PID1=$! ;; 2) PID2=$! ;; *) PID3=$! ;; esac
 }
 place_window() {   # move / resize a running window onto its screen (no restart, no gap in the sound)
   local n="$1" g inset w X Y W H
-  if [ "$n" = 1 ]; then g="$G1"; inset="$INSET1"; else g="$G2"; inset="$INSET2"; fi
+  case "$n" in 1) g="$G1"; inset="$INSET1" ;; 2) g="$G2"; inset="$INSET2" ;; *) g="$G3"; inset="$INSET3" ;; esac
   [ -n "$g" ] || return 0
   read -r X Y W H <<<"$(rect "$g" "$inset")"
   for w in $(xdotool search --class "CentralControl$n" 2>/dev/null); do
@@ -298,15 +362,16 @@ layout
 pointer_watch
 start_engine
 start_window 1
-if [ -n "$SEC" ]; then sleep 0.5; start_window 2; fi
+if [ -n "$G2" ]; then sleep 0.5; start_window 2; fi
+if [ -n "$G3" ]; then sleep 0.5; start_window 3; fi
 # Chromium sometimes keeps its window a pixel short of the screen: once it is up, put it exactly in place
-( sleep 6; place_window 1; [ -n "$SEC" ] && place_window 2 ) &
+( sleep 6; place_window 1; [ -n "$G2" ] && place_window 2; [ -n "$G3" ] && place_window 3 ) &
 
 # ---- keep watching: screens plugged in / swapped / unplugged, and changes made in Settings → Screens
 LAST_HDMI="$(hdmi_sig)"; LAST_CFG="$(md5sum < "$DATA/displays.json" 2>/dev/null)"
-CONTENT="$HDMI1|$HDMI2|$SCALE|$CURSOR|$TOUCHKIND"
-WHICH="${G1:+1}${SEC:+2}"   # (which screens have a window: when that changes - a cable moved to the other port - they start again)
-alive() { for p in $PID0 $PID1 $PID2; do kill -0 "$p" 2>/dev/null && return 0; done; return 1; }
+CONTENT="$HDMI1|$HDMI2|$SCALE|$CURSOR|$TOUCHKIND|$BOARD|$MAIN|$STRIP|$ROTATE1|$ROTATE2"
+WHICH="${G1:+1}${G2:+2}${G3:+3}"   # (which screens have a window: when that changes - a cable moved to the other port - they start again)
+alive() { for p in $PID0 $PID1 $PID2 $PID3; do kill -0 "$p" 2>/dev/null && return 0; done; return 1; }
 while alive; do
   sleep "${CC_WATCH_EVERY:-2}"
   # the window on screen 1, or the off-screen app that plays the sound, closed: start the windows again
@@ -316,17 +381,20 @@ while alive; do
   [ "$NOW_HDMI" = "$LAST_HDMI" ] && [ "$NOW_CFG" = "$LAST_CFG" ] && continue
   if [ "$NOW_CFG" != "$LAST_CFG" ]; then
     read_cfg
-    if [ "$HDMI1|$HDMI2|$SCALE|$CURSOR|$TOUCHKIND" != "$CONTENT" ]; then echo "what the screens show changed - restarting the windows"; break; fi
+    if [ "$HDMI1|$HDMI2|$SCALE|$CURSOR|$TOUCHKIND|$BOARD|$MAIN|$STRIP|$ROTATE1|$ROTATE2" != "$CONTENT" ]; then echo "what the screens show changed - restarting the windows"; break; fi
   else
     echo "screens changed: $LAST_HDMI -> $NOW_HDMI"; sleep 1.5   # let the monitor finish waking up
   fi
   LAST_HDMI="$(hdmi_sig)"; LAST_CFG="$NOW_CFG"
   command -v xdotool >/dev/null || { echo "no xdotool - restarting the windows instead"; break; }
   layout
-  if [ "${G1:+1}${SEC:+2}" != "$WHICH" ]; then echo "a screen moved to the other HDMI port - starting the windows again"; break; fi
+  if [ "${G1:+1}${G2:+2}${G3:+3}" != "$WHICH" ]; then echo "a screen moved to the other HDMI port - starting the windows again"; break; fi
   place_window 1
-  if [ -n "$SEC" ]; then
+  if [ -n "$G2" ]; then
     if [ -n "$PID2" ] && kill -0 "$PID2" 2>/dev/null; then place_window 2; else start_window 2; fi
+  fi
+  if [ -n "$G3" ]; then
+    if [ -n "$PID3" ] && kill -0 "$PID3" 2>/dev/null; then place_window 3; else start_window 3; fi
   fi
 done
 echo "=== session end $(date)"

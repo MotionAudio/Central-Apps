@@ -40,7 +40,7 @@ step() { printf '\n==> %s\n' "$*"; }
 warn() { printf '    WARNING: %s\n' "$*" >&2; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)."; exit 1; }
-for f in index.html css/pad-pedal.css css/parts.css css/live.css css/fx.css css/central-tokens.css css/central-ui.css js/command-search.js js/more-menu.js js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/screen-nav.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/factory-test.js js/pedal-job.js js/touch-wifi.js js/mini-bridge.js js/fx-dsp.js js/fx.js js/shell.js js/soundtest.js js/textures.js \
+for f in index.html strip.html js/labels.js js/strip.js css/pad-pedal.css css/parts.css css/live.css css/fx.css css/central-tokens.css css/central-ui.css js/command-search.js js/more-menu.js js/live.js js/report.js js/transfer.js js/streamdeck.js js/backup.js js/practice.js js/stemsplit.js js/structure.js js/app.js js/graphics.js js/features.js js/tracks.js js/actions.js js/screen-nav.js js/configure.js js/touch-select.js js/setups.js js/pair-pin.js js/factory-test.js js/pedal-job.js js/touch-wifi.js js/mini-bridge.js js/fx-dsp.js js/fx.js js/shell.js js/soundtest.js js/textures.js \
          js/analysis-worker.js js/multitrack-worklet.js js/vendor/qrcode.js js/chords.js js/notation.js js/parts.js js/sheets.js js/autorestart.js js/lyrics-ai.js js/parts-ui.js js/pedals.js js/plugin-ports.js js/instrument.js js/settings.js js/sources.js js/looper.js js/scenes.js js/integrations.js js/colors.js js/netsend.js js/hub.js js/sync.js js/setlists.js js/io.js \
          instrument_host.py sources.py libraries.py community_sandbox.py instrument-plugins.json screens.json get-sounds.sh sounds-vsco.py companion/index.html companion/lyrics.html companion/stage.html companion/upload.html \
          companion/remote.html companion/mini.html companion/setup.html companion/slides.html companion/common.js companion/style.css companion/backgrounds.js companion/backgrounds-seasons.js companion/pictures.js \
@@ -120,6 +120,7 @@ step "Installing the Central Pedal app, companion pages and the driver"
 install -d -m 755 /opt/pad-pedal /opt/pad-pedal/css /opt/pad-pedal/js /opt/pad-pedal/js/vendor /opt/pad-pedal/companion /opt/pad-pedal/cues /etc/pad-pedal
 install -m 644 "$SRC/index.html"       /opt/pad-pedal/index.html
 install -m 644 "$SRC/starting.html"    /opt/pad-pedal/starting.html
+install -m 644 "$SRC/strip.html"       /opt/pad-pedal/strip.html      # (11.0) the main board rev B's bar screen
 install -d -m 755 /opt/pad-pedal/fonts && install -m 644 "$SRC"/fonts/* /opt/pad-pedal/fonts/
 install -m 644 "$SRC"/css/*.css        /opt/pad-pedal/css/
 # pre-rendered cue words (used as-is; espeak-ng below only fills in any that are missing)
