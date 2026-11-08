@@ -510,9 +510,9 @@ class _PcaLed:
 
 
 class INA226:
-    """Battery volts / amps (main board: 5 mOhm shunt, I2C 0x40)."""
+    """Battery volts / amps (main board: 5 mOhm shunt, I2C 0x45)."""
 
-    def __init__(self, bus, address=0x40, shunt_ohm=0.005):
+    def __init__(self, bus, address=0x45, shunt_ohm=0.005):
         self.bus, self.address, self.shunt = bus, address, float(shunt_ohm)
         self.bus.write_i2c_block_data(address, 0x00, [0x45, 0x27])   # 16 averages, 1.1 ms conversions, continuous
 
@@ -655,7 +655,7 @@ CENTRAL_BOARD_V1 = {
     # MCP23017 at 0x20: the inputs above with "expander_pin" (knob clicks 0-5, external footswitches 6-7) and the
     # charger's status line (pin 8, read-only). Pins 9-15 are spare.
     "expander": {"address": "0x20", "buttons": [], "status": {"charging": 8}, "leds": []},
-    "battery": {"chip": "ina226", "address": "0x40", "shunt_ohm": 0.005},
+    "battery": {"chip": "ina226", "address": "0x45", "shunt_ohm": 0.005},
     "midi_uart": "/dev/ttyAMA0",
     # the front power button's controller (LTC2954) pulls GPIO 4 low when it's pressed with the pedal on:
     # shut down cleanly at once; dtoverlay=gpio-poweroff on GPIO 24 then tells it to cut the power
@@ -11967,7 +11967,7 @@ class PedalDriver:
         self.battery = None
         if bat and str(bat.get("chip", "ina226")).lower() == "ina226":
             try:
-                self.battery = INA226(bus, parse_address(bat.get("address", "0x40")), bat.get("shunt_ohm", 0.005))
+                self.battery = INA226(bus, parse_address(bat.get("address", "0x45")), bat.get("shunt_ohm", 0.005))
                 log.info("battery monitor (INA226) ready")
             except Exception as error:
                 log.warning("battery monitor unavailable (%s)", error)
@@ -11983,9 +11983,9 @@ class PedalDriver:
             log.debug("battery read failed (%s)", error)
             return None
         # the shunt sits between the pack and the 5.1 V supply: current OUT of the pack is positive
-        line = getattr(self, "charging_line", None)
+        # current INTO the pack (negative here) is the sure sign of charging; the IP2368's LED1 line only says its gauge is lit
         return {"volts": round(volts, 2), "amps": round(amps, 2), "watts": round(volts * amps, 1), "percent": battery_percent(volts),
-                "charging": bool(line) if line is not None else amps < -0.05, "low": volts < 6.6}
+                "charging": amps < -0.05, "chargerLed": bool(getattr(self, "charging_line", False)), "low": volts < 6.6}
 
     def poll_analog_once(self):
         messages = []

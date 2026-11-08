@@ -92,9 +92,9 @@ led.close()
 check(bus.blocks[(0x41, 0x06 + 12)] == [0, 0x10, 0, 0], "blink thread stops and close() turns the light fully off")
 
 # ---- INA226 battery --------------------------------------------------------------------
-bus.regs[(0x40, 0x02)] = [0x17, 0x20]          # 5920 * 1.25 mV = 7.40 V
-bus.regs[(0x40, 0x01)] = [0x0F, 0xA0]          # 4000 * 2.5 uV / 5 mOhm = 2.0 A
-ina = drv.INA226(bus, 0x40, 0.005)
+bus.regs[(0x45, 0x02)] = [0x17, 0x20]          # 5920 * 1.25 mV = 7.40 V
+bus.regs[(0x45, 0x01)] = [0x0F, 0xA0]          # 4000 * 2.5 uV / 5 mOhm = 2.0 A
+ina = drv.INA226(bus, 0x45, 0.005)
 v, i = ina.read()
 check(abs(v - 7.40) < 0.01 and abs(i - 2.0) < 0.01, "INA226: 7.40 V, 2.0 A (%.2f V, %.2f A)" % (v, i))
 check(drv.battery_percent(8.4) == 100 and drv.battery_percent(7.4) == 50 and drv.battery_percent(5.9) == 0 and drv.battery_percent(7.3) == 40,

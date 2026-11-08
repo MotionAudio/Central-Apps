@@ -1,0 +1,8 @@
+IP2368 PCIN/PCON tied to LX1/LX2 through 10R (R26/R27 in the Injoinic BOM) - confirm against the Injoinic reference schematic.
+IP2368 FCAP resistor set to 10k - the capacity table is not in the datasheet excerpt; it only affects the LED gauge.
+USB-C CC1/CC2 go straight to the IP2368 (it is the PD sink); no external Rd resistors.
+TPS54560: FB divider 53.6k/10k = 5.09 V; RT 162k ~ 600 kHz; compensation 16.9k + 4.7n // 68p sized for ~88 uF ceramic output - check with the TI design procedure.
+Power button: tap = Linux shutdown (INT -> GPIO 4), Linux then drives GPIO 24 low = KILL; holding the button ~10 s (1.5 uF on PDT) forces the 5 V off.
+Outputs 5-6 are also the headphone source: whatever the app routes to 5-6 is what the headphone jack plays.
+TPA6132A2 gain pins G0/G1 both to GND (0R fitted); 0R to 3V3 footprints are left unfitted - pick the gain from the datasheet table.
+The Pi's own 3.3 V pins are left unconnected (DNP 0R to the board's 3V3): both rails are 3.3 V, so I2C and SPI levels match without tying them.

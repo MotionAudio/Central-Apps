@@ -1,0 +1,378 @@
+** Drc report for out/central-pedal-main-board-routed.kicad_pcb **
+** Created on 2026-11-07 19:06:59 **
+
+** Found 96 DRC violations **
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(206.0000 mm, 10.1450 mm): PCB Text 'USB-C PWR' on F.Silkscreen
+    @(-2.7000 mm, -2.4650 mm): Polygon on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(206.0000 mm, 10.1450 mm): PCB Text 'USB-C PWR' on F.Silkscreen
+    @(206.0000 mm, 9.2950 mm): Reference 'J2'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(255.0000 mm, 47.5000 mm): Reference 'RV4'
+    @(255.0000 mm, 46.7750 mm): PCB Text 'K4' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+    @(148.7627 mm, 149.0225 mm): Line on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(153.7500 mm, 150.9250 mm): PCB Text 'FS6' on F.Silkscreen
+    @(153.7500 mm, 151.4500 mm): Reference 'J20'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(154.2000 mm, 149.7600 mm): Line on F.Silkscreen
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(177.7500 mm, 150.9250 mm): PCB Text 'FS7' on F.Silkscreen
+    @(177.7500 mm, 151.4500 mm): Reference 'J21'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+    @(153.7500 mm, 150.9250 mm): PCB Text 'FS6' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+    @(155.4000 mm, 147.8000 mm): Line on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(201.7500 mm, 150.9250 mm): PCB Text 'FS8' on F.Silkscreen
+    @(201.7500 mm, 151.4500 mm): Reference 'J22'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(255.0000 mm, 98.7750 mm): PCB Text 'K6' on F.Silkscreen
+    @(255.0000 mm, 99.5000 mm): Reference 'RV6'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(253.7575 mm, 147.5750 mm): PCB Text 'BATT 2S' on F.Silkscreen
+    @(252.0000 mm, 147.0000 mm): PCB Text 'BATT  -  +' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(253.7575 mm, 147.5750 mm): PCB Text 'BATT 2S' on F.Silkscreen
+    @(253.9800 mm, 148.1000 mm): Reference 'J3'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(239.0000 mm, 151.5750 mm): PCB Text 'DISPLAY' on F.Silkscreen
+    @(239.0000 mm, 152.1000 mm): Reference 'J6'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(227.0000 mm, 152.1000 mm): Reference 'J23'
+    @(227.0000 mm, 151.5750 mm): PCB Text 'FAN' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(173.0000 mm, 14.7950 mm): PCB Text 'MIDI IN' on F.Silkscreen
+    @(176.0000 mm, 14.6000 mm): Reference 'U11'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(-2.7000 mm, -2.4650 mm): Polygon on F.Silkscreen
+    @(173.0000 mm, 14.7950 mm): PCB Text 'MIDI IN' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(207.0000 mm, 84.5700 mm): Reference 'C23'
+    @(208.2000 mm, 83.7500 mm): Arc on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(255.0000 mm, 73.5000 mm): Reference 'RV5'
+    @(255.0000 mm, 72.7750 mm): PCB Text 'K5' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(186.0000 mm, 73.3520 mm): Reference 'TP4'
+    @(186.0000 mm, 72.0000 mm): Circle on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(186.0000 mm, 70.3520 mm): Reference 'TP3'
+    @(186.0000 mm, 69.0000 mm): Circle on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(186.0000 mm, 67.3520 mm): Reference 'TP2'
+    @(186.0000 mm, 66.0000 mm): Circle on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(135.0000 mm, 153.0000 mm): PCB Text 'motionaudio.org' on F.Silkscreen
+    @(126.7500 mm, 153.3000 mm): Line on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(135.0000 mm, 153.0000 mm): PCB Text 'motionaudio.org' on F.Silkscreen
+    @(134.2500 mm, 152.5500 mm): Line on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(135.0000 mm, 153.0000 mm): PCB Text 'motionaudio.org' on F.Silkscreen
+    @(134.2500 mm, 153.3000 mm): Line on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(136.0600 mm, 152.5400 mm): Line on F.Silkscreen
+    @(135.0000 mm, 153.0000 mm): PCB Text 'motionaudio.org' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(132.7500 mm, 152.5500 mm): Line on F.Silkscreen
+    @(135.0000 mm, 153.0000 mm): PCB Text 'motionaudio.org' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(129.7500 mm, 150.9250 mm): PCB Text 'FS5' on F.Silkscreen
+    @(129.7500 mm, 151.4500 mm): Reference 'J19'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(129.7500 mm, 150.9250 mm): PCB Text 'FS5' on F.Silkscreen
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(129.7500 mm, 151.4500 mm): Reference 'J19'
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(130.2000 mm, 149.7600 mm): Line on F.Silkscreen
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(129.5000 mm, 148.5000 mm): Reference 'D5'
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(130.2000 mm, 147.8000 mm): Line on F.Silkscreen
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+    @(124.7627 mm, 149.0225 mm): Line on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+    @(109.7627 mm, 149.0225 mm): Line on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(123.0000 mm, 127.5750 mm): PCB Text 'USB TO PI' on F.Silkscreen
+    @(123.0000 mm, 128.1000 mm): Reference 'J7'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(126.2000 mm, 28.5700 mm): Reference 'C48'
+    @(124.6000 mm, 28.7750 mm): Line on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(124.0650 mm, 24.3200 mm): Line on F.Silkscreen
+    @(126.5000 mm, 24.7500 mm): Reference 'X1'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(129.8850 mm, 25.9250 mm): PCB Text 'INST' on F.Silkscreen
+    @(130.0000 mm, 25.7700 mm): Reference 'C52'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(129.4000 mm, 28.5700 mm): Reference 'C49'
+    @(124.6000 mm, 28.7750 mm): Line on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(57.7500 mm, 150.9250 mm): PCB Text 'FS2' on F.Silkscreen
+    @(57.7500 mm, 151.4500 mm): Reference 'J16'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(15.0000 mm, 73.5000 mm): Reference 'RV2'
+    @(15.0000 mm, 72.7750 mm): PCB Text 'K2' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(41.8850 mm, 25.9250 mm): PCB Text 'OUT 6' on F.Silkscreen
+    @(40.8000 mm, 26.5700 mm): Reference 'R47'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(41.8850 mm, 25.9250 mm): PCB Text 'OUT 6' on F.Silkscreen
+    @(44.0000 mm, 26.5700 mm): Reference 'C74'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(15.0000 mm, 98.7750 mm): PCB Text 'K3' on F.Silkscreen
+    @(15.0000 mm, 99.5000 mm): Reference 'RV3'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(14.9750 mm, 28.5000 mm): Reference 'RV9'
+    @(14.9750 mm, 28.2750 mm): PCB Text 'PHONES VOL' on F.Silkscreen
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(33.7500 mm, 150.9250 mm): PCB Text 'FS1' on F.Silkscreen
+    @(33.7500 mm, 151.4500 mm): Reference 'J15'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(15.0000 mm, 46.7750 mm): PCB Text 'K1' on F.Silkscreen
+    @(15.0000 mm, 47.5000 mm): Reference 'RV1'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(81.7500 mm, 150.9250 mm): PCB Text 'FS3' on F.Silkscreen
+    @(81.7500 mm, 151.4500 mm): Reference 'J17'
+[silk_overlap]: Silkscreen overlap
+    Rule: board setup constraints silk; Severity: warning
+    @(105.7500 mm, 150.9250 mm): PCB Text 'FS4' on F.Silkscreen
+    @(105.7500 mm, 151.4500 mm): Reference 'J18'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(135.0000 mm, 150.0000 mm): PCB Text 'CENTRAL PEDAL MAIN BOARD  rev A' on F.Silkscreen
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(57.5000 mm, 148.5000 mm): Reference 'D2'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(201.5000 mm, 148.5000 mm): Reference 'D8'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(161.8700 mm, 61.0200 mm): Reference 'J1'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(33.5000 mm, 148.5000 mm): Reference 'D1'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(126.2000 mm, 28.5700 mm): Reference 'C48'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(37.5700 mm, 58.0000 mm): Reference 'C89'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(129.5000 mm, 148.5000 mm): Reference 'D5'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(177.5000 mm, 148.5000 mm): Reference 'D7'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(81.5000 mm, 148.5000 mm): Reference 'D3'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(159.0000 mm, 40.5700 mm): Reference 'C58'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(112.2000 mm, 115.5000 mm): Reference 'D11'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(105.5000 mm, 148.5000 mm): Reference 'D4'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(241.2000 mm, 26.0000 mm): Reference 'C17'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(153.5000 mm, 148.5000 mm): Reference 'D6'
+[silk_over_copper]: Silkscreen clipped by solder mask
+    Local override; Severity: warning
+    @(155.8000 mm, 40.5700 mm): Reference 'C57'
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on In1.Cu
+    @(154.0200 mm, 59.7500 mm): PTH pad 6 [GND] of J1
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on In1.Cu
+    @(148.9400 mm, 62.2900 mm): PTH pad 9 [GND] of J1
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on In1.Cu
+    @(143.8600 mm, 59.7500 mm): PTH pad 14 [GND] of J1
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on In1.Cu
+    @(136.2400 mm, 59.7500 mm): PTH pad 20 [GND] of J1
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on In1.Cu
+    @(128.6200 mm, 62.2900 mm): PTH pad 25 [GND] of J1
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on In1.Cu
+    @(123.5400 mm, 59.7500 mm): PTH pad 30 [GND] of J1
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on In1.Cu
+    @(118.4600 mm, 59.7500 mm): PTH pad 34 [GND] of J1
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on B.Cu
+    @(136.2400 mm, 59.7500 mm): PTH pad 20 [GND] of J1
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on B.Cu
+    @(126.0000 mm, 131.0000 mm): PTH pad 4 [GND] of J7
+[starved_thermal]: Thermal relief connection to zone incomplete (zone min spoke count 2; actual 1)
+    Local override; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Zone [GND] on F.Cu
+    @(33.7500 mm, 32.5625 mm): Pad 15 [GND] of U14 on F.Cu
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(46.3550 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(37.4150 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(189.5000 mm, 1.1250 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(184.5000 mm, 1.1250 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(24.3550 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(15.4150 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(175.5000 mm, 1.1250 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(170.5000 mm, 1.1250 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(90.3550 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(81.4150 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(112.3550 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(103.4150 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(134.3550 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(125.4150 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(156.3550 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(147.4150 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(68.3550 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(59.4150 mm, -2.4500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(210.7000 mm, 1.6500 mm): Line on F.Silkscreen
+[silk_edge_clearance]: Silkscreen clipped by board edge
+    Rule: board setup constraints silk; Severity: warning
+    @(0.0000 mm, 0.0000 mm): Line on Edge.Cuts
+    @(201.3000 mm, 1.6500 mm): Line on F.Silkscreen
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** End of Report **

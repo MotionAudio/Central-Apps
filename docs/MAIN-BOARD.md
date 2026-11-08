@@ -5,6 +5,11 @@ The main board stacks on the Raspberry Pi 4 and carries everything physical: 8 f
 lights, a fan, a front power button, USB-C charging and a 2S battery. The full hardware spec (parts, power,
 fab settings) is the "Central Pedal Main Board — Design & Manufacturing Spec" doc.
 
+The board itself lives in `hardware/main-board/`: the KiCad 7 project (`*.kicad_pcb`, `*.kicad_pro`, the two
+custom footprints), the generator that made it (`design.py` = every part, pin and net; `build.py` / `route.py` /
+`export.py` = board, autoroute, fab files) and `fab/` with the Gerber zip, JLCPCB BOM and CPL, DRC report and
+renders. To change the board, edit `design.py` and run the three scripts on a machine with KiCad 7 and Java.
+
 Turn it on in **Settings → Output routing → "Central Pedal main board fitted"**, then restart. That writes the
 board's pin map into `hardware.json` (driver: `CENTRAL_BOARD_V1` in `pedal-driver.py`) and its lines into
 `config.txt` (`pad-pedal-system board central-main-v1`).
@@ -22,7 +27,7 @@ re-learned to another pin.
 | 6, 9, 14, 20, 25, 30, 34, 39 | — | Ground |
 | 1, 17 | — | Pi 3.3 V (logic pull-ups only) |
 | 27, 28 | 0 / 1 | HAT ID EEPROM |
-| 3, 5 | 2 / 3 | I2C: INA226 battery 0x40, PCA9685 lights 0x41, MCP23017 expander 0x20 |
+| 3, 5 | 2 / 3 | I2C: INA226 battery 0x45 (A0=A1=VS), PCA9685 lights 0x41, MCP23017 expander 0x20 |
 | 8 | 14 | MIDI OUT (UART0 TX) |
 | 10 | 15 | MIDI IN (UART0 RX, via 6N138) |
 | 12 | 18 | I2S BCK (from the PCM1808 — it is the clock master) |
@@ -39,7 +44,7 @@ re-learned to another pin.
 | 15 | 22 | Footswitch 7 |
 | 16 | 23 | Footswitch 8 |
 | 7 | 4 | Power button controller INT (pressed with the pedal on → clean shutdown) |
-| 18 | 24 | Power controller KILL (`gpio-poweroff`: cuts power after shutdown) |
+| 18 | 24 | Power controller KILL (`gpio-poweroff`: cuts power after shutdown; 4.7k pull-up to 3V3) |
 | 22 | 25 | DAC 1 mute (PCM5102A XSMT) |
 | 13 | 27 | Status LED (on while the driver runs) |
 | 37 | 26 | Fan on/off (`gpio-fan`, on at 140 °F) |
@@ -121,5 +126,14 @@ The serial console is taken off UART0 (the MIDI jacks need it); debug over SSH o
 `python3 test_main_board.py` — ADC reads and scaling, footswitch lights, battery, MIDI parsing and the pin map,
 against simulated chips. On a real board, follow the bring-up checklist in the spec doc.
 
-**Rev A note:** the audio overlay uses the ADAU7002 driver as a stand-in for the PCM1808 (it has no driver of its
-own) with the Pi as I2S slave. Confirm on the first boards with `arecord -l` / `aplay -l` before shipping.
+**Rev A notes:**
+- The audio overlay uses the ADAU7002 driver as a stand-in for the PCM1808 (it has no driver of its own) with the
+  Pi as I2S slave. Confirm on the first boards with `arecord -l` / `aplay -l` before shipping.
+- Power: battery → JST-VH (10 A) → 7.5 A fuse → AO4407A reverse-polarity PFET → INA226 5 mΩ shunt → TPS54560 buck
+  (5.1 V, 5 A, ~600 kHz) → TLV75533 3.3 V LDO. Charger: IP2368 (2S = 6.2k on BAT_NUM, 4.20 V/cell, 2 A) with four
+  AO4406A SO-8 MOSFETs and a 10 µH SRP7028A. Power button: LTC2954-1 (tap = INT to GPIO 4, hold ~10 s = forced off).
+- The rev A board (270 × 160 mm, 4 layers) was laid out and autorouted from `design.py`; it passes KiCad's DRC with
+  no errors and no unconnected nets (the remaining warnings are silkscreen overlaps and thermal-relief notes - see
+  `hardware/main-board/fab/drc-report.txt`). Before ordering a second run, check against the datasheets: the IP2368
+  PCIN/PCON wiring, the TPS54560 compensation values, the TPA6132A2 gain and the push-knob footprint
+  (`custom.pretty/RV09_Push_Vertical`) against the pots you buy.
