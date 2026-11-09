@@ -1048,11 +1048,16 @@
       });
     });
   }
-  function keyShift(from, to) { if (!from || !to) return 0; var a = KEYS.indexOf(String(from).replace(/m$/, "").replace("D#", "Eb").replace("G#", "Ab").replace("A#", "Bb").replace("Db", "C#").replace("Gb", "F#")), b = KEYS.indexOf(String(to).replace(/m$/, "")); if (a < 0 || b < 0) return 0; var d = ((b - a) % 12 + 12) % 12; return d > 6 ? d - 12 : d; }
+  // (10.6) the shortest move between two keys, minor keys by their relative major: A minor in C is 0, E minor in C is up 5 (to A minor)
+  function keyShift(from, to) {
+    if (!from || !to) return 0;
+    function root(k) { var s = String(k).replace(/m$/, "").replace("D#", "Eb").replace("G#", "Ab").replace("A#", "Bb").replace("Db", "C#").replace("Gb", "F#"), i = KEYS.indexOf(s); return i < 0 ? -1 : /m$/.test(String(k)) ? (i + 3) % 12 : i; }
+    var a = root(from), b = root(to); if (a < 0 || b < 0) return 0; var d = ((b - a) % 12 + 12) % 12; return d > 6 ? d - 12 : d;
+  }
   // after a tempo or key change: loops stretched again from their original
   function rewarp() {
     var jobs = 0;
-    proj.tracks.forEach(function (t) { t.clips.forEach(function (c) { var w = c.audio && c.audio.warp; if (!w || !buffers[w.orig]) return; var want = bpmAt(c.start), semis = w.key ? keyShift(w.key, proj.key) : (w.semis || 0); if (Math.abs(want - w.at) < 0.01 && semis === (w.semis || 0)) return; var st = window.CDawStretch.stretch(buffers[w.orig], w.from / want, semis); c.audio.src = addAudio(st); w.at = want; w.semis = semis; jobs++; }); });
+    proj.tracks.forEach(function (t) { t.clips.forEach(function (c) { var w = c.audio && c.audio.warp; if (!w || !buffers[w.orig]) return; var want = bpmAt(c.start), semis = w.key ? keyShift(w.key, proj.key) : (w.want != null ? w.want : (w.semis || 0)); if (Math.abs(want - w.at) < 0.01 && semis === (w.semis || 0)) return; var st = window.CDawStretch.stretch(buffers[w.orig], w.from / want, semis); c.audio.src = addAudio(st); w.at = want; w.semis = semis; if (w.off0 != null) c.audio.offset = w.off0 * w.from / want; jobs++; }); });
     return jobs;
   }
   function insertTrack(t) { var i = proj.tracks.findIndex(function (x) { return x.kind === "bus"; }); if (i < 0) proj.tracks.push(t); else proj.tracks.splice(i, 0, t); }

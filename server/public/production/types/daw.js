@@ -12,7 +12,7 @@
   var ROLES = [["music", "Music"], ["drums", "Drums"], ["bass", "Bass"], ["keys", "Keys"], ["guitar", "Guitar"], ["vocals", "Vocals"], ["guide", "Guide"], ["click", "Click"]];
   function data() { return window.CP.project().data; }
   function bpb(b) { return D.tempo.bpb(b || 0); }
-  function guessRole(t) { var n = (t.name || "").toLowerCase(); if (t.kind === "drums" || /drum|kit|perc/.test(n)) return "drums"; if (/bass/.test(n)) return "bass"; if (/guide|cue/.test(n)) return "guide"; if (/vox|vocal|sing/.test(n)) return "vocals"; if (/guitar|gtr/.test(n)) return "guitar"; if (/key|piano|pad|organ|synth/.test(n)) return "keys"; return "music"; }
+  function guessRole(t) { var n = (t.name || "").toLowerCase(); if (t.kind === "drums" || /drum|kit|perc/.test(n)) return "drums"; if (/bass/.test(n)) return "bass"; if (/guide|cue/.test(n)) return "guide"; if (/click|metronome/.test(n)) return "click"; if (/vox|vocal|sing/.test(n)) return "vocals"; if (/guitar|gtr/.test(n)) return "guitar"; if (/key|piano|pad|organ|synth/.test(n)) return "keys"; return "music"; }
   var strip = { el: null, open: false };
 
   function frame(el, kind) {
@@ -39,6 +39,8 @@
     $("#cpStripSum", strip.el).textContent = (d.title || window.CP.project().name) + (d.artist ? " · " + d.artist : "") + " · " + secs.length + " section" + (secs.length === 1 ? "" : "s");
     b.innerHTML = '<div class="cp-row"><label>Title <input id="sgTitle" value="' + esc(d.title || window.CP.project().name) + '"></label><label>Artist <input id="sgArtist" value="' + esc(d.artist || "") + '" placeholder="Who wrote or recorded it"></label><label class="toggle"><input type="checkbox" id="sgClick"' + (d.click !== false ? " checked" : "") + '> A click stem</label>' +
       '<span class="muted small">The sections are on the ruler (double-click its Sections strip to add one). Chords: a bar per “|”, two chords in a bar with a space: G | D/F# | Em C | C</span></div>' +
+      (window.CDawSong && secs.length ? '<div class="cp-arr"><span class="muted small">Arrangement (drag a section to move it; its music goes with it):</span><div class="cp-arr-chips">' + secs.map(function (s) { return '<span class="cp-arr-chip" draggable="true" data-sec="' + s.id + '" title="' + esc(s.name) + ", bar " + (s.bar + 1) + '"><b>' + esc(s.name) + '</b><button data-dup title="Play it again (duplicate it with its music)">⧉</button><button data-del title="Take it out, with its music"' + (secs.length < 2 ? " disabled" : "") + '>✕</button></span>'; }).join("") + "</div></div>" : "") +
+      (window.CDawSong ? '<div class="cp-row"><button id="sgCG" title="A click and a spoken guide (“Chorus” a bar before each section), on their own tracks">Make click &amp; guide tracks</button><button id="sgKT" title="The whole song in a new key and tempo">Key &amp; tempo…</button><button id="sgGrade" title="The stars Central Tracks will give the mix, and its loudness, before you publish">Check the grade &amp; loudness</button></div>' : "") +
       (secs.length ? '<div class="cp-sections">' + secs.map(function (s) { return '<div class="cp-sec" data-m="' + s.id + '"><b>' + esc(s.name) + '</b><span class="muted small">bar ' + (s.bar + 1) + " · " + s.bars + ' bars</span><input class="sec-chords" value="' + esc(ch[s.id] || "") + '" placeholder="Chords"><textarea class="sec-lyrics" rows="1" placeholder="Lyrics">' + esc(lyr[s.id] || "") + "</textarea></div>"; }).join("") + "</div>" : '<p class="muted small">No sections yet.</p>') +
       '<div class="cp-roles"><span class="muted small">What each track is in Central Tracks:</span>' + dp.tracks.filter(function (t) { return t.kind !== "bus"; }).map(function (t) { var r = (d.roles || {})[t.id] || guessRole(t); return "<label>" + esc(t.name) + ' <select data-role="' + t.id + '">' + ROLES.map(function (x) { return '<option value="' + x[0] + '"' + (x[0] === r ? " selected" : "") + ">" + x[1] + "</option>"; }).join("") + "</select></label>"; }).join("") + "</div>";
     function set(label, fn) { window.CP.edit(label, fn); }
@@ -47,6 +49,61 @@
     $("#sgClick", b).onchange = function () { var v = this.checked; set("Click stem", function (x) { x.click = v; }); };
     $$(".cp-sec", b).forEach(function (row) { var id = row.dataset.m; $(".sec-chords", row).onchange = function () { var v = this.value; set("Chords", function (x) { x.chords = x.chords || {}; x.chords[id] = v; }); }; $(".sec-lyrics", row).onchange = function () { var v = this.value; set("Lyrics", function (x) { x.lyrics = x.lyrics || {}; x.lyrics[id] = v; }); }; });
     $$("[data-role]", b).forEach(function (s) { s.onchange = function () { var id = s.dataset.role, v = s.value; set("Track role", function (x) { x.roles = x.roles || {}; x.roles[id] = v; }); }; });
+    if (window.CDawSong) wireArrangement(b);
+  }
+  // (10.6) the arrangement: sections as chips; drag to reorder, ⧉ to repeat one, ✕ to take one out (the music goes with them)
+  function wireArrangement(b) {
+    var S = window.CDawSong, chips = $$(".cp-arr-chip", b), dragId = null;
+    function order() { return chips.map(function (c) { return c.dataset.sec; }); }
+    function apply(fn, ok) {
+      try {
+        var r = fn(); if (!r) return;
+        var map = r.map || {}, extra = Object.keys(map).filter(function (k) { return map[k] !== k; });
+        if (extra.length) window.CP.edit("Section words", function (x) { x.lyrics = x.lyrics || {}; x.chords = x.chords || {}; extra.forEach(function (k) { if (x.lyrics[map[k]]) x.lyrics[k] = x.lyrics[map[k]]; if (x.chords[map[k]]) x.chords[k] = x.chords[map[k]]; }); });
+        window.CP.toast(ok); drawStrip();
+      } catch (e) { window.CP.toast(e.message || String(e), "bad"); }
+    }
+    chips.forEach(function (c) {
+      c.ondragstart = function (e) { dragId = c.dataset.sec; c.classList.add("drag"); try { e.dataTransfer.setData("text/plain", dragId); e.dataTransfer.effectAllowed = "move"; } catch (_) { } };
+      c.ondragend = function () { c.classList.remove("drag"); chips.forEach(function (x) { x.classList.remove("over"); }); };
+      c.ondragover = function (e) { if (!dragId || dragId === c.dataset.sec) return; e.preventDefault(); chips.forEach(function (x) { x.classList.toggle("over", x === c); }); };
+      c.ondrop = function (e) {
+        e.preventDefault(); var from = dragId; dragId = null; if (!from || from === c.dataset.sec) return;
+        var o = order(), i = o.indexOf(from), j = o.indexOf(c.dataset.sec); o.splice(i, 1); o.splice(j, 0, from);
+        apply(function () { return S.arrange(o, "Move section"); }, "Moved, with its music.");
+      };
+      $("[data-dup]", c).onclick = function () { apply(function () { return S.duplicate(c.dataset.sec); }, "Repeated, with its music."); };
+      $("[data-del]", c).onclick = function () { apply(function () { return S.remove(c.dataset.sec); }, "Taken out, and the rest closed up."); };
+    });
+    var cg = $("#sgCG", b); if (cg) cg.onclick = function () { cg.disabled = true; S.makeClickAndGuide().then(function (r) { window.CP.toast("Click and guide tracks made" + (r.cues ? " (" + r.cues + " spoken cues)" : "") + ". Name the sections Verse, Chorus, Bridge… for cues."); }).catch(function (e) { window.CP.toast(e.message, "bad"); }).then(function () { cg.disabled = false; }); };
+    var kt = $("#sgKT", b); if (kt) kt.onclick = function () { S.keyTempoDialog(); };
+    var gr = $("#sgGrade", b); if (gr) gr.onclick = function () { window.CP.busy("Rendering the mix…"); D.render().then(function (mix) { window.CP.busy(); gradeBox(mix, "The mix"); }).catch(function (e) { window.CP.busy(); window.CP.toast(e.message, "bad"); }); };
+  }
+  /** The stars Central Tracks will give it (the website's own checks) and its loudness. */
+  function gradeBox(mix, what, extra) {
+    var S = window.CDawSong; if (!S) return;
+    var g = S.grade(mix, 24), l = S.loudness(mix);
+    function star(n) { return "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n); }
+    var tips = [];
+    if (l.truePeak > -1) tips.push("The true peak is " + l.truePeak + " dBTP: set the master limiter's ceiling to -1 dB so it doesn't distort on phones and streaming.");
+    if (l.integrated < -18) tips.push("It's quiet for a finished song (" + l.integrated + " LUFS). Around -14 LUFS sits well next to other songs; turn up the limiter's gain.");
+    if (l.integrated > -8) tips.push("It's very loud (" + l.integrated + " LUFS). Streaming turns it down anyway, and it loses its punch: try -14 to -10 LUFS.");
+    window.CP.modal("<h2>" + esc(what) + ': <span class="cp-stars">' + star(g.stars) + "</span></h2>" +
+      '<p class="muted">The stars Central Tracks gives it (' + g.stars + " of 5" + (g.price ? ", sold at $" + g.price : "") + "). It's the same check the website does when you publish.</p>" +
+      '<ul class="cp-checks">' + g.checks.map(function (c) { return '<li class="' + (c.ok ? "ok" : "bad") + '">' + (c.ok ? "✓ " : "✕ ") + esc(c.text) + "</li>"; }).join("") + "</ul>" +
+      '<div class="cp-loud"><div><b>' + l.integrated + '</b><span>LUFS integrated</span></div><div><b>' + l.truePeak + '</b><span>dBTP true peak</span></div><div><b>' + l.shortMax + '</b><span>LUFS loudest 3 s</span></div><div><b>' + l.range + '</b><span>LU range</span></div></div>' +
+      (tips.length ? '<ul class="cp-tips">' + tips.map(function (t) { return "<li>" + esc(t) + "</li>"; }).join("") + "</ul>" : '<p class="muted small">Loudness looks good for streaming and for Central Tracks.</p>') +
+      (extra || "") + '<div class="cp-row end"><button class="primary" data-close>Done</button></div>');
+  }
+  /** (10.6) Central Pedal: a track pack the pedal reads straight away (Title - Artist - 72bpm - G.zip). */
+  function pedalPack() {
+    var d = data(), secs = sections();
+    return window.CDawSong.pedalPack({ title: d.title || window.CP.project().name, artist: d.artist || "", roles: d.roles || {}, chart: chartText(d, secs), song: songInfo(), click: d.click !== false }).then(function (pk) {
+      return H.exportFiles(pk.name, [{ name: pk.name + ".zip", data: pk.zip }]).then(function (where) {
+        if (where) gradeBox(pk.mix, "Exported for Central Pedal", '<p class="muted small">In the pack: ' + esc(pk.files.map(function (f) { return f.name; }).join(", ")) + '. In Central Pedal Control, press + Song, choose Multitrack and pick this zip. The sections come in from Markers.mid, so the pedal can jump to them.</p>');
+        return where;
+      });
+    });
   }
   function chordsOf(d, secs) {
     var out = [], prev = null;
@@ -59,17 +116,21 @@
     for (var k = 0; k < end; k++) { var at = Math.round((0.02 + D.tempo.beatToSec(k)) * rate), down = Math.abs(D.tempo.beatToBar(k).beat) < 1e-6, f = down ? 1600 : 1000; for (var i = 0; i < 0.03 * rate && at + i < n; i++) { var v = Math.sin(2 * Math.PI * f * i / rate) * Math.exp(-i / (0.006 * rate)) * 0.8; L[at + i] = v; R[at + i] = v; } }
     return b;
   }
+  function songInfo(stemList) {
+    var d = data(), p = D.project(), end = D.songEnd(), secs = sections();
+    return { format: 1, kind: "central-tracks-song", title: d.title || window.CP.project().name, artist: d.artist || "", key: p.key, bpm: p.bpm, bpb: p.sig[0], duration: Math.round(D.tempo.beatToSec(end) * 100) / 100,
+      sections: secs.map(function (s) { return { name: s.name, bar: s.bar, bars: s.bars, lyrics: (d.lyrics || {})[s.id] || "" }; }), chords: chordsOf(d, secs), chartText: chartText(d, secs),
+      tempos: (p.tempos || []).slice(), stems: stemList || [], credits: { arrangement: "Made in Central Production" } };
+  }
   function tracksPackage() {
     var d = data(), p = D.project(), end = D.songEnd(); if (!(end > 0)) return Promise.reject(new Error("The timeline is empty: record or put clips on it first."));
     var roles = d.roles || {}, stems = [], files = [], secs = sections(), title = d.title || window.CP.project().name;
     return D.stems().then(function (list) {
-      list.forEach(function (x) { var r = roles[x.track.id] || guessRole(x.track); stems.push({ name: x.track.name, role: r, mute: r === "guide", buf: x.buffer }); });
+      list.forEach(function (x) { var r = roles[x.track.id] || guessRole(x.track); if (r === "click" && d.click !== false) return;   /* (10.6: the made Click track: the package makes its own) */ stems.push({ name: x.track.name, role: r, mute: r === "guide" || r === "click", buf: x.buffer }); });
       if (d.click !== false) stems.push({ name: "Click", role: "click", mute: true, buf: clickBuffer(Math.ceil(end)) });
       return D.render();
     }).then(function (mix) {
-      var song = { format: 1, kind: "central-tracks-song", title: title, artist: d.artist || "", key: p.key, bpm: p.bpm, bpb: p.sig[0], duration: Math.round(D.tempo.beatToSec(end) * 100) / 100,
-        sections: secs.map(function (s) { return { name: s.name, bar: s.bar, bars: s.bars, lyrics: (d.lyrics || {})[s.id] || "" }; }), chords: chordsOf(d, secs), chartText: chartText(d, secs),
-        tempos: (p.tempos || []).slice(), stems: stems.map(function (s) { return { name: s.name, role: s.role, mute: !!s.mute }; }), credits: { arrangement: "Made in Central Production" } };
+      var song = songInfo(stems.map(function (s) { return { name: s.name, role: s.role, mute: !!s.mute }; }));
       stems.forEach(function (s) { files.push({ name: Z.slug(title) + "--" + s.name.replace(/[^\w\- ]+/g, "") + ".wav", data: new Uint8Array(Z.wav(s.buf, 24)), role: s.role, stem: s }); });
       files.push({ name: Z.slug(title) + "--mix.wav", data: new Uint8Array(Z.wav(mix, 24)), mix: true, buf: mix });
       files.push({ name: "song.json", data: new TextEncoder().encode(JSON.stringify(song, null, 1)), song: song });
@@ -119,10 +180,11 @@
     afterFresh: function () { D.edit("Sections", function (p) { var b = D.tempo.bpb(); p.markers = [{ id: D.uid("m"), beat: 0, name: "Intro" }, { id: D.uid("m"), beat: b * 4, name: "Verse 1" }, { id: D.uid("m"), beat: b * 12, name: "Chorus" }]; }); D.markSaved(); },
     create: function (opts) { return { title: opts.name || "", artist: "", click: true, roles: {}, lyrics: {}, chords: {} }; },
     exports: [["Export the mix (WAV)", mixWav, "The whole song, mixed, 24-bit"], ["Export the mix (MP3)", mixMp3, "256 kbps, for sharing"], ["Export stems (WAV)", stems, "One WAV per track, all the same length"],
-      ["Export for Central Tracks", function () { return tracksPackage().then(function (pk) { return H.exportFiles(pk.title + " (Central Tracks)", pk.files.map(function (f) { return { name: f.name, data: f.data }; })); }); }, "Stems, click, the mix and song.json (sections, lyrics, chords)"]],
+      ["Export for Central Tracks", function () { return tracksPackage().then(function (pk) { return H.exportFiles(pk.title + " (Central Tracks)", pk.files.map(function (f) { return { name: f.name, data: f.data }; })).then(function (where) { if (where && window.CDawSong) gradeBox(pk.mix, "Exported for Central Tracks"); return where; }); }); }, "Stems, click, the mix and song.json (sections, lyrics, chords)"]]
+      .concat(window.CDawSong ? [["Export for Central Pedal", pedalPack, "A track pack: the stems by part, click, spoken guide, sections (Markers.mid) and the chart"]] : []),
     publish: { store: "tracks", build: tracksPackage },
     install: function () { return tracksPackage().then(function (pk) { return { song: pk }; }); },
-    tracksPackage: tracksPackage
+    tracksPackage: tracksPackage, pedalPack: pedalPack, gradeBox: gradeBox
   }));
   window.CP.type(Object.assign({}, common, {
     id: "loop", name: "Loop", blurb: "A tempo- and key-tagged loop (or a set, one per track)",

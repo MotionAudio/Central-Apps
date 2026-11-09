@@ -182,6 +182,13 @@ APPS = [
                 ("Tempo and time signature", "Change them anywhere in the song. Loops follow your song's tempo and key."),
                 ("Mixing and editing", "Sends, buses and automation, a piano roll, and a drum grid with quantize and humanize."),
             ]),
+            ("Getting a song ready for the band", [
+                ("Move sections around", "Drag the chorus in front of the verse and its music goes with it. You can repeat a section too, or take one out and the rest closes up."),
+                ("A new key and tempo", "Key & tempo moves the whole song at once. The MIDI goes to the new key and the audio is re-pitched and stretched to fit. Drums keep their pitch."),
+                ("A click and spoken cues", "Make click & guide tracks puts a click on its own track, and a voice that says \"Chorus\" or \"Bridge\" a bar before the section starts."),
+                ("Know how loud it is", "The meter in the toolbar shows LUFS and the true peak while the song plays. Check the grade & loudness shows the stars Central Tracks will give your mix before you publish it."),
+                ("Run it from a footswitch", "Under Controls, press Learn and then a footswitch, pad or knob on any MIDI controller. It can start and stop the song, record, jump to the next section or set a volume."),
+            ]),
             ("Plugins", [
                 ("Your VST3 and CLAP plugins, live", "They play on every track while the song plays. Turn a knob and you hear it about a fifth of a second later. You only need to freeze a track if your computer is working hard."),
                 ("Play a keyboard through them", "Notes from a MIDI keyboard go through the track's plugins, with only a few milliseconds of delay."),
@@ -191,6 +198,7 @@ APPS = [
             ]),
             ("Getting your work out", [
                 ("Export", "Save as WAV or MP3, as stems, or as an SF2 or SFZ instrument. Plugin automation is included in what you export."),
+                ("Straight to the Central Pedal", "Export for Central Pedal makes one zip with the parts, the click, the spoken guide, the chart and the sections. Central Pedal Control reads it as a multitrack, sections and all."),
                 ("Install into my apps", "Puts what you made straight into Central Control and Central Usage on this computer."),
                 ("Publish", "Send it to Make & sell or Central Tracks, and get paid when people use it."),
                 ("Saved to your account", "The desktop app and the website open the same projects."),

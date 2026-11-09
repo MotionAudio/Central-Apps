@@ -52,6 +52,8 @@
         '<div class="cd-g"><label class="cd-f">Snap<select class="cd-snap"><option value="bar">Bar</option><option value="1/2">1/2</option><option value="1/4">1/4</option><option value="1/8">1/8</option><option value="1/16">1/16</option><option value="1/32">1/32</option><option value="1/8T">1/8 T</option><option value="1/16T">1/16 T</option><option value="off">Off</option></select></label>' +
         '<button data-a="zout" title="Zoom out (−)">−</button><button data-a="zin" title="Zoom in (+)">+</button><button data-a="zfit" title="Show the whole song (Z)">Fit</button></div>' +
         '<div class="cd-g"><button data-a="undo" title="Undo (Ctrl+Z)">↶</button><button data-a="redo" title="Redo (Ctrl+Shift+Z)">↷</button></div>' +
+        (c ? "" : '<div class="cd-g cd-songtools">' + (window.CDawSong ? '<button data-a="keytempo" title="The whole song in a new key and tempo: MIDI, audio and sections">Key &amp; tempo</button>' : "") + (window.CDawControl ? '<button data-a="controls" title="Run the DAW from a MIDI controller or a footswitch">Controls</button>' : "") +
+          (window.CDawSong ? '<button data-a="lufs" class="cd-lufs" title="Loudness of what plays (LUFS, EBU R128). Short-term at the top; integrated (the whole play) and the highest true peak underneath. Click to start again."><b class="cd-lufs-s">– LUFS</b><span class="cd-lufs-i">I – · TP –</span></button>' : "") + "</div>") +
         '<div class="cd-g cd-views"><button data-a="browser" class="cd-t" title="Sounds, loops and files (B)">' + (c ? "Sounds" : "Browser") + '</button><button data-a="editor" class="cd-t" title="Editor (E)">Editor</button><button data-a="mixer" class="cd-t" title="Mixer (X)">Mixer</button><button data-a="keys" class="cd-t" title="Play with the computer keys (K): A W S E D F T G Y H U J K, Z / X octave">Keys</button><button data-a="audio" title="Audio: the input and output, sample rate, buffer, and lining up recordings">Audio</button>' +
         (c && U.opts.openInProduction ? '<button data-a="production" class="cd-prod" title="The same song in Central Production, with everything">Open in Central Production</button>' : "") + "</div>" +
         '<div class="cd-status"><span class="cd-lat"></span><span class="cd-msg"></span></div>' +
@@ -97,6 +99,9 @@
     else if (a === "keys") { U.keys = !U.keys; UI.say(U.keys ? "The computer keys play the selected track: A W S E D F T G Y H U J K (Z / X: octave)." : "Computer keys off."); drawTop(); }
     else if (a === "tap") { var now = performance.now(); taps = taps.filter(function (t) { return now - t < 2500; }); taps.push(now); if (taps.length >= 3) { var avg = (taps[taps.length - 1] - taps[0]) / (taps.length - 1), v = Math.round(60000 / avg * 10) / 10; D.edit("Tempo", function (q) { q.bpm = D.clamp(v, 30, 300); }); } }
     else if (a === "production" && U.opts.openInProduction) U.opts.openInProduction();
+    else if (a === "keytempo" && window.CDawSong) window.CDawSong.keyTempoDialog();
+    else if (a === "controls" && window.CDawControl) window.CDawControl.dialog();
+    else if (a === "lufs" && window.CDawSong) { window.CDawSong.meterReset(); UI.say("Loudness: starting again."); }
     drawTop();
   }
   function zoom(f, anchorBeat) {
@@ -105,6 +110,7 @@
     if (sc) sc.scrollLeft = Math.max(0, before * U.zoom - sc.clientWidth / 2 + UI.headerW());
   }
   UI.zoom = zoom;
+  UI.action = action;
   UI.headerW = function () { return UI.compact() ? 190 : 248; };   // (10.2: room for a readable name, the buttons and the meter - the same as daw.css)
   function layout() {
     if (!U.root) return;
@@ -153,7 +159,19 @@
       if (UI.parts.arrange && UI.parts.arrange.meters) UI.parts.arrange.meters();
     }
     if (UI.parts.editors && UI.parts.editors.playhead && U.dockOpen && U.dock === "editor") UI.parts.editors.playhead(st);
+    if (window.CDawSong && U.frameN % 6 === 0) lufs(st);
     requestAnimationFrame(frameLoop);
+  }
+  // (10.6) the loudness readout: LUFS short-term, integrated over this play, the highest true peak
+  var wasPlaying = false;
+  function lufs(st) {
+    var e = $(".cd-lufs", U.root); if (!e) return;
+    if (st.playing && !wasPlaying) window.CDawSong.meterReset(); wasPlaying = st.playing;
+    var m = window.CDawSong.meter(); if (!m) return;
+    function f(v) { return v <= -69.9 ? "–" : v.toFixed(1); }
+    var s = f(m.shortTerm) + " LUFS", i = "I " + f(m.integrated) + " · TP " + (m.truePeak <= -119 ? "–" : m.truePeak.toFixed(1)), se = $(".cd-lufs-s", e), ie = $(".cd-lufs-i", e);
+    if (se.textContent !== s) se.textContent = s; if (ie.textContent !== i) ie.textContent = i;
+    e.classList.toggle("hot", m.truePeak > -1);
   }
   // meter levels from a strip's analyser: { peak, rms } (linear), with a peak hold kept per id
   var holds = {}, mbuf = new Float32Array(1024);
@@ -223,6 +241,7 @@
   var midiOff = null;
   function midiIn(m) {
     if (!U.root || !U.root.isConnected || U.root.offsetParent === null) return;
+    if (window.CDawControl && window.CDawControl.handle(m)) return;   // (10.6) a pad, footswitch or knob set to run the DAW
     var st = m.data[0]; if (st === 0xFA) { D.play(); return; } if (st === 0xFC) { D.stop(); return; }
     var p = P(), dev = m.device && m.device.name, to = p.tracks.filter(function (t) { return t.kind !== "audio" && t.kind !== "bus" && t.arm && (t.input === "any" || t.input === dev); });
     if (!to.length) { var t = UI.track(); if (t && t.kind !== "audio" && t.kind !== "bus") to = [t]; }

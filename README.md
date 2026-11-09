@@ -158,6 +158,8 @@ Central Tracks is the Motion Audio library, built into **Add a song → Central 
 
 ## What's new
 
+**New in version 10.6.0:** Central Production can take a song all the way to the Central Pedal. Drag sections around and their music goes with them, move the whole song to a new key and tempo, add a click and spoken cues, check how loud it is and what Central Tracks will grade it, and export a pack the pedal reads with its sections marked. A MIDI footswitch or pad can run it too.
+
 **New in version 10.4.2:** The website, the help guides, the manuals and the help inside the apps are rewritten in plain words, and the GitHub download page is up to date with all six apps.
 
 **New in version 10.4.1:** On the pedal, Test sound now listens along the way and tells you where the sound stops, and fixes what it can. A pedal with only the headphone jack plays it directly. The pedal's screen is quicker.

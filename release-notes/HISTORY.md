@@ -2,6 +2,10 @@
 
 The short version of what changed in each release, newest first. Most versions also have their own page in this folder with the full notes.
 
+### 10.6.0
+
+Central Production gets a song ready for the band: sections you can drag around with their music, a new key and tempo for the whole song, click and spoken-guide tracks, a loudness meter and the Central Tracks grade before you publish, Export for Central Pedal (a pack with the sections marked), and MIDI and foot controls.
+
 ### 10.5.1
 
 The stock sounds are free in every app: Central Starter (twelve plain pads, the ten synths, six plain grooves, two ambient loops, four plain cabinets and bodies, seven boards) installs on its own with no key. The packs gain eight pads, six grooves, three ambient loops and twelve boards in their place, and Central Tracks eight more hymns (54 in all).
