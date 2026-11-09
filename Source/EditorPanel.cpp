@@ -1,4 +1,5 @@
 #include "EditorPanel.h"
+#include "Automation.h"
 #include "MotionPlugins.h"
 
 namespace ms
@@ -588,6 +589,18 @@ struct DeviceChain::Card : public juce::Component, private juce::Timer
         startTimerHz (10);
     }
     int preferredWidth() const { return 120 + juce::jmax (0, (knobs.size() + 1) / 2 - 1) * 62; }
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (! e.mods.isPopupMenu()) return;
+        juce::PopupMenu m;
+        auto p = plugin;
+        m.addItem ("Open", [p] { p->showWindowExplicitly(); });
+        m.addItem (p->isEnabled() ? "Bypass" : "Turn on", [p] { p->setEnabled (! p->isEnabled()); });
+        addSidechainMenu (m, p);
+        m.addSeparator();
+        m.addItem ("Remove", [p] { juce::MessageManager::callAsync ([p] { p->deleteFromParent(); }); });
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition());
+    }
     void timerCallback() override
     {
         for (int i = 0; i < knobs.size(); ++i)
@@ -611,6 +624,13 @@ struct DeviceChain::Card : public juce::Component, private juce::Timer
             g.setColour (Colours::muted);
             g.setFont (Fonts::ui (12.0f));
             g.drawFittedText ("Open the plugin to edit it", r.reduced (8).toNearestInt(), juce::Justification::centred, 2);
+        }
+        if (plugin->canSidechain())
+        {
+            auto src = sidechainSource (*plugin);
+            g.setColour (src.isNotEmpty() ? Colours::gold : Colours::dim);
+            g.setFont (Fonts::narrow (10.5f));
+            g.drawText (src.isNotEmpty() ? "SIDECHAIN: " + src.toUpperCase() : juce::String ("RIGHT-CLICK: SIDECHAIN FROM"), r.removeFromBottom (14).toNearestInt(), juce::Justification::centred);
         }
     }
     void resized() override
@@ -776,9 +796,9 @@ struct EditorPanel::KeyForwarder : public juce::MidiKeyboardState::Listener
     Session& session;
 };
 
-EditorPanel::EditorPanel (Session& s) : pianoRoll (s), session (s), devices (s), audioInspector (s)
+EditorPanel::EditorPanel (Session& s) : pianoRoll (s), session (s), tuneView (s), takesView (s), devices (s), audioInspector (s)
 {
-    for (auto* b : { &clipTab, &devicesTab, &keysTab })
+    for (auto* b : { &clipTab, &tuneTab, &takesTab, &devicesTab, &keysTab })
     {
         b->setRadioGroupId (2002);
         addAndMakeVisible (b);
@@ -786,6 +806,15 @@ EditorPanel::EditorPanel (Session& s) : pianoRoll (s), session (s), devices (s),
     clipTab.onClick = [this] { setPage (0); };
     devicesTab.onClick = [this] { setPage (1); };
     keysTab.onClick = [this] { setPage (2); };
+    tuneTab.onClick = [this] { setPage (3); };
+    takesTab.onClick = [this] { setPage (4); };
+    tuneTab.setTooltip ("Tune a vocal: marks every note and tunes it to the song's key");
+    takesTab.setTooltip ("The takes of a loop recording, and Auto Comp");
+    autoTimeBtn.setTooltip ("Line the selected audio or MIDI clips up with the metronome");
+    autoTimeBtn.onClick = [this] { showAutoTime(); };
+    addAndMakeVisible (autoTimeBtn);
+    addChildComponent (tuneView);
+    addChildComponent (takesView);
     quantiseBtn.onClick = [this] { pianoRoll.quantise(); };
     quantiseBtn.setTooltip ("Quantize the selected notes (or all) to the grid (Q)");
     addAndMakeVisible (quantiseBtn);
@@ -817,12 +846,53 @@ EditorPanel::~EditorPanel()
     session.removeListener (this);
 }
 
+te::WaveAudioClip* EditorPanel::selectedAudioClip() const
+{
+    for (auto c : session.selection.getItemsOfType<te::Clip>())
+        if (auto wc = dynamic_cast<te::WaveAudioClip*> (c)) return wc;
+    return nullptr;
+}
+
+void EditorPanel::showTune (te::Clip* c)
+{
+    if (auto wc = dynamic_cast<te::WaveAudioClip*> (c)) tuneView.setClip (wc);
+    setPage (3);
+}
+
+void EditorPanel::showTakes (te::Clip* c)
+{
+    if (auto wc = dynamic_cast<te::WaveAudioClip*> (c)) takesView.setClip (wc);
+    setPage (4);
+}
+
+void EditorPanel::showAutoTime()
+{
+    juce::Component::SafePointer<EditorPanel> safe (this);
+    AutoTimePanel::show (session, autoTimeBtn, [safe] (const juce::String& message)
+    {
+        if (safe == nullptr) return;
+        safe->title.setText (message, juce::dontSendNotification);
+        safe->pianoRoll.repaint();
+        if (safe->page == 3)
+        {
+            safe->tuneView.setClip (nullptr);   // the audio changed: start from the new file
+            safe->tuneView.setClip (safe->selectedAudioClip());
+        }
+    });
+}
+
 void EditorPanel::setPage (int p)
 {
     page = p;
     clipTab.setToggleState (p == 0, juce::dontSendNotification);
     devicesTab.setToggleState (p == 1, juce::dontSendNotification);
     keysTab.setToggleState (p == 2, juce::dontSendNotification);
+    tuneTab.setToggleState (p == 3, juce::dontSendNotification);
+    takesTab.setToggleState (p == 4, juce::dontSendNotification);
+    tuneView.setVisible (p == 3);
+    takesView.setVisible (p == 4);
+    if (p == 3) tuneView.setClip (selectedAudioClip() != nullptr ? selectedAudioClip() : tuneView.getClip());
+    if (p == 4) takesView.setClip (selectedAudioClip() != nullptr ? selectedAudioClip() : takesView.getClip());
     bool isAudio = audioInspector.isVisible() || (p == 0 && pianoRoll.getClip() == nullptr && dynamic_cast<te::WaveAudioClip*> (session.selection.getFirstItemOfType<te::Clip>()) != nullptr);
     pianoRoll.setVisible (p == 0 && ! isAudio);
     audioInspector.setVisible (p == 0 && isAudio);
@@ -832,7 +902,9 @@ void EditorPanel::setPage (int p)
     if (p == 1) devices.setTrack (session.selectedTrack());
     title.setText (p == 0 ? (pianoRoll.getClip() ? "Piano roll: " + pianoRoll.getClip()->getName() + "    (click to draw, drag to move, edge to resize, double-click to delete, Alt-drag to copy)" : juce::String())
                    : p == 1 ? (session.selectedTrack() ? session.selectedTrack()->getName() + ": instrument and effects" : juce::String())
-                   : "Play the selected instrument track (or use Musical Typing: Cmd K)", juce::dontSendNotification);
+                   : p == 2 ? "Play the selected instrument track (or use Musical Typing: Cmd K)"
+                   : p == 3 ? (tuneView.getClip() ? "Tune: " + tuneView.getClip()->getName() : juce::String())
+                   : (takesView.getClip() ? "Takes: " + takesView.getClip()->getName() : juce::String()), juce::dontSendNotification);
     resized();
 }
 
@@ -858,6 +930,12 @@ void EditorPanel::showDevices()  { setPage (1); }
 
 void EditorPanel::selectionChanged()
 {
+    if (page == 3 || page == 4)
+        if (auto wc = selectedAudioClip())
+        {
+            if (page == 3) tuneView.setClip (wc); else takesView.setClip (wc);
+            title.setText ((page == 3 ? "Tune: " : "Takes: ") + wc->getName(), juce::dontSendNotification);
+        }
     if (page == 1) { devices.setTrack (session.selectedTrack()); setPage (1); }
     if (page == 0 && audioInspector.isVisible())
         if (auto wc = dynamic_cast<te::WaveAudioClip*> (session.selection.getFirstItemOfType<te::Clip>()))
@@ -866,6 +944,8 @@ void EditorPanel::selectionChanged()
 
 void EditorPanel::structureChanged()
 {
+    if (auto c = tuneView.getClip())  if (c->getTrack() == nullptr) tuneView.setClip (nullptr);
+    if (auto c = takesView.getClip()) if (c->getTrack() == nullptr) takesView.setClip (nullptr);
     devices.refresh();
     if (auto c = pianoRoll.getClip())
         if (c->getTrack() == nullptr && c->getClipSlot() == nullptr) pianoRoll.setClip (nullptr);
@@ -875,6 +955,8 @@ void EditorPanel::structureChanged()
 
 void EditorPanel::editChanged()
 {
+    tuneView.setClip (nullptr);
+    takesView.setClip (nullptr);
     pianoRoll.setClip (nullptr);
     audioInspector.setClip (nullptr);
     audioInspector.setVisible (false);
@@ -895,15 +977,21 @@ void EditorPanel::resized()
 {
     auto r = getLocalBounds();
     auto top = r.removeFromTop (34).reduced (8, 4);
-    clipTab.setBounds (top.removeFromLeft (70));
+    clipTab.setBounds (top.removeFromLeft (64));
+    tuneTab.setBounds (top.removeFromLeft (64));
+    takesTab.setBounds (top.removeFromLeft (68));
     devicesTab.setBounds (top.removeFromLeft (80));
     keysTab.setBounds (top.removeFromLeft (84));
     top.removeFromLeft (10);
+    autoTimeBtn.setBounds (top.removeFromRight (96));
+    top.removeFromRight (8);
     if (quantiseBtn.isVisible()) { quantiseBtn.setBounds (top.removeFromRight (84)); top.removeFromRight (8); }
     title.setBounds (top);
     r.removeFromTop (1);
     pianoRoll.setBounds (r);
     audioInspector.setBounds (r);
+    tuneView.setBounds (r);
+    takesView.setBounds (r);
     devices.setBounds (r.reduced (4));
     keyboard.setBounds (r.reduced (8).withTrimmedTop (juce::jmax (0, r.getHeight() - 130)));
 }

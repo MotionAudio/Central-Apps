@@ -43,6 +43,30 @@ launch in time, like Ableton's Session view) and **Mixer**.
 - Saves `.motionstudio` songs in their own folders under `~/Music/Motion Studio/Projects`, with a backup every
   two minutes.
 
+## Vocal and timing tools
+
+- **Auto Time** (Cmd Shift T, the Auto Time button, or right-click a clip): lines audio or MIDI up with the
+  metronome. Pick the instrument (drums, bass, keys, guitar, vocals, strings / pads) and it takes it from there: it
+  works out the grid from the playing, how hard to pull, and what to leave alone. Audio is re-timed without changing
+  its pitch, with the hits themselves left untouched so they stay punchy; vocals move word by word toward the beat.
+  Played at another tempo? It's stretched to the song's tempo first. MIDI chords and strums move together.
+- **Tune** (the Tune tab, Cmd Shift U): press **Tune** and every note of the vocal is marked and tuned to the song's
+  key. Drag a note up or down, or right-click it and **Make it** the note you want (or leave it as sung); the rest
+  stays tuned. Natural - Hard sets how much vibrato and drift is kept, Glide how it moves between notes.
+  **Original** goes back to the recording. **Motion Tune** is the real-time version (follows the song key).
+- **Takes and Auto Comp** (the Takes tab, Cmd Shift C): turn on Cycle and record - every pass is kept as a take.
+  **Auto Comp** scores each take in each bar (in tune, in time, not clipped or missing) and builds the best one,
+  crossfading at quiet moments. Click any bar of any take to use it instead.
+- **Motion Denoise** removes background hiss, hum and room noise (adaptive, or learn it from a moment of noise).
+- **Motion De-Esser** tames harsh S, T and SH sounds - split-band, level-independent, with a harshness band.
+- **Automation:** the A button on a track opens a lane for volume, pan or any plugin knob. Click to add points,
+  drag them, double-click to delete. Transport > Write Automation records knob and fader moves while it plays.
+- **Sidechain:** right-click a plugin in the Mixer or Devices > **Sidechain from** another track. **Motion Sidechain
+  Ducker** ducks a track under the kick or a voice (or in time with the beat); the built-in compressor and AU / VST3
+  compressors with a sidechain input work too.
+
+Every tool writes new audio next to the song and keeps the original, so you can always go back.
+
 ## Motion Audio's plugins, built in
 
 All of these are the same code the Central Pedal and the Central apps run, so they sound the same:
@@ -80,6 +104,8 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release && cmake --build build
 
 - `Motion Studio --render-demo demo.wav` builds the demo song and bounces it (no window).
 - `Motion Studio --test-roundtrip` saves a song with Motion Audio plugins, reopens it and compares.
+- `Motion Studio --test-vocal` checks Tune, Motion Tune, Denoise, the de-esser, the ducker, Auto Time (drums,
+  vocals, MIDI), Auto Comp, sidechain routing and automation playback, with the numbers.
 - `Motion Studio --plugin-shot motion:board:worship-dotted board.png` draws a plugin's editor.
 
 ## Licences

@@ -117,6 +117,12 @@ void MotionUIBehaviour::runTaskWithProgressBar (te::ThreadPoolJobWithProgress& j
         }
         te::ThreadPoolJobWithProgress& job;
     };
+    if (juce::Desktop::getInstance().getNumComponents() == 0 || juce::Desktop::getInstance().getDisplays().getPrimaryDisplay() == nullptr)
+    {
+        // no window (command-line renders): just do it
+        while (job.runJob() == juce::ThreadPoolJob::jobNeedsRunningAgain) {}
+        return;
+    }
     Runner r (job);
     r.runThread();
 }

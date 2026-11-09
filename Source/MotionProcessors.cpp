@@ -10,8 +10,12 @@ namespace ms
 MotionProcessorBase::MotionProcessorBase (const MotionPluginInfo& i)
     : juce::AudioPluginInstance (i.isInstrument
                                     ? BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)
-                                    : BusesProperties().withInput ("Input", juce::AudioChannelSet::stereo(), true)
-                                                       .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
+                                    : i.sidechain
+                                        ? BusesProperties().withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                                                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
+                                                           .withInput ("Sidechain", juce::AudioChannelSet::stereo(), true)
+                                        : BusesProperties().withInput ("Input", juce::AudioChannelSet::stereo(), true)
+                                                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       info (i)
 {
 }
@@ -22,7 +26,13 @@ bool MotionProcessorBase::isBusesLayoutSupported (const BusesLayout& l) const
     if (out != juce::AudioChannelSet::stereo() && out != juce::AudioChannelSet::mono()) return false;
     if (info.isInstrument) return true;
     auto in = l.getMainInputChannelSet();
-    return in == juce::AudioChannelSet::stereo() || in == juce::AudioChannelSet::mono();
+    if (in != juce::AudioChannelSet::stereo() && in != juce::AudioChannelSet::mono()) return false;
+    if (l.inputBuses.size() > 1)
+    {
+        auto sc = l.getChannelSet (true, 1);
+        return sc.isDisabled() || sc == juce::AudioChannelSet::stereo() || sc == juce::AudioChannelSet::mono();
+    }
+    return true;
 }
 
 void MotionProcessorBase::getStateInformation (juce::MemoryBlock& mb)

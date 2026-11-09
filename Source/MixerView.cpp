@@ -1,4 +1,5 @@
 #include "MixerView.h"
+#include "Automation.h"
 #include "MotionPlugins.h"
 
 namespace ms
@@ -88,6 +89,7 @@ void ChannelStrip::Slot::mouseDown (const juce::MouseEvent& e)
                 }
             });
         });
+        addSidechainMenu (m, p);
         m.addSeparator();
         m.addItem ("Remove", [p] { p->deleteFromParent(); });
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this));

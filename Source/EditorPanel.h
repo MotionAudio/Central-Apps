@@ -1,6 +1,7 @@
 #pragma once
 #include "Session.h"
 #include "Widgets.h"
+#include "VocalViews.h"
 
 namespace ms
 {
@@ -108,6 +109,11 @@ public:
     void resized() override;
     void showClip (te::Clip*);
     void showDevices();
+    void showTune (te::Clip*);
+    void showTakes (te::Clip*);
+    void showAutoTime();
+    void tuneNow()      { tuneView.tuneNow(); }
+    void autoCompNow()  { takesView.autoComp(); }
     PianoRoll pianoRoll;
 
 private:
@@ -115,8 +121,12 @@ private:
     void structureChanged() override;
     void editChanged() override;
     void setPage (int);
+    te::WaveAudioClip* selectedAudioClip() const;
     Session& session;
-    juce::TextButton clipTab { "Clip" }, devicesTab { "Devices" }, keysTab { "Keyboard" };
+    juce::TextButton clipTab { "Clip" }, devicesTab { "Devices" }, keysTab { "Keyboard" }, tuneTab { "Tune" }, takesTab { "Takes" };
+    juce::TextButton autoTimeBtn { "Auto Time" };
+    TuneView tuneView;
+    TakesView takesView;
     juce::TextButton quantiseBtn { "Quantize" };
     juce::Label title;
     DeviceChain devices;

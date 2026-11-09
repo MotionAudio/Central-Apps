@@ -2,9 +2,14 @@
 #include "MotionPlugins.h"
 #include "Theme.h"
 #include "Instruments.h"
+#include "VocalTools.h"
+#include "Automation.h"
 
 namespace ms
 {
+
+int runVocalTests (Session&);
+juce::Array<juce::File> makeVocalDemoFiles (const juce::File&);
 
 class MainWindow : public juce::DocumentWindow
 {
@@ -90,6 +95,14 @@ public:
             }
             std::cout << d.getStatus() << std::endl;
             for (auto& f : findSoundBanks()) std::cout << "bank: " << f.getFileName() << " " << f.getSize() / 1024 << " KB" << std::endl;
+            quit();
+            return;
+        }
+
+        if (args.contains ("--test-vocal"))
+        {
+            auto failures = runVocalTests (*session);
+            setApplicationReturnValue (failures == 0 ? 0 : 1);
             quit();
             return;
         }
@@ -214,11 +227,14 @@ public:
         juce::MenuBarModel::setMacMainMenu (window->main, &appleMenu);
        #endif
 
+        if (args.contains ("--vocal-demo") || args.contains ("--tune") || args.contains ("--takes") || args.contains ("--auto"))
+            addVocalDemo (args);
+
         if (args.contains ("--screenshot"))
         {
             auto shot = juce::File::getCurrentWorkingDirectory().getChildFile (args[args.indexOf ("--screenshot") + 1].unquoted());
             int viewIndex = args.contains ("--mixer") ? 2 : args.contains ("--live") ? 1 : 0;
-            juce::Timer::callAfterDelay (1500, [this, shot, viewIndex]
+            juce::Timer::callAfterDelay (args.contains ("--tune") || args.contains ("--takes") ? 6000 : 1500, [this, shot, viewIndex]
             {
                 window->main->showView (viewIndex);
                 if (viewIndex == 0) window->main->resized();
@@ -231,6 +247,46 @@ public:
                 });
             });
         }
+    }
+
+    /** Adds a sung lead vocal (three takes) to the demo, with automation and a sidechain to show off. */
+    void addVocalDemo (const juce::StringArray& args)
+    {
+        using namespace ms;
+        auto files = makeVocalDemoFiles (projectsFolder().getChildFile ("Recordings").getChildFile ("Demo vocal"));
+        auto& ts = session->edit->tempoSequence;
+        auto at = ts.toTime (te::BeatPosition::fromBeats (8.0));
+        te::AudioTrack* vocal = nullptr;
+        for (auto t : session->tracks()) if (t->getName() == "Vocal") vocal = t;
+        if (vocal == nullptr) vocal = session->addTrack (TrackKind::audio, "Vocal").get();
+        auto clip = session->addAudioFile (*vocal, files[0], at);
+        auto wc = dynamic_cast<te::WaveAudioClip*> (clip.get());
+        if (wc == nullptr) return;
+        wc->setName ("Lead Vocal");
+        for (auto& f : files) takes::addTake (*wc, f);
+        // automation and a sidechain on the pads
+        for (auto t : session->tracks())
+            if (t->getName().contains ("Pads"))
+            {
+                auto& c = t->getVolumePlugin()->volParam->getCurve();
+                c.addPoint (ts.toTime (te::BeatPosition::fromBeats (0)), te::decibelsToVolumeFaderPosition (-14.0f), 0.0f, nullptr);
+                c.addPoint (ts.toTime (te::BeatPosition::fromBeats (8)), te::decibelsToVolumeFaderPosition (-3.0f), 0.0f, nullptr);
+                c.addPoint (ts.toTime (te::BeatPosition::fromBeats (24)), te::decibelsToVolumeFaderPosition (-1.0f), 0.0f, nullptr);
+                c.addPoint (ts.toTime (te::BeatPosition::fromBeats (30)), te::decibelsToVolumeFaderPosition (-18.0f), 0.0f, nullptr);
+                automation::setShown (*t, true);
+                if (auto d = session->insertPlugin (*t, describeMotionPlugin (*findMotionPlugin ("motion:ducker"))))
+                    for (auto& nm : d->getSidechainSourceNames (false))
+                        if (nm.contains ("Drums")) { d->setSidechainSourceByName (nm); if (d->getNumWires() == 0) d->guessSidechainRouting(); }
+            }
+        session->selection.selectOnly (wc);
+        auto& ed = window->main->getEditor();
+        juce::Component::SafePointer<MainWindow> w (window.get());
+        te::WaveAudioClip::Ptr keep (wc);
+        if (args.contains ("--tune"))
+            juce::Timer::callAfterDelay (800, [w, keep] { if (w) { w->main->getEditor().showTune (keep.get()); w->main->getEditor().tuneNow(); } });
+        else if (args.contains ("--takes"))
+            juce::Timer::callAfterDelay (800, [w, keep] { if (w) { w->main->getEditor().showTakes (keep.get()); w->main->getEditor().autoCompNow(); } });
+        else ed.showClip (wc);
     }
 
     void renderDemo (const juce::File& out)

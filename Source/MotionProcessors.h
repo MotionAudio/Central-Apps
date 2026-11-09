@@ -27,6 +27,10 @@ std::unique_ptr<juce::AudioPluginInstance> createCmfxProcessor (const MotionPlug
 std::unique_ptr<juce::AudioPluginInstance> createKeysProcessor (const MotionPluginInfo&);
 std::unique_ptr<juce::AudioPluginInstance> createPadsProcessor (const MotionPluginInfo&);
 std::unique_ptr<juce::AudioPluginInstance> createDrumsProcessor (const MotionPluginInfo&);
+std::unique_ptr<juce::AudioPluginInstance> createTuneProcessor (const MotionPluginInfo&);
+std::unique_ptr<juce::AudioPluginInstance> createDenoiseProcessor (const MotionPluginInfo&);
+std::unique_ptr<juce::AudioPluginInstance> createDeEsserProcessor (const MotionPluginInfo&);
+std::unique_ptr<juce::AudioPluginInstance> createDuckerProcessor (const MotionPluginInfo&);
 
 //==============================================================================
 /** Shared base: name, buses, parameter state, the Motion Audio editor frame. */

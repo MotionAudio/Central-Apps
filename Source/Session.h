@@ -93,11 +93,18 @@ public:
     te::TimePosition snapTime (te::TimePosition t, bool force = false) const;
     te::BeatPosition snapBeat (te::BeatPosition b, bool force = false) const;
     double beatsPerBar() const;
-    int songKey = 0;                       // 0 = C .. 11 = B (for the key display)
+    int songKey = 0;                       // 0..11 = C..B major, 12..23 = C..B minor
+    int keyRoot() const      { return songKey % 12; }
+    bool keyIsMinor() const  { return songKey >= 12; }
+    void setSongKey (int);
+    /** Sets every Motion Tune that follows the song to the song's key and scale. */
+    void syncTuneKeys();
 
     //==============================================================================
     void undo();
     void redo();
+    /** Points every clip and take at its audio by full path (before the song file moves). */
+    void makeAudioPathsAbsolute();
     void notifyStructure()   { structureDirty = true; triggerAsyncUpdate(); }
     juce::String lastError;
 
@@ -113,7 +120,7 @@ private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
 
     juce::ListenerList<Listener> listeners;
-    bool structureDirty = false, propsDirty = false, untitled = true;
+    bool structureDirty = false, propsDirty = false, untitled = true, keyDirty = false;
     juce::File tempFolder;
 };
 

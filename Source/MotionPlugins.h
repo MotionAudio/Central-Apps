@@ -22,6 +22,7 @@ struct MotionPluginInfo
     juce::String id, name, category, group;   // group: "Pedals", "Boards", "Plugins", "Instruments"
     bool isInstrument = false;
     juce::Colour colour;
+    bool sidechain = false;                   // has a stereo sidechain input (channels 3-4)
 };
 
 /** Every Motion Audio plugin (pedals, boards, FX, instruments). */

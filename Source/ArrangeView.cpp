@@ -1,4 +1,5 @@
 #include "ArrangeView.h"
+#include "VocalTools.h"
 #include "MotionPlugins.h"
 
 namespace ms
@@ -364,8 +365,8 @@ void ClipComponent::mouseDrag (const juce::MouseEvent& e)
             // a different track?
             auto posInContainer = view.tracksContainer().getLocalPoint (this, e.getPosition());
             targetRow = view.rowAt (posInContainer.y);
-            auto rowOfLane = lane != nullptr ? view.rowAt (lane->getBounds().getCentreY()) : -1;
-            setTransform (juce::AffineTransform::translation (0.0f, (float) ((targetRow >= 0 ? targetRow : rowOfLane) - rowOfLane) * (float) session.trackHeight));
+            auto rowOfLane = lane != nullptr ? view.rowAt (lane->getY() + 2) : -1;
+            setTransform (juce::AffineTransform::translation (0.0f, (float) (view.rowY (targetRow >= 0 ? targetRow : rowOfLane) - view.rowY (rowOfLane))));
             break;
         }
         case Drag::trimStart:
@@ -456,6 +457,16 @@ void ClipComponent::showMenu()
         w->enterModalState (true, juce::ModalCallbackFunction::create ([w, c] (int r) { if (r == 1) c->setName (w->getTextEditorContents ("name")); }), true);
     });
     m.addItem ("Colour...", [this, c] { showColourMenu (this, [c] (juce::Colour col) { c->setColour (col); }); });
+    if (! s.selection.isSelected (c.get())) s.selection.selectOnly (c.get());
+    m.addItem ("Auto Time...", [this, c] { if (view.onClipTool) view.onClipTool (c.get(), 0); });
+    if (dynamic_cast<te::WaveAudioClip*> (c.get()) != nullptr)
+    {
+        m.addItem ("Tune (vocal)...", [this, c] { if (view.onClipTool) view.onClipTool (c.get(), 1); });
+        m.addItem ("Takes and Auto Comp...", [this, c] { if (view.onClipTool) view.onClipTool (c.get(), 2); });
+        if (auto w = dynamic_cast<te::WaveAudioClip*> (c.get()); w != nullptr && clipaudio::hasProcessing (*w))
+            m.addItem ("Back to the original audio", [w] { clipaudio::restoreOriginal (*w); });
+    }
+    m.addSeparator();
     m.addItem ("Split at playhead (Cmd T)", [&s] { s.splitSelectedAtPlayhead(); });
     m.addItem ("Duplicate (Cmd D)", [&s] { s.duplicateSelected(); });
     m.addItem (c->isMuted() ? "Unmute" : "Mute", [c] { c->setMuted (! c->isMuted()); });
@@ -503,7 +514,11 @@ TrackHeader::TrackHeader (Session& s, te::AudioTrack& t) : track (&t), session (
 {
     name.onTextChange = [this] { track->setName (name.getText()); };
     addAndMakeVisible (name);
-    for (auto* b : { &mute, &solo, &arm, &input }) addAndMakeVisible (b);
+    for (auto* b : { &mute, &solo, &arm, &input, &autoBtn }) addAndMakeVisible (b);
+    autoBtn.onClick = [this] { automation::setShown (*track, ! automation::isShown (*track)); };
+    paramBtn.onClick = [this] { automation::showParamMenu (session, *track, &paramBtn); };
+    paramBtn.setTooltip ("Choose what this lane draws");
+    addChildComponent (paramBtn);
     mute.onClick = [this] { track->setMute (! track->isMuted (false)); refresh(); };
     solo.onClick = [this] { track->setSolo (! track->isSolo (false)); refresh(); };
     arm.onClick = [this]
@@ -566,6 +581,12 @@ void TrackHeader::refresh()
     bool isInst = session.kindOf (*track) == TrackKind::instrument;
     input.setVisible (! isInst);
     input.setToggleState (session.audioInputOf (*track) != nullptr, juce::dontSendNotification);
+    bool shown = automation::isShown (*track);
+    autoBtn.setToggleState (shown || automation::hasAutomation (*track), juce::dontSendNotification);
+    paramBtn.setVisible (shown);
+    if (shown)
+        if (auto p = automation::currentParam (*track))
+            paramBtn.setButtonText (automation::displayName (*track, *p));
     if (auto vp = track->getVolumePlugin())
         if (! volume.isMouseButtonDown()) volume.setValue (vp->getSliderPos(), juce::dontSendNotification);
     auto inst = trackInstrument (*track);
@@ -590,6 +611,17 @@ void TrackHeader::paint (juce::Graphics& g)
     g.setColour (Colours::line);
     g.fillRect (0, getHeight() - 1, getWidth(), 1);
     g.fillRect (getWidth() - 1, 0, 1, getHeight());
+    if (automation::isShown (*track))
+    {
+        auto y = getHeight() - ArrangeView::autoLaneHeight;
+        g.setColour (Colours::bg2);
+        g.fillRect (5, y, getWidth() - 6, ArrangeView::autoLaneHeight - 1);
+        g.setColour (Colours::line);
+        g.fillRect (5, y, getWidth() - 6, 1);
+        g.setColour (Colours::dim);
+        g.setFont (Fonts::narrow (11.0f));
+        g.drawText ("AUTOMATION", juce::Rectangle<int> (26, y + 40, 120, 14), juce::Justification::centredLeft);
+    }
     // track number
     g.setColour (Colours::muted);
     g.setFont (Fonts::narrow (11.0f));
@@ -599,10 +631,16 @@ void TrackHeader::paint (juce::Graphics& g)
 
 void TrackHeader::resized()
 {
-    auto r = getLocalBounds().reduced (8, 5).withTrimmedLeft (18);
+    auto all = getLocalBounds();
+    if (automation::isShown (*track))
+    {
+        auto lane = all.removeFromBottom (ArrangeView::autoLaneHeight).reduced (8, 0).withTrimmedLeft (18);
+        paramBtn.setBounds (lane.removeFromTop (34).reduced (0, 6));
+    }
+    auto r = all.reduced (8, 5).withTrimmedLeft (18);
     auto top = r.removeFromTop (20);
-    auto btns = top.removeFromRight (4 * 21);
-    for (auto* b : { &mute, &solo, &arm, &input })
+    auto btns = top.removeFromRight (5 * 21);
+    for (auto* b : { &mute, &solo, &arm, &input, &autoBtn })
     {
         b->setBounds (btns.removeFromLeft (20).reduced (0, 1));
         btns.removeFromLeft (1);
@@ -661,10 +699,15 @@ void TrackHeader::itemDropped (const SourceDetails& d)
 }
 
 //==============================================================================
-TrackLane::TrackLane (Session& s, ArrangeView& v, te::AudioTrack& t) : track (&t), session (s), view (v)
+TrackLane::TrackLane (Session& s, ArrangeView& v, te::AudioTrack& t) : track (&t), autoLane (s, t), session (s), view (v)
 {
+    autoLane.beatToX = [this] (double b) { return TimelineMap { session, 0 }.beatToX (b); };
+    autoLane.xToBeat = [this] (double x) { return TimelineMap { session, 0 }.xToBeat (x); };
+    addChildComponent (autoLane);
     rebuildClips();
 }
+
+int TrackLane::clipAreaHeight() const  { return automation::isShown (*track) ? getHeight() - ArrangeView::autoLaneHeight : getHeight(); }
 
 void TrackLane::rebuildClips()
 {
@@ -684,18 +727,24 @@ void TrackLane::layoutClips()
     {
         auto r = c->clip->getEditTimeRange();
         auto x1 = m.timeToX (r.getStart()), x2 = m.timeToX (r.getEnd());
-        c->setBounds ((int) std::floor (x1), 1, juce::jmax (4, (int) std::ceil (x2 - x1)), getHeight() - 2);
+        c->setBounds ((int) std::floor (x1), 1, juce::jmax (4, (int) std::ceil (x2 - x1)), clipAreaHeight() - 2);
     }
 }
 
-void TrackLane::resized()  { layoutClips(); }
+void TrackLane::resized()
+{
+    bool shown = automation::isShown (*track);
+    autoLane.setVisible (shown);
+    if (shown) autoLane.setBounds (getLocalBounds().removeFromBottom (ArrangeView::autoLaneHeight));
+    layoutClips();
+}
 
 void TrackLane::paint (juce::Graphics& g)
 {
     bool selected = session.selection.isSelected (track.get());
     g.fillAll (selected ? Colours::panel.brighter (0.02f) : Colours::bg);
     TimelineMap m { session, 0 };
-    drawGrid (g, session, m, getLocalBounds(), false);
+    drawGrid (g, session, m, getLocalBounds().withHeight (clipAreaHeight()), false);
     g.setColour (Colours::line);
     g.fillRect (0, getHeight() - 1, getWidth(), 1);
 
@@ -706,7 +755,7 @@ void TrackLane::paint (juce::Graphics& g)
         auto x1 = (float) m.timeToX (tp.getTimeWhenStarted()), x2 = (float) m.timeToX (tp.getPosition());
         if (x2 > x1)
         {
-            auto rr = juce::Rectangle<float> (x1, 1.0f, x2 - x1, (float) getHeight() - 2.0f);
+            auto rr = juce::Rectangle<float> (x1, 1.0f, x2 - x1, (float) clipAreaHeight() - 2.0f);
             g.setColour (Colours::live.withAlpha (0.35f));
             g.fillRoundedRectangle (rr, 4.0f);
             g.setColour (Colours::live);
@@ -757,7 +806,7 @@ void TrackLane::mouseDown (const juce::MouseEvent& e)
 void TrackLane::mouseDrag (const juce::MouseEvent& e)
 {
     if (e.mods.isPopupMenu()) return;
-    rubber = juce::Rectangle<int> (e.getMouseDownPosition(), e.getPosition()).getIntersection (getLocalBounds().withHeight (getHeight()));
+    rubber = juce::Rectangle<int> (e.getMouseDownPosition(), e.getPosition()).getIntersection (getLocalBounds().withHeight (clipAreaHeight()));
     // select clips under the band (on this track; dragging across tracks selects theirs too)
     auto inContainer = view.tracksContainer().getLocalArea (this, juce::Rectangle<int> (e.getMouseDownPosition(), e.getPosition()));
     if (! e.mods.isShiftDown()) session.selection.deselectAll();
@@ -851,11 +900,16 @@ void ArrangeView::layoutAll()
 {
     auto w = viewport.getMaximumVisibleWidth();
     int y = 0;
+    heightsSignature = {};
     for (int i = 0; i < headers.size(); ++i)
     {
-        headers[i]->setBounds (0, y, headerWidth, session.trackHeight);
-        lanes[i]->setBounds (headerWidth, y, juce::jmax (10, w - headerWidth), session.trackHeight);
-        y += session.trackHeight;
+        auto h = rowHeight (i);
+        headers[i]->setBounds (0, y, headerWidth, h);
+        lanes[i]->setBounds (headerWidth, y, juce::jmax (10, w - headerWidth), h);
+        headers[i]->resized();
+        lanes[i]->resized();
+        y += h;
+        heightsSignature << h << ",";
     }
     addTrackBtn.setBounds (12, y + 10, headerWidth - 24, 28);
     container.setSize (w, juce::jmax (y + 60, viewport.getHeight()));
@@ -874,11 +928,29 @@ void ArrangeView::layoutAll()
     }
 }
 
+int ArrangeView::rowHeight (int row) const
+{
+    auto* l = lanes[row];
+    return session.trackHeight + (l != nullptr && automation::isShown (*l->track) ? autoLaneHeight : 0);
+}
+
+int ArrangeView::rowY (int row) const
+{
+    int y = 0;
+    for (int i = 0; i < row && i < lanes.size(); ++i) y += rowHeight (i);
+    return y;
+}
+
 int ArrangeView::rowAt (int y) const
 {
     if (y < 0) return 0;
-    auto r = y / juce::jmax (1, session.trackHeight);
-    return juce::jlimit (0, juce::jmax (0, lanes.size() - 1), r);
+    int top = 0;
+    for (int i = 0; i < lanes.size(); ++i)
+    {
+        top += rowHeight (i);
+        if (y < top) return i;
+    }
+    return juce::jmax (0, lanes.size() - 1);
 }
 
 TrackLane* ArrangeView::laneAt (int row) const  { return lanes[row]; }
@@ -919,6 +991,9 @@ void ArrangeView::paintOverChildren (juce::Graphics& g)
 
 void ArrangeView::propertiesChanged()
 {
+    juce::String sig;
+    for (int i = 0; i < lanes.size(); ++i) sig << rowHeight (i) << ",";
+    if (sig != heightsSignature) layoutAll();
     for (auto* h : headers) h->refresh();
     for (auto* l : lanes) { l->layoutClips(); l->repaint(); for (auto* c : l->clips) c->repaint(); }
     ruler.repaint();

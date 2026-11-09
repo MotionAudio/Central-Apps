@@ -122,7 +122,7 @@ TransportBar::TransportBar (Session& s) : session (s)
 
     for (int i = 0; i < 12; ++i) { keyBox.addItem (juce::String (keyNames[i]) + " major", i + 1); }
     for (int i = 0; i < 12; ++i) { keyBox.addItem (juce::String (keyNames[i]) + " minor", i + 13); }
-    keyBox.onChange = [this] { session.songKey = keyBox.getSelectedId() - 1; if (session.edit) session.edit->state.setProperty ("msKey", session.songKey, nullptr); };
+    keyBox.onChange = [this] { session.setSongKey (keyBox.getSelectedId() - 1); };
     keyBox.setTooltip ("Song key");
     keyBox.setColour (juce::ComboBox::backgroundColourId, Colours::bg2);
     keyBox.setColour (juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);

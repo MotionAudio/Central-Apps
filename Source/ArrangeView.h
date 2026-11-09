@@ -1,6 +1,7 @@
 #pragma once
 #include "Session.h"
 #include "Widgets.h"
+#include "Automation.h"
 
 namespace ms
 {
@@ -81,9 +82,10 @@ private:
     Session& session;
     EditableName name;
     SmallToggle mute { "M", Colours::mute, "Mute" }, solo { "S", Colours::solo, "Solo" },
-                arm { "R", Colours::live, "Record enable" }, input { "I", Colours::gold, "Input: choose the audio input / monitoring" };
+                arm { "R", Colours::live, "Record enable" }, input { "I", Colours::gold, "Input: choose the audio input / monitoring" },
+                autoBtn { "A", Colours::gold, "Automation: draw volume, pan or any plugin knob over time" };
     juce::Slider volume;
-    juce::TextButton instrumentBtn;
+    juce::TextButton instrumentBtn, paramBtn;
 };
 
 class TrackLane : public juce::Component, public juce::DragAndDropTarget, public juce::FileDragAndDropTarget
@@ -105,6 +107,8 @@ public:
     te::AudioTrack::Ptr track;
     juce::OwnedArray<ClipComponent> clips;
     juce::Rectangle<int> rubber;
+    AutomationLane autoLane;
+    int clipAreaHeight() const;
 
 private:
     Session& session;
@@ -132,10 +136,14 @@ public:
     void scrollToPlayhead();
     TimelineMap map() const;                 // x in lane coordinates
     int rowAt (int yInContainer) const;
+    int rowY (int row) const;
+    int rowHeight (int row) const;
     TrackLane* laneAt (int row) const;
+    static constexpr int autoLaneHeight = 70;
     juce::Component& tracksContainer()      { return container; }
 
     std::function<void (te::Clip*)> onOpenClip;
+    std::function<void (te::Clip*, int)> onClipTool;   // 0 Auto Time, 1 Tune, 2 Takes
     std::function<void (te::Plugin*)> onOpenPlugin;
     static constexpr int headerWidth = 236;
     static constexpr int rulerHeight = 34;
@@ -163,6 +171,7 @@ private:
     juce::TextButton addTrackBtn { "+  New track" };
     float lastPlayheadX = -1.0f;
     bool updatingScroll = false;
+    juce::String heightsSignature;
 };
 
 /** Every non-return track, in order (what the arrange and live views show). */

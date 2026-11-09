@@ -103,8 +103,33 @@ void Session::newSong (double bpm, int key, bool worshipTemplate)
     }
 
     edit->getUndoManager().clearUndoHistory();
+    // the song file exists from the start, so audio added before the first save is referenced correctly
+    te::EditFileOperations (*edit).writeToFile (file, false);
     edit->resetChangedStatus();
     attach();
+}
+
+void Session::makeAudioPathsAbsolute()
+{
+    if (edit == nullptr) return;
+    auto fix = [this] (juce::ValueTree v)
+    {
+        te::SourceFileReference ref (*edit, v, te::IDs::source);
+        auto f = ref.getFile();
+        if (f.existsAsFile() && ref.source.get() != f.getFullPathName())
+            ref.setToFile (f, te::SourceFileReference::PathStyle::alwaysAbsolute, false);
+    };
+    for (auto t : te::getAllTracks (*edit))
+        if (auto ct = dynamic_cast<te::ClipTrack*> (t))
+            for (auto c : ct->getClips())
+            {
+                if (c->usesSourceFile()) fix (c->state);
+                for (auto take : c->state.getChildWithName (te::IDs::TAKES))
+                    if (take.hasProperty (te::IDs::source)) fix (take);
+            }
+    for (auto at : te::getAudioTracks (*edit))
+        for (auto slot : at->getClipSlotList().getClipSlots())
+            if (auto c = slot->getClip(); c != nullptr && c->usesSourceFile()) fix (c->state);
 }
 
 bool Session::open (const juce::File& f)
@@ -158,12 +183,13 @@ void Session::saveAs (std::function<void (bool)> done)
         }
         auto oldFolder = file.getParentDirectory();
         bool wasUntitled = untitled;
+        makeAudioPathsAbsolute();   // the song moves: keep every clip pointing at its audio
         file = f;
         edit->editFileRetriever = [f] { return f; };
         bool ok = save();
         untitled = ! ok && wasUntitled;
         // an untitled song that was never used leaves no empty folder behind
-        if (ok && wasUntitled && oldFolder != f.getParentDirectory() && oldFolder.getChildFile ("Audio").findChildFiles (juce::File::findFiles, false).isEmpty())
+        if (ok && wasUntitled && oldFolder != f.getParentDirectory() && oldFolder.getChildFile ("Audio").findChildFiles (juce::File::findFiles, true).isEmpty())
             oldFolder.deleteRecursively();
         listeners.call ([] (Listener& l) { l.propertiesChanged(); });
         if (done) done (ok);
@@ -623,13 +649,23 @@ void Session::undo()  { if (edit) { edit->getUndoManager().undo(); notifyStructu
 void Session::redo()  { if (edit) { edit->getUndoManager().redo(); notifyStructure(); } }
 
 //==============================================================================
-void Session::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&)  { propsDirty = true; triggerAsyncUpdate(); }
+void Session::valueTreePropertyChanged (juce::ValueTree& v, const juce::Identifier& id)
+{
+    if (id == msKey && edit != nullptr && v == edit->state)
+    {
+        songKey = (int) v[msKey];
+        keyDirty = true;
+    }
+    propsDirty = true;
+    triggerAsyncUpdate();
+}
 void Session::valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&)              { structureDirty = true; triggerAsyncUpdate(); }
 void Session::valueTreeChildRemoved (juce::ValueTree&, juce::ValueTree&, int)       { structureDirty = true; triggerAsyncUpdate(); }
 void Session::valueTreeChildOrderChanged (juce::ValueTree&, int, int)               { structureDirty = true; triggerAsyncUpdate(); }
 
 void Session::handleAsyncUpdate()
 {
+    if (structureDirty || keyDirty) { keyDirty = false; syncTuneKeys(); }
     if (structureDirty) { structureDirty = false; propsDirty = false; listeners.call ([] (Listener& l) { l.structureChanged(); }); }
     if (propsDirty)     { propsDirty = false; listeners.call ([] (Listener& l) { l.propertiesChanged(); }); }
 }
@@ -637,6 +673,40 @@ void Session::handleAsyncUpdate()
 void Session::changeListenerCallback (juce::ChangeBroadcaster*)
 {
     listeners.call ([] (Listener& l) { l.selectionChanged(); });
+}
+
+void Session::setSongKey (int k)
+{
+    songKey = juce::jlimit (0, 23, k);
+    if (edit) edit->state.setProperty (msKey, songKey, nullptr);
+    syncTuneKeys();
+}
+
+void Session::syncTuneKeys()
+{
+    if (edit == nullptr) return;
+    for (auto p : te::getAllPlugins (*edit, false))
+        if (auto ep = dynamic_cast<te::ExternalPlugin*> (p))
+            if (ep->desc.fileOrIdentifier == "motion:tune")
+                if (auto pi = ep->getAudioPluginInstance())
+                {
+                    juce::RangedAudioParameter *key = nullptr, *scale = nullptr, *follow = nullptr;
+                    for (auto* prm : pi->getParameters())
+                        if (auto rp = dynamic_cast<juce::RangedAudioParameter*> (prm))
+                        {
+                            if (rp->getParameterID() == "key") key = rp;
+                            else if (rp->getParameterID() == "scale") scale = rp;
+                            else if (rp->getParameterID() == "follow") follow = rp;
+                        }
+                    if (follow == nullptr || follow->getValue() < 0.5f || key == nullptr || scale == nullptr) continue;
+                    auto setIf = [] (juce::RangedAudioParameter* rp, float v)
+                    {
+                        auto n = rp->convertTo0to1 (v);
+                        if (std::abs (rp->getValue() - n) > 1e-4f) rp->setValueNotifyingHost (n);
+                    };
+                    setIf (key, (float) keyRoot());
+                    setIf (scale, keyIsMinor() ? 1.0f : 0.0f);
+                }
 }
 
 //==============================================================================

@@ -20,6 +20,14 @@ MainComponent::MainComponent (Session& s, juce::ApplicationCommandManager& cm)
     transport.onSettings = [this] { showSettings(); };
     browser.onScanPlugins = [this] { showSettings (1); };
     arrange.onOpenClip = [this] (te::Clip* c) { openClip (c); };
+    arrange.onClipTool = [this] (te::Clip* c, int tool)
+    {
+        editorVisible = true;
+        resized();
+        if (tool == 0) editor.showAutoTime();
+        else if (tool == 1) editor.showTune (c);
+        else editor.showTakes (c);
+    };
     live.onOpenClip = [this] (te::Clip* c) { openClip (c); };
 
     session.addListener (this);
@@ -190,7 +198,7 @@ void MainComponent::getAllCommands (juce::Array<juce::CommandID>& c)
                   Cmd::zoomIn, Cmd::zoomOut, Cmd::zoomFit, Cmd::showArrange, Cmd::showLive, Cmd::showMixer, Cmd::toggleBrowser,
                   Cmd::toggleEditor, Cmd::musicalTyping, Cmd::newAudioTrack, Cmd::newInstrumentTrack, Cmd::settings, Cmd::scanPlugins,
                   Cmd::getSounds, Cmd::openUserFolder, Cmd::about, Cmd::followPlayhead, Cmd::trackHeightUp, Cmd::trackHeightDown,
-                  Cmd::quantise, Cmd::demoSong });
+                  Cmd::quantise, Cmd::demoSong, Cmd::autoTime, Cmd::tuneVocal, Cmd::autoComp, Cmd::writeAutomation });
 }
 
 void MainComponent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandInfo& i)
@@ -217,6 +225,11 @@ void MainComponent::getCommandInfo (juce::CommandID id, juce::ApplicationCommand
         case Cmd::duplicateClip: i.setInfo ("Duplicate", "Repeat the selected clips after themselves", "Edit", 0); i.addDefaultKeypress ('d', cmd); break;
         case Cmd::selectAll:     i.setInfo ("Select All Clips", {}, "Edit", 0); i.addDefaultKeypress ('a', cmd); break;
         case Cmd::quantise:      i.setInfo ("Quantize Selected MIDI", {}, "Edit", 0); single ('q'); break;
+        case Cmd::autoTime:      i.setInfo ("Auto Time...", "Line the selected audio or MIDI up with the metronome", "Edit", 0); i.addDefaultKeypress ('t', cmd | shift); break;
+        case Cmd::tuneVocal:     i.setInfo ("Tune Vocal", "Mark every note of the selected audio clip and tune it to the key", "Edit", 0); i.addDefaultKeypress ('u', cmd | shift); break;
+        case Cmd::autoComp:      i.setInfo ("Takes and Auto Comp", "Build the best take from a loop recording", "Edit", 0); i.addDefaultKeypress ('c', cmd | shift); break;
+        case Cmd::writeAutomation: i.setInfo ("Write Automation", "Record knob and fader moves while playing", "Transport", 0); i.addDefaultKeypress ('w', cmd | shift);
+                                   i.setTicked (session.edit->getAutomationRecordManager().isWritingAutomation()); break;
         case Cmd::play:          i.setInfo ("Play / Stop", {}, "Transport", 0); i.addDefaultKeypress (KP::spaceKey, 0); break;
         case Cmd::stop:          i.setInfo ("Stop", {}, "Transport", 0); i.addDefaultKeypress (KP::numberPad0, 0); break;
         case Cmd::record:        i.setInfo ("Record", {}, "Transport", 0); single ('r'); i.addDefaultKeypress ('r', cmd | alt); i.setTicked (tp.isRecording()); break;
@@ -283,6 +296,24 @@ bool MainComponent::perform (const InvocationInfo& info)
             for (auto t : session.tracks()) for (auto c : t->getClips()) session.selection.addToSelection (c);
             break;
         case Cmd::quantise:    session.quantiseSelected (session.snap ? juce::jmin (session.gridBeats, 1.0) : 0.25); editor.pianoRoll.repaint(); break;
+        case Cmd::autoTime:    editorVisible = true; resized(); editor.showAutoTime(); break;
+        case Cmd::tuneVocal:
+        case Cmd::autoComp:
+        {
+            editorVisible = true;
+            resized();
+            te::Clip* c = nullptr;
+            for (auto x : session.selectedClips()) if (dynamic_cast<te::WaveAudioClip*> (x)) { c = x; break; }
+            if (info.commandID == Cmd::tuneVocal) editor.showTune (c); else editor.showTakes (c);
+            break;
+        }
+        case Cmd::writeAutomation:
+        {
+            auto& arm = session.edit->getAutomationRecordManager();
+            arm.setWritingAutomation (! arm.isWritingAutomation());
+            commands.commandStatusChanged();
+            break;
+        }
         case Cmd::play:        if (tp.isPlaying()) tp.stop (false, false); else tp.play (false); break;
         case Cmd::stop:        if (! tp.isPlaying()) tp.setPosition (0s); tp.stop (false, false); break;
         case Cmd::record:      if (tp.isRecording()) tp.stop (false, false); else tp.record (false); break;
@@ -370,6 +401,7 @@ juce::PopupMenu MainComponent::getMenuForIndex (int index, const juce::String&)
         case 1:
             add (Cmd::undo); add (Cmd::redo); m.addSeparator();
             add (Cmd::splitClip); add (Cmd::duplicateClip); add (Cmd::deleteSel); add (Cmd::selectAll); add (Cmd::quantise);
+            m.addSeparator(); add (Cmd::autoTime); add (Cmd::tuneVocal); add (Cmd::autoComp);
             break;
         case 2:
             add (Cmd::newInstrumentTrack); add (Cmd::newAudioTrack);
@@ -377,7 +409,7 @@ juce::PopupMenu MainComponent::getMenuForIndex (int index, const juce::String&)
             break;
         case 3:
             add (Cmd::play); add (Cmd::stop); add (Cmd::record); add (Cmd::toStart); m.addSeparator();
-            add (Cmd::cycle); add (Cmd::metronome); add (Cmd::countIn);
+            add (Cmd::cycle); add (Cmd::metronome); add (Cmd::countIn); m.addSeparator(); add (Cmd::writeAutomation);
             break;
         case 4:
             add (Cmd::showArrange); add (Cmd::showLive); add (Cmd::showMixer); m.addSeparator();
