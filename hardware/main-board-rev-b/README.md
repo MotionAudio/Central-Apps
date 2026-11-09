@@ -1,6 +1,6 @@
 # Central Pedal main board - rev B
 
-390 x 278 mm, 4 layers (signal / GND / 5V1 + 5V2 / signal), 1.6 mm, ENIG, black mask, white silk. The whole pedal on
+390 x 278 mm (rev B.3, the files in `fab/`; rev B.4 at 500 x 278 mm is being routed), 4 layers (signal / GND / 5V1 + 5V2 / signal), 1.6 mm, ENIG, black mask, white silk. The whole pedal on
 one board: 10 footswitches with lights, 6 click-knobs (encoders), 2 faders, 18 label screens, the 7" Raspberry Pi
 Touch Display 2 (ribbon), the 11.9" bar touch screen (HDMI 1 + USB), 6 mono 1/4" outputs, 2 instrument inputs,
 2 external footswitch jacks, MIDI in / out, headphones, USB-C PD charging of a 2S battery, fan, power button. The
@@ -81,6 +81,10 @@ python3 cleanup.py --no-helpers && python3 touchup.py && MAZE_VIA=80 python3 maz
 python3 fanout.py --stitch && python3 islandvias.py && python3 fixrefs.py && python3 upsizevias.py
                                      # rev B.3: PJ-611E jacks + D_BAR to the front, re-route, fan holes off, title rev B.3,
                                      # capacitor designators back in step with design.py, 0.3 mm drills where they fit
+bash b4_pipeline.sh && bash finish_b4.sh
+                                     # rev B.4: stretch.py widens the finished rev B.3 board to 500 mm along two seams
+                                     # (footswitches 63.7 mm apart, faders / knobs evenly spaced), re-routes the strip,
+                                     # the knob clusters and the wires over the seams, then finishes as above
 python3 geometry.py                  # -> out/board-geometry.json for the enclosure
 python3 export.py                    # -> out/fab/
 ```

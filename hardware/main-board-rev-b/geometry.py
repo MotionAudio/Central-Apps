@@ -49,8 +49,18 @@ g = {
     "caps_58": by_fp("CPOL"),                       # 6.3 x 5.8 electrolytics: the tallest SMD parts (matter under the 7in display's brackets)
     "opto": by_fp("SMD8_OPTO"),                     # 6N138S, 3.5 mm tall
     "slots": [[round(v / 1e6, 3) for v in c] for c in build.inner_cutouts(b)],
-    "d7_at": [195.0, 94.0], "bar_at": [195.0, 193.0], "fan_at": [116.0, 116.0],
 }
+
+
+def _centre(key):
+    pts = g[key]
+    return (min(p[0] for p in pts) + max(p[0] for p in pts)) / 2, (min(p[1] for p in pts) + max(p[1] for p in pts)) / 2
+
+
+# screen centres from their mounting holes (the 7in's holes are its Pi-mount pattern, 27 mm right of its centre;
+# the bar screen's are 9.4 mm left of / 1.975 mm below its centre) - so they follow the board if it is widened
+cx, cy = _centre("d7_holes"); g["d7_at"] = [round(cx - 27.0, 3), round(cy, 3)]
+cx, cy = _centre("bar_holes"); g["bar_at"] = [round(cx + 9.4, 3), round(cy - 1.975, 3)]
 for k in ("J1", "J_USBC", "SW_PWR", "J_USBA", "J_FAN", "J_BAT", "J_DISP", "J_USB_BAR", "J_USB_UP"):
     if k in P:
         g[k] = list(P[k][:2])
