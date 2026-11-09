@@ -891,8 +891,16 @@ void EditorPanel::setPage (int p)
     takesTab.setToggleState (p == 4, juce::dontSendNotification);
     tuneView.setVisible (p == 3);
     takesView.setVisible (p == 4);
-    if (p == 3) tuneView.setClip (selectedAudioClip() != nullptr ? selectedAudioClip() : tuneView.getClip());
-    if (p == 4) takesView.setClip (selectedAudioClip() != nullptr ? selectedAudioClip() : takesView.getClip());
+    // the selected audio clip, else the one already open (here or in the Clip tab)
+    auto pick = [this] (te::WaveAudioClip* current)
+    {
+        if (auto c = selectedAudioClip()) return c;
+        if (current != nullptr && current->getTrack() != nullptr) return current;
+        if (auto c = audioInspector.getClip(); c != nullptr && c->getTrack() != nullptr) return c;
+        return (te::WaveAudioClip*) nullptr;
+    };
+    if (p == 3) tuneView.setClip (pick (tuneView.getClip()));
+    if (p == 4) takesView.setClip (pick (takesView.getClip()));
     bool isAudio = audioInspector.isVisible() || (p == 0 && pianoRoll.getClip() == nullptr && dynamic_cast<te::WaveAudioClip*> (session.selection.getFirstItemOfType<te::Clip>()) != nullptr);
     pianoRoll.setVisible (p == 0 && ! isAudio);
     audioInspector.setVisible (p == 0 && isAudio);

@@ -88,6 +88,7 @@ class AudioClipInspector : public juce::Component
 public:
     AudioClipInspector (Session&);
     void setClip (te::WaveAudioClip*);
+    te::WaveAudioClip* getClip() const   { return clip.get(); }
     void paint (juce::Graphics&) override;
     void resized() override;
     void refresh();

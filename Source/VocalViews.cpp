@@ -544,8 +544,9 @@ void TuneView::showNoteMenu (int index)
         });
     }
     juce::PopupMenu menu;
-    menu.addSectionHeader (vocal::noteName (sung) + ", sung " + juce::String ((int) std::round ((n.pitch - sung) * 100.0f)) + " cents "
-                           + (n.pitch >= sung ? "sharp" : "flat"));
+    auto cents = (int) std::round ((n.pitch - (float) sung) * 100.0f);
+    menu.addSectionHeader (vocal::noteName (sung) + (std::abs (cents) < 4 ? juce::String (", sung in tune")
+                                                     : ", sung " + juce::String (std::abs (cents)) + " cents " + (cents > 0 ? "sharp" : "flat")));
     menu.addSubMenu ("Make it", make);
     auto keyNote = vocal::nearestInScale (n.pitch, data.key, data.scale);
     menu.addItem ("Tune to the key (" + vocal::noteName (keyNote) + ")", true, n.tune && ! n.userSet, [this, index, keyNote]

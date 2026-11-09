@@ -177,10 +177,17 @@ ClipComponent::ClipComponent (Session& s, ArrangeView& v, te::Clip::Ptr c) : cli
 
 ClipComponent::~ClipComponent() = default;
 
+void ClipComponent::checkSource()
+{
+    if (auto wac = dynamic_cast<te::WaveAudioClip*> (clip.get()))
+        if (wac->getSourceFileReference().source.get() != thumbSource) { updateThumbnail(); repaint(); }
+}
+
 void ClipComponent::updateThumbnail()
 {
     if (auto wac = dynamic_cast<te::WaveAudioClip*> (clip.get()))
     {
+        thumbSource = wac->getSourceFileReference().source.get();
         te::AudioFile af (wac->getAudioFile());
         if (af.isValid())
         {
@@ -995,7 +1002,7 @@ void ArrangeView::propertiesChanged()
     for (int i = 0; i < lanes.size(); ++i) sig << rowHeight (i) << ",";
     if (sig != heightsSignature) layoutAll();
     for (auto* h : headers) h->refresh();
-    for (auto* l : lanes) { l->layoutClips(); l->repaint(); for (auto* c : l->clips) c->repaint(); }
+    for (auto* l : lanes) { l->layoutClips(); l->repaint(); for (auto* c : l->clips) { c->checkSource(); c->repaint(); } }
     ruler.repaint();
 }
 
@@ -1033,6 +1040,10 @@ void ArrangeView::timerCallback()
     }
     if (tp.isRecording())
         for (auto* l : lanes) if (session.isArmed (*l->track)) l->repaint();
+    // automation being written: show it as it happens
+    static int tick = 0;
+    if (tp.isPlaying() && session.edit->getAutomationRecordManager().isWritingAutomation() && (++tick % 3) == 0)
+        for (auto* l : lanes) if (l->autoLane.isVisible()) l->autoLane.repaint();
 }
 
 void ArrangeView::scrollBarMoved (juce::ScrollBar*, double start)

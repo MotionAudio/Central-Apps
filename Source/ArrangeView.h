@@ -49,6 +49,7 @@ public:
     void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseMove (const juce::MouseEvent&) override;
     void updateThumbnail();
+    void checkSource();      // the clip's audio was swapped (tuned, timed, comped): redraw its waveform
     te::Clip::Ptr clip;
 
 private:
@@ -56,6 +57,7 @@ private:
     Session& session;
     ArrangeView& view;
     std::unique_ptr<te::SmartThumbnail> thumbnail;
+    juce::String thumbSource;
     enum class Drag { none, move, trimStart, trimEnd, fadeIn, fadeOut } drag = Drag::none;
     te::ClipPosition startPos;
     double startFadeIn = 0, startFadeOut = 0;
