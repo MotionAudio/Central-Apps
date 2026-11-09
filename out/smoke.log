@@ -99,4 +99,4 @@ Found MIDI in: vmidiin_24820ec7 ("Musical Typing") (enabled)
 PASS  Motion Tune follows the song key   A Minor 
 ALL VOCAL TESTS PASSED
 Cleaning up temp files..
--rw-r--r--  1 runner  staff  8544784 Nov  9 00:36 demo.wav
+-rw-r--r--  1 runner  staff  8544784 Nov  9 00:42 demo.wav

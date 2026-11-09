@@ -1,19 +1,24 @@
 [35/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData32.cpp.o
-[36/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData37.cpp.o
-[37/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData36.cpp.o
-[38/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData33.cpp.o
-[39/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData35.cpp.o
-[40/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData38.cpp.o
-[41/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData34.cpp.o
+[36/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData33.cpp.o
+[37/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData35.cpp.o
+[38/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData34.cpp.o
+[39/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData36.cpp.o
+[40/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData37.cpp.o
+[41/127] Building CXX object CMakeFiles/MotionStudioData.dir/juce_binarydata_MotionStudioData/JuceLibraryCode/BinaryData38.cpp.o
 [42/127] Linking CXX static library libMotionStudioData.a
 [43/127] Generating MotionStudio_artefacts/JuceLibraryCode/MotionStudio/PkgInfo
 [44/127] Generating MotionStudio_artefacts/JuceLibraryCode/JuceHeader.h
-[45/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Browser.cpp.o
-[46/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Automation.cpp.o
+[45/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Automation.cpp.o
+[46/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Browser.cpp.o
 [47/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/EngineSetup.cpp.o
-[48/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/EditorPanel.cpp.o
-[49/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/ArrangeView.cpp.o
-[50/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Main.cpp.o
+[48/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Instruments.cpp.o
+[49/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/MixerView.cpp.o
+[50/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/MotionPlugins.cpp.o
+[51/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/MotionProcessors.cpp.o
+[52/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Session.cpp.o
+[53/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/SessionView.cpp.o
+[54/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Tests.cpp.o
+[55/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Main.cpp.o
 /Users/runner/work/Central-Apps/Central-Apps/Source/Main.cpp:26:85: warning: 'userArea' is deprecated: Use userBounds [-Wdeprecated-declarations]
    26 |         auto area = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea;
       |                                                                                     ^
@@ -28,93 +33,88 @@
    74 |         [[deprecated ("Use userBounds")]] Rectangle<int> userArea;
       |           ^
 1 warning generated.
-[51/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Instruments.cpp.o
-[52/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/MainComponent.cpp.o
-/Users/runner/work/Central-Apps/Central-Apps/Source/MainComponent.cpp:545:24: warning: 'showYesNoCancelBox' is deprecated: Prefer AlertWindow::showScopedAsync() [-Wdeprecated-declarations]
-  545 |     juce::AlertWindow::showYesNoCancelBox (juce::MessageBoxIconType::QuestionIcon, "Save changes?",
-      |                        ^
-/Users/runner/work/Central-Apps/Central-Apps/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/windows/juce_AlertWindow.h:436:7: note: 'showYesNoCancelBox' has been explicitly marked deprecated here
-  436 |     [[deprecated ("Prefer AlertWindow::showScopedAsync()")]]
-      |       ^
-1 warning generated.
-/Users/runner/work/Central-Apps/Central-Apps/Source/MainComponent.cpp:545:24: warning: 'showYesNoCancelBox' is deprecated: Prefer AlertWindow::showScopedAsync() [-Wdeprecated-declarations]
-  545 |     juce::AlertWindow::showYesNoCancelBox (juce::MessageBoxIconType::QuestionIcon, "Save changes?",
-      |                        ^
-/Users/runner/work/Central-Apps/Central-Apps/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/windows/juce_AlertWindow.h:436:7: note: 'showYesNoCancelBox' has been explicitly marked deprecated here
-  436 |     [[deprecated ("Prefer AlertWindow::showScopedAsync()")]]
-      |       ^
-1 warning generated.
-[53/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/MixerView.cpp.o
-[54/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/MotionPlugins.cpp.o
-[55/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Session.cpp.o
-[56/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/MotionProcessors.cpp.o
-[57/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/SessionView.cpp.o
-[58/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Theme.cpp.o
-[59/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Tests.cpp.o
-[60/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/VocalPlugins.cpp.o
-[61/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/VocalDSP.cpp.o
-[62/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/TransportBar.cpp.o
-[63/127] Building C object CMakeFiles/MotionStudio.dir/ThirdParty/MotionAudio/mapedals/mapedals.c.o
+[56/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Theme.cpp.o
+[57/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/TransportBar.cpp.o
+[58/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/VocalPlugins.cpp.o
+[59/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/VocalDSP.cpp.o
+[60/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/VocalTools.cpp.o
+[61/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Widgets.cpp.o
+[62/127] Building C object CMakeFiles/MotionStudio.dir/ThirdParty/MotionAudio/mapedals/mapedals.c.o
+[63/127] Building C object CMakeFiles/MotionStudio.dir/ThirdParty/MotionAudio/cmfx/cmfx.c.o
 [64/127] Building C object CMakeFiles/MotionStudio.dir/ThirdParty/MotionAudio/cmfx/cmfx_code.c.o
 [65/127] Building C object CMakeFiles/MotionStudio.dir/ThirdParty/MotionAudio/cmfx/cmfx_util.c.o
-[66/127] Building C object CMakeFiles/MotionStudio.dir/ThirdParty/MotionAudio/cmfx/cmfx.c.o
+[66/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_core/tracktion_core.cpp.o
 [67/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats_flac_1.c.o
-[68/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_core/tracktion_core.cpp.o
-[69/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/VocalTools.cpp.o
-[70/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/VocalViews.cpp.o
-[71/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats_ogg.c.o
-[72/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats_flac_2.c.o
-[73/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats_opusfile.c.o
+[68/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats_flac_2.c.o
+[69/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats_ogg.c.o
+[70/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats_opus.c.o
+[71/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats_opusfile.c.o
+[72/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/MainComponent.cpp.o
+/Users/runner/work/Central-Apps/Central-Apps/Source/MainComponent.cpp:545:24: warning: 'showYesNoCancelBox' is deprecated: Prefer AlertWindow::showScopedAsync() [-Wdeprecated-declarations]
+  545 |     juce::AlertWindow::showYesNoCancelBox (juce::MessageBoxIconType::QuestionIcon, "Save changes?",
+      |                        ^
+/Users/runner/work/Central-Apps/Central-Apps/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/windows/juce_AlertWindow.h:436:7: note: 'showYesNoCancelBox' has been explicitly marked deprecated here
+  436 |     [[deprecated ("Prefer AlertWindow::showScopedAsync()")]]
+      |       ^
+1 warning generated.
+/Users/runner/work/Central-Apps/Central-Apps/Source/MainComponent.cpp:545:24: warning: 'showYesNoCancelBox' is deprecated: Prefer AlertWindow::showScopedAsync() [-Wdeprecated-declarations]
+  545 |     juce::AlertWindow::showYesNoCancelBox (juce::MessageBoxIconType::QuestionIcon, "Save changes?",
+      |                        ^
+/Users/runner/work/Central-Apps/Central-Apps/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/windows/juce_AlertWindow.h:436:7: note: 'showYesNoCancelBox' has been explicitly marked deprecated here
+  436 |     [[deprecated ("Prefer AlertWindow::showScopedAsync()")]]
+      |       ^
+1 warning generated.
+[73/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/EditorPanel.cpp.o
 [74/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_core/juce_core_CompilationTime.cpp.o
 [75/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_core/juce_core_zlib.c.o
-[76/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/Widgets.cpp.o
-[77/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats_opus.c.o
-[78/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_basics/juce_audio_basics.mm.o
-[79/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats.mm.o
-[80/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_core/juce_core.mm.o
-[81/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_airwindows_1.cpp.o
-[82/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_airwindows_3.cpp.o
-[83/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_audio_files.cpp.o
-[84/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_airwindows_2.cpp.o
+[76/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/ArrangeView.cpp.o
+[77/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_airwindows_1.cpp.o
+[78/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_airwindows_2.cpp.o
+[79/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_airwindows_3.cpp.o
+[80/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_audio_files.cpp.o
+[81/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_model_1.cpp.o
+[82/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_model_2.cpp.o
+[83/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_playback.cpp.o
+[84/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_plugins.cpp.o
 [85/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_timestretch.cpp.o
-[86/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_model_2.cpp.o
-[87/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_plugins.cpp.o
-[88/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_model_1.cpp.o
-[89/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_utils.cpp.o
-[90/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_playback.cpp.o
-[91/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_events/juce_events.mm.o
-[92/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_devices/juce_audio_devices.mm.o
-[93/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_utils/juce_audio_utils.mm.o
-[94/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics_2.cpp.o
-[95/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_extra/juce_gui_extra.mm.o
-[96/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_processors/juce_audio_processors.mm.o
-[97/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics_3.cpp.o
-[98/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics_4.cpp.o
-[99/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics_5.cpp.o
-[100/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
-[101/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libjpg_2.c.o
-[102/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libjpg_3.c.o
-[103/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dec.c.o
-[104/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libjpg_1.c.o
+[86/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_engine/tracktion_engine_utils.cpp.o
+[87/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_basics/juce_audio_basics.mm.o
+[88/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_formats/juce_audio_formats.mm.o
+[89/127] Building CXX object CMakeFiles/MotionStudio.dir/Source/VocalViews.cpp.o
+[90/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_events/juce_events.mm.o
+[91/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_devices/juce_audio_devices.mm.o
+[92/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics_2.cpp.o
+[93/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics_3.cpp.o
+[94/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics_4.cpp.o
+[95/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics_5.cpp.o
+[96/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_core/juce_core.mm.o
+[97/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_utils/juce_audio_utils.mm.o
+[98/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
+[99/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libjpg_1.c.o
+[100/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libjpg_2.c.o
+[101/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libjpg_3.c.o
+[102/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libpng.c.o
+[103/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+[104/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dec.c.o
 [105/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_dec_avx2.c.o
-[106/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_dec_sse41.c.o
-[107/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_enc.c.o
-[108/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_enc_avx2.c.o
+[106/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_dec.c.o
+[107/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_dec_sse41.c.o
+[108/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_enc.c.o
 [109/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_enc_sse41.c.o
-[110/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libpng.c.o
-[111/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_dec.c.o
+[110/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_dsp_enc_avx2.c.o
+[111/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_enc.c.o
 [112/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_sharpyuv.c.o
 [113/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_utils.c.o
-[114/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_libwebp_enc.c.o
+[114/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_lunasvg.c.o
 [115/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_data_structures/juce_data_structures.mm.o
 [116/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_processors_headless/juce_audio_processors_headless_ara.cpp.o
-[117/127] Building C object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_lunasvg.c.o
-[118/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_processors_headless/juce_audio_processors_headless_lv2_libs.cpp.o
-[119/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics.mm.o
+[117/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_processors_headless/juce_audio_processors_headless_lv2_libs.cpp.o
+[118/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_extra/juce_gui_extra.mm.o
+[119/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_processors/juce_audio_processors.mm.o
 [120/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_osc/juce_osc.cpp.o
-[121/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_dsp/juce_dsp.mm.o
-[122/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_graph/tracktion_graph.cpp.o
-[123/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+[121/127] Building CXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/tracktion_graph/tracktion_graph.cpp.o
+[122/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_dsp/juce_dsp.mm.o
+[123/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_gui_basics/juce_gui_basics.mm.o
 [124/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_audio_processors_headless/juce_audio_processors_headless.mm.o
 [125/127] Building OBJCXX object CMakeFiles/MotionStudio.dir/deps/tracktion_engine/modules/juce/modules/juce_graphics/juce_graphics.mm.o
 [126/127] Linking CXX executable "MotionStudio_artefacts/Release/Motion Studio.app/Contents/MacOS/Motion Studio"
