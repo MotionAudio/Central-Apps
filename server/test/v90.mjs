@@ -44,8 +44,8 @@ try {
   ok(pk("pack-lite") === "250/3/6/1/15" && pk("pack-regular") === "350/4/8/1/18" && pk("pack-plus") === "500/5/10/1/20" && pk("pack-ultra") === "700/6/16/1/30" && !P0["pack-lite"].ships,
     "packs (1 main admin + admins, users, 1 Pedal Control, Services slots): Lite $250 3/6/15, Regular $350 4/8/18, Plus $500 5/10/20, Ultra $700 6/16/30; no pedal", P0);
   ok(P0["ultra-plus10"].cents === 3500 && P0["ultra-plus10"].slots === 10 && P0["ultra-plus10"].addonFor === "pack-ultra" && P0["services-slot"].cents === 500 && P0["services-slot"].slots === 1
-    && P0.admin.cents === 5000 && P0.user.cents === 2000 && P0["pedal-control"].cents === 5000 && P0.pedal.cents === 25000 && P0.pedal.hardware && cfg.subscription.cents === 7700 && cfg.renewal.cents === 2000 && cfg.mainAdminsMax === 2,
-    "singles: Ultra +10 slots $35, a Services slot $5, admin $50, user $20, Pedal Control $50, the pedal $250, Central Tracks Unlimited $77/month, renewal $20; up to 2 main admins");
+    && P0.admin.cents === 5000 && P0.user.cents === 2000 && P0["pedal-control"].cents === 5000 && P0.pedal.cents === 55000 && P0.pedal.hardware && cfg.subscription.cents === 7700 && cfg.renewal.cents === 2000 && cfg.mainAdminsMax === 2,
+    "singles: Ultra +10 slots $35, a Services slot $5, admin $50, user $20, Pedal Control $50, the pedal $550, Central Tracks Unlimited $77/month, renewal $20; up to 2 main admins");
 
   // ---------------------------------------------------------------- a church with keys bought at 9.0
   const own = await finish(await j("POST", "/signup", { email: E("own"), password: "password123", name: "Owner", churchName: "Nine " + S }), E("own"));

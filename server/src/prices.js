@@ -33,6 +33,14 @@ function upgrade98(d) {
   if (d.PLAN_BUNDLES && sameBundles(d.PLAN_BUNDLES, PLANS_98.bundles)) d.PLAN_BUNDLES = DEFAULTS.PLAN_BUNDLES;
   return d;
 }
+// (10.6) a list saved before the built pedal went from $250 to $550 (Nov 9 2026) with the pedal still at $250:
+// today's price.  A list saved after that keeps whatever the staff set.
+const PEDAL_550_FROM = new Date("2026-11-09T00:00:00Z");
+function upgradePedal(data, savedAt) {
+  const p = ((data || {}).PRODUCTS || {}).pedal;
+  if (!p || p.cents !== 25000 || !(savedAt && new Date(savedAt) < PEDAL_550_FROM)) return data;
+  return Object.assign({}, data, { PRODUCTS: Object.assign({}, data.PRODUCTS, { pedal: Object.assign({}, p, { cents: DEFAULTS.PRODUCTS.pedal.cents }) }) });
+}
 function apply(data) {
   const d = upgrade98(upgrade95(Object.assign({}, DEFAULTS, data || {})));
   replaceInto(PRODUCTS, d.PRODUCTS, DEFAULTS.PRODUCTS); replaceInto(SUBSCRIPTION, d.SUBSCRIPTION); replaceInto(STAR_PRICE_CENTS, d.STAR_PRICE_CENTS);
@@ -41,7 +49,7 @@ function apply(data) {
   for (const id of PLAN_IDS) if (!PLANS[id]) PLANS[id] = JSON.parse(JSON.stringify(DEFAULTS.PLANS[id]));   // (a list from before a plan was added)
 }
 // (a price list saved before 9.3 - three church packs, Central Services monthly - gives way to today's store)
-export async function loadPrices() { const r = await one("SELECT data FROM site_settings WHERE name='prices'"); if (r && r.data && r.data.PRODUCTS && !r.data.PRODUCTS["pack-small"]) apply(r.data); else apply(null); }
+export async function loadPrices() { const r = await one("SELECT data, updated_at FROM site_settings WHERE name='prices'"); if (r && r.data && r.data.PRODUCTS && !r.data.PRODUCTS["pack-small"]) apply(upgradePedal(r.data, r.updated_at)); else apply(null); }
 
 // checks a whole price list from the page; returns it cleaned up
 function clean(b) {

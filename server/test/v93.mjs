@@ -103,8 +103,8 @@ try {
     "Checkout Studio settings: the embedded form, address when needed, no phone, Stripe Tax off, a return link", s1);
   const byName = (re) => L.find((x) => re.test(x.price_data.product_data.name));
   const ul = byName(/^Ultra pack/), add = byName(/10 more/), ped = byName(/Central Pedal \(built/), slot = byName(/^Central Services slot/);
-  ok(ul.price_data.unit_amount === "35000" && add.price_data.unit_amount === "1750" && slot.price_data.unit_amount === "250" && slot.quantity === "2" && ped.price_data.unit_amount === "25000" && /BETATEST/.test(ul.price_data.product_data.name) && !/BETATEST/.test(ped.price_data.product_data.name),
-    "BETATEST: half off the pack, its 10 more slots and the slots; the built pedal stays $250", L.map((x) => x.price_data.product_data.name + " " + x.price_data.unit_amount));
+  ok(ul.price_data.unit_amount === "35000" && add.price_data.unit_amount === "1750" && slot.price_data.unit_amount === "250" && slot.quantity === "2" && ped.price_data.unit_amount === "55000" && /BETATEST/.test(ul.price_data.product_data.name) && !/BETATEST/.test(ped.price_data.product_data.name),
+    "BETATEST: half off the pack, its 10 more slots and the slots; the built pedal stays $550", L.map((x) => x.price_data.product_data.name + " " + x.price_data.unit_amount));
   ok(L.every((x) => x.price_data.tax_behavior === "inclusive" && x.price_data.currency === "usd") && ped.price_data.product_data.tax_code === "txcd_99999999" && ul.price_data.product_data.tax_code === "txcd_10202003",
     "every price includes tax and carries its tax code (the pedal: physical goods; software for the rest)");
   ok(/1 main admin \+ 5 admins · 16 users · Central Pedal Control · 30 Central Services slots/.test(ul.price_data.product_data.description) && s1.shipping_address_collection.allowed_countries.join() === "US,CA",
@@ -186,7 +186,7 @@ try {
   const other = await account("other", { churchName: "Other 93 " + S });
   await j("POST", "/checkout/store", { items: { "pack-lite": 1, pedal: 1 } }, other);
   const ls = lastSession().line_items;
-  ok(ls.find((x) => /Lite/.test(x.price_data.product_data.name)).price_data.unit_amount === "17500" && ls.find((x) => /Pedal \(built/.test(x.price_data.product_data.name)).price_data.unit_amount === "25000", "the live sale comes off at checkout ($250 → $175), not off the pedal", ls.map((x) => x.price_data.unit_amount));
+  ok(ls.find((x) => /Lite/.test(x.price_data.product_data.name)).price_data.unit_amount === "17500" && ls.find((x) => /Pedal \(built/.test(x.price_data.product_data.name)).price_data.unit_amount === "55000", "the live sale comes off at checkout ($250 → $175), not off the pedal", ls.map((x) => x.price_data.unit_amount));
   await j("POST", "/checkout/store", { items: { "pack-lite": 1 }, code: "BETATEST" }, other);
   ok(lastSession().line_items[0].price_data.unit_amount === "12500", "a typed code wins over the sale");
   await j("POST", "/admin/sale/live", { end: true }, sTok);

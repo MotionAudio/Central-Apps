@@ -153,7 +153,7 @@ name, the key, then the account.
   it's on, the people, and a **Release** button (for a lost or broken device). On a working device: Settings →
   License → Release key.
 - **Prices** are at the top of `src/config.js` (`PRODUCTS`, `PLANS`), and staff change them on the website's price page:
-  the built pedal $250, Central Pedal Control $50, admin $50, user $20, the Lite / Regular / Plus / Ultra packs
+  the built pedal $550, Central Pedal Control $50, admin $50, user $20, the Lite / Regular / Plus / Ultra packs
   $250 / $350 / $500 / $700. Sound plans a year: Central Keys $70, Central Plugins $140, Central Instrument $100,
   Central Pedals $70 (each with Central Pads), Central Pads $40, all of them $240; church bundles for 4 / 8 / 12 / 16 /
   20 people $700 / $1,380 / $1,860 / $2,590 / $2,920.
@@ -180,7 +180,7 @@ Buy a domain (for example `motionaudio.com`) from Cloudflare or any registrar, t
 - Prices include tax. Packs (each with 1 main admin, admins, users, 1 Central Pedal Control and Central Services
   slots): Lite $250 (2 admins, 6 users, 15 slots), Regular $350 (3, 8, 18), Plus $500 (4, 10, 20), Ultra $700
   (5, 16, 30; 10 more slots for $35). Single keys: admin $50, user $20, Pedal Control $50. A Central Services slot is
-  $5, once (one per person on the church's teams; taking someone off frees it). The built pedal is $250.
+  $5, once (one per person on the church's teams; taking someone off frees it). The built pedal is $550.
 - Codes: BETATEST 50% off, TRIALRUN everything free for 6 months, 7FREE everything free for 7 days. None of them
   apply to the built pedal. Staff change all of this, and run sales, on the website (Account → Prices, Sale).
 - Up to 2 main admins per church: a main admin makes one of the admins a main admin (Account → People).
