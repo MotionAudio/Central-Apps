@@ -1,5 +1,6 @@
 #include "ArrangeView.h"
 #include "VocalTools.h"
+#include "SongTools.h"
 #include "MotionPlugins.h"
 
 namespace ms
@@ -36,9 +37,12 @@ void Ruler::paint (juce::Graphics& g)
 {
     g.fillAll (Colours::panel);
     if (! session.edit) return;
+    paintSections (g);
+    g.setOrigin (0, sectionStrip);
+    const int H = getHeight() - sectionStrip;
     TimelineMap m { session, originX };
     auto bar = session.beatsPerBar();
-    auto r = getLocalBounds();
+    auto r = getLocalBounds().withHeight (H);
 
     // cycle range
     auto& tp = session.edit->getTransport();
@@ -46,7 +50,7 @@ void Ruler::paint (juce::Graphics& g)
     if (lr.getLength() > 0s)
     {
         auto x1 = (float) m.timeToX (lr.getStart()), x2 = (float) m.timeToX (lr.getEnd());
-        auto band = juce::Rectangle<float> (x1, 2.0f, x2 - x1, (float) getHeight() * 0.42f);
+        auto band = juce::Rectangle<float> (x1, 2.0f, x2 - x1, (float) H * 0.42f);
         g.setColour (tp.looping ? Colours::gold.withAlpha (0.85f) : Colours::line2);
         g.fillRoundedRectangle (band, 3.0f);
         g.setColour (tp.looping ? Colours::goldText : Colours::muted);
@@ -67,18 +71,18 @@ void Ruler::paint (juce::Graphics& g)
         if (x < originX - 1) continue;
         bool labelled = std::fmod (b, labelEvery) < 0.001;
         g.setColour (labelled ? Colours::muted : Colours::line2);
-        g.fillRect (x, (float) getHeight() * (labelled ? 0.45f : 0.7f), 1.0f, (float) getHeight());
+        g.fillRect (x, (float) H * (labelled ? 0.45f : 0.7f), 1.0f, (float) H);
         if (labelled)
         {
             g.setColour (Colours::text.withAlpha (0.85f));
-            g.drawText (juce::String ((int) b + 1), (int) x + 4, getHeight() / 2 - 2, 40, getHeight() / 2, juce::Justification::centredLeft);
+            g.drawText (juce::String ((int) b + 1), (int) x + 4, H / 2 - 2, 40, H / 2, juce::Justification::centredLeft);
         }
         if (pxPerBar > 60)
             for (int beat = 1; beat < (int) bar; ++beat)
             {
                 auto bx = (float) m.beatToX (b * bar + beat);
                 g.setColour (Colours::line);
-                g.fillRect (bx, (float) getHeight() * 0.8f, 1.0f, (float) getHeight());
+                g.fillRect (bx, (float) H * 0.8f, 1.0f, (float) H);
             }
     }
     // playhead marker
@@ -86,17 +90,17 @@ void Ruler::paint (juce::Graphics& g)
     if (px >= originX)
     {
         juce::Path tri;
-        tri.addTriangle (px - 6, (float) getHeight() - 9, px + 6, (float) getHeight() - 9, px, (float) getHeight());
+        tri.addTriangle (px - 6, (float) H - 9, px + 6, (float) H - 9, px, (float) H);
         g.setColour (Colours::goldHi);
         g.fillPath (tri);
     }
     g.setColour (Colours::line);
-    g.fillRect (0, getHeight() - 1, getWidth(), 1);
+    g.fillRect (0, H - 1, getWidth(), 1);
     // the corner over the track headers
     g.setColour (Colours::panel2);
     g.fillRect (r.withWidth (originX));
     g.setColour (Colours::line);
-    g.fillRect (originX - 1, 0, 1, getHeight());
+    g.fillRect (originX - 1, 0, 1, H);
     g.setColour (Colours::muted);
     g.setFont (Fonts::narrow (11.0f));
     g.drawText (session.edit ? juce::String (visibleTracks (session).size()) + " TRACKS" : juce::String(), r.withWidth (originX).reduced (12, 0), juce::Justification::centredLeft);
@@ -105,12 +109,13 @@ void Ruler::paint (juce::Graphics& g)
 void Ruler::mouseDown (const juce::MouseEvent& e)
 {
     if (! session.edit || e.x < originX) return;
+    if (e.y < sectionStrip) { sectionMouseDown (e); return; }
     TimelineMap m { session, originX };
     auto beat = juce::jmax (0.0, session.snapBeat (te::BeatPosition::fromBeats (m.xToBeat (e.x))).inBeats());
     auto& tp = session.edit->getTransport();
     auto& ts = session.edit->tempoSequence;
     dragStartBeat = beat;
-    if (e.y < getHeight() * 0.48f)
+    if (e.y - sectionStrip < (getHeight() - sectionStrip) * 0.48f)
     {
         auto lr = tp.getLoopRange();
         auto ls = ts.toBeats (lr.getStart()).inBeats(), le = ts.toBeats (lr.getEnd()).inBeats();
@@ -149,19 +154,116 @@ void Ruler::mouseDrag (const juce::MouseEvent& e)
         case Drag::moveLoop: { auto d = beat - dragStartBeat; d = juce::jmax (d, -loopStartBeat); setLoop (loopStartBeat + d, loopEndBeat + d); break; }
         case Drag::loopStart: setLoop (beat, loopEndBeat); break;
         case Drag::loopEnd:   setLoop (loopStartBeat, beat); break;
+        case Drag::section:   if (draggingSection != nullptr) song::moveSection (session, *draggingSection, beat); break;
         default: break;
     }
     repaint();
 }
 
-void Ruler::mouseUp (const juce::MouseEvent&)  { drag = Drag::none; }
+void Ruler::mouseUp (const juce::MouseEvent&)  { drag = Drag::none; draggingSection = nullptr; }
 
 void Ruler::mouseDoubleClick (const juce::MouseEvent& e)
 {
-    if (! session.edit || e.y >= getHeight() * 0.48f) return;
+    if (! session.edit) return;
+    if (e.y < sectionStrip)
+    {
+        if (auto c = sectionAt (e.x))
+        {
+            auto* aw = new juce::AlertWindow ("Rename section", {}, juce::MessageBoxIconType::NoIcon);
+            aw->addTextEditor ("name", c->getName());
+            aw->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+            aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+            aw->enterModalState (true, juce::ModalCallbackFunction::create ([aw, c] (int r) { if (r == 1) song::renameSection (*c, aw->getTextEditorContents ("name")); }), true);
+        }
+        return;
+    }
+    if (e.y - sectionStrip >= (getHeight() - sectionStrip) * 0.48f) return;
     auto& tp = session.edit->getTransport();
     tp.looping = ! tp.looping.get();
     repaint();
+}
+
+te::Clip::Ptr Ruler::sectionAt (int x) const
+{
+    TimelineMap m { session, originX };
+    auto secs = song::sections (session);
+    for (int i = (int) secs.size(); --i >= 0;)
+        if (m.beatToX (secs[(size_t) i].beat) <= x + 2) return secs[(size_t) i].clip;
+    return {};
+}
+
+void Ruler::paintSections (juce::Graphics& g)
+{
+    TimelineMap m { session, originX };
+    auto secs = song::sections (session);
+    g.setColour (Colours::bg2);
+    g.fillRect (originX, 0, getWidth() - originX, sectionStrip);
+    if (secs.empty())
+    {
+        g.setColour (Colours::dim);
+        g.setFont (Fonts::narrow (10.5f));
+        g.drawText ("RIGHT-CLICK HERE TO ADD SECTIONS (INTRO, VERSE, CHORUS...)", juce::Rectangle<int> (originX + 8, 0, 500, sectionStrip), juce::Justification::centredLeft);
+    }
+    auto end = session.edit->tempoSequence.toBeats (te::TimePosition() + session.edit->getLength()).inBeats();
+    for (size_t i = 0; i < secs.size(); ++i)
+    {
+        auto x1 = (float) m.beatToX (secs[i].beat);
+        auto x2 = (float) (i + 1 < secs.size() ? m.beatToX (secs[i + 1].beat) : m.beatToX (juce::jmax (end, secs[i].beat + session.beatsPerBar() * 4)));
+        if (x2 < originX || x1 > getWidth()) continue;
+        auto box = juce::Rectangle<float> (juce::jmax ((float) originX, x1) + 1, 2.0f, x2 - juce::jmax ((float) originX, x1) - 2, sectionStrip - 4.0f);
+        auto col = Colours::track ((int) i).interpolatedWith (Colours::gold, 0.35f);
+        g.setColour (col.withAlpha (0.28f));
+        g.fillRoundedRectangle (box, 3.0f);
+        g.setColour (col);
+        g.fillRect (x1, 2.0f, 2.0f, sectionStrip - 4.0f);
+        g.setColour (Colours::text);
+        g.setFont (Fonts::semi (11.5f));
+        g.drawText (secs[i].name, box.reduced (6, 0), juce::Justification::centredLeft, true);
+    }
+    g.setColour (Colours::line);
+    g.fillRect (originX, sectionStrip - 1, getWidth() - originX, 1);
+}
+
+void Ruler::sectionMouseDown (const juce::MouseEvent& e)
+{
+    TimelineMap m { session, originX };
+    auto beat = juce::jmax (0.0, std::round (m.xToBeat (e.x) / session.beatsPerBar()) * session.beatsPerBar());
+    auto hit = sectionAt (e.x);
+    if (e.mods.isPopupMenu())
+    {
+        juce::PopupMenu add, menu;
+        for (auto& n : song::commonSectionNames())
+            add.addItem (n, [this, beat, n] { song::addSection (session, beat, n); repaint(); });
+        add.addSeparator();
+        add.addItem ("Other name...", [this, beat]
+        {
+            auto* aw = new juce::AlertWindow ("New section", "Bar " + juce::String ((int) (beat / session.beatsPerBar()) + 1), juce::MessageBoxIconType::NoIcon);
+            aw->addTextEditor ("name", "Section");
+            aw->addButton ("Add", 1, juce::KeyPress (juce::KeyPress::returnKey));
+            aw->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+            aw->enterModalState (true, juce::ModalCallbackFunction::create ([this, aw, beat] (int r) { if (r == 1) { song::addSection (session, beat, aw->getTextEditorContents ("name")); repaint(); } }), true);
+        });
+        menu.addSubMenu ("Add a section at bar " + juce::String ((int) (beat / session.beatsPerBar()) + 1), add);
+        if (hit != nullptr)
+        {
+            juce::PopupMenu rename;
+            for (auto& n : song::commonSectionNames())
+                rename.addItem (n, [this, hit, n] { song::renameSection (*hit, n); repaint(); });
+            menu.addSubMenu ("Rename \"" + hit->getName() + "\"", rename);
+            menu.addItem ("Remove \"" + hit->getName() + "\"", [this, hit] { song::removeSection (session, *hit); repaint(); });
+        }
+        menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition());
+        return;
+    }
+    if (hit != nullptr)
+    {
+        // click: go there; drag: move it
+        auto& ts = session.edit->tempoSequence;
+        session.edit->getTransport().setPosition (hit->getPosition().getStart());
+        juce::ignoreUnused (ts);
+        drag = Drag::section;
+        draggingSection = hit;
+    }
 }
 
 void Ruler::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w)

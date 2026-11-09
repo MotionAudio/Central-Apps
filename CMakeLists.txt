@@ -49,11 +49,13 @@ juce_generate_juce_header(MotionStudio)
 
 file(GLOB MS_CMFX "${CMAKE_CURRENT_SOURCE_DIR}/Resources/cmfx/*.cmfx.json")
 file(GLOB MS_FONTS "${CMAKE_CURRENT_SOURCE_DIR}/Resources/fonts/*.ttf")
+file(GLOB MS_CUES "${CMAKE_CURRENT_SOURCE_DIR}/Resources/cues/*.wav")   # Motion Audio's spoken cues (the guide track)
 juce_add_binary_data(MotionStudioData
     NAMESPACE MotionData
     SOURCES
         ${MS_CMFX}
         ${MS_FONTS}
+        ${MS_CUES}
         "${CMAKE_CURRENT_SOURCE_DIR}/Resources/boards.json"
         "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png")
 

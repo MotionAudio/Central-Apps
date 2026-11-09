@@ -1,6 +1,7 @@
 #include "VocalTools.h"
 #include "MotionProcessors.h"
 #include "Automation.h"
+#include "SongTools.h"
 
 /* Headless checks for the vocal tools (run with --test-vocal). Each prints PASS / FAIL with the numbers. */
 
@@ -536,6 +537,145 @@ int runVocalTests (Session& session)
                     if (auto rp = dynamic_cast<juce::RangedAudioParameter*> (prm2))
                         if (rp->getParameterID() == "key" || rp->getParameterID() == "scale") keyText << rp->getCurrentValueAsText() << " ";
         check (keyText.trim() == "A Minor", "Motion Tune follows the song key", keyText);
+    }
+
+    //==============================================================================
+    // 9. Loudness and Motion Master
+    {
+        // EBU Tech 3341 case 1: a stereo 1 kHz sine at -23 dBFS reads -23 LUFS
+        int n = (int) (20.0 * sr);
+        juce::AudioBuffer<float> b (2, n);
+        auto a = juce::Decibels::decibelsToGain (-23.0f);
+        for (int i = 0; i < n; ++i) { auto v = a * (float) std::sin (juce::MathConstants<double>::twoPi * 1000.0 * i / sr); b.setSample (0, i, v); b.setSample (1, i, v); }
+        auto rep = measureLoudness (b, sr);
+        check (std::abs (rep.integrated + 23.0f) < 0.15f && std::abs (rep.shortMax + 23.0f) < 0.2f, "Loudness meter reads the EBU test tone",
+               juce::String (rep.integrated, 2) + " LUFS integrated, " + juce::String (rep.shortMax, 2) + " short-term (expected -23)");
+        // a hot mix through Motion Master stays under its ceiling, true peak included
+        auto p = createMotionPlugin ("motion:master");
+        p->setPlayConfigDetails (2, 2, sr, 512);
+        p->prepareToPlay (sr, 512);
+        setParam (*p, "input", 12.0f);
+        juce::AudioBuffer<float> x (2, (int) (6.0 * sr));
+        std::vector<float> d ((size_t) x.getNumSamples(), 0.0f);
+        for (double t = 0.1; t < 6.0; t += 0.25) drumHit (d, t, 0.9f);
+        for (int i = 0; i < x.getNumSamples(); ++i)
+        {
+            auto v = d[(size_t) i] + 0.3f * (float) std::sin (juce::MathConstants<double>::twoPi * 110.0 * i / sr);
+            x.setSample (0, i, v); x.setSample (1, i, v);
+        }
+        process (*p, x);
+        auto out = measureLoudness (x, sr);
+        float samplePeak = juce::jmax (x.getMagnitude (0, 0, x.getNumSamples()), x.getMagnitude (1, 0, x.getNumSamples()));
+        check (gainToDb (samplePeak) <= -0.99f && out.truePeak <= -0.7f, "Motion Master holds the ceiling",
+               "sample peak " + juce::String (gainToDb (samplePeak), 2) + " dBFS, true peak " + juce::String (out.truePeak, 2) + " dBTP (ceiling -1)");
+        if (auto src = dynamic_cast<LoudnessSource*> (p.get()))
+            check (std::abs (src->loudness().integrated() - out.integrated) < 0.5f && src->gainReductionDb() >= 0.0f, "Motion Master meters what it outputs",
+                   juce::String (src->loudness().integrated(), 1) + " LUFS in the plugin vs " + juce::String (out.integrated, 1) + " measured");
+    }
+
+    //==============================================================================
+    // 10. Key and tempo: stretching and shifting audio, and moving a whole song
+    {
+        // a click train at 120 BPM stretched to 96 BPM lands on the new beats; a 440 Hz tone up 2 semitones
+        std::vector<float> clicks ((size_t) (8.0 * sr), 0.0f);
+        for (double t = 0.5; t < 7.5; t += 0.5) drumHit (clicks, t, 0.8f);
+        auto cf = dir.getChildFile ("clicks.wav"), cs = dir.getChildFile ("clicks slow.wav");
+        vocal::writeWav (cf, toBuffer (clicks, 2), sr);
+        bool ok = song::stretchFile (session.engine, cf, cs, 1.25, 0.0f);
+        juce::AudioBuffer<float> sb; double ssr = 0;
+        vocal::readAudio (session.engine, cs, sb, ssr);
+        std::vector<float> mono; vocal::mixToMono (sb, mono);
+        auto on = vocal::detectOnsets (mono.data(), (int) mono.size(), ssr, vocal::OnsetStyle::drums);
+        auto before = vocal::detectOnsets (clicks.data(), (int) clicks.size(), sr, vocal::OnsetStyle::drums);
+        double worst = 0;
+        for (auto o : before)
+        {
+            double best = 1;
+            for (auto t : on) best = juce::jmin (best, std::abs (t - o * 1.25));
+            worst = juce::jmax (worst, best);
+        }
+        check (ok && std::abs (sb.getNumSamples() / ssr - 10.0) < 0.01 && on.size() == before.size() && worst < 0.006, "Audio stretched to a new tempo stays on the beat",
+               juce::String (sb.getNumSamples() / ssr, 2) + " s long (10 expected), " + juce::String ((int) on.size()) + " hits (" + juce::String ((int) before.size())
+               + " before), worst " + juce::String (worst * 1000, 1) + " ms off the new beat");
+        std::vector<float> tone ((size_t) (3.0 * sr));
+        for (size_t i = 0; i < tone.size(); ++i) tone[i] = 0.4f * (float) std::sin (juce::MathConstants<double>::twoPi * 440.0 * (double) i / sr);
+        auto tf = dir.getChildFile ("tone.wav"), tu = dir.getChildFile ("tone up.wav");
+        vocal::writeWav (tf, toBuffer (tone, 1), sr);
+        song::stretchFile (session.engine, tf, tu, 1.0, 2.0f);
+        juce::AudioBuffer<float> tb; double tsr = 0;
+        vocal::readAudio (session.engine, tu, tb, tsr);
+        vocal::mixToMono (tb, mono);
+        auto pt = vocal::analysePitch (mono.data(), (int) mono.size(), tsr);
+        auto m = medianMidi (pt, 0.5, 2.5);
+        check (std::abs (m - 71.0f) < 0.1f && std::abs (tb.getNumSamples() / tsr - 3.0) < 0.01, "Audio pitch-shifted 2 semitones keeps its length",
+               "A4 -> " + juce::String (m, 2) + " (71 = B4), " + juce::String (tb.getNumSamples() / tsr, 2) + " s");
+
+        // a whole song: C at 120 -> D at 100
+        session.newSong (120.0, 0, false);
+        for (auto t : session.tracks()) session.deleteTrack (*t);
+        auto keys = session.addTrack (TrackKind::instrument, "Keys");
+        auto mc = session.addMidiClip (*keys, session.edit->tempoSequence.toTime (te::BeatPosition::fromBeats (4)), te::BeatDuration::fromBeats (4));
+        mc->getSequence().addNote (60, te::BeatPosition::fromBeats (0), te::BeatDuration::fromBeats (1), 100, 0, nullptr);
+        auto drums = session.addTrack (TrackKind::audio, "Drums");
+        auto dclip = session.addAudioFile (*drums, cf, te::TimePosition());
+        auto vox = session.addTrack (TrackKind::audio, "Lead Vocal");
+        std::vector<float> v; double ph = 0;
+        voice (v, 0.0, 4.0, 57.0f, 0.0f, 0.8f, ph);
+        auto vf = dir.getChildFile ("song vocal.wav");
+        vocal::writeWav (vf, toBuffer (v, 1), sr);
+        auto vclip = session.addAudioFile (*vox, vf, te::TimePosition());
+        song::addSection (session, 0, "Intro");
+        song::addSection (session, 8, "Chorus");
+        auto& c = vox->getVolumePlugin()->volParam->getCurve();
+        c.addPoint (session.edit->tempoSequence.toTime (te::BeatPosition::fromBeats (8)), 0.5f, 0.0f, nullptr);
+        auto r = song::changeKeyAndTempo (session, 2, 100.0, true);
+        auto& ts = session.edit->tempoSequence;
+        auto secs = song::sections (session);
+        auto dw = dynamic_cast<te::WaveAudioClip*> (dclip.get()), vw = dynamic_cast<te::WaveAudioClip*> (vclip.get());
+        bool placed = std::abs (mc->getPosition().getStart().inSeconds() - 2.4) < 1e-3 && secs.size() == 2 && std::abs (secs[1].clip->getPosition().getStart().inSeconds() - 4.8) < 1e-3
+                      && std::abs (c.getPointTime (0).inSeconds() - 4.8) < 1e-3;
+        check (r.ok && std::abs (ts.getTempo (0)->getBpm() - 100.0) < 1e-6 && session.songKey == 2 && placed, "Changing the song's tempo keeps everything on its beat",
+               r.message + " MIDI at " + juce::String (mc->getPosition().getStart().inSeconds(), 3) + " s, chorus at " + (secs.size() > 1 ? juce::String (secs[1].clip->getPosition().getStart().inSeconds(), 3) : juce::String ("?")) + " s");
+        int note = mc->getSequence().getNotes().isEmpty() ? 0 : mc->getSequence().getNotes()[0]->getNoteNumber();
+        juce::AudioBuffer<float> vb; double vsr = 0;
+        vocal::readAudio (session.engine, clipaudio::sourceFile (*vw), vb, vsr);
+        vocal::mixToMono (vb, mono);
+        auto vp = vocal::analysePitch (mono.data(), (int) mono.size(), vsr);
+        auto vm = medianMidi (vp, 1.0, 4.0);
+        juce::AudioBuffer<float> db; double dsr = 0;
+        vocal::readAudio (session.engine, clipaudio::sourceFile (*dw), db, dsr);
+        check (note == 62 && std::abs (vm - 59.0f) < 0.1f && std::abs (vb.getNumSamples() / vsr - 4.8) < 0.02 && std::abs (db.getNumSamples() / dsr - 9.6) < 0.02,
+               "Changing the key moves MIDI and audio, not the drums",
+               "MIDI C -> " + juce::String (note) + ", vocal A2 -> " + juce::String (vm, 2) + " over " + juce::String (vb.getNumSamples() / vsr, 2) + " s, drums " + juce::String (db.getNumSamples() / dsr, 2) + " s");
+
+        // 11. Export for Central Pedal
+        song::ExportOptions eo;
+        eo.title = "Test Song";
+        eo.folder = dir.getChildFile ("export");
+        eo.folder.createDirectory();
+        eo.zip = false;
+        auto ex = song::exportPack (session, eo);
+        auto folder = ex.output;
+        bool names = folder.getFileName() == "Test Song - 100bpm - D";
+        juce::StringArray want { "Keys.wav", "Drums.wav", "Vocals.wav", "Full Mix.wav", "Click.wav", "Guide.wav", "Markers.mid" };
+        juce::StringArray missing;
+        for (auto& w : want) if (! folder.getChildFile (w).existsAsFile()) missing.add (w);
+        check (ex.ok && names && missing.isEmpty(), "Export makes a Central Pedal track pack", folder.getFileName() + " | " + ex.files.joinIntoString (", ") + (missing.isEmpty() ? juce::String() : " | missing " + missing.joinIntoString (",")));
+        juce::MidiFile mf;
+        juce::FileInputStream mi (folder.getChildFile ("Markers.mid"));
+        juce::StringArray marks;
+        if (mi.openedOk() && mf.readFrom (mi))
+            for (int t = 0; t < mf.getNumTracks(); ++t)
+                for (auto* e : *mf.getTrack (t))
+                    if (e->message.isTextMetaEvent() && e->message.getMetaEventType() == 6) marks.add (e->message.getTextFromTextMetaEvent() + "@" + juce::String (e->message.getTimeStamp() / 960.0));
+        check (marks.joinIntoString (",") == "Intro@0,Chorus@8", "The sections go in as MIDI markers", marks.joinIntoString (","));
+        juce::AudioBuffer<float> gb; double gsr = 0;
+        vocal::readAudio (session.engine, folder.getChildFile ("Guide.wav"), gb, gsr);
+        auto rmsAt = [&] (double t0, double t1) { auto a = (int) (t0 * gsr), e = juce::jmin (gb.getNumSamples(), (int) (t1 * gsr)); return e > a ? gb.getRMSLevel (0, a, e - a) : 0.0f; };
+        auto spoken = rmsAt (2.4, 3.0), quietBefore = rmsAt (0.0, 2.38);
+        check (spoken > 0.01f && quietBefore < 1e-4f, "The guide says \"Chorus\" one bar before the chorus", "level " + juce::String (spoken, 3) + " at 2.4 s, " + juce::String (quietBefore, 5) + " before");
+        check (ex.grade.stars >= 4, "Central Tracks grade estimate", juce::String (ex.grade.stars) + " stars | " + ex.grade.lines.joinIntoString (" ; ") + " | "
+               + juce::String (ex.grade.loudness.integrated, 1) + " LUFS");
     }
 
     std::cout << (failures == 0 ? "ALL VOCAL TESTS PASSED" : juce::String (failures) + " FAILED") << std::endl;

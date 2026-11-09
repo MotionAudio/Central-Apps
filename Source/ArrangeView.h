@@ -31,10 +31,15 @@ public:
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
     std::function<void (const juce::MouseEvent&, const juce::MouseWheelDetails&)> onWheel;
     int originX = 0;
+    static constexpr int sectionStrip = 20;   // Intro, Verse 1, Chorus... along the top
 private:
+    void paintSections (juce::Graphics&);
+    void sectionMouseDown (const juce::MouseEvent&);
+    te::Clip::Ptr sectionAt (int x) const;
     Session& session;
-    enum class Drag { none, locate, newLoop, moveLoop, loopStart, loopEnd } drag = Drag::none;
+    enum class Drag { none, locate, newLoop, moveLoop, loopStart, loopEnd, section } drag = Drag::none;
     double dragStartBeat = 0, loopStartBeat = 0, loopEndBeat = 0;
+    te::Clip::Ptr draggingSection;
 };
 
 class ClipComponent : public juce::Component
@@ -148,7 +153,7 @@ public:
     std::function<void (te::Clip*, int)> onClipTool;   // 0 Auto Time, 1 Tune, 2 Takes
     std::function<void (te::Plugin*)> onOpenPlugin;
     static constexpr int headerWidth = 236;
-    static constexpr int rulerHeight = 34;
+    static constexpr int rulerHeight = 34 + Ruler::sectionStrip;
 
     bool isInterestedInFileDrag (const juce::StringArray&) override;
     void filesDropped (const juce::StringArray&, int x, int y) override;

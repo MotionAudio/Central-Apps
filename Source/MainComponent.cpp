@@ -1,4 +1,6 @@
 #include "MainComponent.h"
+#include "SongDialogs.h"
+#include "SongTools.h"
 #include "MotionPlugins.h"
 
 namespace ms
@@ -198,7 +200,8 @@ void MainComponent::getAllCommands (juce::Array<juce::CommandID>& c)
                   Cmd::zoomIn, Cmd::zoomOut, Cmd::zoomFit, Cmd::showArrange, Cmd::showLive, Cmd::showMixer, Cmd::toggleBrowser,
                   Cmd::toggleEditor, Cmd::musicalTyping, Cmd::newAudioTrack, Cmd::newInstrumentTrack, Cmd::settings, Cmd::scanPlugins,
                   Cmd::getSounds, Cmd::openUserFolder, Cmd::about, Cmd::followPlayhead, Cmd::trackHeightUp, Cmd::trackHeightDown,
-                  Cmd::quantise, Cmd::demoSong, Cmd::autoTime, Cmd::tuneVocal, Cmd::autoComp, Cmd::writeAutomation });
+                  Cmd::quantise, Cmd::demoSong, Cmd::autoTime, Cmd::tuneVocal, Cmd::autoComp, Cmd::writeAutomation,
+                  Cmd::exportPack, Cmd::changeKeyTempo, Cmd::addSection, Cmd::loudnessMeter });
 }
 
 void MainComponent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandInfo& i)
@@ -225,6 +228,10 @@ void MainComponent::getCommandInfo (juce::CommandID id, juce::ApplicationCommand
         case Cmd::duplicateClip: i.setInfo ("Duplicate", "Repeat the selected clips after themselves", "Edit", 0); i.addDefaultKeypress ('d', cmd); break;
         case Cmd::selectAll:     i.setInfo ("Select All Clips", {}, "Edit", 0); i.addDefaultKeypress ('a', cmd); break;
         case Cmd::quantise:      i.setInfo ("Quantize Selected MIDI", {}, "Edit", 0); single ('q'); break;
+        case Cmd::exportPack:    i.setInfo ("Export for Central Pedal / Central Tracks...", "A track pack: stems, click, guide, sections, full mix", "File", 0); i.addDefaultKeypress ('e', cmd | shift); break;
+        case Cmd::changeKeyTempo: i.setInfo ("Change Key and Tempo...", "Move the whole song to a new key and BPM", "Edit", 0); i.addDefaultKeypress ('k', cmd | shift); break;
+        case Cmd::addSection:    i.setInfo ("Add Section at Playhead...", "Intro, Verse, Chorus... on the strip above the bar numbers", "Edit", 0); i.addDefaultKeypress ('m', cmd | shift); break;
+        case Cmd::loudnessMeter: i.setInfo ("Loudness and Limiter (Motion Master)", "Open Motion Master on the master, adding it if it isn't there", "View", 0); i.addDefaultKeypress ('l', cmd | shift); break;
         case Cmd::autoTime:      i.setInfo ("Auto Time...", "Line the selected audio or MIDI up with the metronome", "Edit", 0); i.addDefaultKeypress ('t', cmd | shift); break;
         case Cmd::tuneVocal:     i.setInfo ("Tune Vocal", "Mark every note of the selected audio clip and tune it to the key", "Edit", 0); i.addDefaultKeypress ('u', cmd | shift); break;
         case Cmd::autoComp:      i.setInfo ("Takes and Auto Comp", "Build the best take from a loop recording", "Edit", 0); i.addDefaultKeypress ('c', cmd | shift); break;
@@ -297,6 +304,18 @@ bool MainComponent::perform (const InvocationInfo& info)
             break;
         case Cmd::quantise:    session.quantiseSelected (session.snap ? juce::jmin (session.gridBeats, 1.0) : 0.25); editor.pianoRoll.repaint(); break;
         case Cmd::autoTime:    editorVisible = true; resized(); editor.showAutoTime(); break;
+        case Cmd::exportPack:  showExportPackDialog (session); break;
+        case Cmd::changeKeyTempo: showKeyTempoDialog (session); break;
+        case Cmd::loudnessMeter: if (auto p = session.addMasterLimiter()) p->showWindowExplicitly(); break;
+        case Cmd::addSection:
+        {
+            auto beat = session.edit->tempoSequence.toBeats (tp.getPosition()).inBeats();
+            beat = std::round (beat / session.beatsPerBar()) * session.beatsPerBar();
+            juce::PopupMenu m;
+            for (auto& n : song::commonSectionNames()) m.addItem (n, [this, beat, n] { song::addSection (session, beat, n); arrange.repaint(); });
+            m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&arrange));
+            break;
+        }
         case Cmd::tuneVocal:
         case Cmd::autoComp:
         {
@@ -392,7 +411,7 @@ juce::PopupMenu MainComponent::getMenuForIndex (int index, const juce::String&)
                 m.addSubMenu ("Open Song from Projects", recent);
             }
             m.addSeparator(); add (Cmd::saveSong); add (Cmd::saveSongAs);
-            m.addSeparator(); add (Cmd::exportMix); add (Cmd::exportStems); add (Cmd::revealSong);
+            m.addSeparator(); add (Cmd::exportMix); add (Cmd::exportStems); add (Cmd::exportPack); add (Cmd::revealSong);
            #if ! JUCE_MAC
             m.addSeparator(); add (Cmd::settings);
             m.addItem ("Quit", [] { juce::JUCEApplication::getInstance()->systemRequestedQuit(); });
@@ -402,6 +421,7 @@ juce::PopupMenu MainComponent::getMenuForIndex (int index, const juce::String&)
             add (Cmd::undo); add (Cmd::redo); m.addSeparator();
             add (Cmd::splitClip); add (Cmd::duplicateClip); add (Cmd::deleteSel); add (Cmd::selectAll); add (Cmd::quantise);
             m.addSeparator(); add (Cmd::autoTime); add (Cmd::tuneVocal); add (Cmd::autoComp);
+            m.addSeparator(); add (Cmd::changeKeyTempo); add (Cmd::addSection);
             break;
         case 2:
             add (Cmd::newInstrumentTrack); add (Cmd::newAudioTrack);
@@ -415,6 +435,7 @@ juce::PopupMenu MainComponent::getMenuForIndex (int index, const juce::String&)
             add (Cmd::showArrange); add (Cmd::showLive); add (Cmd::showMixer); m.addSeparator();
             add (Cmd::toggleBrowser); add (Cmd::toggleEditor); add (Cmd::musicalTyping); m.addSeparator();
             add (Cmd::zoomIn); add (Cmd::zoomOut); add (Cmd::zoomFit); add (Cmd::followPlayhead); add (Cmd::trackHeightUp); add (Cmd::trackHeightDown);
+            m.addSeparator(); add (Cmd::loudnessMeter);
             break;
         case 5:
             add (Cmd::scanPlugins); add (Cmd::getSounds); add (Cmd::openUserFolder);
@@ -649,6 +670,9 @@ void MainComponent::makeDemoSong()
                 if (session.returnBusOf (*r) == 0)
                     if (auto s = session.sendFor (*t, 0, true)) s->setGainDb (t == pads ? -12.0f : -9.0f);
     edit.getTransport().setLoopRange ({ toT (0), toT (bars * 4.0) });
+    song::addSection (session, 0, "Intro");
+    song::addSection (session, 8, "Verse 1");
+    song::addSection (session, 24, "Chorus");
     edit.getTransport().looping = true;
     session.notifyStructure();
     arrange.zoomToFit();

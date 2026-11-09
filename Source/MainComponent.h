@@ -19,7 +19,7 @@ namespace Cmd
         play, stop, record, cycle, metronome, toStart, countIn,
         zoomIn, zoomOut, zoomFit, showArrange, showLive, showMixer, toggleBrowser, toggleEditor, musicalTyping,
         newAudioTrack, newInstrumentTrack, settings, scanPlugins, getSounds, openUserFolder, about, followPlayhead,
-        trackHeightUp, trackHeightDown, quantise, demoSong, autoTime, tuneVocal, autoComp, writeAutomation
+        trackHeightUp, trackHeightDown, quantise, demoSong, autoTime, tuneVocal, autoComp, writeAutomation, exportPack, changeKeyTempo, addSection, loudnessMeter
     };
 }
 

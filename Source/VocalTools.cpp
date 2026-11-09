@@ -86,7 +86,7 @@ struct BeatTable
 
 //==============================================================================
 /** Runs work on a background thread behind a progress window (or straight away with no UI). */
-static bool runWithProgress (const juce::String& title, std::function<bool (std::function<bool (float)>)> work)
+bool runWithProgress (const juce::String& title, std::function<bool (std::function<bool (float)>)> work)
 {
     struct Task : public juce::ThreadWithProgressWindow
     {

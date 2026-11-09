@@ -714,6 +714,13 @@ void warpRender (const juce::AudioBuffer<float>& in, double sr, const std::vecto
         return false;
     };
     auto sample = [&] (int i) { return i >= 0 && i < inLen ? mono[(size_t) i] : 0.0f; };
+    auto straight = [&] (double tOut)   // a stretch that plays at its own speed: copy it, no searching
+    {
+        if (knots.size() < 2 || tOut <= knots.front().out || tOut >= knots.back().out) return true;
+        auto it = std::upper_bound (knots.begin(), knots.end(), tOut, [] (double t, const WarpKnot& k) { return t < k.out; });
+        auto& b = *it; auto& a = *(it - 1);
+        return std::abs ((b.src - a.src) / juce::jmax (1e-9, b.out - a.out) - 1.0) < 1e-4;
+    };
 
     int prevSrc = -1;
     int frames = outLen / Ha + 2;
@@ -723,7 +730,7 @@ void warpRender (const juce::AudioBuffer<float>& in, double sr, const std::vecto
         auto centreOut = (double) (outPos + L / 2) / sr;
         int nominal = (int) std::round (mapOut (centreOut) * sr) - L / 2;
         int best = nominal;
-        if (prevSrc >= 0 && ! nearOnset (centreOut))
+        if (prevSrc >= 0 && ! nearOnset (centreOut) && ! straight (centreOut))
         {
             // the start that best continues the previous frame (coarse search, then fine)
             int natural = prevSrc + Ha;

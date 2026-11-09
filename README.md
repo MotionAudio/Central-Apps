@@ -65,6 +65,20 @@ launch in time, like Ableton's Session view) and **Mixer**.
   Ducker** ducks a track under the kick or a voice (or in time with the beat); the built-in compressor and AU / VST3
   compressors with a sidechain input work too.
 
+- **Export for Central Pedal / Central Tracks** (File, Cmd Shift E): a track pack named "Title - Artist - 72bpm - G"
+  with a stem per role (drums, bass, keys, guitar, vocals, music - the reverb and delay go in with each), a click,
+  a spoken guide ("Chorus" a bar ahead, in Motion Audio's cue voice), the sections as Markers.mid, and a full mix.
+  Central Pedal Control reads the title, key, tempo, sections and roles straight from it. The export shows the
+  star grade the Motion Audio website would give it for Central Tracks, and its loudness.
+- **Sections:** right-click the strip above the bar numbers to add Intro, Verse 1, Chorus...; drag to move,
+  double-click to rename.
+- **Change Key and Tempo** (Edit, Cmd Shift K): the whole song to a new key and BPM. MIDI is transposed, audio is
+  pitch-shifted and stretched (drum hits stay sharp, drums keep their pitch), and clips, sections and automation
+  stay on their beats.
+- **Motion Master** (on the master of every new song): a true-peak limiter with a loudness meter - integrated,
+  short-term and momentary LUFS, true peak and loudness range. Pick a target (-14 LUFS for streaming...), play the
+  song and press Match. The transport bar shows the loudness all the time.
+
 Every tool writes new audio next to the song and keeps the original, so you can always go back.
 
 ## Motion Audio's plugins, built in

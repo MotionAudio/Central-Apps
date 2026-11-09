@@ -165,6 +165,7 @@ const std::vector<MotionPluginInfo>& motionPlugins()
         out.push_back ({ "motion:denoise", "Motion Denoise", "Vocal", "Plugins", false, Colours::gold });
         out.push_back ({ "motion:deesser", "Motion De-Esser", "Vocal", "Plugins", false, Colours::gold });
         out.push_back ({ "motion:ducker", "Motion Sidechain Ducker", "Dynamics", "Plugins", false, Colours::gold, true });
+        out.push_back ({ "motion:master", "Motion Master", "Dynamics", "Plugins", false, Colours::gold });
 
         for (auto& b : boardPresets())
             out.push_back ({ "motion:board:" + b.id, b.name, kindTitle (b.kind), "Boards", false, Colours::gold });
@@ -225,6 +226,7 @@ std::unique_ptr<juce::AudioPluginInstance> createMotionPlugin (const juce::Strin
     if (id == "motion:denoise") return createDenoiseProcessor (*info);
     if (id == "motion:deesser") return createDeEsserProcessor (*info);
     if (id == "motion:ducker")  return createDuckerProcessor (*info);
+    if (id == "motion:master")  return createMasterProcessor (*info);
     if (id.startsWith ("motion:board:")) return createPedalboardProcessor (*info, id.fromFirstOccurrenceOf ("motion:board:", false, false));
     if (id.startsWith ("motion:pedal:")) return createPedalProcessor (*info, id.fromFirstOccurrenceOf ("motion:pedal:", false, false));
     if (id.startsWith ("motion:fx:"))

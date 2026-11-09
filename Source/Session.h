@@ -103,6 +103,9 @@ public:
     //==============================================================================
     void undo();
     void redo();
+    /** Motion Master on the master (the limiter + loudness meter), or null. */
+    te::Plugin::Ptr masterLimiter() const;
+    te::Plugin::Ptr addMasterLimiter();
     /** Points every clip and take at its audio by full path (before the song file moves). */
     void makeAudioPathsAbsolute();
     void notifyStructure()   { structureDirty = true; triggerAsyncUpdate(); }

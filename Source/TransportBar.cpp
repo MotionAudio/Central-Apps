@@ -1,4 +1,6 @@
 #include "TransportBar.h"
+#include "Loudness.h"
+#include "MotionPlugins.h"
 
 namespace ms
 {
@@ -164,6 +166,7 @@ TransportBar::TransportBar (Session& s) : session (s)
 
     addAndMakeVisible (master);
     master.setTooltip ("Master output");
+    addAndMakeVisible (loudness);
     session.addListener (this);
     editChanged();
     setCurrentView (0);
@@ -224,6 +227,7 @@ void TransportBar::timerCallback()
         repaint (lcd); repaint (master.getBounds().expanded (0, 16));
     }
     updateButtons();
+    loudness.refresh();
     bpm.repaint(); sigNum.repaint(); sigDen.repaint();
 }
 
@@ -283,6 +287,61 @@ void TransportBar::paint (juce::Graphics& g)
     g.drawText ("OUT", master.getBounds().translated (0, -14).withHeight (14), juce::Justification::centredLeft);
 }
 
+//==============================================================================
+void LoudnessReadout::refresh()
+{
+    juce::String st, detail;
+    bool has = false, hot = false;
+    if (auto p = session.masterLimiter())
+        if (auto ep = dynamic_cast<te::ExternalPlugin*> (p.get()))
+            if (auto src = dynamic_cast<LoudnessSource*> (ep->getAudioPluginInstance()))
+            {
+                has = true;
+                auto& m = src->loudness();
+                auto f = [] (float v) { return v <= LoudnessMeter::silence + 0.05f ? juce::String ("--") : juce::String (v, 1); };
+                st = f (m.shortTerm());
+                detail = "I " + f (m.integrated()) + "  TP " + (m.truePeak() < -100 ? juce::String ("--") : juce::String (m.truePeak(), 1));
+                hot = m.truePeak() > -0.1f;
+            }
+    if (st != shortText || detail != detailText || has != present || hot != over)
+    {
+        shortText = st; detailText = detail; present = has; over = hot;
+        setTooltip (present ? "Loudness (Motion Master on the master). Click to open it." : "Click to add Motion Master (limiter + loudness meter) to the master");
+        repaint();
+    }
+}
+
+void LoudnessReadout::paint (juce::Graphics& g)
+{
+    auto r = getLocalBounds().toFloat();
+    g.setColour (Colours::bg2);
+    g.fillRoundedRectangle (r, 5.0f);
+    if (! present)
+    {
+        g.setColour (Colours::dim);
+        g.setFont (Fonts::narrow (11.0f));
+        g.drawText ("+ LOUDNESS", r, juce::Justification::centred);
+        return;
+    }
+    auto top = r.removeFromTop (r.getHeight() * 0.58f).reduced (6, 0);
+    g.setColour (Colours::goldHi);
+    g.setFont (Fonts::heavy (16.0f));
+    g.drawText (shortText, top, juce::Justification::centredLeft);
+    g.setColour (Colours::muted);
+    g.setFont (Fonts::narrow (10.0f));
+    g.drawText ("LUFS", top, juce::Justification::centredRight);
+    g.setColour (over ? Colours::live : Colours::muted);
+    g.drawText (detailText, r.reduced (6, 0), juce::Justification::centredLeft);
+}
+
+void LoudnessReadout::mouseDown (const juce::MouseEvent&)
+{
+    auto p = session.masterLimiter();
+    if (p == nullptr) p = session.addMasterLimiter();
+    if (p != nullptr) p->showWindowExplicitly();
+    refresh();
+}
+
 void TransportBar::resized()
 {
     auto r = getLocalBounds().reduced (8, 8);
@@ -307,7 +366,9 @@ void TransportBar::resized()
     settingsBtn.setBounds (r.removeFromRight (74).withSizeKeepingCentre (74, 30));
     r.removeFromRight (8);
     master.setBounds (r.removeFromRight (78).withSizeKeepingCentre (78, 12));
-    r.removeFromRight (10);
+    r.removeFromRight (8);
+    loudness.setBounds (r.removeFromRight (92).reduced (0, 2));
+    r.removeFromRight (8);
     editorBtn.setBounds (r.removeFromRight (60).withSizeKeepingCentre (60, 30));
     r.removeFromRight (3);
     browserBtn.setBounds (r.removeFromRight (68).withSizeKeepingCentre (68, 30));

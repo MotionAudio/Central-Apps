@@ -27,6 +27,20 @@ private:
     std::unique_ptr<juce::TextEditor> editor;
 };
 
+/** Loudness from Motion Master on the master: short-term LUFS, integrated and true peak. Click: open it (or add it). */
+class LoudnessReadout : public juce::Component, public juce::SettableTooltipClient
+{
+public:
+    LoudnessReadout (Session& s) : session (s) {}
+    void paint (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void refresh();
+private:
+    Session& session;
+    juce::String shortText, detailText;
+    bool present = false, over = false;
+};
+
 class TransportBar : public juce::Component, private juce::Timer, private Session::Listener
 {
 public:
@@ -56,6 +70,7 @@ private:
     juce::TextButton arrangeBtn { "Tracks" }, sessionBtn { "Live" }, mixerBtn { "Mixer" };
     juce::TextButton browserBtn { "Browser" }, editorBtn { "Editor" }, settingsBtn { "Settings" };
     LevelMeter master { false };
+    LoudnessReadout loudness { session };
     juce::Rectangle<int> lcd, logo;
     juce::String posBars, posTime, cpuText;
     int currentView = 0;

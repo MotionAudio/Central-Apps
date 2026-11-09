@@ -8,6 +8,10 @@
 namespace ms
 {
 
+/** Runs work on a background thread behind a progress window (straight away when there's no window, or off the
+    message thread). The work gets a progress callback that returns false when cancelled. */
+bool runWithProgress (const juce::String& title, std::function<bool (std::function<bool (float)>)> work);
+
 //==============================================================================
 namespace clipaudio
 {

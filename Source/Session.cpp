@@ -102,11 +102,30 @@ void Session::newSong (double bpm, int key, bool worshipTemplate)
         addTrack (TrackKind::audio, "Audio 1");
     }
 
+    addMasterLimiter();
     edit->getUndoManager().clearUndoHistory();
     // the song file exists from the start, so audio added before the first save is referenced correctly
     te::EditFileOperations (*edit).writeToFile (file, false);
     edit->resetChangedStatus();
     attach();
+}
+
+te::Plugin::Ptr Session::masterLimiter() const
+{
+    if (edit == nullptr) return {};
+    for (auto p : edit->getMasterPluginList())
+        if (auto ep = dynamic_cast<te::ExternalPlugin*> (p))
+            if (ep->desc.fileOrIdentifier == "motion:master") return p;
+    return {};
+}
+
+te::Plugin::Ptr Session::addMasterLimiter()
+{
+    if (auto p = masterLimiter()) return p;
+    if (edit == nullptr) return {};
+    auto p = createPluginFromDescription (*edit, describeMotionPlugin (*findMotionPlugin ("motion:master")));
+    if (p != nullptr) edit->getMasterPluginList().insertPlugin (p, edit->getMasterPluginList().size(), nullptr);
+    return p;
 }
 
 void Session::makeAudioPathsAbsolute()
