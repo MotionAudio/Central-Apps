@@ -311,8 +311,8 @@
   "id": "pedal-stage",
   "app": "Central Pedal",
   "file": "img/apps/pedal/7-stage.webp",
-  "alt": "Central Pedal, Stage view: The section you're in, big, with the next one and the time left underneath.",
-  "caption": "The section you're in, big, with the next one and the time left underneath."
+  "alt": "Central Pedal, Stage view: The section you're in, big and in its colour, with the song's sections along the top, a light for each beat, and what's next and the time left underneath.",
+  "caption": "The section you're in, big and in its colour, with the song's sections along the top, a light for each beat, and what's next and the time left underneath."
  },
  {
   "id": "pedal-lyrics",
@@ -507,8 +507,8 @@
   "id": "pedal-5-stage",
   "app": "Central Pedal",
   "file": "img/apps/pedal/5-stage.webp",
-  "alt": "Central Pedal, 5-inch screen, Stage view: The current section, the next one and the time left.",
-  "caption": "The current section, the next one and the time left."
+  "alt": "Central Pedal, 5-inch screen, Stage view: Where you are in the song at a glance: the sections, the one you're in, the beat, what's next and the time left.",
+  "caption": "Where you are in the song at a glance: the sections, the one you're in, the beat, what's next and the time left."
  },
  {
   "id": "pedal-5-lyrics",
