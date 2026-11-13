@@ -21,6 +21,7 @@
     ["billing", "Billing", ["billingCard"]],
     ["help", "Help & tickets", ["helpCard"]],   // (10.3)
     ["review", "Review", ["reviewCard"]],
+    ["builds", "Pedal builds", ["buildsCard"]],   // (rev E: the owner's private pedal software, images and firmware)
     ["staff", "Staff", ["editHowCard", "supportDeskCard", "statusCard", "staffCard", "reviewersCard", "opsCard", "saleCard", "pricesCard", "codesCard", "relCard", "editorsCard", "defKeysCard"]],
   ];
   const home = {}; SECTIONS.forEach(([k, , ids]) => ids.forEach((id) => (home[id] = k)));

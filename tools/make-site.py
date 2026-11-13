@@ -475,6 +475,7 @@ def retrofit(rel, home=False):
         if "js.stripe.com" not in s: s = s.replace("</head>", '<script src="https://js.stripe.com/dahlia/stripe.js" async></script>\n</head>', 1)
     if 'src="/site-nav.js"' not in s and 'src="site-nav.js"' not in s: s = s.replace('<script src="account-nav.js"></script>', '<script src="account-nav.js"></script>\n<script src="site-nav.js"></script>', 1)
     if home and "account-more.js" not in s: s = s.replace('<script src="account-nav.js"></script>', '<script src="account-nav.js"></script>\n<script src="account-more.js"></script>', 1)
+    if home and "account-builds.js" not in s: s = s.replace('<script src="account-more.js"></script>', '<script src="account-more.js"></script>\n<script src="account-builds.js"></script>', 1)   # (rev E: the owner's pedal builds)
     if home and 'data-page="home"' not in s: s = s.replace("<body>", '<body data-page="home">', 1)
     OUT[rel] = s
 

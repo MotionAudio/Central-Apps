@@ -798,3 +798,20 @@ CREATE TABLE IF NOT EXISTS reviewer_discounts (
   user_id  BIGINT NOT NULL,
   added_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- (rev E) the pedal's builds, kept private in the file storage under builds/ (builds.js): only the owner sees them
+CREATE TABLE IF NOT EXISTS builds (
+  id          BIGSERIAL PRIMARY KEY,
+  kind        TEXT NOT NULL,
+  version     TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  storage_key TEXT UNIQUE NOT NULL,
+  bytes       BIGINT NOT NULL DEFAULT 0,
+  sha256      TEXT,
+  notes       TEXT NOT NULL DEFAULT '',
+  state       TEXT NOT NULL DEFAULT 'uploading',
+  ship        BOOLEAN NOT NULL DEFAULT FALSE,
+  downloads   INTEGER NOT NULL DEFAULT 0,
+  uploaded_by BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS builds_kind_at ON builds (kind, created_at);

@@ -221,6 +221,17 @@ the footer, the sign-up form and every app's Settings → License. They're writt
 them read by someone who knows your state's rules before you launch, and change the refund terms if yours differ
 (`server/public/*.html`).
 
+## Pedal builds (private)
+
+The Central Pedal's software is closed. Its builds (the pedal app, SD card images and the two boards' firmware) live
+in the same R2 bucket under `builds/`, never on GitHub. Sign in as the owner (with the code), then Account → *Pedal
+builds*: pick what it is, type the version and what changed, choose the file and press Upload. The browser sends it
+straight to R2 (up to 4.9 GB in one go: compress an image with `xz -T0 -9` first); the site checks the size and works
+out its SHA-256. Mark one build of each kind as *the one to ship*. Download makes a link that lasts an hour.
+
+Only the owner sees this, not other `ADMIN_EMAILS` staff. To let someone else in, add their email to `BUILDS_EMAILS`
+(comma-separated) on Render. Uploads use the bucket's CORS rule that the website's audio uploads already need.
+
 ## Prices, discount codes and versions
 
 **The price page.** Sign in with an `ADMIN_EMAILS` address: Account → *Prices · Motion Audio staff*. From there you can

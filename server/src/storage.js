@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { config } from "./config.js";
 
@@ -80,4 +80,15 @@ export async function listFiles(prefix) {   // [{ key, size, modified }]
 export async function readFile(key) {
   if (usingR2) { const r = await s3.send(new GetObjectCommand({ Bucket: S.bucket, Key: key })); return Buffer.from(await r.Body.transformToByteArray()); }
   return fs.readFileSync(localPath(key));
+}
+// (rev E builds) how big a stored file is (null: not there), and its SHA-256, read through once
+export async function sizeOf(key) {
+  if (usingR2) { try { return Number((await s3.send(new HeadObjectCommand({ Bucket: S.bucket, Key: key }))).ContentLength); } catch { return null; } }
+  try { const st = fs.statSync(localPath(key)); return st.isFile() ? st.size : null; } catch { return null; }
+}
+export async function sha256Of(key) {
+  const h = crypto.createHash("sha256");
+  const body = usingR2 ? (await s3.send(new GetObjectCommand({ Bucket: S.bucket, Key: key }))).Body : fs.createReadStream(localPath(key));
+  await new Promise((res, rej) => { body.on("data", (d) => h.update(d)); body.on("end", res); body.on("error", rej); });
+  return h.digest("hex");
 }
