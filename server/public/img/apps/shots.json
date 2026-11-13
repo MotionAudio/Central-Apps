@@ -157,15 +157,15 @@
   "id": "pedal-live",
   "app": "Central Pedal",
   "file": "img/apps/pedal-live.webp",
-  "alt": "The Central Pedal's own touchscreen in LIVE: Amazing Grace playing in G at 72 BPM with 1:58 left, verse buttons, Pause, Next, Vamp and Safe stop, and the eight pads.",
-  "caption": "On the pedal's screen everything is big enough to read from where you stand."
+  "alt": "Central Pedal, LIVE: The whole service on one screen: the setlist, the song with its key, tempo and time left, the sections, the transport, the pads and your instrument.",
+  "caption": "The whole service on one screen: the setlist, the song with its key, tempo and time left, the sections, the transport, the pads and your instrument."
  },
  {
   "id": "pedal-pads",
   "app": "Central Pedal",
   "file": "img/apps/pedal-pads.webp",
-  "alt": "The Central Pedal's touchscreen on the PAD screen: the pad list and the settings for Pad 1, Warm Pad.",
-  "caption": "Change a pad's sound right on the pedal."
+  "alt": "Central Pedal, Pad editor: The sound, its key and chord, the crossfade and your imported sounds, with the signal chain listed underneath.",
+  "caption": "The sound, its key and chord, the crossfade and your imported sounds, with the signal chain listed underneath."
  },
  {
   "id": "cs-schedule",
@@ -187,5 +187,411 @@
   "file": "img/apps/cs-teams.webp",
   "alt": "Central Services' Teams screen for Grace Church: a Slots bar showing 14 of 30 in use, the Sunday band and Evening band worship teams, and the Tech team, each person with their role.",
   "caption": "Teams shows who serves where, and how many of your church's slots are in use."
+ },
+ {
+  "id": "pedal-render-hero",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/render-hero.webp",
+  "alt": "Central Pedal, the pedal from the front left: a 3D render on a black studio floor. The black case, the 7-inch touch screen on LIVE, the 5-inch screen, black knobs with gold tops, silver slider caps and eight polished silver footswitches, with a lit label screen beside each control.",
+  "caption": "The rev E Central Pedal, rendered from its case design."
+ },
+ {
+  "id": "pedal-render-front",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/render-front.webp",
+  "alt": "Central Pedal, from the front: Straight on from the front. The eight footswitches sit along the front edge with their labels above them.",
+  "caption": "Straight on from the front. The eight footswitches sit along the front edge with their labels above them."
+ },
+ {
+  "id": "pedal-render-top",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/render-top.webp",
+  "alt": "Central Pedal, from above: From above, so you can see the whole layout: knobs and sliders on both sides of the two screens.",
+  "caption": "From above, so you can see the whole layout: knobs and sliders on both sides of the two screens."
+ },
+ {
+  "id": "pedal-render-screens",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/render-screens.webp",
+  "alt": "Central Pedal, the two screens: The two screens up close. LIVE on the 7-inch and the stage view on the 5-inch.",
+  "caption": "The two screens up close. LIVE on the 7-inch and the stage view on the 5-inch."
+ },
+ {
+  "id": "pedal-render-right",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/render-right.webp",
+  "alt": "Central Pedal, from the front right: From the front right.",
+  "caption": "From the front right."
+ },
+ {
+  "id": "pedal-render-back",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/render-back.webp",
+  "alt": "Central Pedal, the back: The back: power and USB-C, the network port, the six outputs, both instrument inputs and the four USB ports, each with its own label screen.",
+  "caption": "The back: power and USB-C, the network port, the six outputs, both instrument inputs and the four USB ports, each with its own label screen."
+ },
+ {
+  "id": "pedal-pads-play",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-pads.webp",
+  "alt": "Central Pedal, Pads: Eight pads, Stop, the key, tap tempo, Freeze, Layer and Morph, the two textures and the knobs for volume, tone, reverb, fade and morph.",
+  "caption": "Eight pads, Stop, the key, tap tempo, Freeze, Layer and Morph, the two textures and the knobs for volume, tone, reverb, fade and morph."
+ },
+ {
+  "id": "pedal-tracks",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-tracks.webp",
+  "alt": "Central Pedal, Tracks: The song's waveform with its sections in their colours, the transport, key and tempo, and a fader for each stem.",
+  "caption": "The song's waveform with its sections in their colours, the transport, key and tempo, and a fader for each stem."
+ },
+ {
+  "id": "pedal-instrument-electric",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-instrument-electric.webp",
+  "alt": "Central Pedal, Instrument, electric: A guitar board: each pedal with its knobs, in the order the sound goes through them.",
+  "caption": "A guitar board: each pedal with its knobs, in the order the sound goes through them."
+ },
+ {
+  "id": "pedal-instrument-keys",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-instrument.webp",
+  "alt": "Central Pedal, Instrument, keys: Keys from a USB keyboard. Each layer has its own sound, volume, octave, range and velocity.",
+  "caption": "Keys from a USB keyboard. Each layer has its own sound, volume, octave, range and velocity."
+ },
+ {
+  "id": "pedal-looper",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-looper.webp",
+  "alt": "Central Pedal, Looper: Each loop as a ring. Record in time with the song or free, set the bars and the count-in.",
+  "caption": "Each loop as a ring. Record in time with the song or free, set the bars and the count-in."
+ },
+ {
+  "id": "pedal-mixer",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-mixer.webp",
+  "alt": "Central Pedal, Mixer: The buses, the master and every stem, with pan, mute, solo and a button to send a stem to its own output.",
+  "caption": "The buses, the master and every stem, with pan, mute, solo and a button to send a stem to its own output."
+ },
+ {
+  "id": "pedal-scenes",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-scenes.webp",
+  "alt": "Central Pedal, Scenes: Save what's playing right now (the pads, the mix, the instrument) and bring it back later from here or a footswitch.",
+  "caption": "Save what's playing right now (the pads, the mix, the instrument) and bring it back later from here or a footswitch."
+ },
+ {
+  "id": "pedal-pad-compressor",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-pads-edit-Compressor.webp",
+  "alt": "Central Pedal, Compressor: The curve the compressor follows, and how much it's turning the pad down over the last 10 seconds.",
+  "caption": "The curve the compressor follows, and how much it's turning the pad down over the last 10 seconds."
+ },
+ {
+  "id": "pedal-pad-delay",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-pads-edit-Delay.webp",
+  "alt": "Central Pedal, Delay: Where each echo lands and how loud it is, worked out from the song's tempo.",
+  "caption": "Where each echo lands and how loud it is, worked out from the song's tempo."
+ },
+ {
+  "id": "pedal-pad-reverb",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-pads-edit-Reverb.webp",
+  "alt": "Central Pedal, Reverb: The reverb's decay after the pre-delay, drawn from the actual reverb the pad uses.",
+  "caption": "The reverb's decay after the pre-delay, drawn from the actual reverb the pad uses."
+ },
+ {
+  "id": "pedal-pad-keyboard",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-pads-keyboard.webp",
+  "alt": "Central Pedal, Pad keyboard: Play the pad in any key to hear it there. The pad's saved key doesn't change.",
+  "caption": "Play the pad in any key to hear it there. The pad's saved key doesn't change."
+ },
+ {
+  "id": "pedal-stage",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-stage.webp",
+  "alt": "Central Pedal, Stage view: The section you're in, big, with the next one and the time left underneath.",
+  "caption": "The section you're in, big, with the next one and the time left underneath."
+ },
+ {
+  "id": "pedal-lyrics",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-lyrics.webp",
+  "alt": "Central Pedal, Lyrics: The lines for right now, big, and the next lines under them. They follow the song.",
+  "caption": "The lines for right now, big, and the next lines under them. They follow the song."
+ },
+ {
+  "id": "pedal-chart",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-chart.webp",
+  "alt": "Central Pedal, Chord chart: The chart in the song's key. Pick an instrument and it handles capo shapes for you.",
+  "caption": "The chart in the song's key. Pick an instrument and it handles capo shapes for you."
+ },
+ {
+  "id": "pedal-parts",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-parts.webp",
+  "alt": "Central Pedal, Parts: A part for each instrument, written from the chart and what the tracks play.",
+  "caption": "A part for each instrument, written from the chart and what the tracks play."
+ },
+ {
+  "id": "pedal-parts-bass",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-parts-bass.webp",
+  "alt": "Central Pedal, Bass part: Bass notation and tab for the whole song.",
+  "caption": "Bass notation and tab for the whole song."
+ },
+ {
+  "id": "pedal-parts-drums",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-parts-drums.webp",
+  "alt": "Central Pedal, Drum part: A drum chart with the sections marked.",
+  "caption": "A drum chart with the sections marked."
+ },
+ {
+  "id": "pedal-meters",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-meters.webp",
+  "alt": "Central Pedal, Meters: Each stem's level and the instrument in and out, with the CPU load and any dropouts.",
+  "caption": "Each stem's level and the instrument in and out, with the CPU load and any dropouts."
+ },
+ {
+  "id": "pedal-setlist",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-setlist.webp",
+  "alt": "Central Pedal, Setlist: The open setlist with its songs in order, and the song library beside it to add from.",
+  "caption": "The open setlist with its songs in order, and the song library beside it to add from."
+ },
+ {
+  "id": "pedal-song",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-song.webp",
+  "alt": "Central Pedal, Song editor: The song's name, key, tempo, CCLI number, writers, copyright and what happens when it ends.",
+  "caption": "The song's name, key, tempo, CCLI number, writers, copyright and what happens when it ends."
+ },
+ {
+  "id": "pedal-song-sections",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-song-sections.webp",
+  "alt": "Central Pedal, Sections: Each section's length in bars, its cue, its pad and its lyrics.",
+  "caption": "Each section's length in bars, its cue, its pad and its lyrics."
+ },
+ {
+  "id": "pedal-song-tempo",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-song-tempo.webp",
+  "alt": "Central Pedal, Tempo grid: The tempo and beat grid the pedal found, which you can adjust.",
+  "caption": "The tempo and beat grid the pedal found, which you can adjust."
+ },
+ {
+  "id": "pedal-song-flow",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-song-flow.webp",
+  "alt": "Central Pedal, Flow: The order the sections play in, so you can repeat a chorus or skip an intro.",
+  "caption": "The order the sections play in, so you can repeat a chorus or skip an intro."
+ },
+ {
+  "id": "pedal-addsongs",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-addsongs.webp",
+  "alt": "Central Pedal, Add songs: Central Tracks, track packs from a USB stick, your own files, or a Planning Center plan.",
+  "caption": "Central Tracks, track packs from a USB stick, your own files, or a Planning Center plan."
+ },
+ {
+  "id": "pedal-practice",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-practice.webp",
+  "alt": "Central Pedal, Practice mixes: A stereo file of each song for each musician, with their part turned up, saved to a USB stick.",
+  "caption": "A stereo file of each song for each musician, with their part turned up, saved to a USB stick."
+ },
+ {
+  "id": "pedal-stems",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-stems.webp",
+  "alt": "Central Pedal, Stem splitter: Splits a stereo song into stems right on the pedal, once the separation models are installed.",
+  "caption": "Splits a stereo song into stems right on the pedal, once the separation models are installed."
+ },
+ {
+  "id": "pedal-firststart",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-firststart.webp",
+  "alt": "Central Pedal, First start: The first time it turns on, it asks for the Wi-Fi, a name for the pedal and your church account. Each step can wait until later.",
+  "caption": "The first time it turns on, it asks for the Wi-Fi, a name for the pedal and your church account. Each step can wait until later."
+ },
+ {
+  "id": "pedal-configure",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-configure.webp",
+  "alt": "Central Pedal, Configure: What every footswitch, knob and slider does, what it does when you hold it, and what its label says.",
+  "caption": "What every footswitch, knob and slider does, what it does when you hold it, and what its label says."
+ },
+ {
+  "id": "pedal-learn",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-learn.webp",
+  "alt": "Central Pedal, Learn: Teach the pedal a MIDI button, knob or slider, or a computer key, then give it a job.",
+  "caption": "Teach the pedal a MIDI button, knob or slider, or a computer key, then give it a job."
+ },
+ {
+  "id": "pedal-io",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-io.webp",
+  "alt": "Central Pedal, I/O: Every input and output in one place, including audio to Central Control over the network.",
+  "caption": "Every input and output in one place, including audio to Central Control over the network."
+ },
+ {
+  "id": "pedal-screens",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-screens.webp",
+  "alt": "Central Pedal, Screens: Which pages go on the 5-inch, one at a time or two side by side, and how bright each screen is.",
+  "caption": "Which pages go on the 5-inch, one at a time or two side by side, and how bright each screen is."
+ },
+ {
+  "id": "pedal-settings",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-settings.webp",
+  "alt": "Central Pedal, Appearance: Colour presets and every screen colour, if you want your own.",
+  "caption": "Colour presets and every screen colour, if you want your own."
+ },
+ {
+  "id": "pedal-settings-audio",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-settings-audio.webp",
+  "alt": "Central Pedal, Audio and routing: Where the tracks, pads, click, instrument and looper each go, with a test tone for every output.",
+  "caption": "Where the tracks, pads, click, instrument and looper each go, with a test tone for every output."
+ },
+ {
+  "id": "pedal-settings-wifi",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-settings-wifi.webp",
+  "alt": "Central Pedal, Wi-Fi: Pick a network, join a hidden one or forget one.",
+  "caption": "Pick a network, join a hidden one or forget one."
+ },
+ {
+  "id": "pedal-settings-screens",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-settings-screens.webp",
+  "alt": "Central Pedal, Screens and glasses: Brightness for both screens and the 38 label screens.",
+  "caption": "Brightness for both screens and the 38 label screens."
+ },
+ {
+  "id": "pedal-settings-streamdeck",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-settings-streamdeck.webp",
+  "alt": "Central Pedal, Stream Deck: Plug in an Elgato Stream Deck and give each key a job and a look.",
+  "caption": "Plug in an Elgato Stream Deck and give each key a job and a look."
+ },
+ {
+  "id": "pedal-settings-packages",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-settings-packages.webp",
+  "alt": "Central Pedal, Packages and sounds: The sound plans you have and the libraries that come with them.",
+  "caption": "The sound plans you have and the libraries that come with them."
+ },
+ {
+  "id": "pedal-settings-midi",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-settings-midi.webp",
+  "alt": "Central Pedal, MIDI and tempo: The tempo, following MIDI clock in, and MIDI out for lights and patch changes.",
+  "caption": "The tempo, following MIDI clock in, and MIDI out for lights and patch changes."
+ },
+ {
+  "id": "pedal-report",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/7-report.webp",
+  "alt": "Central Pedal, Service report: After the service: what played, how long, and anything that went wrong.",
+  "caption": "After the service: what played, how long, and anything that went wrong."
+ },
+ {
+  "id": "pedal-5-stage",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-stage.webp",
+  "alt": "Central Pedal, 5-inch screen, Stage view: The current section, the next one and the time left.",
+  "caption": "The current section, the next one and the time left."
+ },
+ {
+  "id": "pedal-5-lyrics",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-lyrics.webp",
+  "alt": "Central Pedal, 5-inch screen, Lyrics: Big lines for the singers.",
+  "caption": "Big lines for the singers."
+ },
+ {
+  "id": "pedal-5-chart",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-chart.webp",
+  "alt": "Central Pedal, 5-inch screen, Chord chart: The chart, large enough to read from a step back.",
+  "caption": "The chart, large enough to read from a step back."
+ },
+ {
+  "id": "pedal-5-setlist",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-setlist.webp",
+  "alt": "Central Pedal, 5-inch screen, Setlist: The song that's on now and the next one, lit.",
+  "caption": "The song that's on now and the next one, lit."
+ },
+ {
+  "id": "pedal-5-live",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-live.webp",
+  "alt": "Central Pedal, 5-inch screen, LIVE: The full LIVE page on the second screen.",
+  "caption": "The full LIVE page on the second screen."
+ },
+ {
+  "id": "pedal-5-tracks",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-tracks.webp",
+  "alt": "Central Pedal, 5-inch screen, Tracks: The waveform, the sections and the stem faders.",
+  "caption": "The waveform, the sections and the stem faders."
+ },
+ {
+  "id": "pedal-5-pads",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-pads.webp",
+  "alt": "Central Pedal, 5-inch screen, Pads: The pads and the performance knobs.",
+  "caption": "The pads and the performance knobs."
+ },
+ {
+  "id": "pedal-5-instrument",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-instrument.webp",
+  "alt": "Central Pedal, 5-inch screen, Instrument: The board you're playing through.",
+  "caption": "The board you're playing through."
+ },
+ {
+  "id": "pedal-5-looper",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-looper.webp",
+  "alt": "Central Pedal, 5-inch screen, Looper: The loops and where each one is.",
+  "caption": "The loops and where each one is."
+ },
+ {
+  "id": "pedal-5-mixer",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-mixer.webp",
+  "alt": "Central Pedal, 5-inch screen, Mixer: The buses and stems.",
+  "caption": "The buses and stems."
+ },
+ {
+  "id": "pedal-5-meters",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-meters.webp",
+  "alt": "Central Pedal, 5-inch screen, Meters: Levels, big.",
+  "caption": "Levels, big."
+ },
+ {
+  "id": "pedal-5-parts",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-parts.webp",
+  "alt": "Central Pedal, 5-inch screen, Parts: A part for one instrument.",
+  "caption": "A part for one instrument."
+ },
+ {
+  "id": "pedal-5-scenes",
+  "app": "Central Pedal",
+  "file": "img/apps/pedal/5-scenes.webp",
+  "alt": "Central Pedal, 5-inch screen, Scenes: The song's scenes, numbered for the footswitches.",
+  "caption": "The song's scenes, numbered for the footswitches."
  }
 ]

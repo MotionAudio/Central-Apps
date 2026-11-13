@@ -18,7 +18,7 @@ const S = Date.now(), STAFF = "staff" + S + "@motion.test", OWNER = "owner" + S 
 const mails = [];
 const stub = http.createServer((req, res) => { let b = ""; req.on("data", (d) => (b += d)); req.on("end", () => { mails.push(JSON.parse(b || "{}")); res.end('{"id":"x"}'); }); });
 await new Promise((r) => stub.listen(0, "127.0.0.1", r));
-const srv = spawn(process.execPath, [path.join(here, "..", "src", "index.js")], { env: Object.assign({}, process.env, { DATABASE_URL: db, PORT: String(port), STRIPE_SECRET_KEY: "", RESEND_API_KEY: "re_test", MAIL_FROM: "M <t@motion.test>",
+const srv = spawn(process.execPath, [path.join(here, "..", "src", "index.js")], { env: Object.assign({}, process.env, { DATABASE_URL: db, PORT: String(port), STRIPE_SECRET_KEY: "", RESEND_API_KEY: "re_test", SELL_COMING_SOON: "1", MAIL_FROM: "M <t@motion.test>",
   RESEND_API_URL: "http://127.0.0.1:" + stub.address().port + "/emails", PUBLIC_URL: base, ADMIN_EMAILS: STAFF, REMINDERS: "off", CURRENT_VERSION: "9.1", SUPPORT_EMAIL: "help@motion.test", CC_UPDATE_API: "http://127.0.0.1:9" }), stdio: ["ignore", "pipe", "pipe"] });
 let log = ""; srv.stdout.on("data", (d) => { log += d; }); srv.stderr.on("data", (d) => { log += d; });
 for (let i = 0; i < 100 && !/Motion Audio server on/.test(log); i++) await new Promise((r) => setTimeout(r, 100));
@@ -74,7 +74,7 @@ try {
   await page.click("#cartBtn"); await page.waitForSelector(".modal");
   await page.fill("#pcCode", "betatest"); await page.click("#pcApply"); await page.waitForTimeout(500);
   const cartText = await page.textContent(".modal");
-  ok(/BETATEST/.test(cartText) && /−\$175\.00/.test(cartText) && /\$425\.00/.test(cartText) && /tax included/.test(cartText), "BETATEST: half off the Regular pack ($175), not the pedal: $425 total, tax included", cartText.replace(/\s+/g, " "));
+  ok(/BETATEST/.test(cartText) && /−\$175\.00/.test(cartText) && /\$725\.00/.test(cartText) && /tax included/.test(cartText), "BETATEST: half off the Regular pack ($175), not the pedal: $725 total ($550 pedal + $175), tax included", cartText.replace(/\s+/g, " "));
   await shot("cart-code");
   await page.click("#checkout"); await page.waitForURL(/\/#account$/, { timeout: 5000 }).catch(() => {}); await page.waitForSelector("#upForm", { timeout: 5000 }).catch(() => {});
   ok(/Sign in/.test(await page.textContent("#acctTitle")) && !(await page.$(".modal")) && /cart/i.test(await page.textContent("#acctBody")), "check out while signed out: the home page asks to sign in (and says why)");
@@ -91,7 +91,7 @@ try {
   await codeStep(OWNER);
   // (10.3) signed in to check out: back to Pricing, with the cart open as it was
   await page.waitForURL(/\/pricing\/$/, { timeout: 6000 }).catch(() => {}); await page.waitForSelector(".modal #checkout", { timeout: 6000 }).catch(() => {});
-  ok(/\/pricing\/$/.test(page.url()) && /BETATEST/.test(await page.textContent(".modal").catch(() => "")) && /\$425\.00/.test(await page.textContent(".modal").catch(() => "")), "signed in: back on Pricing with the cart open, the code still on", page.url() + " " + (await page.textContent(".modal").catch(() => "(no cart)")).replace(/\s+/g, " "));
+  ok(/\/pricing\/$/.test(page.url()) && /BETATEST/.test(await page.textContent(".modal").catch(() => "")) && /\$725\.00/.test(await page.textContent(".modal").catch(() => "")), "signed in: back on Pricing with the cart open, the code still on", page.url() + " " + (await page.textContent(".modal").catch(() => "(no cart)")).replace(/\s+/g, " "));
   await page.goto(base + "/#account"); await page.waitForTimeout(300);
   await page.waitForFunction(() => /Hi, Grace Church/.test(document.querySelector("#acctTitle").textContent), null, { timeout: 6000 }).catch(() => {});
   ok(/Hi, Grace Church/.test(await page.textContent("#acctTitle")), "signed up, added the phone and entered the code: signed in as the church");

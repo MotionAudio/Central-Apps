@@ -129,6 +129,7 @@ export async function storeCheckout(user, items, churchName, code, only, forWho)
   for (const [id, n] of Object.entries(qty)) {
     const p = PRODUCTS[id];
     if (p.hidden) throw err(p.name + " isn't for sale right now.");
+    if (p.soon) throw err(p.name + ": " + p.soon.toLowerCase() + ". It isn't for sale yet.");
     if (p.addonFor) {   // one for each of its pack: in this cart, or bought before
       const base = PRODUCTS[p.addonFor], room = (qty[p.addonFor] || 0) + (owned[p.addonFor] || 0) - (owned[id] || 0);
       if (n > room) throw err(p.name + " goes with " + (base ? base.name : "its pack") + ": one for each" + (room > 0 ? " (you can add " + room + ")" : ". Add " + (base ? base.name : "the pack") + " first") + ".");

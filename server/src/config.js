@@ -62,7 +62,8 @@ export const PRODUCTS = {
   user: { name: "Central Usage key (user)", cents: 2000, keys: { U: 1 } },
   "services-slot": { name: "Central Services slot", cents: 500, keys: {}, slots: 1 },
   "pedal-control": { name: "Central Pedal Control", cents: 5000, keys: { P: 1 } },
-  pedal: { name: "Central Pedal (built, software installed)", cents: 55000, ships: true, hardware: true, keys: { P: 1 } },
+  // soon: shown instead of the buy button, and the cart refuses it, until it ships (set here, not on the price page)
+  pedal: { name: "Central Pedal (built, software installed)", cents: 55000, ships: true, hardware: true, keys: { P: 1 }, soon: "Coming mid 2027" },
 };
 // Discount codes (typed in the cart; any capitals). Staff change them on the website's price page.
 // percent codes: off everything but the built pedal (keys, packs, slots, renewals; not monthly plans); once per church.

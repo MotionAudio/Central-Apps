@@ -143,6 +143,7 @@ def path_url(p): return "/" + p.replace("index.html", "") if p.endswith("index.h
 def buy_button(a, cls="btn brass"):
     b = a["buy"]
     if b.get("free"): return f'<a class="{cls}" href="{E(b["href"])}">{E(b["label"])}</a>'
+    if b.get("soon"): return f'<button class="{cls} soon" type="button" data-add="{E(b["add"])}" disabled>{E(b["label"])}</button>'   # (not for sale yet)
     return f'<button class="{cls}" type="button" data-add="{E(b["add"])}">{E(b["label"])}</button>'
 
 
@@ -158,7 +159,19 @@ def app_page(a):
     who = "".join(f'<span class="chip who">{E(w)}</span>' for w in a["who"])
     plats = "".join(f'<span class="chip">{E(C.PLATFORMS[p])}</span>' for p in a["platforms"])
     groups = "".join(f'''<div class="fgroup" id="{E(slug(g[0]))}"><h3>{E(g[0])}</h3><ul class="feats">{"".join(f"<li><b>{E(t)}</b><span>{E(d)}</span></li>" for t, d in g[1])}</ul></div>''' for g in a["groups"])
-    gallery = "".join(f'<figure>{shot_img(s)}<figcaption>{E(SHOTS[s]["caption"])}</figcaption></figure>' for s in a["shots"] if s in SHOTS)
+    gallery = "".join(f'<figure>{shot_img(s)}<figcaption>{E(SHOTS[s]["caption"])}</figcaption></figure>' for s in a.get("shots", []) if s in SHOTS)
+    # (the pedal) renders of the case from each side, every screen in groups, and the box's numbers
+    renders = "".join(f'<figure>{shot_img(s)}<figcaption>{E(SHOTS[s]["caption"])}</figcaption></figure>' for s in a.get("renders", []) if s in SHOTS)
+    renders_html = (f'<section class="pg band" id="renders"><div class="wrap"><div class="pg-head"><h2>The pedal from every side</h2><p>{E(a.get("render_note", ""))}</p></div><div class="render-grid">{renders}</div></div></section>') if renders else ""
+    def screen_fig(s):
+        t = SHOTS[s]["alt"].split(": ", 1)[0].replace("Central Pedal, ", "")
+        return f'<figure class="{"five" if "-5-" in s else ""}">{shot_img(s)}<figcaption><b>{E(t)}</b> {E(SHOTS[s]["caption"])}</figcaption></figure>'
+    sg = a.get("screen_groups", [])
+    screens_html = (f'''<section class="pg" id="screens"><div class="wrap"><div class="pg-head"><h2>Every screen</h2><p>All of it, straight from the software. The 5-inch pages are the bigger, no-touch versions the pedal shows on its second screen.</p></div>
+  <nav class="toc" aria-label="Screen groups">{"".join(f'<a href="#scr-{E(slug(g[0]))}">{E(g[0])}</a>' for g in sg)}</nav>
+  {"".join(f'<div class="screen-group" id="scr-{E(slug(g[0]))}"><div class="sg-head"><h3>{E(g[0])}</h3><p>{E(g[1])}</p></div><div class="screen-grid">{"".join(screen_fig(s) for s in g[2] if s in SHOTS)}</div></div>' for g in sg)}
+</div></section>''') if sg else ""
+    specs_html = ('<section class="pg band" id="box"><div class="wrap"><div class="pg-head"><h2>The box</h2></div><dl class="specs">' + "".join(f'<div><dt>{E(k)}</dt><dd>{E(v)}</dd></div>' for k, v in a["specs"]) + '</dl></div></section>') if a.get("specs") else ""
     toc = "".join(f'<a href="#{E(slug(g[0]))}">{E(g[0])}</a>' for g in a["groups"])
     b = a["buy"]
     priced = not b.get("free")
@@ -177,11 +190,11 @@ def app_page(a):
   </div>
   <figure>{shot_img(a["shot"], lazy=False, priority=True)}</figure>
 </div></section>
-<section class="pg" id="features"><div class="wrap">
+{renders_html}<section class="pg" id="features"><div class="wrap">
   <div class="pg-head"><h2>What {E(a["name"])} does</h2><div class="toc" style="margin-top:0">{toc}</div></div>
   <div class="feat-groups">{groups}</div>
 </div></section>
-{('<section class="pg band"><div class="wrap"><div class="pg-head"><h2>Screenshots</h2><p>These are from the real app, not mock-ups.</p></div><div class="gallery" tabindex="0" aria-label="Screenshots">' + gallery + '</div></div></section>') if len(a["shots"]) > 1 else ""}
+{('<section class="pg band"><div class="wrap"><div class="pg-head"><h2>Screenshots</h2><p>These are from the real app, not mock-ups.</p></div><div class="gallery" tabindex="0" aria-label="Screenshots">' + gallery + '</div></div></section>') if len(a.get("shots", [])) > 1 else ""}{specs_html}{screens_html}
 <section class="pg" id="buy"><div class="wrap">
   <div class="facts">
     <div class="fact"><h3>Who it's for</h3><div class="chips" style="margin:0">{"".join(f'<span class="chip">{E(w)}</span>' for w in a["who"])}</div><p class="muted">{E(WHO_LINE.get(a["slug"], ""))}</p></div>

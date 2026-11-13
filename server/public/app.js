@@ -158,10 +158,12 @@ const salePrice = (id) => Math.round(priceOf(id) * (100 - cfg.sale.percent)) / 1
 const T = (key, text) => (window.SiteContent ? window.SiteContent.html(key, esc(text)) : esc(text));
 const ed = (key) => `data-edit="${key}"`;
 const priceTag = (id, per) => `<div class="price">${saleOn(id) ? `<s>${dollars(priceOf(id))}</s> <span class="now">${dollars(salePrice(id))}</span>` : `<span data-price="${id}">${dollars(priceOf(id))}</span>`}<small>${esc(per)}</small></div>`;
-const addBtn = (p, cls, label) => `<button class="btn${cls || ""}" data-add="${p.id}">${label || (cart[p.id] ? "Add another" : "Add to cart")}</button>`;
+// (a product that isn't out yet - P_(id).soon, "Coming mid 2027" - shows that instead of a button that adds it)
+const addBtn = (p, cls, label) => P_(p.id) && P_(p.id).soon ? `<button class="btn${cls || ""} soon" data-add="${p.id}" disabled>${esc(P_(p.id).soon)}</button>` : `<button class="btn${cls || ""}" data-add="${p.id}">${label || (cart[p.id] ? "Add another" : "Add to cart")}</button>`;
 function pedalCard(p) {   // the built pedal: the wide row at the top of the store
   const k = "prod." + p.id;
-  return `<div class="pedal-row"><div class="art on-stage"><img src="${window.SiteContent ? window.SiteContent.img(k + ".img", "/brand/glyph-central-pedal.svg") : "/brand/glyph-central-pedal.svg"}" alt="Central Pedal" data-edit-img="${k}.img"></div>
+  const art = window.SiteContent ? window.SiteContent.img(k + ".img", "/img/apps/pedal/render-hero.webp") : "/img/apps/pedal/render-hero.webp";
+  return `<div class="pedal-row"><div class="art on-stage${/\.svg$/.test(art) ? "" : " photo"}"><img src="${art}" alt="Central Pedal" data-edit-img="${k}.img"></div>
     <div class="body"><div class="label" ${ed(k + ".tag")}>${T(k + ".tag", p.tag)}</div><h3 style="font-size:1.7rem" ${ed(k + ".name")}>${T(k + ".name", p.name)}</h3>
     <p style="color:var(--ink-2)" ${ed(k + ".desc")}>${T(k + ".desc", p.desc)}</p>
     <ul ${ed(k + ".pts")}>${window.SiteContent && window.SiteContent.has(k + ".pts") ? window.SiteContent.html(k + ".pts") : p.pts.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
@@ -206,6 +208,13 @@ function priceCents(id) {
   if (id.startsWith("plan-")) return cfg.plans && cfg.plans[id.slice(5)] ? cfg.plans[id.slice(5)].cents : 0;
   return P_(id) ? P_(id).cents : 0;
 }
+// the buy buttons written into the pages (data-add): one for something not out yet says when it's coming instead
+function markSoon() {
+  document.querySelectorAll("[data-add]").forEach((b) => { const p = P_(b.dataset.add); if (p && p.soon && !b.disabled) { b.disabled = true; b.classList.add("soon"); b.textContent = p.soon; } });
+  let dropped = false;   // (a cart kept from before it was taken off sale)
+  for (const id of Object.keys(cart)) if (P_(id) && P_(id).soon) { delete cart[id]; dropped = true; }
+  if (dropped) updateCartBtn();
+}
 function fillPrices() {
   if (!cfg.products) return;
   document.querySelectorAll("[data-price-of]").forEach((el) => {
@@ -218,7 +227,7 @@ function renderRack() {
   if (!cfg.products) return;
   if (window.SiteContent && window.SiteContent.editing()) return;   // (not while the page is being edited)
   const shown = (p) => P_(p.id) && !P_(p.id).hidden;
-  renderSale(); fillPrices();
+  renderSale(); fillPrices(); markSoon();
   const pb = $("#pedalBuy"), pk = $("#packs"), rk = $("#rack");
   if (pb) pb.innerHTML = products.filter((p) => p.id === "pedal" && shown(p)).map(pedalCard).join("");
   if (pk) { pk.innerHTML = packs.filter(shown).map(packCard).join(""); pk.hidden = !pk.innerHTML; pk.style.setProperty("--n", packs.filter(shown).length); }
@@ -351,6 +360,7 @@ function onAdd(e) {
   const id = a.dataset.add, base = P_(id) && P_(id).addonFor;
   if (!cfg.products) return toast("One moment: the prices are still loading.");
   if (!P_(id) || P_(id).hidden) return toast("That isn't for sale right now.");
+  if (P_(id).soon) return toast(nameOf(id) + ": " + P_(id).soon.toLowerCase() + ".");
   if (base && (cart[id] || 0) >= (cart[base] || 0) + ownedOf(base) - ownedOf(id)) return toast(cart[id] ? "One for each " + nameOf(base) + "." : "Add " + nameOf(base) + " first: these slots go with it.");
   cart[id] = (cart[id] || 0) + 1; updateCartBtn(); renderRack(); toast("Added to cart: " + (cart[id] > 1 ? cart[id] + " × " : "") + nameOf(id), viewCart);
 }

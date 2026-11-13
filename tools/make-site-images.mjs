@@ -89,11 +89,14 @@ if (base) {
 // ---------------------------------------------------------------- a picture to share for every page
 {
   const pages = JSON.parse(fs.readFileSync(path.join(pub, "img", "og", "pages.json"), "utf8"));
+  const shots = JSON.parse(fs.readFileSync(path.join(pub, "img", "apps", "shots.json"), "utf8"));
   const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
   const font = fs.readFileSync(path.join(pub, "fonts", "archivo-latin.woff2")).toString("base64");
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   for (const p of pages) {
-    const shot = path.join(pub, "img", "apps", (p.shot || "cc-lights") + ".webp"), img = fs.existsSync(shot) ? "data:image/webp;base64," + fs.readFileSync(shot).toString("base64") : "";
+    // (the picture by its id in img/apps/shots.json - its file can be in a folder, like the pedal's renders)
+    const listed = shots.find((x) => x.id === (p.shot || "cc-lights"));
+    const shot = path.join(pub, listed ? listed.file : path.join("img", "apps", (p.shot || "cc-lights") + ".webp")), img = fs.existsSync(shot) ? "data:image/webp;base64," + fs.readFileSync(shot).toString("base64") : "";
     await page.setContent(`<!doctype html><html><head><style>@font-face{font-family:Archivo;src:url(data:font/woff2;base64,${font})}
       body{margin:0;width:1200px;height:630px;overflow:hidden;background:radial-gradient(90% 120% at 80% 0%,#232933 0%,#15181D 62%);color:#ECE7DD;font-family:Archivo,sans-serif;position:relative}
       .t{position:absolute;left:64px;top:64px;width:560px}.b{display:flex;align-items:center;gap:12px;color:#E2C27E;font-weight:650;font-size:26px}

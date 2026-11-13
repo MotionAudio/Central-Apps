@@ -47,6 +47,8 @@ function apply(data) {
   replaceInto(RENEWAL, d.RENEWAL); replaceInto(DISCOUNTS, d.DISCOUNTS, DEFAULTS.DISCOUNTS);
   replaceInto(PLANS, d.PLANS, DEFAULTS.PLANS); replaceInto(PLAN_ALL, d.PLAN_ALL); replaceInto(PLAN_BUNDLES, d.PLAN_BUNDLES);   // (a price list from before 9.5: the plans' starting prices)
   for (const id of PLAN_IDS) if (!PLANS[id]) PLANS[id] = JSON.parse(JSON.stringify(DEFAULTS.PLANS[id]));   // (a list from before a plan was added)
+  // (not for sale yet: config.js says; SELL_COMING_SOON=1 sells it anyway - the store tests, or taking pre-orders)
+  for (const [id, p] of Object.entries(PRODUCTS)) { const s = DEFAULTS.PRODUCTS[id] && DEFAULTS.PRODUCTS[id].soon; if (s && !process.env.SELL_COMING_SOON) p.soon = s; else delete p.soon; }
 }
 // (a price list saved before 9.3 - three church packs, Central Services monthly - gives way to today's store)
 export async function loadPrices() { const r = await one("SELECT data, updated_at FROM site_settings WHERE name='prices'"); if (r && r.data && r.data.PRODUCTS && !r.data.PRODUCTS["pack-small"]) apply(upgradePedal(r.data, r.updated_at)); else apply(null); }
