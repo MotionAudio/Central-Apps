@@ -39,6 +39,7 @@ APPS = [
                 ("Morph, freeze and layer", "Stack up to four pads, blend slowly from one to another, or freeze the sound and let it hang while you talk."),
                 ("Effects you can see", "Each pad has its own EQ, compressor, drive, filter, phaser, chorus, tremolo, width, delay and reverb, with an LFO to move them. The editor draws each effect while the pad plays."),
                 ("Your own sounds", "Load an MP3 or WAV from a USB stick and it becomes a pad. The pedal works out what key it's in, so it stays in tune with every song."),
+                ("Auto key", "Turn on Auto key and start playing. A few seconds in, the pedal hears what key your guitar or keyboard is in and moves the pads there. Stop for a moment between songs and it listens again for the next one. A song with tracks keeps its own key."),
                 ("Textures underneath", "Two texture channels play under the pads. Think rain, vinyl crackle, or a drone that follows the key."),
             ]),
             ("Instrument and looper", [
@@ -57,7 +58,7 @@ APPS = [
         "specs": [
             ("Screens", "7-inch touch screen (1024 × 600) and a 5-inch screen (1280 × 720)"),
             ("Label screens", "38 small screens: 30 on top, 8 on the back"),
-            ("Footswitches", "8 along the front"),
+            ("Footswitches", "8 stomp switches along the front"),
             ("Knobs", "14. They turn all the way round, and press."),
             ("Sliders", "4, with 60 mm of travel"),
             ("Outputs", "6 × 1/4-inch jacks (OUT 1-2, 3-4, 5-6)"),

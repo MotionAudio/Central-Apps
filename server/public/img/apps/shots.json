@@ -234,8 +234,8 @@
   "id": "pedal-pads-play",
   "app": "Central Pedal",
   "file": "img/apps/pedal/7-pads.webp",
-  "alt": "Central Pedal, Pads: Eight pads, Stop, the key, tap tempo, Freeze, Layer and Morph, the two textures and the knobs for volume, tone, reverb, fade and morph.",
-  "caption": "Eight pads, Stop, the key, tap tempo, Freeze, Layer and Morph, the two textures and the knobs for volume, tone, reverb, fade and morph."
+  "alt": "Central Pedal, Pads: Eight pads, Stop, the key, Auto key, tap tempo, Freeze, Layer and Morph, the two textures and the knobs for volume, tone, reverb, fade and morph.",
+  "caption": "Eight pads, Stop, the key, Auto key, tap tempo, Freeze, Layer and Morph, the two textures and the knobs for volume, tone, reverb, fade and morph."
  },
  {
   "id": "pedal-tracks",
@@ -248,15 +248,15 @@
   "id": "pedal-instrument-electric",
   "app": "Central Pedal",
   "file": "img/apps/pedal/7-instrument-electric.webp",
-  "alt": "Central Pedal, Instrument, electric: A guitar board: each pedal with its knobs, in the order the sound goes through them.",
-  "caption": "A guitar board: each pedal with its knobs, in the order the sound goes through them."
+  "alt": "Central Pedal, Instrument, electric: A guitar board: each pedal with its knobs, in the order the sound goes through them. Auto key is at the bottom, next to the input.",
+  "caption": "A guitar board: each pedal with its knobs, in the order the sound goes through them. Auto key is at the bottom, next to the input."
  },
  {
   "id": "pedal-instrument-keys",
   "app": "Central Pedal",
   "file": "img/apps/pedal/7-instrument.webp",
-  "alt": "Central Pedal, Instrument, keys: Keys from a USB keyboard. Each layer has its own sound, volume, octave, range and velocity.",
-  "caption": "Keys from a USB keyboard. Each layer has its own sound, volume, octave, range and velocity."
+  "alt": "Central Pedal, Instrument, keys: Keys from a USB keyboard. Each layer has its own sound, volume, octave, range and velocity. Auto key works from the notes you play.",
+  "caption": "Keys from a USB keyboard. Each layer has its own sound, volume, octave, range and velocity. Auto key works from the notes you play."
  },
  {
   "id": "pedal-looper",
@@ -549,8 +549,8 @@
   "id": "pedal-5-pads",
   "app": "Central Pedal",
   "file": "img/apps/pedal/5-pads.webp",
-  "alt": "Central Pedal, 5-inch screen, Pads: The pads and the performance knobs.",
-  "caption": "The pads and the performance knobs."
+  "alt": "Central Pedal, 5-inch screen, Pads: The pads, Auto key and the performance knobs.",
+  "caption": "The pads, Auto key and the performance knobs."
  },
  {
   "id": "pedal-5-instrument",
