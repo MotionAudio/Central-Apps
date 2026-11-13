@@ -101,20 +101,20 @@
   function askMode() { if (window.CURoles) window.CURoles.firstLaunch(); }
   var socket = null, retryTimer = 0, pingTimer = 0, httpBase = "";
   function api(p) { return httpBase + "/api" + p; }
-  function setConn(txt, cls) { $("#connInfo").textContent = txt; $("#dot").className = "dot" + (cls ? " " + cls : ""); }
+  function setConn(txt, cls, host) { var c = $("#connInfo"); c.textContent = txt; c.title = host ? "The Central Pedal at " + host : ""; $("#dot").className = "dot" + (cls ? " " + cls : ""); }
   function connect(host) {
     if (host) { prefs.host = host; store.set("host", host); }
     host = prefs.host || "padpedal.local"; $("#host").value = host;
     httpBase = "http://" + host + ":8080";
     clearTimeout(retryTimer); if (socket) { try { socket.onclose = null; socket.close(); } catch (_) { } socket = null; }
-    setConn("connecting to " + host + "…", "warn");
+    setConn("Looking for the Central Pedal…", "warn", host);
     fetch(api("/info"), { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) { if (j.wsPort) state.wsPort = j.wsPort; state.hostname = j.hostname || host; open(host); }).catch(function () { open(host); });
   }
   function open(host) {
     try { socket = new WebSocket("ws://" + host + ":" + state.wsPort); } catch (_) { retryTimer = setTimeout(function () { connect(); }, 3000); return; }
-    socket.onopen = function () { state.connected = true; setConn("connected to " + (state.hostname || host), ""); send({ type: "client", app: "central-usage", mode: mode() || "user", role: role() || "user1", name: cuCfg.name || "Central Control" }); if (prefs.code) send({ type: "auth", code: prefs.code }); clearInterval(pingTimer); pingTimer = setInterval(ping, 2000); ping(); fire("connected", true); };
+    socket.onopen = function () { state.connected = true; setConn("Central Pedal · " + (state.hostname || host).replace(/\.local$/, ""), "", host); send({ type: "client", app: "central-usage", mode: mode() || "user", role: role() || "user1", name: cuCfg.name || "Central Control" }); if (prefs.code) send({ type: "auth", code: prefs.code }); clearInterval(pingTimer); pingTimer = setInterval(ping, 2000); ping(); fire("connected", true); };
     socket.onmessage = function (e) { var m; try { m = JSON.parse(e.data); } catch (_) { return; } if (window.CUCenter && (FROM_CENTER_ONLY[m.type] || (m.type === "audioHost" && CUCenter.connected()))) return; if (m.type === "hello" && window.CUCenter && CUCenter.connected()) m.audioHost = state.audioHost; onMessage(m); };
-    socket.onclose = function () { state.connected = false; state.authed = false; setConn("lost " + host + " - retrying", "off"); clearInterval(pingTimer); retryTimer = setTimeout(function () { connect(); }, 2500); fire("connected", false); };
+    socket.onclose = function () { state.connected = false; state.authed = false; setConn("Central Pedal not found · retrying", "off", host); clearInterval(pingTimer); retryTimer = setTimeout(function () { connect(); }, 2500); fire("connected", false); };
   }
   // roles, devices, locks and services belong to the center (the main admin): an older Central Pedal's own copy is ignored
   var FROM_CENTER_ONLY = { cuRoles: 1, cuRoleReply: 1, cuRoleAssigned: 1, services: 1, serviceReply: 1, pairCodeChanged: 1 };

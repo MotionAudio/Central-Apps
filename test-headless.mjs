@@ -42,8 +42,12 @@ async function isolate(p) {
 });
   await p.route(/^https?:\/\/(127\.0\.0\.1|localhost):876[56]\//, (r) => ownDriver ? r.continue() : r.abort("connectionrefused"));
 }
-const newPage = async (o) => { const p = await browser.newPage(o); await isolate(p); return p; };
+// (11.0) and from the live website: the app's key and package checks go to motionaudio.org now; these checks are about the
+//  app itself, so it runs as before the website opened (no server) unless a page sets its own PP_LICENSE_CONFIG
+const offline = (p) => p.addInitScript(() => { if (!window.PP_LICENSE_CONFIG) window.PP_LICENSE_CONFIG = { server: "" }; });
+const newPage = async (o) => { const p = await browser.newPage(o); await isolate(p); await offline(p); return p; };
 const page = await (await browser.newContext({ viewport: { width: 1280, height: 860 } })).newPage();   // (a context of its own: savedFor() opens a second page in it)
+await offline(page);
 // (opened from a file this is Central Pedal Control, which needs a key: the default P key, as a church would enter it today)
 await page.addInitScript(() => { try { if (!localStorage.getItem("cc-license")) localStorage.setItem("cc-license", JSON.stringify({ key: "PDEF-AULT-KEY0-2026", kind: "P", app: "pedal-control", okAt: Date.now(), production: "Test church", isDefault: true })); } catch (_) { } });
 // The app tries ws://127.0.0.1:8765 (the pedal driver). On a machine without the
@@ -958,7 +962,7 @@ window.addEventListener("pp-plans", function () { window.__plansEvents++; });</s
     assert.deepEqual(errs, []);
   });
   await check("with no website the Central Pedal still needs no key; Settings → Packages takes only the default package key (every plan)", async () => {
-    const p4 = await newPage(); const html = fs.readFileSync(tmpPage, "utf8").replace('server: "http://127.0.0.1:18893", ', "");
+    const p4 = await newPage(); const html = fs.readFileSync(tmpPage, "utf8").replace('server: "http://127.0.0.1:18893", ', 'server: "", ');   // (no website: the app's own default is motionaudio.org now)
     const tmp4 = tmpPage.replace(/\.html$/, "-nosite.html"); fs.writeFileSync(tmp4, html);
     await p4.goto("file://" + tmp4); await p4.evaluate(() => { localStorage.clear(); PPLicense.init({ app: "pedal", packages: [] }); document.getElementById("set").innerHTML = PPLicense.settingsHtml(); }); await wait(200);
     const wiz = await p4.$("dialog#licWiz"), open = await p4.evaluate(() => PPLicense.hasPlan("pedals"));

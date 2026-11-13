@@ -85,6 +85,9 @@ body.tab-pads .toptab { display: none; }
 .cf-id { display: grid; grid-template-columns: 14px 1fr; gap: 4px 8px; align-items: center; } .cf-id input { padding: 5px 7px; } .cf-id small { grid-column: 2; color: var(--muted); font-size: 10px; }
 .cf-act, .cf-hold { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .cf-hold small { color: var(--muted); font-size: 10px; letter-spacing: .1em; } .cf-act select, .cf-hold select { width: auto; max-width: 100%; flex: 1 1 150px; } .cf-act input[type="number"] { width: 64px; }
 .ln-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr); gap: 12px; }
+/* (11.0) the pins and the wiring are for people who build their own pedal (?builder=1, or Settings → About → For builders):
+   on a built Central Pedal and in Central Pedal Control they're out of the way */
+html.no-wiring .ln-wiring, html.no-wiring #lnResetBoard { display: none; } html:not(.no-wiring) .ln-simple { display: none; } html.no-wiring .ln-grid { grid-template-columns: minmax(0, 860px); }
 .ln-row { display: grid; grid-template-columns: 14px minmax(0, 1fr) minmax(0, 1.3fr) auto auto; gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); margin-bottom: 6px; }
 .ln-row small { color: var(--muted); font-size: 11px; } .ln-row.learning { border-color: #F5CF72; box-shadow: 0 0 0 2px #F5CF72 inset; } .ln-row input { padding: 5px 7px; }
 .hdr-mini { width: 100%; max-width: 560px; display: block; font: 10px system-ui; }
@@ -292,8 +295,14 @@ dialog.pp-ask .row { display: flex; justify-content: flex-end; gap: 8px; margin-
 .clr input[type=color] { width: 40px; height: 28px; padding: 2px; flex: 0 0 auto; }
 #colorsAll h4 { margin: 8px 0 2px; font-size: 13px; } #colorsAll h4 small { font-weight: 400; }
 .vu-bar { background: linear-gradient(90deg, var(--accent) 0 70%, var(--meterMid) 70% 88%, var(--danger) 88%) !important; }
-.tr-sections .sec, #trSections .sec { border-top: 4px solid var(--secc, var(--line)) !important; }
-.pf-pad { border-top: 4px solid var(--padc, var(--line)) !important; }
+/* (11.0) the colour along the top of a section or a pad: a strip that follows the card's rounded corners (a thick top
+   border on a rounded card curls down at the ends) */
+.tr-sections .sec, #trSections .sec, .pf-pad { position: relative; }
+.tr-sections .sec::before, #trSections .sec::before, .pf-pad::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; pointer-events: none;
+  border-top-left-radius: inherit; border-top-right-radius: inherit; }
+.tr-sections .sec::before, #trSections .sec::before { background: var(--secc, var(--line)); }
+.pf-pad::before { background: var(--padc, var(--line)); }
 
 /* v8: big tuner */
 .tuner-overlay { position: fixed; inset: 0; z-index: 200; display: none; place-items: center; background: rgba(4, 9, 16, .86); backdrop-filter: blur(4px); }

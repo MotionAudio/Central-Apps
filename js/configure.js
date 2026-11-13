@@ -31,8 +31,12 @@
     return p.inputs;
   }
   function byId(id) { return inputs().filter(function (i) { return i.id === id; })[0] || null; }
+  // (11.0) GPIO pins, the ADC and the wiring are shown only to people who build their own pedal
+  var BUILDER = (function () { try { return /[?&]builder=1/.test(location.search) || localStorage.getItem("pp-builder") === "1"; } catch (_) { return false; } })();
+  if (!BUILDER) document.documentElement.classList.add("no-wiring");
   function wiringText(i) {
     if (i.streamdeck) return "Stream Deck";
+    if (!BUILDER && (i.gpio != null || i.adc || i.kind === "encoder")) return i.kind === "encoder" ? "knob on the pedal" : i.adc ? "on the pedal" : "on the pedal";
     if (i.usb) return "USB " + (i.usb.name || "") + " · " + (i.usb.codeName || ("key " + i.usb.code) || ("axis " + i.usb.abs));
     if (i.key) return window.CCSurface ? window.CCSurface.describe(i) : "Key " + i.key.code;
     if (i.midi) return window.CCSurface ? window.CCSurface.describe(i) : "MIDI " + String(i.midi.msg || i.midi.type).toUpperCase() + " " + i.midi.number + (i.midi.channel ? " ch" + i.midi.channel : "");

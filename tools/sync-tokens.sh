@@ -8,4 +8,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 for dest in server/public/central-tokens.css server/public/services/central-tokens.css docs/central-tokens.css; do
   cp "$ROOT/css/central-tokens.css" "$ROOT/$dest"
 done
+# (11.0) the finish on plain controls, for the apps that are web pages (Central Services, Central Production)
+for dest in server/public/services/central-controls.css server/public/daw/central-controls.css; do
+  cp "$ROOT/css/central-controls.css" "$ROOT/$dest"
+done
 echo "design tokens copied"
