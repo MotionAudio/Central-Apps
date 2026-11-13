@@ -159,7 +159,7 @@
   }
 
   // ------------------------------------------------------------- tabs
-  function showTab(name) { var r = role(); if (r && tabsFor(r).indexOf(name) < 0) name = tabsFor(r)[0]; prefs.tab = name; store.set("tab", name); fire("tab", name); document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); }); document.querySelectorAll(".view").forEach(function (v) { v.classList.toggle("active", v.id === "view-" + name); }); if (name === "lights") { initMidi(); if (window.CULights) window.CULights.renderAll(); } }
+  function showTab(name) { var r = role(); if (r && tabsFor(r).indexOf(name) < 0) name = tabsFor(r)[0]; prefs.tab = name; store.set("tab", name); fire("tab", name); document.querySelectorAll(".tab").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === name); }); document.querySelectorAll(".view").forEach(function (v) { v.classList.toggle("active", v.id === "view-" + name); }); if (name === "lights") initMidi(); }
   $("#tabs").addEventListener("click", function (e) { var b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); });
 
   // ------------------------------------------------------------- chart

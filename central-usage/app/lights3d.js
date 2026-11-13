@@ -213,7 +213,12 @@
     if (!hz.length) return 0.55;
     var m = 0; hz.forEach(function (f) { var s = live.fixtureColor[f.id]; if (s) m = Math.max(m, s.haze); }); return m;
   }
+  // (a redraw asked for by the mouse - hovering, dragging, the wheel - or a held arrow key waits for the next screen frame,
+  // so ten moves in one frame draw once; frame() paints now)
+  var drawReq = 0;
+  function frameSoon() { if (!drawReq) drawReq = requestAnimationFrame(function () { drawReq = 0; frame(); }); }
   function frame() {
+    if (drawReq) { cancelAnimationFrame(drawReq); drawReq = 0; }
     if (!ok || !L.isShowing()) return;
     resize(); buildRoom(); buildFixtures();
     var rig = L.rig(), live = L.live, haze = hazeLevel(), beamK = 0.26 + 0.6 * haze, emits = EXT.emitList; emits.length = 0; EXT.hazeNow = haze;
@@ -335,11 +340,11 @@
     } else drag = { mode: e.button === 2 || e.shiftKey ? "slide" : "turn", x: e.clientX, y: e.clientY, cam: Object.assign({}, cam), moved: false };
   });
   canvas.addEventListener("pointermove", function (e) {
-    if (!drag) { var h2 = pickAt(e); if (h2 !== hover) { hover = h2; canvas.style.cursor = h2 ? "grab" : "default"; frame(); } if (!h2 && EXT.pickables.length) canvas.style.cursor = pickExt(e) ? "grab" : "default"; return; }
+    if (!drag) { var h2 = pickAt(e); if (h2 !== hover) { hover = h2; canvas.style.cursor = h2 ? "grab" : "default"; frameSoon(); } if (!h2 && EXT.pickables.length) canvas.style.cursor = pickExt(e) ? "grab" : "default"; return; }
     if (drag.mode === "ext") {
       if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y0) > 3) drag.moved = true;
       var pe = drag.start && onPlane(e, drag.y); if (drag.moved && pe && drag.ext.drag) { canvas.style.cursor = "grabbing"; drag.ext.drag(pe.x - drag.start.x, pe.z - drag.start.z, drag.from); }
-      frame(); return;
+      frameSoon(); return;
     }
     var dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
     if (drag.mode === "turn") { cam.yaw = drag.cam.yaw - dx * 0.006; cam.pitch = clamp(drag.cam.pitch + dy * 0.005, 0.02, 1.55); }
@@ -351,7 +356,7 @@
       (drag.group || [{ f: drag.f, from: drag.from }]).forEach(function (it) { moveFixtureTo(it.f, it.from.x + ddx, it.from.z + ddz); });
       renderPanelValues();
     }
-    frame();
+    frameSoon();
   });
   canvas.addEventListener("pointerup", function () {
     if (drag && drag.mode === "ext") { if (drag.moved && drag.ext.end) drag.ext.end(); drag = null; canvas.style.cursor = "default"; frame(); return; }
@@ -360,7 +365,7 @@
     if (drag && (drag.mode === "turn" || drag.mode === "slide")) keep();
     drag = null; canvas.style.cursor = hover ? "grab" : "default"; frame();
   });
-  canvas.addEventListener("wheel", function (e) { e.preventDefault(); cam.dist = clamp(cam.dist * Math.pow(1.0015, e.deltaY), 2.5, 80); keep(); frame(); }, { passive: false });
+  canvas.addEventListener("wheel", function (e) { e.preventDefault(); cam.dist = clamp(cam.dist * Math.pow(1.0015, e.deltaY), 2.5, 80); keep(); frameSoon(); }, { passive: false });
   function onDeck(x, z) {   // is this spot on the stage (its main part, a thrust or a round front)?
     var st = stage(), W = st.width, D = st.depth; if (Math.abs(x) <= W / 2 && z <= 0 && z >= -D) return true;
     if (st.shape === "thrust") { var tw = st.thrustW || W * 0.4, td = st.thrustD || 2.5; return Math.abs(x) <= tw / 2 && z > 0 && z <= td; }
@@ -649,7 +654,7 @@
     else if (mod && k === "v" && clip && clip.length) { e.preventDefault(); pastePicked(); }
     else if (/^arrow/.test(k) && picked().length) {
       e.preventDefault(); remember(); var g = Math.max(gridStep(), 0.05), dx = k === "arrowleft" ? -g : k === "arrowright" ? g : 0, dz = k === "arrowup" ? -g : k === "arrowdown" ? g : 0;
-      picked().forEach(function (f) { moveFixtureTo(f, f.pos.x + dx, f.pos.z + dz); }); L.saveRig(); renderPanelValues(); frame();
+      picked().forEach(function (f) { moveFixtureTo(f, f.pos.x + dx, f.pos.z + dz); }); L.saveRig(); renderPanelValues(); frameSoon();
     }
   });
 
@@ -687,6 +692,19 @@
 
   // ------------------------------------------------------------- start
   applyBig();
+  // (the first look at the lighting page builds the room and compiles every shader it needs - most of a second on a
+  // slow laptop - so that is done ahead, once, while the app sits idle, and on its own threads where the browser can)
+  var warmed = false;
+  function warm() {
+    var tab = document.querySelector('[data-tab="lights"]');
+    if (warmed || !ok || L.isShowing()) return;
+    if (!tab || !tab.offsetParent) { setTimeout(warmSoon, 3000); return; }   // (not until this computer has the lighting page)
+    warmed = true;
+    try { buildRoom(); buildFixtures(); placeCamera(); if (renderer.compileAsync) renderer.compileAsync(scene, camera).catch(function () { }); else renderer.compile(scene, camera); }
+    catch (e) { console.warn("3D warm-up", e); }
+  }
+  function warmSoon() { (window.requestIdleCallback || function (f) { return setTimeout(f, 0); })(warm, { timeout: 4000 }); }
+  setTimeout(warmSoon, 1500);
   if (window.ResizeObserver) new ResizeObserver(function () { if (L.isShowing()) frame(); }).observe(host);
   window.CULights3D = { active: function () { return ok; }, frame: frame, rebuild: function () { fixKey = ""; roomKey = ""; if (L.isShowing()) frame(); }, view: view, select: function (id) { selected = id; paintSelection(); if (id) roomy(); renderPanel(); frame(); }, big: function () { return big; },
     selected: function () { return selected; }, sizeLabel: applyBig, count: function () { return Object.keys(fixtures).length; }, emitters: function (id) { var o = fixtures[id]; return o ? o.emitters.length : 0; }, camera: function () { return cam; },

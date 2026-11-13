@@ -546,9 +546,13 @@
     var key = Object.keys(unis).map(function (u) { return u + ":" + Array.prototype.join.call(unis[u], ","); }).join("|");
     if (DMX && outputsOn() && runsLights() && (key !== lastSent || now - lastSentAt > 1000)) { var plain = {}; Object.keys(unis).forEach(function (u) { plain[u] = Array.from(unis[u]); }); DMX.frame(plain); lastSent = key; lastSentAt = now; }
     clickTick();
-    if (visible()) drawLive();
+    if (visible()) liveSoon();
   }
   setInterval(tick, 25);
+  // (the picture is painted on the screen's own frame, not on the 25 ms output clock: one paint per frame, in step with
+  // the display, and none while the window is hidden)
+  var liveReq = 0;
+  function liveSoon() { if (!liveReq) liveReq = requestAnimationFrame(function () { liveReq = 0; if (visible()) drawLive(); }); }
 
   // ------------------------------------------------------------- from the Central Pedal
   function setSong(sid, name, secs, local) {
