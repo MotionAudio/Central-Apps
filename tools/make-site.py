@@ -65,7 +65,7 @@ def header():
     <span class="nav-main" id="navMain">
       <div class="dd"><button class="dd-btn" type="button" aria-expanded="false" aria-controls="ddApps">Apps</button><div class="dd-panel" id="ddApps">{apps}<a class="dd-all" href="/apps/">Compare the apps: which ones do we need?</a></div></div>
       <div class="dd"><button class="dd-btn" type="button" aria-expanded="false" aria-controls="ddSounds">Sounds</button><div class="dd-panel" id="ddSounds">{plans}<a class="dd-all" href="/sounds/">All sounds and packs</a></div></div>
-      <a href="/pricing/" data-edit="nav.store">Pricing</a><a href="/#tracks" data-edit="nav.tracks">Central Tracks</a><a href="/create/" data-edit="nav.create">Make &amp; sell</a><a href="/#downloads" data-edit="nav.downloads">Downloads</a><a href="/help/" data-edit="nav.help">Help</a>
+      <a href="/io/" data-edit="nav.io">Central I/O</a><a href="/pricing/" data-edit="nav.store">Pricing</a><a href="/#tracks" data-edit="nav.tracks">Central Tracks</a><a href="/create/" data-edit="nav.create">Make &amp; sell</a><a href="/#downloads" data-edit="nav.downloads">Downloads</a><a href="/help/" data-edit="nav.help">Help</a>
     </span>
     <span class="nav-end">
     <a href="/#account" id="acctLink">Sign in</a>
@@ -85,7 +85,7 @@ def footer():
   <div class="about"><a class="logo" href="/"><span style="color:var(--brass-hi)">{LOGO_SVG}</span>Motion Audio</a>
     <p class="apps" data-edit="footer.about">I make Central for church worship and production teams. If you've got a question or something isn't working, email us and we'll write back.</p>
     <a class="mail" href="mailto:{E(C.SUPPORT_EMAIL)}">{E(C.SUPPORT_EMAIL)}</a></div>
-  {col("Apps", [(a["name"], app_href(a)) for a in C.APPS] + [("Compare the apps", "/apps/")])}
+  {col("Apps", [(a["name"], app_href(a)) for a in C.APPS] + [("Compare the apps", "/apps/"), ("Central I/O boxes", "/io/")])}
   {col("Sounds", [(p["name"], "/sounds/" + p["id"] + "/") for p in C.PLANS] + [(C.TRACKS["name"], "/sounds/tracks/")])}
   {col("Buy", [("Pricing", "/pricing/"), ("Church packs", "/pricing/#packsTop"), ("Sound plans", "/pricing/#plans"), ("Central Tracks", "/#tracks"), ("Make & sell", "/create/"), ("Downloads", "/#downloads"), ("My products", "/#account-products")])}
   {col("Help", [("Help Center", "/help/"), ("Contact support", "/help/#contact"), ("Install the apps", "/help/install.html"), ("How accounts work", "/help/accounts.html"), ("Status", "/status/"), ("Privacy", "/privacy"), ("Terms", "/terms"), ("Refunds", "/refunds")])}
@@ -96,7 +96,7 @@ def footer():
 SCRIPTS_SHOP = ["/edit.js", "/previews.js", "/app.js", "/site-nav.js"]
 
 
-def page(path, page_id, title, desc, body, og=None, scripts=(), jsonld=None, noindex=False):
+def page(path, page_id, title, desc, body, og=None, scripts=(), jsonld=None, noindex=False, css=()):
     og = og or page_id
     sc = "".join(f'<script src="{s}"></script>' for s in list(SCRIPTS_SHOP) + list(scripts))
     ld = f'<script type="application/ld+json">{json.dumps(jsonld, separators=(",", ":"))}</script>' if jsonld else ""
@@ -116,7 +116,7 @@ def page(path, page_id, title, desc, body, og=None, scripts=(), jsonld=None, noi
 <link rel="preload" href="/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/central-tokens.css">
 <link rel="stylesheet" href="/site.css">
-<link rel="stylesheet" href="/site-pages.css">
+<link rel="stylesheet" href="/site-pages.css">{"".join(f'<link rel="stylesheet" href="{c}">' for c in css)}
 <script src="https://js.stripe.com/dahlia/stripe.js" async></script>{ld}
 </head>
 <body data-page="{E(page_id)}">
@@ -253,6 +253,84 @@ def apps_hub():
     OG_SHOT["apps"] = "cc-lights"
     page("apps/index.html", "apps", "The Central apps for worship teams | Motion Audio", "What each of the six Central apps does, who it's for, and which ones a church actually needs.", body)
 
+
+# ------------------------------------------------------------------------------------------------------------- Central I/O
+def io_drawing():
+    """a drawing (not a render) of a rack stack and a standalone box"""
+    def box(x, y, w, h, label, kind):
+        g = f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="5" fill="#26262a" stroke="#0e0e10"/>'
+        if kind == "ctl":
+            g += f'<rect x="{x + 14}" y="{y + 9}" width="54" height="{h - 18}" rx="2" fill="#0b2a3a" stroke="#c9a24a" stroke-width=".8"/>'
+            g += "".join(f'<circle cx="{x + w - 46 + i * 24}" cy="{y + h / 2}" r="8" fill="#111" stroke="#c9a24a"/>' for i in range(2))
+        else:
+            for i in range(16):
+                cx = x + 22 + i * (w - 44) / 15
+                g += f'<circle cx="{cx:.1f}" cy="{y + h / 2}" r="{5.2 if kind == "in" else 4.6}" fill="#111" stroke="{"#9a9aa0" if kind == "out" else "#c9a24a"}" stroke-width=".9"/>'
+        if label: g += f'<text x="{x + w + 10}" y="{y + h / 2 + 4}" font-size="12" fill="currentColor">{label}</text>'
+        return g
+    pins = lambda x, y: "".join(f'<rect x="{x + i * 6}" y="{y - 4}" width="3" height="5" rx="1" fill="#c9a24a"/>' for i in range(6))
+    y0, w, h, gap = 210, 330, 34, 2
+    rows = [("ctl", "Controller (it powers the stack)"), ("out", "Output Box, 16 outputs"), ("out", "Output Box, 16 outputs"), ("in", "Input Box, 16 inputs")]
+    parts = ""
+    for i, (k, lab) in enumerate(rows):
+        y = y0 - i * (h + gap)
+        parts += box(30, y, w, h, lab, k)
+        if i < len(rows) - 1: parts += pins(30 + w - 52, y)
+    top = y0 - (len(rows) - 1) * (h + gap)
+    parts += f'<text x="30" y="{top - 16}" font-size="13" font-weight="600" fill="currentColor">Rack mount: they stack, no cables between boxes</text>'
+    parts += f'<text x="{30 + w - 40}" y="{y0 + h + 18}" font-size="11" fill="#8a6a1e" text-anchor="middle">6 pins: 48 V, ground, data</text>'
+    sx, sy = 590, 150
+    parts += f'<text x="{sx}" y="{sy - 26}" font-size="13" font-weight="600" fill="currentColor">Standalone</text>'
+    parts += box(sx, sy, 260, h, "", "out")
+    parts += f'<rect x="{sx + 40}" y="{sy + h + 40}" width="46" height="26" rx="4" fill="#3a3a3e"/><path d="M{sx + 63} {sy + h} V{sy + h + 40}" stroke="#555" stroke-width="2" fill="none"/>'
+    parts += f'<text x="{sx + 30}" y="{sy + h + 82}" font-size="11" fill="currentColor">its own power adapter</text>'
+    parts += f'<path d="M{sx + 230} {sy + h} V{sy + h + 78}" stroke="#c9a24a" stroke-width="2" fill="none"/>'
+    parts += f'<text x="{sx + 238}" y="{sy + h + 96}" font-size="11" fill="currentColor" text-anchor="end">network cable back to the controller</text>'
+    return f'<svg class="io-draw" viewBox="0 70 900 220" role="img" aria-label="A drawing of a rack stack (controller at the bottom, two output boxes and an input box on top) and a standalone box with its own power adapter and a network cable." style="width:100%;height:auto;color:var(--ink)">{parts}</svg>'
+
+
+def io_hub():
+    I = C.IO
+    soon = f'<span class="chip" style="background:var(--brass);color:#111;border-color:transparent">{E(I["soon"])}</span>'
+    cards = "".join(f'<div class="fact"><h3>{E(b["name"])}</h3><div>{soon}</div><p class="muted">{E(b["line"])}</p><p>{E(b["text"])}</p><a class="btn ghost small" href="/io/{b["slug"]}.html">How to set it up</a></div>' for b in I["boxes"])
+    specs = "".join('<div class="fgroup" id="spec-' + E(b["slug"]) + '"><h3>' + E(b["name"]) + '</h3><dl class="specs" style="margin:0">' + "".join(f"<div><dt>{E(k)}</dt><dd>{E(v)}</dd></div>" for k, v in b["specs"]) + '</dl></div>' for b in I["boxes"])
+    versions = "".join(f'<li><b>{E(t)}</b><span>{E(d)}</span></li>' for t, d in I["versions"])
+    uses = "".join('<div class="fgroup" id="' + E(u["id"]) + '"><h3>' + E(u["title"]) + '</h3><div><p style="margin:0 0 1rem;color:var(--ink-2)">' + E(u["intro"]) + '</p><ul class="feats">' + "".join(f"<li><b>{E(t)}</b><span>{E(d)}</span></li>" for t, d in u["parts"]) + '</ul></div></div>' for u in I["uses"])
+    guides = "".join(f'<a class="hc-cat" href="/io/{b["slug"]}.html" style="text-decoration:none"><h3>{E(b["name"])}</h3><span class="muted">{E(b["line"])}</span></a>' for b in I["boxes"])
+    body = (f'<section class="page-hero on-stage"><div class="wrap">\n  <div class="crumbs"><span>Central I/O</span></div>\n  <div class="chips" style="margin:.6rem 0 0">{soon}</div>\n'
+            f'  <h1 data-edit="io.title">{E(I["tag"])}</h1>\n  <p class="lede" data-edit="io.lede">{E(I["lede"])}</p>\n'
+            '  <div class="ctas"><a class="btn brass" href="#uses">What they&#x27;re for</a><a class="btn ghost" href="#versions">Rack or standalone</a></div>\n'
+            f'  <p class="muted" style="margin-top:.8rem;font-size:.9rem">{E(I["status"])}</p>\n</div></section>\n'
+            '<section class="pg"><div class="wrap"><div class="pg-head"><h2>Three boxes</h2><p>Every setup has one controller. Add as many output and input boxes as the room needs.</p></div>\n'
+            f'  <div class="facts">{cards}</div></div></section>\n'
+            '<section class="pg band" id="versions"><div class="wrap"><div class="pg-head"><h2>Rack mount or standalone</h2><p>Each box comes both ways.</p></div>\n'
+            f'  {io_drawing()}\n'
+            f'  <div class="fgroup" style="margin-top:1.5rem"><h3>Two versions</h3><div><ul class="feats">{versions}</ul><p class="muted" style="margin-top:1rem">{E(I["versions_note"])}</p></div></div>\n'
+            '  <p class="muted" style="margin-top:.8rem;font-size:.85rem">That&#x27;s a drawing, not a photo. The real boxes will look different.</p>\n</div></section>\n'
+            '<section class="pg" id="uses"><div class="wrap"><div class="pg-head"><h2>What they&#x27;re for</h2><p>The same boxes do three jobs. Here&#x27;s what each box does in each one.</p></div>\n'
+            f'  <div class="feat-groups">{uses}</div></div></section>\n'
+            '<section class="pg band" id="specs"><div class="wrap"><div class="pg-head"><h2>What&#x27;s planned for each box</h2><p>These are the plans today. They may change before 2028.</p></div>\n'
+            f'  <div class="feat-groups">{specs}</div></div></section>\n'
+            '<section class="pg"><div class="wrap"><div class="pg-head"><h2>Setting them up</h2><p>How each box is planned to go together, step by step.</p></div>\n'
+            f'  <div class="hc-cats">{guides}</div>\n'
+            f'  <p class="muted" style="margin-top:1.4rem">They&#x27;re coming in 2028 and aren&#x27;t for sale yet. If you want to hear when they are, email <a href="mailto:{E(C.SUPPORT_EMAIL)}">{E(C.SUPPORT_EMAIL)}</a>.</p>\n</div></section>')
+    OG_SHOT["io"] = "pedal-render-hero"
+    page("io/index.html", "io", "Central I/O: output boxes, input boxes and the controller | Motion Audio", "Boxes for more outputs from the pedal, in-ears for the band and a mix for every speaker with Central Wave. Coming 2028.", body)
+
+
+def io_guide(b):
+    I = C.IO
+    secs = C.IO_GUIDES[b["slug"]]
+    def para(x):
+        if isinstance(x, tuple) and x[0] == "steps": return '<ol class="steps">' + "".join(f"<li>{E(st)}</li>" for st in x[1]) + "</ol>"
+        return f"<p>{E(x)}</p>"
+    doc = "".join(f'<h2 id="{E(slug(h))}">{E(h)}</h2>' + "".join(para(x) for x in xs) for h, xs in secs)
+    toc = "".join(f'<li><a href="#{E(slug(h))}">{E(h)}</a></li>' for h, _ in secs)
+    others = " and ".join(f'<a href="/io/{x["slug"]}.html">{E(x["name"])}</a>' for x in I["boxes"] if x["slug"] != b["slug"])
+    body = (f'<div class="page-head on-stage plain"><div class="wrap"><div class="crumbs"><a href="/io/">Central I/O</a></div><h1>Set up the {E(b["name"])}</h1><p class="lede">{E(b["line"])} {E(I["soon"])}.</p></div></div>\n'
+            f'<div class="wrap man"><aside class="toc" aria-label="On this page"><b>On this page</b><ol>{toc}</ol></aside>\n<article class="doc">\n'
+            f'<p class="note">{E(I["status"])}</p>\n{doc}\n<p class="muted" style="margin-top:2rem">The other boxes: {others}.</p>\n</article></div>')
+    page(f"io/{b['slug']}.html", "io-" + b["slug"], f'Set up the {b["name"]} | Motion Audio', f'How the {b["name"]} is planned to be set up and used. Coming 2028.', body, css=["/apps/manual.css"])
 
 # ------------------------------------------------------------------------------------------------------------- sounds
 def pick_html(plan, k):
@@ -486,6 +564,8 @@ def main():
     sounds_hub()
     for p in C.PLANS: plan_page(p)
     tracks_page()
+    io_hub()
+    for b in C.IO["boxes"]: io_guide(b)
     pricing()
     help_center()
     status_page()

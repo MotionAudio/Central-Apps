@@ -90,6 +90,30 @@
   "shot": "pc-tracks"
  },
  {
+  "id": "io",
+  "title": "Central I/O: output boxes, input boxes and the controller",
+  "kicker": "Boxes for more outputs from the pedal, in-ears for the band and a mix for every speaker with Central Wave. Coming 2028.",
+  "shot": "pedal-render-hero"
+ },
+ {
+  "id": "io-controller",
+  "title": "Set up the Central I/O Controller",
+  "kicker": "How the Central I/O Controller is planned to be set up and used. Coming 2028.",
+  "shot": "cc-lights"
+ },
+ {
+  "id": "io-output-box",
+  "title": "Set up the Central I/O Output Box",
+  "kicker": "How the Central I/O Output Box is planned to be set up and used. Coming 2028.",
+  "shot": "cc-lights"
+ },
+ {
+  "id": "io-input-box",
+  "title": "Set up the Central I/O Input Box",
+  "kicker": "How the Central I/O Input Box is planned to be set up and used. Coming 2028.",
+  "shot": "cc-lights"
+ },
+ {
   "id": "pricing",
   "title": "Pricing: church packs, sound plans and Central Tracks",
   "kicker": "Church packs and app keys are a one-time payment, sound plans are yearly and Central Tracks Unlimited is monthly. Tax is included.",
