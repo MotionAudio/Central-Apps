@@ -273,8 +273,7 @@ def io_drawing():
     def box(x, y, w, h, label, kind):
         g = f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="5" fill="#26262a" stroke="#0e0e10"/>'
         if kind == "ctl":
-            g += f'<rect x="{x + 14}" y="{y + 9}" width="54" height="{h - 18}" rx="2" fill="#0b2a3a" stroke="#c9a24a" stroke-width=".8"/>'
-            g += f'<rect x="{x + 76}" y="{y + 12}" width="70" height="{h - 24}" rx="2" fill="#111" stroke="#c9a24a" stroke-width=".8"/>'   # (the channel bar)
+            g += f'<rect x="{x + 14}" y="{y + 7}" width="190" height="{h - 14}" rx="2" fill="#0b2a3a" stroke="#c9a24a" stroke-width=".8"/>'   # (the long screen)
             g += "".join(f'<circle cx="{x + w - 46 + i * 24}" cy="{y + h / 2}" r="8" fill="#111" stroke="#c9a24a"/>' for i in range(2))
         else:
             n = 8 if kind == "in" else 16
