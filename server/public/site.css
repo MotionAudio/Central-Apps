@@ -584,3 +584,9 @@ nav a.on{color:var(--ink);border-bottom-color:var(--ink)}
 @media (max-width:760px){nav .nav-acct{position:absolute;top:.55rem;right:max(20px,env(safe-area-inset-right,0px));min-height:44px;display:inline-flex;align-items:center}}
 .doc-links{font-size:.92rem;color:var(--ink-3);margin:0 0 1.6rem}
 .doc-links b{color:var(--ink)}
+/* rev E: the owner's own box (how the pedal's software goes on), drawn only for the website's owner */
+.owner-box{margin:.8rem 0 0;padding:.8rem 1rem;border:1px dashed var(--brass);border-radius:var(--r-sm);background:var(--brass-wash);font-size:.93rem;line-height:1.5}
+.owner-box>b{display:block;color:var(--brass-ink);margin-bottom:.3rem}
+.owner-box ul{margin:0;padding-left:1.1rem;display:grid;gap:.45rem}
+.owner-box .btn.small{min-height:36px;margin:.15rem 0}
+.owner-box code{white-space:nowrap}

@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config, SITE_VERSION, STAR_PRICE_CENTS, POOL_SHARE, PRODUCTS, SUBSCRIPTION, KEY_KINDS, RENEWAL, MAIN_ADMINS_MAX, PLANS, PLAN_IDS, PLAN_ALL, PLAN_BUNDLES, PACKAGE_DEVICES, TRACK_KINDS, ITEM_KINDS, DEMO_MAX_SECONDS } from "./config.js";
 import { q, one, migrate } from "./db.js";
-import { hashPassword, checkPassword, makeToken, attachUser, requireUser, isAdmin } from "./auth.js";
+import { hashPassword, checkPassword, makeToken, attachUser, requireUser, isAdmin, isOwner } from "./auth.js";
 import * as store from "./storage.js";
 import { gradeAudio } from "./grade.js";
 import * as pay from "./payments.js";
@@ -170,7 +170,7 @@ api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
   const c = await lic.churchOf(u.id);
   const payoutsReady = u.connect_account && !u.connect_ready ? await pay.refreshConnect(u) : !!u.connect_ready;   // (back from Stripe's payout setup)
-  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), builds: builds.canSee(u), reviewer: await creators.isReviewer(u), reviewUrl: (await creators.isReviewer(u)) ? config.publicUrl + creators.reviewPath() + "/" : undefined, reviewerDiscount: await creators.reviewerStatus(u), payoutsReady, payoutsStarted: !!u.connect_account,
+  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), owner: isOwner(u), builds: builds.canSee(u), reviewer: await creators.isReviewer(u), reviewUrl: (await creators.isReviewer(u)) ? config.publicUrl + creators.reviewPath() + "/" : undefined, reviewerDiscount: await creators.reviewerStatus(u), payoutsReady, payoutsStarted: !!u.connect_account,
     idStatus: u.id_status, idRequired: !!(config.stripe.requireIdToPublish && pay.stripe),
     emailConfirmed: !!u.email_confirmed, phone: u.phone ? signin.maskPhone(u.phone) : null, phoneConfirmed: u.phone_confirmed, twoStep: await signin.needsCode(u),
     church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, owned: await pay.ownedCounts(c.id), hasServices: (c.services_slots || 0) > 0 || lic.trialActive(c), servicesSlots: c.services_slots || 0, subscribed: c.subscribed, trialUntil: lic.trialActive(c) ? c.trial_until : null, trialUsed: !!c.trial_code } : null });

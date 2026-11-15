@@ -818,11 +818,14 @@ async function showDownloads(thanks) {
     ${dlButtons(a)}
     <div><b style="font-size:.92rem">On ${esc(PLATFORM_NAME[PLATFORM])}</b>${stepsHtml(a, PLATFORM)}</div>
     <details><summary>Other computers and phones</summary>${others(a).map((p) => `<div style="margin-top:.5rem"><b style="font-size:.92rem">${esc(PLATFORM_NAME[p])}</b>${stepsHtml(a, p)}</div>`).join("")}<p style="margin:.5rem 0 0"><a href="${esc(a.guide)}">The full install guide</a></p></details></div>`;
+  // (the pedal's own update file and how its software goes on are the owner's only: everyone else writes in for it)
+  const NO_NET = `No internet at church? <a href="/help/#contact">Write to me</a> and I'll send you the pedal update for a USB stick.`;
+  const OWNER_SLOT = me && me.owner ? `<div data-owner-pedal></div>` : "";
   const pedalCard = (p) => `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">${p.held ? "Being checked before it ships" : p.shipsTo ? "Ships to " + esc(p.shipsTo) : "Ships to the address you gave"}</span></div></div>
     <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
-    <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home.</p><p class="muted" style="margin:0;font-size:.9rem">No internet at church? <a href="/download/pedal/usb">Download the pedal update</a>, copy it to a USB stick, and on the pedal use Settings → Update software from USB….</p></div>`;
+    <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home.</p><p class="muted" style="margin:0;font-size:.9rem">${NO_NET}</p>${OWNER_SLOT}</div>`;
   const pedalPublic = `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">Raspberry Pi 4 · needs no key</span></div></div>
-    <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol><p class="muted" style="margin:0;font-size:.9rem">No internet at church? <a href="/download/pedal/usb">Download the pedal update</a>, copy it to a USB stick, and on the pedal use Settings → Update software from USB….</p></div>`;
+    <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol><p class="muted" style="margin:0;font-size:.9rem">${NO_NET}</p>${OWNER_SLOT}</div>`;
   const sv = pub.services;
   const servicesCard = `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(sv.icon)}.svg" alt=""><div><h3>${esc(sv.name)}</h3><span class="muted">${esc(sv.runsOn)}</span></div></div>
     <div class="dl-keys"><span class="muted" style="font-size:.9rem">${esc(sv.note)}</span></div>
@@ -844,7 +847,7 @@ async function showDownloads(thanks) {
     ${all}
     ${libSection}
     <p class="muted" style="font-size:.9rem"><a href="${esc(pub.guide)}">How to install</a> covers Windows, Mac, Linux, Android and iPad.${me ? ' Your keys, with what each one is for, are under <a href="/#purchases">Purchases</a>.' : ""}</p><div class="err" id="dlErr"></div>`;
-  wireCopies(el);
+  wireCopies(el); ownerPedalInstall(el);
   el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], renewal)));
   el.querySelectorAll("[data-dlrel]").forEach((b) => (b.onclick = async () => {
     if (!confirm("Release this key from its devices? They stop working until the key is typed again.")) return;
@@ -882,7 +885,7 @@ async function renderMyRenewals() {
   const keys = d.apps.flatMap((a) => a.keys.map((k) => Object.assign({ app: a.name }, k))), pk = d.packages || [];
   if (!keys.length && !pk.length) { el.innerHTML = `<p class="muted" style="margin:0;font-size:.9rem">No keys yet. Keys you buy show up here and in your email; your church sends you yours by email.</p>`; return; }
   el.innerHTML = `<div style="display:grid;gap:.3rem">${keys.map((k) => `<div class="tm"><span><b>${esc(k.app)}</b> <code>${esc(k.key)}</code>${k.updatesUntil && k.updatesUntil !== "forever" ? ` <span class="muted">· updates through ${esc(k.updatesUntil)}</span>` : ""}</span><span>${copyBtn(k.key)}${k.renewable ? ` <button class="btn small ghost" data-renewme="${esc(k.key)}">Renew (${dollars(d.renewalCents / 100)})</button>` : ""}</span></div>`).join("")}${pk.map((k) => `<div class="tm"><span><b>${esc(k.plans)}</b> <code>${esc(k.key)}</code> <span class="muted">· until ${esc(longDate(k.until))}</span></span><span>${copyBtn(k.key)}</span></div>`).join("")}</div>`;
-  wireCopies(el);
+  wireCopies(el); ownerPedalInstall(el);
   el.querySelectorAll("[data-renewme]").forEach((b) => (b.onclick = () => renewMine([b.dataset.renewme], d.renewalCents)));
 }
 // a church's purchase: next, add your people (each gets their app, how to install it and their key by email)
@@ -1319,7 +1322,31 @@ async function renderStaff(qs) {
   let t = 0; $("#mkQ").oninput = (e) => { clearTimeout(t); t = setTimeout(() => renderStaff(e.target.value), 300); };
   el.querySelectorAll("[data-sk]").forEach((b) => (b.onclick = async () => { try { await api("POST", "/admin/keys/" + encodeURIComponent(b.dataset.k) + "/" + b.dataset.sk); renderStaff(qs); } catch (e) { toast(e.message); } }));
 }
-function signOutNow() { setToken(null); me = null; renderAll(); toast("You're signed out. See you soon."); }
+// The owner's own box (rev E): how the pedal's software goes on - its USB update and the SD card maker. It's on no public
+// page: the box is only drawn for the website's owner, and both come from /v1/admin/pedal-install, which answers no one else.
+async function ownerPedalInstall(root) {
+  const all = [...(root || document).querySelectorAll("[data-owner-pedal]")];
+  if (!me || !me.owner) { all.forEach((x) => { x.innerHTML = ""; x.hidden = true; delete x.dataset.done; }); return; }
+  const slots = all.filter((x) => !x.dataset.done);
+  if (!slots.length) return;
+  let r; try { r = await api("GET", "/admin/pedal-install"); } catch (e) { return; }
+  const size = (n) => (n >= 1e6 ? Math.round(n / 1e6) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB");
+  const html = `<div class="owner-box"><b>Only you see this: putting the pedal's software on</b><ul>
+    <li><b>Update from a USB stick</b>${r.usb ? ` (${esc(r.usb.version || "newest")}, ${size(r.usb.bytes || 0)})` : ""}: ${r.usb ? `<a href="${esc(r.usb.url)}">download the pedal update</a>` : "the update isn't in the newest release yet"}, copy it to a USB stick, then on the pedal Settings → Software updates &amp; backup → <b>Update software from USB…</b>.</li>
+    <li><b>A new SD card for a Pi 4 pedal</b>: <button type="button" class="btn small ghost" data-sdcard>Download the SD card maker</button> Then, on an Ubuntu PC with the card in, open a Terminal in the folder it saved to and run <code>sudo bash sd-card.sh</code>. Pick the card and type ERASE.</li>
+    <li><b>Rev E pedal (CM5)</b>: the SD card image, the pedal's software and both boards' firmware are on your <a href="/#account">Account</a> page under <b>Pedal builds</b>.</li></ul></div>`;
+  slots.forEach((x) => { x.dataset.done = "1"; x.hidden = false; x.innerHTML = html; });
+  (root || document).querySelectorAll("[data-sdcard]").forEach((b) => (b.onclick = async () => {
+    try {
+      const res = await fetch("/v1/admin/pedal-install/sd-card.sh", { headers: { Authorization: "Bearer " + token } });
+      if (!res.ok) throw new Error("The server answered " + res.status + ".");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(await res.blob()); a.download = "sd-card.sh"; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    } catch (e) { toast(e.message); }
+  }));
+}
+document.addEventListener("ma-me", () => ownerPedalInstall(document));
+
+function signOutNow() { setToken(null); me = null; renderAll(); ownerPedalInstall(document); toast("You're signed out. See you soon."); }
 on("#signOut", "click", signOutNow);
 
 async function refreshMe() {

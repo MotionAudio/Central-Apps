@@ -10,6 +10,8 @@ import { q, one } from "./db.js";
 import { isOwner } from "./auth.js";
 import { requireStep } from "./signin.js";
 import * as store from "./storage.js";
+import { readFileSync } from "node:fs";
+import { resolveApp } from "./getfile.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 export const KINDS = [
@@ -113,5 +115,18 @@ export function routes(api, { wrap, requireUser }) {
     await q("DELETE FROM builds WHERE id=$1", [b.id]);
     if (b.ship) { const next = await one("SELECT id FROM builds WHERE kind=$1 AND state='ready' ORDER BY created_at DESC LIMIT 1", [b.kind]); if (next) await q("UPDATE builds SET ship=TRUE WHERE id=$1", [next.id]); }
     res.json({ ok: true });
+  }));
+  // How the pedal's software goes on (its USB update and the SD card maker): the owner only. The public pages only say
+  // how to set a pedal up and use it; this fills the owner's own box on the Install the apps page and in Downloads.
+  api.get("/admin/pedal-install", requireUser, wrap(async (req, res) => {
+    if (!isOwner(req.user)) throw bad("Only the website's owner can see this.", 403);
+    let usb = null;
+    try { usb = await resolveApp("pedal", "usb"); } catch (_) { }
+    res.set("Cache-Control", "no-store");
+    res.json({ usb: usb && { name: usb.name, url: usb.url, bytes: usb.size, version: usb.version }, sdCard: "sd-card.sh" });
+  }));
+  api.get("/admin/pedal-install/sd-card.sh", requireUser, wrap(async (req, res) => {
+    if (!isOwner(req.user)) throw bad("Only the website's owner can see this.", 403);
+    res.set("Cache-Control", "no-store").type("text/x-shellscript").send(readFileSync(new URL("./owner/sd-card.sh", import.meta.url), "utf8"));
   }));
 }

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Make a Central Pedal SD card on an Ubuntu / Debian PC, with one line in the Terminal:
-#   curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash
+# Make a Central Pedal SD card on an Ubuntu / Debian PC. The website's owner only: download it from the Install the apps
+# page while signed in (it isn't on any public page), then in the Terminal, in the folder it's in:
+#   sudo bash sd-card.sh
 # No questions: put the SD card in, pick it, type ERASE. It downloads the newest Central Pedal, builds the card
 # (central-pedal-<version>.img, with as many sounds as the card holds) and writes it. The pedal sets itself up from a
 # phone the first time it starts (Wi-Fi, touch screen, 4-digit code). Run it again any time: the Raspberry Pi OS
@@ -115,7 +116,7 @@ sys.stdout.write("\n")
 PY
 }
 
-[ "$(id -u)" -eq 0 ] || fail "Run it with sudo:   curl -fsSL https://motionaudio.github.io/Central-Apps/sd-card.sh | sudo bash"
+[ "$(id -u)" -eq 0 ] || fail "Run it with sudo:   sudo bash sd-card.sh"
 [ -r /dev/tty ] || fail "Run it in a Terminal window."
 command -v apt-get >/dev/null || fail "This needs Ubuntu or Debian (or Raspberry Pi OS)."
 USER_HOME="$(getent passwd "${SUDO_USER:-root}" | cut -d: -f6)"; USER_HOME="${USER_HOME:-/root}"

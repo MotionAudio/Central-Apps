@@ -52,6 +52,16 @@ try {
   ok(!!staff && !!owner, "the owner and a staff member signed in (with the codes)");
   ok((await j("GET", "/admin/builds", null, staff)).status === 403, "other staff can't see the pedal builds (the software is closed)");
   ok((await j("GET", "/me", null, staff)).body.builds === false && (await j("GET", "/me", null, owner)).body.builds === true, "the account page shows Pedal builds to the owner only");
+  // ---- how the pedal's software goes on (its USB update, the SD card maker): the owner only, never a public link
+  ok((await j("GET", "/me", null, owner)).body.owner === true && (await j("GET", "/me", null, staff)).body.owner === false, "the account says who the owner is");
+  ok((await j("GET", "/admin/pedal-install")).status === 401 && (await j("GET", "/admin/pedal-install", null, staff)).status === 403, "pedal install: not signed out, not other staff");
+  const pi = await j("GET", "/admin/pedal-install", null, owner);
+  ok(pi.status === 200 && pi.body.sdCard === "sd-card.sh" && "usb" in pi.body, "pedal install: the owner gets it", pi.body);
+  const sdOwner = await fetch(base + "/v1/admin/pedal-install/sd-card.sh", { headers: { Authorization: "Bearer " + owner } });
+  ok(sdOwner.status === 200 && /^#!\/usr\/bin\/env bash/.test(await sdOwner.text()), "the SD card maker downloads for the owner");
+  ok((await fetch(base + "/v1/admin/pedal-install/sd-card.sh", { headers: { Authorization: "Bearer " + staff } })).status === 403 && (await fetch(base + "/v1/admin/pedal-install/sd-card.sh")).status === 401, "and for no one else");
+  ok((await fetch(base + "/download/pedal/usb", { redirect: "manual" })).status === 404, "no public link to the pedal update");
+  ok((await fetch(base + "/sd-card.sh")).status === 404 || !/^#!/.test(await (await fetch(base + "/sd-card.sh")).text()), "the SD card maker isn't a public file");
   const list0 = await j("GET", "/admin/builds", null, owner);
   ok(list0.status === 200 && list0.body.kinds.map((k) => k.id).join() === "pedal,image,audio-fw,controls-fw,other" && list0.body.maxBytes === 4.9e9, "the owner sees the five kinds of build", list0.body);
 

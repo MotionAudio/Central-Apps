@@ -19,7 +19,7 @@ export const APP_FILES = {
   "control": { name: "Central Control", files: { windows: /^CentralControl-.*-win-x64\.exe$/, mac: /^CentralControl-.*-mac-arm64\.dmg$/, "mac-intel": /^CentralControl-.*-mac-x64\.dmg$/, linux: /^CentralControl-.*-x86_64\.AppImage$/, "linux-deb": /^CentralControl-.*-amd64\.deb$/ } },
   "usage": { name: "Central Usage", files: { windows: /^CentralUsage-.*-win-x64\.exe$/, mac: /^CentralUsage-.*-mac-arm64\.dmg$/, "mac-intel": /^CentralUsage-.*-mac-x64\.dmg$/, linux: /^CentralUsage-.*-x86_64\.AppImage$/, "linux-deb": /^CentralUsage-.*-amd64\.deb$/, android: /^CentralUsage-.*\.apk$/ } },
   "pedal-control": { name: "Central Pedal Control", files: { windows: /^central-pedal-control-.*-win-x64\.exe$/, mac: /^central-pedal-control-.*-mac-arm64\.dmg$/, "mac-intel": /^central-pedal-control-.*-mac-x64\.dmg$/, linux: /^central-pedal-control-.*-x86_64\.AppImage$/, "linux-deb": /^central-pedal-control-.*-amd64\.deb$/, android: /^central-pedal-control-.*\.apk$/ } },
-  "pedal": { name: "Central Pedal update", files: { usb: /^central-control-source\.zip$/ } },   // (for a pedal with no internet: Settings → Update software from USB…)
+  "pedal": { name: "Central Pedal update", owner: true, files: { usb: /^central-control-source\.zip$/ } },   // (for a pedal with no internet: Settings → Update software from USB…; the owner only, from /v1/admin/pedal-install)
   "services": { name: "Central Services", files: { windows: /^central-services-.*-win-x64\.exe$/, mac: /^central-services-.*-mac-arm64\.dmg$/, "mac-intel": /^central-services-.*-mac-x64\.dmg$/, linux: /^central-services-.*-x86_64\.AppImage$/, "linux-deb": /^central-services-.*-amd64\.deb$/, android: /^central-services-.*\.apk$/ } },
   "production": { name: "Central Production", files: { windows: /^central-production-.*-win-x64\.exe$/, mac: /^central-production-.*-mac-arm64\.dmg$/, "mac-intel": /^central-production-.*-mac-x64\.dmg$/, linux: /^central-production-.*-x86_64\.AppImage$/, "linux-deb": /^central-production-.*-amd64\.deb$/ } },   // (10.2)
 };
@@ -31,6 +31,8 @@ export const appLink = (app, platform) => config.publicUrl + "/download/" + app 
 export const libraryLink = (id) => config.publicUrl + "/download/library/" + encodeURIComponent(id);
 export const installLine = (app) => "curl -fsSL " + config.publicUrl + "/install.sh | bash -s " + app;
 export const platformsOf = (app) => Object.keys((APP_FILES[app] || {}).files || {});
+// the pedal's own software (its update and how it's installed) is shown to the website's owner only, never on a public link
+const isPublicApp = (id) => !!APP_FILES[id] && !APP_FILES[id].owner;
 
 async function release() {
   if (rel.assets && Date.now() - rel.at < FRESH_MS) return rel;
@@ -60,8 +62,8 @@ export async function resolveApp(app, platform) {
 export async function available() {
   try {
     const r = await release();
-    return { version: r.version, apps: Object.fromEntries(Object.entries(APP_FILES).map(([id, a]) => [id, Object.keys(a.files).filter((p) => r.assets.some((x) => a.files[p].test(x.name)))])) };
-  } catch (_) { return { version: null, apps: Object.fromEntries(Object.keys(APP_FILES).map((id) => [id, platformsOf(id)])) }; }
+    return { version: r.version, apps: Object.fromEntries(Object.entries(APP_FILES).filter(([id]) => isPublicApp(id)).map(([id, a]) => [id, Object.keys(a.files).filter((p) => r.assets.some((x) => a.files[p].test(x.name)))])) };
+  } catch (_) { return { version: null, apps: Object.fromEntries(Object.keys(APP_FILES).filter(isPublicApp).map((id) => [id, platformsOf(id)])) }; }
 }
 
 // a small page in the site's own look (download problems, a page that isn't there)
@@ -85,7 +87,7 @@ export function routes(app, { wrap }) {
   }));
   app.get("/download/:app/:platform", wrap(async (req, res) => {
     const appId = String(req.params.app || ""), platform = String(req.params.platform || "");
-    if (!APP_FILES[appId] || !APP_FILES[appId].files[platform]) return res.status(404).type("html").send(sorry("We don't have that download."));
+    if (!isPublicApp(appId) || !APP_FILES[appId].files[platform]) return res.status(404).type("html").send(sorry("We don't have that download."));
     let f = null;
     try { f = await resolveApp(appId, platform); } catch (_) { return res.status(503).type("html").send(sorry("The download didn't start.")); }
     if (!f) return res.status(404).type("html").send(sorry(APP_FILES[appId].name + " for " + (PLATFORM_NAMES[platform] || platform) + " isn't in this release."));
