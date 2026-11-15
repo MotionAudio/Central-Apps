@@ -1437,7 +1437,7 @@ window.refreshConfig();
 document.addEventListener("sitecontent", () => renderRack());
 refreshMe().then(handleHash);
 addEventListener("hashchange", handleHash);
-// (the pedal) "Get the launch-day price": any launch-list form on a page sends its email here (server/src/launchlist.js)
+// (the email list) "Get updates by email": any launch-list form on a page sends its email here (server/src/launchlist.js)
 document.addEventListener("submit", async (e) => {
   const f = e.target.closest("form[data-launch-list]"); if (!f) return;
   e.preventDefault();
@@ -1447,6 +1447,6 @@ document.addEventListener("submit", async (e) => {
   try {
     const r = await api("POST", "/launch-list", { email, source: f.dataset.launchList || "", website: (f.querySelector("[name=website]") || {}).value || "" });
     f.querySelector(".ll-row").hidden = true; f.classList.add("done");
-    msg.textContent = r.confirm ? "Almost done: check your email and press the link to confirm. If it isn't there in a few minutes, look in spam." : "You're on the list. I'll email you the day it goes on sale.";
+    msg.textContent = r.confirm ? "Almost done: check your email and press the link to confirm. If it isn't there in a few minutes, look in spam." : "You're on the list. I'll email you when the Kickstarter starts and when there's something new.";
   } catch (x) { msg.textContent = x.message; btn.disabled = false; }
 });

@@ -815,7 +815,7 @@ CREATE TABLE IF NOT EXISTS builds (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS builds_kind_at ON builds (kind, created_at);
--- the pedal's launch list ("Get the launch-day price" on /apps/pedal/, launchlist.js): double opt-in, so confirmed_at is
+-- the email list (Kickstarter news and updates, signup on /apps/pedal/, launchlist.js): double opt-in, so confirmed_at is
 -- set when they press the link in the email. token = that link. synced_at = when they were added to the Resend segment
 -- the list emails go out from (RESEND_SEGMENT_ID).
 CREATE TABLE IF NOT EXISTS launch_list (

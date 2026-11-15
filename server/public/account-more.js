@@ -100,11 +100,11 @@
   }
   document.addEventListener("click", async (e) => { const b = e.target.closest("#statusCard [data-runchk]"); if (!b) return; try { await api("POST", "/admin/status/check", {}); statusCard($("#statusCard")); toast("Checked."); } catch (x) { toast(x.message); } });
 
-  // ---------------------------------------------------------------- staff: the pedal's launch list
+  // ---------------------------------------------------------------- staff: the email list
   async function launchList(el) {
-    let r; try { r = await api("GET", "/admin/launch-list"); } catch (e) { el.innerHTML = "<h3>Launch list · Motion Audio staff</h3><div class=\"err\">" + esc(e.message) + "</div>"; return; }
+    let r; try { r = await api("GET", "/admin/launch-list"); } catch (e) { el.innerHTML = "<h3>Email list · Motion Audio staff</h3><div class=\"err\">" + esc(e.message) + "</div>"; return; }
     const set = (on, yes, no) => `<span class="chip">${on ? "✓ " + yes : "✗ " + no}</span>`;
-    el.innerHTML = `<h3>Launch list · Motion Audio staff</h3>
+    el.innerHTML = `<h3>Email list · Motion Audio staff</h3>
       <p style="margin:.2rem 0 .6rem"><b>${r.confirmed}</b> on the list · ${r.waiting} haven't confirmed yet · ${r.left} left</p>
       <div style="display:flex;gap:.4rem;flex-wrap:wrap">${set(r.email, "Website email on", "Website email off (RESEND_API_KEY, MAIL_FROM)")}${set(r.resend, "Adding them to Resend", "Not adding to Resend (RESEND_SEGMENT_ID)")}${set(r.address, "Mailing address set", "No MAILING_ADDRESS")}</div>
       ${r.not_in_resend && r.resend ? `<p style="margin:.7rem 0 0">${r.not_in_resend} confirmed but not in Resend yet. <button class="btn small ghost" type="button" data-llsync>Add them to Resend</button></p>` : ""}
@@ -141,7 +141,7 @@
     if (u.admin) {
       add(first, "supportDeskCard", "card wide", "Support · Motion Audio staff", desk);
       add(first, "statusCard", "card wide", "Status · Motion Audio staff", statusCard);
-      add(first, "launchListCard", "card wide", "Launch list · Motion Audio staff", launchList);
+      add(first, "launchListCard", "card wide", "Email list · Motion Audio staff", launchList);
       add(first, "editHowCard", "card wide", "How to edit the website · Motion Audio staff", editHow);
     }
     // #account-products and #account-help go straight to their section

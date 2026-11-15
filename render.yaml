@@ -39,7 +39,7 @@ services:
         sync: false
       - key: MAIL_FROM           # Motion Audio <noreply@motionaudio.org> (motionaudio.org verified in Resend; docs/DOMAIN-AND-EMAIL.md)
         sync: false
-      - key: RESEND_SEGMENT_ID   # the pedal's launch list ("Get the launch-day price"): resend.com → Audience → Segments → the segment's ID
+      - key: RESEND_SEGMENT_ID   # the email list (Kickstarter news and updates, signup on /apps/pedal/): resend.com → Audience → Segments → the segment's ID
         sync: false
       - key: MAILING_ADDRESS     # the postal address at the bottom of the launch-list emails (US anti-spam law), e.g. 123 Main St, San Angelo, TX 76901
         sync: false

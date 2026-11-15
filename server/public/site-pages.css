@@ -325,7 +325,7 @@ ul.hl li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-wei
   .bld-notes td{display:block;border:0;padding:0 0 .6rem}
 }
 
-/* (the pedal) "Get the launch-day price": the launch-list email form (make-site.py launch_form, app.js sends it) */
+/* (the email list) "Get updates by email": the signup form (make-site.py launch_form, app.js sends it) */
 form.launch-list{display:block;margin-top:1.4rem;max-width:32rem;position:relative}
 form.launch-list label.ll-title{display:block;font-size:1.05rem;font-weight:600;color:var(--ink);margin:0}
 .on-stage form.launch-list label.ll-title{color:var(--on-stage)}

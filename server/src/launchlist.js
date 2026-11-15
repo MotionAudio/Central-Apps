@@ -1,4 +1,4 @@
-// The pedal's launch list: "Get the launch-day price" on motionaudio.org/apps/pedal/.
+// The email list: "Get updates by email" on motionaudio.org/apps/pedal/ (Kickstarter news and what's new at Motion Audio).
 // Someone leaves their email, gets one email with a link to confirm it was them (double opt-in, so nobody can sign up
 // someone else), and once they press it they're on the list. The list itself lives in Resend's contacts, because the
 // list emails go out from Resend Broadcasts, which puts the unsubscribe link in every one: RESEND_SEGMENT_ID is the
@@ -41,17 +41,17 @@ export async function syncIn(row) {
 }
 
 // ---------------------------------------------------------------- the emails
-const footerText = () => "\n\n--\nMotion Audio" + (ADDRESS ? ", " + ADDRESS : "") + "\nYou're getting this because this email was put on the Central Pedal launch list at motionaudio.org.";
-const footerHtml = () => '<p style="color:#69717D;font-size:12px;line-height:1.5;margin:22px 0 0">Motion Audio' + (ADDRESS ? ", " + escHtml(ADDRESS) : "") + "<br>You're getting this because this email was put on the Central Pedal launch list at motionaudio.org.</p>";
+const footerText = () => "\n\n--\nMotion Audio" + (ADDRESS ? ", " + ADDRESS : "") + "\nYou're getting this because this email was signed up for Motion Audio updates at motionaudio.org.";
+const footerHtml = () => '<p style="color:#69717D;font-size:12px;line-height:1.5;margin:22px 0 0">Motion Audio' + (ADDRESS ? ", " + escHtml(ADDRESS) : "") + "<br>You're getting this because this email was signed up for Motion Audio updates at motionaudio.org.</p>";
 function confirmLink(row) { return config.publicUrl + "/v1/launch-list/confirm?t=" + row.token; }
 async function sendConfirm(row) {
   const link = confirmLink(row);
-  const r = await sendMail(row.email, "Confirm your spot on the Central Pedal launch list",
-    "Hi" + (row.name ? " " + row.name : "") + ",\n\nThanks for asking to hear when Central Pedal goes on sale. Press this link to confirm it was you:\n\n" + link +
-      "\n\nOnce you do, I'll email you the day it goes on sale, with the launch-day price. If you didn't ask for this, just ignore this email and you won't hear from me again.\n\nSam, Motion Audio" + footerText(),
-    "<p>Hi" + (row.name ? " " + escHtml(row.name) : "") + ",</p><p>Thanks for asking to hear when Central Pedal goes on sale. Press the button to confirm it was you.</p>" +
-      '<p><a href="' + escHtml(link) + '" style="display:inline-block;background:#15181D;color:#ECE7DD;text-decoration:none;padding:11px 18px;border-radius:8px;font-weight:600">Yes, add me to the list</a></p>' +
-      "<p>Once you do, I'll email you the day it goes on sale, with the launch-day price. If you didn't ask for this, just ignore this email and you won't hear from me again.</p><p>Sam, Motion Audio</p>" + footerHtml());
+  const r = await sendMail(row.email, "Confirm your email for Motion Audio updates",
+    "Hi" + (row.name ? " " + row.name : "") + ",\n\nThanks for signing up for updates from Motion Audio. Press this link to confirm it was you:\n\n" + link +
+      "\n\nOnce you do, I'll email you when Central Pedal goes on Kickstarter and when there's something new to show you. If you didn't ask for this, just ignore this email and you won't hear from me again.\n\nSam, Motion Audio" + footerText(),
+    "<p>Hi" + (row.name ? " " + escHtml(row.name) : "") + ",</p><p>Thanks for signing up for updates from Motion Audio. Press the button to confirm it was you.</p>" +
+      '<p><a href="' + escHtml(link) + '" style="display:inline-block;background:#15181D;color:#ECE7DD;text-decoration:none;padding:11px 18px;border-radius:8px;font-weight:600">Yes, sign me up</a></p>' +
+      "<p>Once you do, I'll email you when Central Pedal goes on Kickstarter and when there's something new to show you. If you didn't ask for this, just ignore this email and you won't hear from me again.</p><p>Sam, Motion Audio</p>" + footerHtml());
   if (r.sent) await q("UPDATE launch_list SET confirm_sent_at=now() WHERE id=$1", [row.id]);
   return r;
 }
@@ -59,7 +59,7 @@ async function sendConfirm(row) {
 // a small page for the confirm link (it's opened from an email, so it gets a page, not JSON)
 function page(res, title, text, status = 200) {
   res.status(status).type("html").send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escHtml(title)} | Motion Audio</title><link rel="stylesheet" href="/site.css"></head>
-<body><main class="wrap" style="max-width:560px;padding:4rem 1.2rem"><p class="label">Central Pedal launch list</p><h1 style="font-size:1.8rem">${escHtml(title)}</h1><p>${text}</p><p><a class="btn ghost" href="/apps/pedal/">Back to Central Pedal</a></p></main></body></html>`);
+<body><main class="wrap" style="max-width:560px;padding:4rem 1.2rem"><p class="label">Motion Audio updates</p><h1 style="font-size:1.8rem">${escHtml(title)}</h1><p>${text}</p><p><a class="btn ghost" href="/apps/pedal/">Back to Central Pedal</a></p></main></body></html>`);
 }
 
 export function routes(api, { wrap, requireUser }) {
@@ -97,7 +97,7 @@ export function routes(api, { wrap, requireUser }) {
     if (!row.confirmed_at || row.unsubscribed_at) row = await one("UPDATE launch_list SET confirmed_at=now(), unsubscribed_at=NULL WHERE id=$1 RETURNING *", [row.id]);
     const s = await syncIn(row).catch((e) => ({ synced: false, why: e.message }));
     if (!s.synced && listOn) console.error("launch list sync:", s.why);
-    page(res, "You're on the list", "Thanks. I'll email you the day Central Pedal goes on sale, with the launch-day price. Every email has a link to leave the list, and I won't share your address with anyone.");
+    page(res, "You're on the list", "Thanks. I'll email you when Central Pedal goes on Kickstarter and when there's something new to show you. Every email has a link to leave the list, and I won't share your address with anyone.");
   }));
 
   // staff: how many are on it, and whether the website is set up to add them to Resend

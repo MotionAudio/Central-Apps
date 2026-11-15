@@ -148,13 +148,13 @@ def buy_button(a, cls="btn brass"):
 
 
 def launch_form(where):
-    """(the pedal) "Get the launch-day price": an email for the launch list (server/src/launchlist.js; app.js sends it)"""
+    """(the email list) "Get updates by email": Kickstarter news and updates (server/src/launchlist.js; app.js sends it)"""
     fid = "ll-" + where
     return (f'<form class="launch-list" data-launch-list="{E(where)}" novalidate>'
-            f'<label class="ll-title" for="{fid}">Get the launch-day price</label>'
-            '<p class="ll-text">Leave your email and I&#x27;ll tell you the day it goes on sale, with the launch-day price. That&#x27;s all I&#x27;ll send.</p>'
+            f'<label class="ll-title" for="{fid}">Get updates by email</label>'
+            '<p class="ll-text">Leave your email and I&#x27;ll let you know when Central Pedal goes on Kickstarter, plus what&#x27;s new at Motion Audio. You can leave the list anytime.</p>'
             f'<div class="ll-row"><input type="email" id="{fid}" name="email" placeholder="you@yourchurch.org" autocomplete="email" required>'
-            '<button class="btn brass" type="submit">Tell me</button></div>'
+            '<button class="btn brass" type="submit">Sign me up</button></div>'
             '<input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">'
             '<p class="ll-msg" role="status"></p></form>')
 
