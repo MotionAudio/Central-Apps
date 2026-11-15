@@ -3,7 +3,16 @@
 Motion Audio's own DAW, for macOS (Apple Silicon and Intel) and Linux. Black and gold, built for making worship
 tracks, pads, loops and full songs, with every Motion Audio pedal and plugin built in.
 
-## Get it running on your Mac
+## Download it
+
+The newest Mac build is on this repo's **Releases** page (on the right of the repo's front page): download
+`MotionStudio.dmg`, open it and drag **Motion Studio** into Applications. The first time you open it, right-click
+the app > **Open** > **Open** (it isn't signed with an Apple developer account, so macOS asks once).
+
+GitHub makes a new build by itself whenever the code on `main` changes (Actions tab > Build Motion Studio). To make
+one by hand: Actions > Build Motion Studio (macOS) > **Run workflow**.
+
+## Build it on your Mac instead
 
 1. Open Terminal in this folder (right-click the folder in Finder > New Terminal at Folder).
 2. Run:
@@ -18,9 +27,6 @@ tracks, pads, loops and full songs, with every Motion Audio pedal and plugin bui
 4. The first time you open it: right-click the app > **Open** > **Open** (it isn't signed with an Apple developer
    account, so macOS asks once). If macOS says it "can't be opened", go to System Settings > Privacy & Security and
    press **Open Anyway**.
-
-GitHub can build the .dmg for you instead: push this folder to a branch called `motion-studio` and the workflow in
-`.github/workflows/build-mac.yml` builds it on a Mac runner (Actions tab > the run > Artifacts > MotionStudio-mac).
 
 ## What's in it
 
