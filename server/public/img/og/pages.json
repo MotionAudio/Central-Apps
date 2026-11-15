@@ -90,27 +90,33 @@
   "shot": "pc-tracks"
  },
  {
+  "id": "upcoming",
+  "title": "Upcoming: The Pedal, The In-Ears and Central Wave",
+  "kicker": "What Motion Audio is building next: The Pedal (more outputs from the Central Pedal) on Kickstarter in July 2027, The In-Ears in November 2027 and Central Wave in March 2028.",
+  "shot": "pedal-render-hero"
+ },
+ {
   "id": "io",
   "title": "Central I/O: output boxes, input boxes and the controller",
-  "kicker": "Boxes for more outputs from the pedal, in-ears for the band and a mix for every speaker with Central Wave. Coming 2028.",
+  "kicker": "Boxes for more outputs from the pedal, in-ears for the band and a mix for every speaker with Central Wave. The Pedal comes to Kickstarter in July 2027.",
   "shot": "pedal-render-hero"
  },
  {
   "id": "io-controller",
   "title": "Set up the Central I/O Controller",
-  "kicker": "How the Central I/O Controller is planned to be set up and used. Coming 2028.",
+  "kicker": "How the Central I/O Controller is planned to be set up and used. On Kickstarter in July 2027, with The Pedal.",
   "shot": "cc-lights"
  },
  {
   "id": "io-output-box",
   "title": "Set up the Central I/O Output Box",
-  "kicker": "How the Central I/O Output Box is planned to be set up and used. Coming 2028.",
+  "kicker": "How the Central I/O Output Box is planned to be set up and used. On Kickstarter in July 2027, with The Pedal.",
   "shot": "cc-lights"
  },
  {
   "id": "io-input-box",
   "title": "Set up the Central I/O Input Box",
-  "kicker": "How the Central I/O Input Box is planned to be set up and used. Coming 2028.",
+  "kicker": "How the Central I/O Input Box is planned to be set up and used. Coming November 2027, with The In-Ears.",
   "shot": "cc-lights"
  },
  {
