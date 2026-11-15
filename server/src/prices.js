@@ -33,12 +33,14 @@ function upgrade98(d) {
   if (d.PLAN_BUNDLES && sameBundles(d.PLAN_BUNDLES, PLANS_98.bundles)) d.PLAN_BUNDLES = DEFAULTS.PLAN_BUNDLES;
   return d;
 }
-// (10.6) a list saved before the built pedal went from $250 to $550 (Nov 9 2026) with the pedal still at $250:
-// today's price.  A list saved after that keeps whatever the staff set.
-const PEDAL_550_FROM = new Date("2026-11-09T00:00:00Z");
+// (10.6) a list saved before the built pedal went from $250 to $550 (Nov 9 2026) with the pedal still at $250, or before it
+// went from $550 to $650 (Nov 14 2026) with the pedal still at $550: today's price.  A list saved after that keeps whatever
+// the staff set.
+const PEDAL_550_FROM = new Date("2026-11-09T00:00:00Z"), PEDAL_650_FROM = new Date("2026-11-15T04:30:00Z");
 function upgradePedal(data, savedAt) {
-  const p = ((data || {}).PRODUCTS || {}).pedal;
-  if (!p || p.cents !== 25000 || !(savedAt && new Date(savedAt) < PEDAL_550_FROM)) return data;
+  const p = ((data || {}).PRODUCTS || {}).pedal, at = savedAt ? new Date(savedAt) : null;
+  const stale = p && at && ((p.cents === 25000 && at < PEDAL_550_FROM) || (p.cents === 55000 && at < PEDAL_650_FROM));
+  if (!stale) return data;
   return Object.assign({}, data, { PRODUCTS: Object.assign({}, data.PRODUCTS, { pedal: Object.assign({}, p, { cents: DEFAULTS.PRODUCTS.pedal.cents }) }) });
 }
 function apply(data) {

@@ -74,7 +74,7 @@ try {
   await page.click("#cartBtn"); await page.waitForSelector(".modal");
   await page.fill("#pcCode", "betatest"); await page.click("#pcApply"); await page.waitForTimeout(500);
   const cartText = await page.textContent(".modal");
-  ok(/BETATEST/.test(cartText) && /−\$175\.00/.test(cartText) && /\$725\.00/.test(cartText) && /tax included/.test(cartText), "BETATEST: half off the Regular pack ($175), not the pedal: $725 total ($550 pedal + $175), tax included", cartText.replace(/\s+/g, " "));
+  ok(/BETATEST/.test(cartText) && /−\$175\.00/.test(cartText) && /\$825\.00/.test(cartText) && /tax included/.test(cartText), "BETATEST: half off the Regular pack ($175), not the pedal: $825 total ($650 pedal + $175), tax included", cartText.replace(/\s+/g, " "));
   await shot("cart-code");
   await page.click("#checkout"); await page.waitForURL(/\/#account$/, { timeout: 5000 }).catch(() => {}); await page.waitForSelector("#upForm", { timeout: 5000 }).catch(() => {});
   ok(/Sign in/.test(await page.textContent("#acctTitle")) && !(await page.$(".modal")) && /cart/i.test(await page.textContent("#acctBody")), "check out while signed out: the home page asks to sign in (and says why)");
