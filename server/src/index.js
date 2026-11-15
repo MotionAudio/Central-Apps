@@ -40,6 +40,7 @@ import * as projects from "./projects.js";
 import * as helpdesk from "./helpdesk.js";
 import * as status from "./status.js";
 import * as builds from "./builds.js";
+import * as launchlist from "./launchlist.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -115,6 +116,7 @@ alerts.routes(api, { wrap, requireUser });   // (10.2: the pre-service check's a
 projects.routes(api, { wrap, requireUser });
 helpdesk.routes(api, app, { wrap, requireUser, optionalUser: (req, res, next) => next() });   // (10.3: the Help Center's articles, support tickets)
 builds.routes(api, { wrap, requireUser });   // (rev E: the pedal's builds, private, the owner only)
+launchlist.routes(api, { wrap, requireUser });   // (the pedal's launch list: "Get the launch-day price" on /apps/pedal/)
 status.routes(api, { wrap, requireUser });   // (10.3: the public status page)
 status.start();   // (10.2: Central Production projects saved to the account)
 // a song for a setlist (the website's "Add songs"): owned already, or added with Central Tracks Unlimited; else buy it first

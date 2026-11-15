@@ -324,3 +324,17 @@ ul.hl li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-wei
   .bld-table tr.bld-notes[hidden]{display:none}
   .bld-notes td{display:block;border:0;padding:0 0 .6rem}
 }
+
+/* (the pedal) "Get the launch-day price": the launch-list email form (make-site.py launch_form, app.js sends it) */
+form.launch-list{display:block;margin-top:1.4rem;max-width:32rem;position:relative}
+form.launch-list label.ll-title{display:block;font-size:1.05rem;font-weight:600;color:var(--ink);margin:0}
+.on-stage form.launch-list label.ll-title{color:var(--on-stage)}
+.launch-list p.ll-text{margin:.2rem 0 .7rem;font-size:.92rem;line-height:1.5;color:var(--ink-2)}
+.on-stage .launch-list p.ll-text{color:var(--on-stage-2)}
+.launch-list .ll-row{display:flex;gap:.5rem;flex-wrap:wrap}
+.launch-list .ll-row[hidden]{display:none}
+.launch-list input[type=email]{flex:1 1 14rem}
+.launch-list .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none}
+.launch-list p.ll-msg{margin:.6rem 0 0;font-size:.92rem;line-height:1.5}
+.launch-list p.ll-msg:empty{display:none}
+.launch-list.done p.ll-msg{font-weight:600}

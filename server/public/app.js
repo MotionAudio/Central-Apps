@@ -1437,3 +1437,16 @@ window.refreshConfig();
 document.addEventListener("sitecontent", () => renderRack());
 refreshMe().then(handleHash);
 addEventListener("hashchange", handleHash);
+// (the pedal) "Get the launch-day price": any launch-list form on a page sends its email here (server/src/launchlist.js)
+document.addEventListener("submit", async (e) => {
+  const f = e.target.closest("form[data-launch-list]"); if (!f) return;
+  e.preventDefault();
+  const msg = f.querySelector(".ll-msg"), btn = f.querySelector("button[type=submit]"), input = f.querySelector("input[type=email]"), email = input.value.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { msg.textContent = "That email address doesn't look right."; input.focus(); return; }
+  btn.disabled = true; msg.textContent = "";
+  try {
+    const r = await api("POST", "/launch-list", { email, source: f.dataset.launchList || "", website: (f.querySelector("[name=website]") || {}).value || "" });
+    f.querySelector(".ll-row").hidden = true; f.classList.add("done");
+    msg.textContent = r.confirm ? "Almost done: check your email and press the link to confirm. If it isn't there in a few minutes, look in spam." : "You're on the list. I'll email you the day it goes on sale.";
+  } catch (x) { msg.textContent = x.message; btn.disabled = false; }
+});

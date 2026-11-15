@@ -147,6 +147,18 @@ def buy_button(a, cls="btn brass"):
     return f'<button class="{cls}" type="button" data-add="{E(b["add"])}">{E(b["label"])}</button>'
 
 
+def launch_form(where):
+    """(the pedal) "Get the launch-day price": an email for the launch list (server/src/launchlist.js; app.js sends it)"""
+    fid = "ll-" + where
+    return (f'<form class="launch-list" data-launch-list="{E(where)}" novalidate>'
+            f'<label class="ll-title" for="{fid}">Get the launch-day price</label>'
+            '<p class="ll-text">Leave your email and I&#x27;ll tell you the day it goes on sale, with the launch-day price. That&#x27;s all I&#x27;ll send.</p>'
+            f'<div class="ll-row"><input type="email" id="{fid}" name="email" placeholder="you@yourchurch.org" autocomplete="email" required>'
+            '<button class="btn brass" type="submit">Tell me</button></div>'
+            '<input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">'
+            '<p class="ll-msg" role="status"></p></form>')
+
+
 def price_of(pid, per=""):
     return f'<span class="price"><span data-price-of="{E(pid)}">&nbsp;</span>{("<small>" + E(per) + "</small>") if per else ""}</span>'
 
@@ -178,6 +190,7 @@ def app_page(a):
     dl = "/production/" if a["slug"] == "production" else ("/apps/pedal/#buy" if a["slug"] == "pedal" else "/#downloads")
     dl_text = {"pedal": "It comes with its software already on it, and it updates itself.", "production": "Use it in your browser, or download it for Mac, Windows or Linux."}.get(a["slug"], "Free to download for " + ", ".join(C.PLATFORMS[p] for p in a["platforms"]) + ". The first time it opens, it asks for your key.")
     others = [x for x in C.APPS if x["slug"] != a["slug"]][:5]
+    ll_hero = ('\n    <div id="launch-list">' + launch_form("hero") + '</div>') if b.get("list") else ""
     body = f'''<section class="page-hero on-stage"><div class="wrap hero2">
   <div>
     <div class="crumbs"><a href="/apps/">Apps</a><span aria-hidden="true">/</span><span>{E(a["name"])}</span></div>
@@ -186,7 +199,7 @@ def app_page(a):
     <p class="lede" data-edit="app.{a["slug"]}.lede">{E(a["lede"])}</p>
     <div class="chips" aria-label="Who it's for">{who}</div>
     <div class="ctas">{"<span class=buybar>" + price_of(b["add"], PER.get(b["add"], "")) + "</span>" if priced else ""}{buy_button(a)}<a class="btn ghost" href="#features">What it does</a></div>
-    <p class="muted" style="margin-top:.8rem;font-size:.9rem">{E(b["note"])}</p>
+    <p class="muted" style="margin-top:.8rem;font-size:.9rem">{E(b["note"])}</p>{ll_hero}
   </div>
   <figure>{shot_img(a["shot"], lazy=False, priority=True)}</figure>
 </div></section>
@@ -199,7 +212,7 @@ def app_page(a):
   <div class="facts">
     <div class="fact"><h3>Who it's for</h3><div class="chips" style="margin:0">{"".join(f'<span class="chip">{E(w)}</span>' for w in a["who"])}</div><p class="muted">{E(WHO_LINE.get(a["slug"], ""))}</p></div>
     <div class="fact"><h3>Where it runs</h3><div class="chips" style="margin:0">{plats}</div><p class="muted">{E(dl_text)}</p><a class="btn ghost small" href="{dl}">{"Open it" if a["slug"] == "production" else "Downloads"}</a></div>
-    <div class="fact"><h3>{"Get it" if priced else "It's free"}</h3>{("<div class=buybar>" + price_of(b["add"], PER.get(b["add"], "")) + "</div>") if priced else ""}<p class="muted">{E(b["note"])}</p><div style="display:flex;gap:.5rem;flex-wrap:wrap">{buy_button(a, "btn")}{'<a class="btn ghost" href="/pricing/#packsTop">Church packs</a>' if a["slug"] in ("control", "usage", "pedal-control", "services") else ""}</div></div>
+    <div class="fact"><h3>{"Get it" if priced else "It's free"}</h3>{("<div class=buybar>" + price_of(b["add"], PER.get(b["add"], "")) + "</div>") if priced else ""}<p class="muted">{E(b["note"])}</p><div style="display:flex;gap:.5rem;flex-wrap:wrap">{buy_button(a, "btn")}{'<a class="btn ghost" href="/pricing/#packsTop">Church packs</a>' if a["slug"] in ("control", "usage", "pedal-control", "services") else ""}</div>{launch_form("buy") if b.get("list") else ""}</div>
   </div>
   {f'<p class="muted" style="margin-top:1.4rem">If you want every detail, there&#x27;s a full <a href="{a["manual"]}">{E(a["name"])} manual</a>. Stuck on something? Try the <a href="/help/">Help Center</a>.</p>' if a["manual"] else '<p class="muted" style="margin-top:1.4rem">Stuck on something? Try the <a href="/help/">Help Center</a>.</p>'}
 </div></section>

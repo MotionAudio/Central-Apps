@@ -15,7 +15,7 @@ APPS = [
         "tag": "The pedal at the worship leader's feet",
         "lede": "A floor unit that plays your multitracks and pads, shows the band the lyrics and the chart, and runs your guitar or keys rig and a looper. It has a 7-inch touch screen, a 5-inch screen you can read from a step back, 8 footswitches, 14 knobs and 4 sliders, and a little screen beside each control that says what it does. We build and test each one. It's coming in the middle of 2027.",
         "who": ["Worship leader", "Keys player"], "platforms": ["pedal"],
-        "buy": {"add": "pedal", "label": "Coming mid 2027", "soon": True, "note": "It'll be $550, paid once, with the software already on it. The pedal never needs a key, and it keeps itself up to date."},
+        "buy": {"add": "pedal", "label": "Coming mid 2027", "soon": True, "list": True, "note": "It'll be $550, paid once, with the software already on it. The pedal never needs a key, and it keeps itself up to date."},
         "shot": "pedal-render-hero",
         "renders": ["pedal-render-front", "pedal-render-top", "pedal-render-screens", "pedal-render-right", "pedal-render-back"],
         "render_note": "These are renders of the rev E case, not photos, so the finish on the real one may look a little different. What's on the screens is the real Central Pedal software.",
