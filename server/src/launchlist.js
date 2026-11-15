@@ -41,7 +41,7 @@ export async function syncIn(row) {
 }
 
 // ---------------------------------------------------------------- the emails
-const footerText = () => "\n\n--\nMotion Audio" + (ADDRESS ? ", " + ADDRESS : "") + "\nYou're getting this because this email was signed up for Motion Audio updates at motionaudio.org.";
+const footerText = () => "\n\n--\nMotion Audio · https://motionaudio.org" + (ADDRESS ? "\n" + ADDRESS : "") + "\nYou're getting this because this email was signed up for Motion Audio updates at motionaudio.org.";
 const footerHtml = () => '<p style="color:#69717D;font-size:12px;line-height:1.5;margin:22px 0 0">Motion Audio' + (ADDRESS ? ", " + escHtml(ADDRESS) : "") + "<br>You're getting this because this email was signed up for Motion Audio updates at motionaudio.org.</p>";
 function confirmLink(row) { return config.publicUrl + "/v1/launch-list/confirm?t=" + row.token; }
 async function sendConfirm(row) {
