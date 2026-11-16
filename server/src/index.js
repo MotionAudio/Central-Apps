@@ -40,6 +40,7 @@ import * as projects from "./projects.js";
 import * as helpdesk from "./helpdesk.js";
 import * as status from "./status.js";
 import * as builds from "./builds.js";
+import * as pedals from "./pedals.js";
 import * as launchlist from "./launchlist.js";
 
 const app = express();
@@ -116,6 +117,7 @@ alerts.routes(api, { wrap, requireUser });   // (10.2: the pre-service check's a
 projects.routes(api, { wrap, requireUser });
 helpdesk.routes(api, app, { wrap, requireUser, optionalUser: (req, res, next) => next() });   // (10.3: the Help Center's articles, support tickets)
 builds.routes(api, { wrap, requireUser });   // (rev E: the pedal's builds, private, the owner only)
+pedals.routes(api, { wrap, brake, requireUser });   // (rev E: the pedals' own numbers - registering, approving, and updates only for them)
 launchlist.routes(api, { wrap, requireUser });   // (the email list: Kickstarter news and updates, signup on /apps/pedal/)
 status.routes(api, { wrap, requireUser });   // (10.3: the public status page)
 status.start();   // (10.2: Central Production projects saved to the account)

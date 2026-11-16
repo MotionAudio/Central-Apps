@@ -66,6 +66,7 @@ APPS = [
                 ("Planning Center", "Open a Planning Center plan as a setlist. The songs come in with their keys, tempos, arrangements, charts and tracks."),
                 ("CCLI SongSelect", "Bring in SongSelect lyrics and charts. With Central Control, the CCLI line goes on the lyric slides for you."),
                 ("MIDI", "Follow MIDI clock for the tempo, and send MIDI to change patches or run lights on the beat. A MIDI keyboard plays the pads or your keys sounds."),
+                ("ProPresenter", "Each section of a song can move ProPresenter to its slide, and loading a song can bring up its presentation. Turn it on in Settings under Songs & CCLI."),
                 ("A backup pedal", "Give a second pedal the Backup job. It follows the first one without making a sound, and if the first one stops, it carries on from the same spot."),
                 ("The I/O port", "A second network jack on the right side is for Central I/O. Plug it into the controller and every stem gets its own channel at the desk. Central I/O is coming in July 2027."),
             ]),
@@ -73,7 +74,7 @@ APPS = [
                 ("Six outputs", "Send the click and cues to the in-ears, the music to front of house and the pads somewhere else. You pick where each part goes in Settings."),
                 ("A battery inside", "If someone kicks the power cable out mid-song, the pedal keeps playing. The POWER label on the back shows how much battery is left. It runs from a 45 W USB-C power supply."),
                 ("With the rest of your team", "Central Control can get the lyrics and the chart from the pedal, and every track on its own channel over the network for the in-ear mixes. Central Pedal Control gets the songs ready at home and uploads them with the pedal's PIN."),
-                ("It updates itself", "It gets every update for free and installs them by itself, never while something is playing. Your songs and settings stay as they are."),
+                ("It updates itself", "It gets every update for free and installs it the next time it starts, never while something is playing. Your songs and settings stay as they are. Each pedal is registered with me before it ships, and only registered pedals get updates."),
             ]),
         ],
         "specs": [

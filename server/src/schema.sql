@@ -815,6 +815,35 @@ CREATE TABLE IF NOT EXISTS builds (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS builds_kind_at ON builds (kind, created_at);
+-- (rev E) the pedals' own numbers (pedals.js): each CM5 pedal's ATECC608B, burned at the factory test - its serial and its
+-- key's public half (hex). A pedal registers itself (pending, with a code the owner types to approve it); approved, it
+-- gets the website's certificate and asks for updates with its chip's signature (challenge: one use, 5 minutes).
+CREATE TABLE IF NOT EXISTS pedals (
+  id            BIGSERIAL PRIMARY KEY,
+  serial        TEXT UNIQUE NOT NULL,
+  public_key    TEXT NOT NULL,
+  ticket        TEXT UNIQUE NOT NULL,
+  code          TEXT,
+  status        TEXT NOT NULL DEFAULT 'pending',
+  certificate   TEXT,
+  updates       BOOLEAN NOT NULL DEFAULT TRUE,
+  note          TEXT NOT NULL DEFAULT '',
+  challenge     TEXT,
+  challenge_at  TIMESTAMPTZ,
+  first_version TEXT NOT NULL DEFAULT '',
+  last_version  TEXT NOT NULL DEFAULT '',
+  last_seen     TIMESTAMPTZ,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  approved_at   TIMESTAMPTZ,
+  approved_by   BIGINT REFERENCES users(id) ON DELETE SET NULL
+);
+-- the website's own key for the pedals' certificates (made by the server the first time; only its public half leaves it)
+CREATE TABLE IF NOT EXISTS pedal_signing_key (
+  id          INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  private_pem TEXT NOT NULL,
+  public_hex  TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 -- the email list (Kickstarter news and updates, signup on /apps/pedal/, launchlist.js): double opt-in, so confirmed_at is
 -- set when they press the link in the email. token = that link. synced_at = when they were added to the Resend segment
 -- the list emails go out from (RESEND_SEGMENT_ID).

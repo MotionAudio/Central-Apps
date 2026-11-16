@@ -1,4 +1,4 @@
-// The Account page's Pedal builds (rev E): the owner's private uploads of the pedal's software, SD card images and the
+// The Account page's Pedal builds (rev E), and its Pedals (each pedal's number, approved here): the owner's private uploads of the pedal's software, SD card images and the
 // two boards' firmware (server/src/builds.js). The file goes straight from this browser to the file storage through a
 // signed link, with how far it's got; then the server checks it arrived whole and works out its SHA-256.
 // app.js's helpers are shared (classic scripts): api, me, esc, toast…
@@ -134,12 +134,55 @@
   }
   function hold(e) { e.preventDefault(); e.returnValue = ""; }
 
+  // ---------------------------------------------------------------- Pedals: each CM5 pedal's own number (server/src/pedals.js)
+  // A pedal's chip is burned in its factory test; then the pedal shows a code. Typing it here approves that pedal: it
+  // starts, and it gets "the one to ship" of Central Pedal software from then on. Updates can be turned off per pedal.
+  async function loadPedals(el) {
+    let d;
+    try { d = await api("GET", "/admin/pedals"); } catch (e) { el.innerHTML = '<h3>Pedals</h3><div class="err">' + esc(e.message) + "</div>"; return; }
+    const state = (p) => p.status === "pending" ? '<span class="chip">Waiting</span> <code style="white-space:nowrap">' + esc(p.code || "") + "</code>"
+      : p.updates ? '<span class="chip plan">Registered</span>' : '<span class="chip">Updates off</span>';
+    const prow = (p) => `<tr data-pid="${p.id}"><td><code>${esc(p.serialText)}</code>${p.note ? '<div class="muted">' + esc(p.note) + "</div>" : ""}</td>
+      <td>${state(p)}</td>
+      <td>${esc(p.version || "–")}${p.lastSeen ? '<div class="muted">checked ' + esc(when(p.lastSeen)) + "</div>" : ""}</td>
+      <td>${esc(when(p.approvedAt || p.registeredAt))}${p.approvedBy ? '<div class="muted">' + esc(p.approvedBy) + "</div>" : ""}</td>
+      <td><div class="bld-acts">${p.status === "approved" ? `<button class="btn small ghost" type="button" data-upd>${p.updates ? "Turn updates off" : "Turn updates on"}</button>` : ""}<button class="btn small ghost" type="button" data-pnote>Note</button><button class="btn small ghost" type="button" data-pdel>Remove</button></div></td></tr>`;
+    el.innerHTML = `<h3>Pedals <span class="chip plan">Private</span></h3>
+      <p class="muted" style="margin:0;font-size:.9rem">Each CM5 pedal's own number. Its chip is burned in the factory test, then the pedal shows a code: type it here to approve that pedal. It starts, and from then on it gets the Central Pedal software marked "the one to ship" above. A pedal nobody approves gets nothing. Codes last ${d.pendingDays} days.</p>
+      <form class="bld-up" id="pedForm" novalidate>
+        <label>The code on the pedal<input id="pedCode" placeholder="K7P-4QXR" autocomplete="off" spellcheck="false" style="text-transform:uppercase"></label>
+        <label>Note <span class="muted">(optional)</span><input id="pedNote" placeholder="Who it's for, or its build number" autocomplete="off"></label>
+        <div class="bld-go wide"><button class="btn small" type="submit">Approve</button></div>
+        <div class="err wide" id="pedErr"></div>
+      </form>
+      ${d.pedals.length ? `<table class="ktable bld-table"><tr><th>Number</th><th>State</th><th>Version</th><th>Since</th><th></th></tr>${d.pedals.map(prow).join("")}</table>` : '<p class="muted" style="margin:0">No pedals have registered yet.</p>'}
+      <p class="muted" style="margin:.6rem 0 0;font-size:.8rem">The certificates are signed with the website's own key (<code>${esc(d.serverKey.slice(0, 16))}…</code>), made by the server and kept in its database. Every pedal remembers it, so keep the database backups.</p>`;
+    $("#pedForm", el).onsubmit = async (e) => {
+      e.preventDefault();
+      const err = $("#pedErr", el); err.textContent = "";
+      try { const r = await api("POST", "/admin/pedals/approve", { code: $("#pedCode", el).value, note: $("#pedNote", el).value }); toast("Approved " + r.pedal.serialText); loadPedals(el); }
+      catch (x) { err.textContent = x.message; }
+    };
+    el.querySelectorAll("tr[data-pid]").forEach((tr) => {
+      const id = tr.dataset.pid, p = d.pedals.find((x) => String(x.id) === id);
+      const on = (sel, fn) => { const x = $(sel, tr); if (x) x.onclick = fn; };
+      on("[data-upd]", async () => { try { await api("POST", "/admin/pedals/" + id, { updates: !p.updates }); toast(p.updates ? "Updates off for " + p.serialText : "Updates on for " + p.serialText); loadPedals(el); } catch (e) { toast(e.message); } });
+      on("[data-pnote]", async () => { const n = prompt("A note for " + p.serialText + ":", p.note || ""); if (n === null) return; try { await api("POST", "/admin/pedals/" + id, { note: n }); loadPedals(el); } catch (e) { toast(e.message); } });
+      on("[data-pdel]", async () => {
+        if (!confirm(p.status === "pending" ? "Remove this waiting pedal? It can register again." : "Remove " + p.serialText + "? It keeps working, but it gets no updates until it registers and is approved again.")) return;
+        try { await api("POST", "/admin/pedals/" + id + "/delete", {}); toast("Removed"); loadPedals(el); } catch (e) { toast(e.message); }
+      });
+    });
+  }
+
   // ---------------------------------------------------------------- on the page (Account → Pedal builds), the owner only
   function addCard() {
     const u = user(), first = $("#acctBody .acct");
     if (!u || !u.builds || !first || $("#buildsCard")) return;
     const d = document.createElement("div"); d.className = "card wide"; d.id = "buildsCard"; d.innerHTML = '<h3>Pedal builds</h3><div class="muted">Loading…</div>';
     first.appendChild(d); load(d);
+    const pd = document.createElement("div"); pd.className = "card wide"; pd.id = "pedalsCard"; pd.innerHTML = '<h3>Pedals</h3><div class="muted">Loading…</div>';
+    first.appendChild(pd); loadPedals(pd);
   }
   function start() {
     const b = $("#acctBody"); if (!b) return;
