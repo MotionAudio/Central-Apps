@@ -26,6 +26,8 @@ APPS = [
                 ("A label beside every control", "Each footswitch, knob and slider has a little screen next to it that says what it does right now. Give a switch a new job and its label changes too. There are 30 on top and 8 more on the back by the sockets."),
                 ("Two screens", "The 7-inch is the touch screen. The 5-inch is for reading from a step back: the section and time left, the lyrics, the chart or the setlist. You can move any page from one screen to the other."),
                 ("Lock it for the service", "One button locks the settings so nobody changes something by accident mid-song. Ready check looks over the setup before you start."),
+                ("Scenes", "Save what's playing right now (the pads, the mix and your instrument) and bring it back later from the screen or a footswitch. It changes over smoothly, not with a jump."),
+                ("A report afterwards", "After the service the pedal tells you what played, anything that stopped early, any dropouts and the hottest it got, so you know how it went."),
             ]),
             ("Tracks", [
                 ("Multitracks with a click and cues", "Your stems play with a click and spoken cues like \"Verse\" and \"Build\". Each stem has its own fader with mute, solo and pan."),
@@ -45,14 +47,33 @@ APPS = [
             ("Instrument and looper", [
                 ("Plug in a guitar or bass", "INST A and B take a guitar or bass through real pedals, amps and cabinets. Every knob is on the screen, and you can put any of them on the pedal's own knobs. The tuner is one tap away."),
                 ("Keys from a USB keyboard", "Play pianos and synths with up to eight layers, each with its own split, octave and velocity range."),
+                ("Play any sound", "With Central Instrument, your guitar can sound like strings, brass, a piano or a synth. The pedal follows what you play, single notes or chords."),
                 ("A looper with eight loops", "Record in time with the song or free, then reverse a loop, drop it to half speed or mute it."),
+            ]),
+            ("Charts and parts", [
+                ("Chord charts in any key", "The chart follows the song's key and picks capo shapes for you. It can show Nashville numbers too. If a song has no chart, the pedal can listen to the tracks and write one."),
+                ("A part for each player", "Sheet music, guitar and bass tab and a drum chart, written from the chart and from what each track really plays."),
+                ("Lyrics on time", "The lyrics follow the song on the 5-inch, so the singers always see the line they're on and the one coming next."),
+                ("Practice mixes", "A file of each song for each musician, with their part turned up or left out, slower to learn it, or in another key. They go on a USB stick."),
+            ]),
+            ("Controls", [
                 ("Set the controls your way", "The 8 footswitches, 14 knobs and 4 sliders can each do whatever you want, with a second job when you hold them. MIDI controllers, a Stream Deck or a computer keyboard can learn any job too."),
+                ("Touch select", "Give a knob the Touch select job, tap any setting on the screen, and that knob changes it. Handy for a pedal's knob mid-song."),
+                ("Saved setups", "Save how you like everything under a name, like \"Sunday\" or \"Youth night\", and bring it all back with one tap."),
+                ("Find anything", "Search finds a song, a setlist or any setting and takes you straight there."),
+            ]),
+            ("Connections", [
+                ("Planning Center", "Open a Planning Center plan as a setlist. The songs come in with their keys, tempos, arrangements, charts and tracks."),
+                ("CCLI SongSelect", "Bring in SongSelect lyrics and charts. With Central Control, the CCLI line goes on the lyric slides for you."),
+                ("MIDI", "Follow MIDI clock for the tempo, and send MIDI to change patches or run lights on the beat. A MIDI keyboard plays the pads or your keys sounds."),
+                ("A backup pedal", "Give a second pedal the Backup job. It follows the first one without making a sound, and if the first one stops, it carries on from the same spot."),
+                ("The I/O port", "A second network jack on the right side is for Central I/O. Plug it into the controller and every stem gets its own channel at the desk. Central I/O is coming in July 2027."),
             ]),
             ("Sound and power", [
                 ("Six outputs", "Send the click and cues to the in-ears, the music to front of house and the pads somewhere else. You pick where each part goes in Settings."),
-                ("A battery inside", "If someone kicks the power cable out mid-song, the pedal keeps playing. It runs from a 45 W USB-C power supply."),
+                ("A battery inside", "If someone kicks the power cable out mid-song, the pedal keeps playing. The POWER label on the back shows how much battery is left. It runs from a 45 W USB-C power supply."),
                 ("With the rest of your team", "Central Control can get the lyrics and the chart from the pedal, and every track on its own channel over the network for the in-ear mixes. Central Pedal Control gets the songs ready at home and uploads them with the pedal's PIN."),
-                ("It updates itself", "Every few hours it checks for an update and installs it during a quiet minute. It never updates while something is playing. You can also update it from a USB stick."),
+                ("It updates itself", "It gets every update for free and installs them by itself, never while something is playing. Your songs and settings stay as they are."),
             ]),
         ],
         "specs": [
@@ -65,7 +86,9 @@ APPS = [
             ("Inputs", "2 × 1/4-inch instrument inputs (INST A and B)"),
             ("USB", "4 USB-A for keyboards, MIDI controllers, a Stream Deck and USB sticks"),
             ("Network", "Ethernet and Wi-Fi"),
+            ("I/O port", "A second network jack on the right side, for Central I/O"),
             ("Power", "USB-C from a 45 W USB-C power supply, with a battery inside"),
+            ("Inside", "A Raspberry Pi Compute Module 5"),
             ("Audio", "48 kHz, 24-bit"),
             ("Size", "About 19.6 × 10.5 inches (498 × 266 mm), sloped 10° toward you"),
         ],
@@ -297,7 +320,7 @@ PRICING_FAQ = [
 HELP_FAQ = [
     ("Getting started", [
         ("Which apps do I need?", "Most churches use Central Control at the desk, Central Usage for the musicians, Central Services for the schedule and Central Pedal Control to get the pedal ready. A church pack has all four. Add the Central Pedal if you want pads and tracks on the floor. Apps → Compare goes through it app by app."),
-        ("How do I set up the pedal?", "Plug in the power and your headphones or the desk. Then join the Wi-Fi called \"Central Pedal Setup\" on your phone and the setup page walks you through getting it on your church's Wi-Fi. After that, build a setlist in Central Pedal Control and press Upload. The setup guide in the Help Center has every step."),
+        ("How do I set up the pedal?", "Plug in the power and your in-ears or the desk, and press the power button. The pedal's own touch screen walks you through joining your church's Wi-Fi, naming the pedal and signing in. After that, build a setlist in Central Pedal Control and press Upload. The setup guide in the Help Center has every step."),
         ("How do the apps find each other?", "On the same network they find each other by themselves. If your network keeps devices apart, type the pedal's address into Connect. You'll find it under Settings → About & power on the pedal."),
     ]),
     ("Keys and accounts", [

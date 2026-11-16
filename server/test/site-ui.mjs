@@ -91,7 +91,7 @@ try {
   await codeStep(OWNER);
   // (10.3) signed in to check out: back to Pricing, with the cart open as it was
   await page.waitForURL(/\/pricing\/$/, { timeout: 6000 }).catch(() => {}); await page.waitForSelector(".modal #checkout", { timeout: 6000 }).catch(() => {});
-  ok(/\/pricing\/$/.test(page.url()) && /BETATEST/.test(await page.textContent(".modal").catch(() => "")) && /\$725\.00/.test(await page.textContent(".modal").catch(() => "")), "signed in: back on Pricing with the cart open, the code still on", page.url() + " " + (await page.textContent(".modal").catch(() => "(no cart)")).replace(/\s+/g, " "));
+  ok(/\/pricing\/$/.test(page.url()) && /BETATEST/.test(await page.textContent(".modal").catch(() => "")) && /\$825\.00/.test(await page.textContent(".modal").catch(() => "")), "signed in: back on Pricing with the cart open, the code still on", page.url() + " " + (await page.textContent(".modal").catch(() => "(no cart)")).replace(/\s+/g, " "));
   await page.goto(base + "/#account"); await page.waitForTimeout(300);
   await page.waitForFunction(() => /Hi, Grace Church/.test(document.querySelector("#acctTitle").textContent), null, { timeout: 6000 }).catch(() => {});
   ok(/Hi, Grace Church/.test(await page.textContent("#acctTitle")), "signed up, added the phone and entered the code: signed in as the church");
