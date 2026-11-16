@@ -2,6 +2,10 @@
 
 The short version of what changed in each release, newest first. Most versions also have their own page in this folder with the full notes.
 
+### 10.7.0
+
+A smoother Lighting page in Central Control (it gets ready ahead of time and draws once per frame of your screen) and a cleaner finish on every app's drop-downs, tick boxes and scroll bars, with a few rough edges fixed.
+
 ### 10.6.0
 
 Central Production gets a song ready for the band: sections you can drag around with their music, a new key and tempo for the whole song, click and spoken-guide tracks, a loudness meter and the Central Tracks grade before you publish, Export for Central Pedal (a pack with the sections marked), and MIDI and foot controls.
