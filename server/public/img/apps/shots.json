@@ -593,5 +593,47 @@
   "file": "img/apps/pedal/5-scenes.webp",
   "alt": "Central Pedal, 5-inch screen, Scenes: The song's scenes, numbered for the footswitches.",
   "caption": "The song's scenes, numbered for the footswitches."
+ },
+ {
+  "id": "io-output8-rack-front",
+  "app": "Central I/O",
+  "file": "img/io/output8-rack-front.webp",
+  "alt": "The Central I/O Output Box, rack version, from the front: a 3D render. A black 1U rack box with a gold screen at the left showing STAGE LEFT, CONTROLLER: PEDAL and a meter and label for each output, an ID button with a green light, eight XLR outputs labelled OUT 1 to OUT 8, and CENTRAL OUTPUT 8 in gold at the right.",
+  "caption": "The rack version from the front: the screen, the ID button and the 8 outputs."
+ },
+ {
+  "id": "io-output8-rack-stack",
+  "app": "Central I/O",
+  "file": "img/io/output8-rack-stack.webp",
+  "alt": "Three Central I/O Output Boxes stacked in a rack, each screen showing its own name and slot: STAGE RIGHT, STAGE LEFT and MAINS.",
+  "caption": "Three output boxes stacked. Each screen shows the box's name and its slot in the stack."
+ },
+ {
+  "id": "io-output8-rack-back",
+  "app": "Central I/O",
+  "file": "img/io/output8-rack-back.webp",
+  "alt": "The back of the rack Central I/O Output Box: a plain black panel with no jacks.",
+  "caption": "The rack version's back. There's nothing to plug in: power and the network come up through the pins."
+ },
+ {
+  "id": "io-output8-standalone-front",
+  "app": "Central I/O",
+  "file": "img/io/output8-standalone-front.webp",
+  "alt": "The standalone Central I/O Output Box from the front: no rack ears, CENTRAL OUTPUT 8 in gold above the screen, which says STANDALONE, then the ID button and the eight XLR outputs.",
+  "caption": "The standalone version from the front. It's the same box without the rack ears."
+ },
+ {
+  "id": "io-output8-standalone-back",
+  "app": "Central I/O",
+  "file": "img/io/output8-standalone-back.webp",
+  "alt": "The back of the standalone Central I/O Output Box: two locking etherCON network jacks marked THRU and NETWORK, and a USB-C port marked USB-C POWER 20 V.",
+  "caption": "The standalone version's back: THRU, NETWORK and USB-C power."
+ },
+ {
+  "id": "io-output8-screen",
+  "app": "Central I/O",
+  "file": "img/io/output8-screen.webp",
+  "alt": "The output box's gold screen: STAGE LEFT, 1 GB, SLOT 2 on the top line, CONTROLLER: PEDAL and CLOCK LOCKED on the second, then eight meters labelled L, R, WDG1, WDG2, IEM1, IEM2, SUB and 8.",
+  "caption": "The screen, drawn by the box's own software."
  }
 ]

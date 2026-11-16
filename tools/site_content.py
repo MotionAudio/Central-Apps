@@ -447,7 +447,7 @@ UTILITY_PARTS = [
 # ---------------------------------------------------------------------------------------------- Central I/O (Kickstarter July 2027)
 # Three boxes: a control box, input boxes (8 inputs) and output boxes (8 outputs), each in a rack version (they stack on
 # spring pins that carry 48 V, ground and one gigabit chain, so a stack has no cables) and a standalone version (locking
-# network jacks and its own power adapter). All three come out together on Kickstarter in July 2027. The boxes are the
+# network jacks and its own power: the output box runs from a 20 V USB-C charger). All three come out together on Kickstarter in July 2027. The boxes are the
 # same for every use; only the control box's software changes: The Pedal and The In-Ears from July 2027, and Central Wave
 # as a software addition in February 2028. Still being designed: keep the words honest about that. No prices, and each
 # moves to the products only when it's announced.
@@ -510,7 +510,7 @@ UPCOMING = {
          "line": "8 outputs, for stems, in-ears or speakers.",
          "text": "Each output box adds 8 balanced XLR outputs. An output can carry one of the pedal's stems, an in-ear mix (stereo mixes use two) or the feed to one speaker."},
     ],
-    "boxes_note": "Both come as a rack version that stacks on the Control Box, or a standalone one with its own power adapter. They come out with the Control Box on Kickstarter in July 2027.",
+    "boxes_note": "Both come as a rack version that stacks on the Control Box, or a standalone one with its own power (the output box runs from a USB-C charger). They come out with the Control Box on Kickstarter in July 2027.",
 }
 
 IO = {
@@ -538,14 +538,16 @@ IO = {
                    ("Rack version", "Stacks with the other boxes, with no cables between them"), ("Standalone version", "Locking network jacks (NETWORK and THRU) and its own power adapter")]},
         {"slug": "output-box", "name": "Central I/O Output Box", "short": "Output Box", "when": "On Kickstarter in July 2027",
          "line": "8 outputs, for stems, in-ears or speakers.",
-         "text": "Each output box adds 8 balanced outputs. An output can carry one of the pedal's stems, an in-ear mix (stereo mixes use two) or the feed to one speaker. The control box tells each box what goes where, so you set it all up in Central Control instead of at the box.",
-         "specs": [("Outputs", "8 balanced XLR outputs"), ("Audio", "48 kHz, 24-bit"), ("Rack version", "Stacks on the control box or another box, with no cables between them"),
-                   ("Standalone version", "Locking network jacks (NETWORK and THRU, to chain boxes) and its own power adapter"), ("Front", "Its name, a signal light for every output and an identify button"),
-                   ("Controls", "Level and a meter for each output, in Central Control")]}
+         "text": "Each output box (Central Output 8) adds 8 balanced outputs on XLR jacks. An output can carry one of the pedal's stems, an in-ear mix (stereo mixes use two) or the feed to one speaker. The control box tells each box what goes where, so you set it all up in Central Control instead of at the box.",
+         "specs": [("Outputs", "8 balanced XLR outputs, line level (+18 dBu at full scale)"), ("Audio", "48 kHz, 24-bit"),
+                   ("Rack version", "19-inch, 1U, 140 mm deep. Stacks on the control box or another box, with no cables between them"),
+                   ("Standalone version", "Locking network jacks (NETWORK and THRU, to chain boxes) and USB-C power from a 20 V charger"),
+                   ("Front", "A gold screen with its name and a meter for every output, and an identify button"),
+                   ("Controls", "Routing, gain, mute and a label for each output, in Central Control")]}
     ],
     "versions": [
         ("Rack mount", "The rack boxes stack. Each one has a row of spring pins on top at the back, and pads underneath that land on the pins of the box below. The pins carry the power and one fast network link up through every box, so a stack needs no cables between the boxes, up to 16 of them. The control box goes at the bottom. It powers the whole stack and tells each box what it's for. Before it turns the power on it counts the boxes and checks the stack, so the pins don't spark when you set a box down."),
-        ("Standalone", "A standalone box has its own locking power adapter for a normal wall outlet and locking network jacks. Use one where a stack can't reach, like beside the side-fill speakers or on the stage for the band's inputs. Run a network cable from it back to the control box, or chain it from another standalone box, and it shows up in Central Control like the rest."),
+        ("Standalone", "A standalone box has its own power and locking network jacks. The output box runs from a 20 V USB-C charger, like a laptop's; the others have a locking power adapter for a normal wall outlet. Use one where a stack can't reach, like beside the side-fill speakers or on the stage for the band's inputs. Run a network cable from it back to the control box, or chain it from another standalone box, and it shows up in Central Control like the rest."),
     ],
     "versions_note": "You can mix the two. Keep a stack at the desk and put a standalone box wherever you need one.",
     # the three jobs, and what each box does in each one
@@ -603,20 +605,54 @@ IO_GUIDES = {
                                     "If there's no sound from the board's channels, check that your board's AES67 output (on a Dante board, its AES67 mode) is routed to the control box in your board's own software."]),
     ],
     "output-box": [
+        ("What it is", ["The output box is Central Output 8. It gives you 8 balanced line outputs on XLR jacks. The control box tells it what to play, so you set it up in Central Control rather than at the box.",
+                        ("shot", "io-output8-rack-front"),
+                        "It comes two ways. The rack version stacks on the control box with no cables between the boxes. The standalone version is the same box without the rack ears, with its own network jacks and USB-C power on the back, for wherever a stack can't reach.",
+                        ("shots", ["io-output8-rack-stack", "io-output8-standalone-front", "io-output8-rack-back", "io-output8-standalone-back"]),
+                        "These are renders of the case design, not photos. The details may still change before it ships."]),
+        ("What's on it", [("table", ("Part", "Details"), [
+            ("Outputs", "8 balanced, male XLR, line level (0 dBFS is +18 dBu). They stay muted while the box powers up and down, so there's no thump in the speakers."),
+            ("Audio", "48 kHz, 24-bit, from the control box over the network."),
+            ("Front", "A gold screen with the box's name and a meter and label for every output, the 8 outputs, and an ID button with a green light."),
+            ("Rack version", "19-inch, 1U, 140 mm (5\u00bd inches) deep. Power and the network come up through the spring pins, so the back is bare."),
+            ("Standalone version", "374 x 52 x 140 mm (about 14\u00be x 2 x 5\u00bd inches), on stick-on feet. On the back: NETWORK and THRU on locking etherCON jacks, and USB-C POWER."),
+            ("Power", "Rack: from the control box, through the pins. Standalone: a USB-C charger with USB Power Delivery at 20 V, 25 W or more (most laptop chargers)."),
+        ])]),
         ("Before you start", ["You'll need a Central I/O Control Box, because the output box gets its audio and its instructions from it. Setting up a box takes a few minutes."]),
         ("Set up the rack version", [("steps", ["Turn the control box off.",
-                                                 "Set the output box on top of the control box or on top of another box, and push it back until it clicks onto the pins.",
-                                                 "Turn the control box on. It checks the new box and turns it on.",
-                                                 "In Central Control, open I/O. The new box shows up with its 8 outputs."]),
-                                     "The pins carry the box's power and audio, so there's nothing else to plug in apart from the cables to your speakers, amps or in-ear packs."]),
-        ("Set up the standalone version", [("steps", ["Plug its power adapter into a wall outlet and into the box, and twist the plug to lock it.",
-                                                       "Run a network cable from the box's NETWORK jack to the control box's BOXES jack, or to a network switch on it. To add another standalone box, plug it into THRU.",
-                                                       "In Central Control, open I/O. The box shows up with its 8 outputs."])]),
-        ("Use it for the pedal", ["In Central Control, under I/O, press Spread the pedal to put each of the pedal's channels on its own output, or pick an output and choose a channel for it, like Drums, Bass or Click. Each output can carry one channel. Run a cable from each output to the desk."]),
-        ("Use it for in-ears", ["In Central Control, open In-ears and pick this box for a mix. A stereo mix takes two outputs next to each other, so one box covers four musicians. Plug wired in-ear packs or wireless transmitters into the outputs."]),
-        ("Use it for Central Wave", ["In the Central Wave tab, click a speaker on the room map and pick which output feeds it. Run each output to that speaker's amp or to a powered speaker. One box drives up to 8 speakers."]),
-        ("When something's wrong", ["If an output is silent, check its meter in Central Control under I/O. If the meter moves but you hear nothing, check the cable and the amp. If the meter doesn't move, check what's routed to that output.",
-                                    "If a standalone box doesn't show up, check that its light is on and that it's plugged into the control box's BOXES jack or a switch on it."]),
+                                                 "Set the box on top of the control box, or on another box, and push it back until it drops onto the pins. Up to 16 boxes stack on one control box, output and input boxes in any order.",
+                                                 "Turn the control box on. It counts the boxes, then turns them on one by one.",
+                                                 "Screw the box's ears to the rack.",
+                                                 "In Central Control, open I/O. The box shows up with its 8 outputs."]),
+                                     "The pins carry the box's power and the network, so the only cables are the ones from the outputs to your desk, amps or in-ear packs."]),
+        ("Set up the standalone version", [("steps", [("Plug a USB-C charger into USB-C POWER.", "It has to do USB Power Delivery at 20 V, 25 W or more. Most laptop chargers do. A phone charger that only gives 5 V or 9 V won't, and the screen says POWER LOW."),
+                                                       "Run a network cable from NETWORK to the control box's BOXES jack, or to a network switch on it.",
+                                                       "To add another standalone box, run a cable from this box's THRU to the next box's NETWORK.",
+                                                       "In Central Control, open I/O. The box shows up with its 8 outputs."]),
+                                           "The network jacks are etherCON, so a normal network cable plugs straight in, and a locking etherCON cable won't get pulled out on stage."]),
+        ("The screen", [("shot", "io-output8-screen"),
+                        ("list", [("Top line:", "the box's name (you set it in Central Control), the network speed (1 GB is right) and its slot in the stack. A standalone box says STANDALONE."),
+                                  ("Second line:", "what the control box is running (Pedal, In-Ears or Wave) and the clock. CLOCK LOCKED means the box is playing in time with the control box."),
+                                  ("Meters:", "one for each output, with its label from Central Control, or its number if it hasn't got one. MUT on a meter means that output is muted.")])]),
+        ("The ID button", ["Press ID on the front and the screen and the green light next to the button flash for 10 seconds. The box flashes in Central Control too, so you can tell which box is which.",
+                           "The green light stays on while the box is locked to the control box's clock and taking orders from it."]),
+        ("Route, label and mute the outputs", ["Everything is in Central Control under I/O.",
+                                               ("list", [("Route an output:", "click it and pick what plays on it: a pedal channel, an in-ear mix, a speaker in Central Wave, or a source straight from another box."),
+                                                         ("Gain and mute:", "each output has its own gain, from -60 to +12 dB, and a Mute button."),
+                                                         ("Labels:", "name each output, like Main L or Wedge 1. The first 5 letters show under its meter on the box.")])]),
+        ("Use it for the pedal", ["Press Spread the pedal and every channel the pedal sends goes to the next output, across your boxes in stack order: box 1's 8 outputs, then box 2's. Pick a first output before you press it to start somewhere else. You can also pick an output and choose a channel for it, like Drums, Bass or Click. Run a cable from each output to the desk."]),
+        ("Use it for in-ears", ["In Central Control, open In-ears and pick this box for a mix. A stereo mix takes two outputs next to each other, so one box feeds four stereo packs, or eight mono ones. Plug wired in-ear packs or wireless transmitters into the outputs."]),
+        ("Use it for Central Wave", ["In the Central Wave tab, click a speaker on the room map and pick which output feeds it. Each output feeds one speaker or amp channel, so one box drives up to 8. Add boxes for bigger rooms."]),
+        ("When something's wrong", [("table", ("The screen says", "What to do"), [
+            ("NO NETWORK or NO LINK", "Standalone: check the cable in NETWORK, and that its other end is in the control box's BOXES jack. Rack: push the box back onto the pins."),
+            ("WAITING FOR AN ADDRESS", "Nothing on the network is handing out addresses yet. Check that the control box is on."),
+            ("LOOKING FOR THE CONTROLLER", "The box is on the network but hasn't heard from the control box. Check that the control box is on and on the same network."),
+            ("NO CLOCK, CLOCK LISTENING or CLOCK SETTLING", "The box is finding the control box's clock. It should say CLOCK LOCKED within a few seconds. If it stays like this, check the network cable."),
+            ("POWER LOW", "Standalone: use a USB-C charger that gives 20 V, 25 W or more. Rack: the control box's power is low, so check the control box."),
+        ]),
+                                    ("list", [("An output is silent:", "look at its meter on the box and in Central Control. If the meter moves, check the cable and whatever it's plugged into. If it doesn't, check what's routed to that output and that it isn't muted."),
+                                              ("A hum or buzz:", "these are balanced outputs, so use balanced cables (XLR or TRS) all the way to the amp or the desk."),
+                                              ("A box doesn't show up in Central Control:", "press ID on it. If the screen doesn't flash, it has no power.")])]),
     ],
     "input-box": [
         ("Before you start", ["You'll need a Central I/O Control Box, because the input box sends its audio to it. Most churches with an AES67 sound board (or a Dante board in AES67 mode) won't need an input box at all."]),

@@ -297,10 +297,10 @@ def io_drawing():
     parts += f'<text x="{sx}" y="{sy - 26}" font-size="13" font-weight="600" fill="currentColor">Standalone</text>'
     parts += box(sx, sy, 260, h, "", "out")
     parts += f'<rect x="{sx + 40}" y="{sy + h + 40}" width="46" height="26" rx="4" fill="#3a3a3e"/><path d="M{sx + 63} {sy + h} V{sy + h + 40}" stroke="#555" stroke-width="2" fill="none"/>'
-    parts += f'<text x="{sx + 30}" y="{sy + h + 82}" font-size="11" fill="currentColor">its own power adapter</text>'
+    parts += f'<text x="{sx + 30}" y="{sy + h + 82}" font-size="11" fill="currentColor">its own power</text>'
     parts += f'<path d="M{sx + 230} {sy + h} V{sy + h + 78}" stroke="#c9a24a" stroke-width="2" fill="none"/>'
     parts += f'<text x="{sx + 238}" y="{sy + h + 96}" font-size="11" fill="currentColor" text-anchor="end">network cable back to the control box</text>'
-    return f'<svg class="io-draw" viewBox="0 70 900 220" role="img" aria-label="A drawing of a rack stack (control box at the bottom, two output boxes and an input box on top) and a standalone box with its own power adapter and a network cable." style="width:100%;height:auto;color:var(--ink)">{parts}</svg>'
+    return f'<svg class="io-draw" viewBox="0 70 900 220" role="img" aria-label="A drawing of a rack stack (control box at the bottom, two output boxes and an input box on top) and a standalone box with its own power and a network cable." style="width:100%;height:auto;color:var(--ink)">{parts}</svg>'
 
 
 def io_hub():
@@ -379,9 +379,22 @@ def upcoming():
 def io_guide(b):
     I = C.IO
     secs = C.IO_GUIDES[b["slug"]]
+    def bold(t):   # an item may be (bold words, the rest)
+        return f"<b>{E(t[0])}</b> {E(t[1])}" if isinstance(t, tuple) else E(t)
+    def fig(sid):
+        return f'<figure class="shot">{shot_img(sid)}<figcaption>{E(SHOTS[sid]["caption"])}</figcaption></figure>' if sid in SHOTS else ""
     def para(x):
-        if isinstance(x, tuple) and x[0] == "steps": return '<ol class="steps">' + "".join(f"<li>{E(st)}</li>" for st in x[1]) + "</ol>"
-        return f"<p>{E(x)}</p>"
+        if isinstance(x, tuple) and x[0] == "steps": return '<ol class="steps">' + "".join(f"<li>{bold(st)}</li>" for st in x[1]) + "</ol>"
+        if isinstance(x, tuple) and x[0] == "list": return "<ul>" + "".join(f"<li>{bold(it)}</li>" for it in x[1]) + "</ul>"
+        if isinstance(x, tuple) and x[0] == "shot": return fig(x[1])
+        if isinstance(x, tuple) and x[0] == "shots":   # (two or more renders side by side)
+            return ('<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:0 1rem">'
+                    + "".join(fig(s).replace('class="shot"', 'class="shot" style="margin:.8rem 0"') for s in x[1]) + "</div>")
+        if isinstance(x, tuple) and x[0] == "table":   # ("table", (heading, heading), [(cell, cell), ..])
+            head = "".join(f"<th>{E(h)}</th>" for h in x[1])
+            rows = "".join("<tr>" + "".join(f"<td>{bold(c) if i else '<b>' + E(c) + '</b>'}</td>" for i, c in enumerate(r)) + "</tr>" for r in x[2])
+            return f'<div class="tblwrap"><table class="tbl"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table></div>'
+        return f"<p>{bold(x)}</p>"
     doc = "".join(f'<h2 id="{E(slug(h))}">{E(h)}</h2>' + "".join(para(x) for x in xs) for h, xs in secs)
     toc = "".join(f'<li><a href="#{E(slug(h))}">{E(h)}</a></li>' for h, _ in secs)
     others = " and ".join(f'<a href="/io/{x["slug"]}.html">{E(x["name"])}</a>' for x in I["boxes"] if x["slug"] != b["slug"])
