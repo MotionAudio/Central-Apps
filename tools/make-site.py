@@ -276,15 +276,15 @@ def io_drawing():
             g += f'<rect x="{x + 14}" y="{y + 7}" width="190" height="{h - 14}" rx="2" fill="#0b2a3a" stroke="#c9a24a" stroke-width=".8"/>'   # (the long screen)
             g += "".join(f'<circle cx="{x + w - 46 + i * 24}" cy="{y + h / 2}" r="8" fill="#111" stroke="#c9a24a"/>' for i in range(2))
         else:
-            n = 8 if kind == "in" else 16
+            n = 8
             for i in range(n):
                 cx = x + 22 + i * (w - 44) / (n - 1)
-                g += f'<circle cx="{cx:.1f}" cy="{y + h / 2}" r="{7.5 if kind == "in" else 4.6}" fill="#111" stroke="{"#9a9aa0" if kind == "out" else "#c9a24a"}" stroke-width=".9"/>'
+                g += f'<circle cx="{cx:.1f}" cy="{y + h / 2}" r="7.5" fill="#111" stroke="{"#9a9aa0" if kind == "out" else "#c9a24a"}" stroke-width=".9"/>'
         if label: g += f'<text x="{x + w + 10}" y="{y + h / 2 + 4}" font-size="12" fill="currentColor">{label}</text>'
         return g
     pins = lambda x, y: "".join(f'<rect x="{x - 12 + i * 4.2}" y="{y - 4}" width="2.2" height="5" rx="1" fill="#c9a24a"/>' for i in range(14))
     y0, w, h, gap = 210, 330, 34, 2
-    rows = [("ctl", "Controller (it powers the stack)"), ("out", "Output Box, 16 outputs"), ("out", "Output Box, 16 outputs"), ("in", "Input Box, 8 inputs")]
+    rows = [("ctl", "Controller (it powers the stack)"), ("out", "Output Box, 8 outputs"), ("out", "Output Box, 8 outputs"), ("in", "Input Box, 8 inputs")]
     parts = ""
     for i, (k, lab) in enumerate(rows):
         y = y0 - i * (h + gap)

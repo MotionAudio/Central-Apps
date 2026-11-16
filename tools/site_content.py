@@ -422,7 +422,7 @@ UTILITY_PARTS = [
 ]
 
 # ---------------------------------------------------------------------------------------------- Central I/O (Kickstarter July 2027)
-# Three boxes: a controller, input boxes (8 inputs) and output boxes (16 outputs), each in a rack version (they stack on
+# Three boxes: a controller, input boxes (8 inputs) and output boxes (8 outputs), each in a rack version (they stack on
 # spring pins that carry 48 V, ground and one gigabit chain, so a stack has no cables) and a standalone version (locking
 # network jacks and its own power adapter). All three come out together on Kickstarter in July 2027. The boxes are the
 # same for every use; only the controller's software changes: The Pedal and The In-Ears from July 2027, and Central Wave
@@ -430,7 +430,7 @@ UTILITY_PARTS = [
 # moves to the products only when it's announced.
 UPCOMING = {
     "tag": "What I'm building next",
-    "lede": "Central I/O: three boxes that go with the pedal and Central Control. A controller that does the thinking, an input box with 8 inputs and an output box with 16 outputs. All three come out together on Kickstarter in July 2027. None of it is for sale yet, and details will change before it ships.",
+    "lede": "Central I/O: three boxes that go with the pedal and Central Control. A controller that does the thinking, an input box with 8 inputs and an output box with 8 outputs. All three come out together on Kickstarter in July 2027. None of it is for sale yet, and details will change before it ships.",
     "boxes": [
         {"id": "controller", "name": "The Controller", "when": "Kickstarter, July 2027",
          "line": "The brain. It runs the software for whichever job you need.",
@@ -441,9 +441,9 @@ UPCOMING = {
          "text": "Plug in an XLR or a 1/4-inch cable on each of its 8 combo jacks. You set the gain, the pad and phantom power from Central Control. It brings the band's mics and instruments in on stage, and the channels of a board that has no network card.",
          "points": ["8 combo jacks: XLR or 1/4-inch", "Gain, pad and 48 V phantom on every input", "Set from Central Control, not at the box"]},
         {"id": "output-box", "name": "The Output Box", "when": "Kickstarter, July 2027",
-         "line": "16 outputs, for stems, in-ears or speakers.",
-         "text": "Each output box adds 16 balanced XLR outputs. An output can carry one of the pedal's stems, an in-ear mix (stereo mixes use two) or the feed to one speaker. The controller tells each box what goes where.",
-         "points": ["16 balanced XLR outputs", "Add boxes for more outputs", "A signal light for every output"]},
+         "line": "8 outputs, for stems, in-ears or speakers.",
+         "text": "Each output box adds 8 balanced XLR outputs. An output can carry one of the pedal's stems, an in-ear mix (stereo mixes use two) or the feed to one speaker. The controller tells each box what goes where.",
+         "points": ["8 balanced XLR outputs", "Add boxes for more outputs", "A screen with a meter for every output"]},
     ],
     "boxes_note": "Every box comes as a rack version or a standalone one. The rack boxes stack on spring pins, with no cables between them. A standalone box has its own power adapter and goes wherever a stack can't reach.",
     "uses": [
@@ -451,12 +451,12 @@ UPCOMING = {
          "boxes": "The controller and an output box",
          "line": "Every channel the pedal plays, on its own output.",
          "text": "The pedal has six outputs on the back. With Central I/O, each stem, the click, the cues and the pads get their own output at the desk. Plug the pedal's I/O port into the controller, stack an output box on top, and spread the pedal's channels across it in Central Control.",
-         "points": ["One network cable from the pedal to the controller", "16 outputs per output box", "Set up in Central Control, not at the box"]},
+         "points": ["One network cable from the pedal to the controller", "8 outputs per output box", "Set up in Central Control, not at the box"]},
         {"id": "in-ears", "name": "The In-Ears", "when": "July 2027",
          "boxes": "The controller and an output box, plus an input box for stage mics",
          "line": "The band's in-ear mixes, each musician running their own.",
          "text": "The controller builds up to 32 stereo in-ear mixes from your sound board (AES67, including Dante boards in AES67 mode), the pedal and the input box. Each musician sets their own mix from Central Usage on their phone, and the output box feeds the wired packs or the wireless transmitters.",
-         "points": ["Up to 32 stereo mixes, each with its own EQ, compressor and reverb", "One output box covers eight musicians", "The input box takes the stage mics and instruments"]},
+         "points": ["Up to 32 stereo mixes, each with its own EQ, compressor and reverb", "One output box covers four musicians in stereo", "The input box takes the stage mics and instruments"]},
         {"id": "wave", "name": "Central Wave", "when": "Software addition, February 2028",
          "boxes": "The same controller and output boxes. It's new software, not new hardware",
          "line": "Every speaker in the room its own mix, timing and EQ.",
@@ -469,7 +469,7 @@ IO = {
     "name": "Central I/O",
     "tag": "Boxes for more outputs, more inputs and every speaker in the room",
     "soon": "Upcoming",
-    "lede": "Central I/O is three boxes I'm designing to go with the pedal and Central Control. The controller does the thinking, input boxes take 8 inputs each and output boxes give you 16 outputs each. The boxes are the same whatever you use them for. Only the controller's software changes, and there are three uses: The Pedal (more outputs from the pedal), The In-Ears (the band's in-ear mixes) and Central Wave (a mix for every speaker in the room).",
+    "lede": "Central I/O is three boxes I'm designing to go with the pedal and Central Control. The controller does the thinking, input boxes take 8 inputs each and output boxes give you 8 outputs each. The boxes are the same whatever you use them for. Only the controller's software changes, and there are three uses: The Pedal (more outputs from the pedal), The In-Ears (the band's in-ear mixes) and Central Wave (a mix for every speaker in the room).",
     "status": "They're still being designed, so some details on these pages will change before they ship. All three boxes come out together on Kickstarter in July 2027, and Central Wave follows as a software addition in February 2028. Nothing here is for sale yet.",
     "boxes": [
         {"slug": "controller", "name": "Central I/O Controller", "short": "Controller", "when": "On Kickstarter in July 2027",
@@ -489,9 +489,9 @@ IO = {
          "specs": [("Inputs", "8 combo jacks on the front: XLR or 1/4-inch"), ("Preamps", "Gain, a pad and 48 V phantom power on each input, set from Central Control"), ("Audio", "48 kHz, 24-bit"),
                    ("Rack version", "Stacks with the other boxes, with no cables between them"), ("Standalone version", "Locking network jacks (NETWORK and THRU) and its own power adapter")]},
         {"slug": "output-box", "name": "Central I/O Output Box", "short": "Output Box", "when": "On Kickstarter in July 2027",
-         "line": "16 outputs, for stems, in-ears or speakers.",
-         "text": "Each output box adds 16 balanced outputs. An output can carry one of the pedal's stems, an in-ear mix (stereo mixes use two) or the feed to one speaker. The controller tells each box what goes where, so you set it all up in Central Control instead of at the box.",
-         "specs": [("Outputs", "16 balanced XLR outputs"), ("Audio", "48 kHz, 24-bit"), ("Rack version", "Stacks on the controller or another box, with no cables between them"),
+         "line": "8 outputs, for stems, in-ears or speakers.",
+         "text": "Each output box adds 8 balanced outputs. An output can carry one of the pedal's stems, an in-ear mix (stereo mixes use two) or the feed to one speaker. The controller tells each box what goes where, so you set it all up in Central Control instead of at the box.",
+         "specs": [("Outputs", "8 balanced XLR outputs"), ("Audio", "48 kHz, 24-bit"), ("Rack version", "Stacks on the controller or another box, with no cables between them"),
                    ("Standalone version", "Locking network jacks (NETWORK and THRU, to chain boxes) and its own power adapter"), ("Front", "Its name, a signal light for every output and an identify button"),
                    ("Controls", "Level and a meter for each output, in Central Control")]}
     ],
@@ -505,12 +505,12 @@ IO = {
         {"id": "pedal", "title": "The Pedal: more outputs for the pedal",
          "intro": "The pedal has six outputs on the back. If you want each stem on its own channel at the desk, plug the pedal's I/O port into the controller and add output boxes.",
          "parts": [("Controller", "Takes every channel the pedal sends over one network cable, the stems, the click, the cues and the pads, and sends each one to the output you pick. One press spreads them across your boxes."),
-                   ("Output Box", "Gives you 16 more outputs per box. Put a stem, the click or the pads on each one and run them to the desk or the in-ear rack."),
+                   ("Output Box", "Gives you 8 more outputs per box. Put a stem, the click or the pads on each one and run them to the desk or the in-ear rack."),
                    ("Input Box", "You won't need one for this.")]},
         {"id": "in-ears", "title": "The In-Ears: in-ears for the band",
          "intro": "The controller builds the in-ear mixes. Each musician sets their own from Central Usage on their phone, and the output boxes send the mixes to the in-ear packs.",
          "parts": [("Controller", "Mixes the board's channels and the pedal's tracks into up to 32 stereo in-ear mixes. Each one can have its own EQ, compressor and reverb, from our plugins or yours."),
-                   ("Output Box", "Feeds the wired in-ear packs or the wireless transmitters. A stereo mix uses two outputs, so one box covers eight musicians."),
+                   ("Output Box", "Feeds the wired in-ear packs or the wireless transmitters. A stereo mix uses two outputs, so one box covers four musicians."),
                    ("Input Box", "Brings the stage mics and instruments in if you'd rather not take them from the board. With an AES67 board (or a Dante board in AES67 mode) you can skip it.")]},
         {"id": "wave", "title": "Central Wave: every speaker, every seat (a software addition, February 2028)",
          "intro": "Central Wave gives each speaker in your room its own mix, timing and EQ, so the sound is even and clear from the front row to the back wall.",
@@ -559,13 +559,13 @@ IO_GUIDES = {
         ("Set up the rack version", [("steps", ["Turn the controller off.",
                                                  "Set the output box on top of the controller or on top of another box, and push it back until it clicks onto the pins.",
                                                  "Turn the controller on. It checks the new box and turns it on.",
-                                                 "In Central Control, open I/O. The new box shows up with its 16 outputs."]),
+                                                 "In Central Control, open I/O. The new box shows up with its 8 outputs."]),
                                      "The pins carry the box's power and audio, so there's nothing else to plug in apart from the cables to your speakers, amps or in-ear packs."]),
         ("Set up the standalone version", [("steps", ["Plug its power adapter into a wall outlet and into the box, and twist the plug to lock it.",
                                                        "Run a network cable from the box's NETWORK jack to the controller's BOXES jack, or to a network switch on it. To add another standalone box, plug it into THRU.",
-                                                       "In Central Control, open I/O. The box shows up with its 16 outputs."])]),
+                                                       "In Central Control, open I/O. The box shows up with its 8 outputs."])]),
         ("Use it for the pedal", ["In Central Control, under I/O, press Spread the pedal to put each of the pedal's channels on its own output, or pick an output and choose a channel for it, like Drums, Bass or Click. Each output can carry one channel. Run a cable from each output to the desk."]),
-        ("Use it for in-ears", ["In Central Control, open In-ears and pick this box for a mix. A stereo mix takes two outputs next to each other, so one box covers eight musicians. Plug wired in-ear packs or wireless transmitters into the outputs."]),
+        ("Use it for in-ears", ["In Central Control, open In-ears and pick this box for a mix. A stereo mix takes two outputs next to each other, so one box covers four musicians. Plug wired in-ear packs or wireless transmitters into the outputs."]),
         ("Use it for Central Wave", ["In the Central Wave tab, click a speaker on the room map and pick which output feeds it. Run each output to that speaker's amp or to a powered speaker. One box drives up to 16 speakers."]),
         ("When something's wrong", ["If an output is silent, check its meter in Central Control under I/O. If the meter moves but you hear nothing, check the cable and the amp. If the meter doesn't move, check what's routed to that output.",
                                     "If a standalone box doesn't show up, check that its light is on and that it's plugged into the controller's BOXES jack or a switch on it."]),
