@@ -1433,7 +1433,7 @@ async function renderEditors() {
 // ---------------------------------------------------------------- hero: pad swells
 // Overlapping pad envelopes in brass: they swell in once when the page opens, then breathe slowly.
 (function () {
-  const c = $("#wave"); if (!c) return; const x = c.getContext("2d");
+  const c = $("#wave"); if (!c || !c.getContext) return; /* (#wave is also the Central Wave card on Upcoming and Central I/O) */ const x = c.getContext("2d");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches, t0 = performance.now();
   const swells = [{ c: 0.30, w: 0.62, a: 0.92 }, { c: 0.62, w: 0.70, a: 0.70 }, { c: 0.86, w: 0.48, a: 0.48 }, { c: 0.10, w: 0.40, a: 0.36 }];
   const bell = (u, sw) => { const d = (u - sw.c) / (sw.w / 2); return Math.abs(d) >= 1 ? 0 : Math.pow(Math.cos(d * Math.PI / 2), 2.2); };

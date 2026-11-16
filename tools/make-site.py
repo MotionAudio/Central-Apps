@@ -284,7 +284,7 @@ def io_drawing():
         return g
     pins = lambda x, y: "".join(f'<rect x="{x - 12 + i * 4.2}" y="{y - 4}" width="2.2" height="5" rx="1" fill="#c9a24a"/>' for i in range(14))
     y0, w, h, gap = 210, 330, 34, 2
-    rows = [("ctl", "Controller (it powers the stack)"), ("out", "Output Box, 8 outputs"), ("out", "Output Box, 8 outputs"), ("in", "Input Box, 8 inputs")]
+    rows = [("ctl", "Control Box (it powers the stack)"), ("out", "Output Box, 8 outputs"), ("out", "Output Box, 8 outputs"), ("in", "Input Box, 8 inputs")]
     parts = ""
     for i, (k, lab) in enumerate(rows):
         y = y0 - i * (h + gap)
@@ -299,8 +299,8 @@ def io_drawing():
     parts += f'<rect x="{sx + 40}" y="{sy + h + 40}" width="46" height="26" rx="4" fill="#3a3a3e"/><path d="M{sx + 63} {sy + h} V{sy + h + 40}" stroke="#555" stroke-width="2" fill="none"/>'
     parts += f'<text x="{sx + 30}" y="{sy + h + 82}" font-size="11" fill="currentColor">its own power adapter</text>'
     parts += f'<path d="M{sx + 230} {sy + h} V{sy + h + 78}" stroke="#c9a24a" stroke-width="2" fill="none"/>'
-    parts += f'<text x="{sx + 238}" y="{sy + h + 96}" font-size="11" fill="currentColor" text-anchor="end">network cable back to the controller</text>'
-    return f'<svg class="io-draw" viewBox="0 70 900 220" role="img" aria-label="A drawing of a rack stack (controller at the bottom, two output boxes and an input box on top) and a standalone box with its own power adapter and a network cable." style="width:100%;height:auto;color:var(--ink)">{parts}</svg>'
+    parts += f'<text x="{sx + 238}" y="{sy + h + 96}" font-size="11" fill="currentColor" text-anchor="end">network cable back to the control box</text>'
+    return f'<svg class="io-draw" viewBox="0 70 900 220" role="img" aria-label="A drawing of a rack stack (control box at the bottom, two output boxes and an input box on top) and a standalone box with its own power adapter and a network cable." style="width:100%;height:auto;color:var(--ink)">{parts}</svg>'
 
 
 def io_hub():
@@ -316,49 +316,64 @@ def io_hub():
             f'  <h1 data-edit="io.title">{E(I["tag"])}</h1>\n  <p class="lede" data-edit="io.lede">{E(I["lede"])}</p>\n'
             '  <div class="ctas"><a class="btn brass" href="#uses">What they&#x27;re for</a><a class="btn ghost" href="#versions">Rack or standalone</a></div>\n'
             f'  <p class="muted" style="margin-top:.8rem;font-size:.9rem">{E(I["status"])}</p>\n</div></section>\n'
-            '<section class="pg"><div class="wrap"><div class="pg-head"><h2>Three boxes</h2><p>Every setup has one controller. Add as many input and output boxes as the room needs, up to 16.</p></div>\n'
+            '<section class="pg"><div class="wrap"><div class="pg-head"><h2>Three boxes</h2><p>Every setup has one control box. Add as many input and output boxes as the room needs, up to 16.</p></div>\n'
             f'  <div class="facts">{cards}</div></div></section>\n'
             '<section class="pg band" id="versions"><div class="wrap"><div class="pg-head"><h2>Rack mount or standalone</h2><p>Each box comes both ways.</p></div>\n'
             f'  {io_drawing()}\n'
             f'  <div class="fgroup" style="margin-top:1.5rem"><h3>Two versions</h3><div><ul class="feats">{versions}</ul><p class="muted" style="margin-top:1rem">{E(I["versions_note"])}</p></div></div>\n'
             '  <p class="muted" style="margin-top:.8rem;font-size:.85rem">That&#x27;s a drawing, not a photo. The real boxes will look different.</p>\n</div></section>\n'
-            '<section class="pg" id="uses"><div class="wrap"><div class="pg-head"><h2>What they&#x27;re for</h2><p>The same boxes do three jobs. Only the controller&#x27;s software changes. Here&#x27;s what each box does in each one.</p></div>\n'
+            '<section class="pg" id="uses"><div class="wrap"><div class="pg-head"><h2>What they&#x27;re for</h2><p>The same boxes do three jobs. Only the control box&#x27;s software changes. Here&#x27;s what each box does in each one.</p></div>\n'
             f'  <div class="feat-groups">{uses}</div></div></section>\n'
             '<section class="pg band" id="specs"><div class="wrap"><div class="pg-head"><h2>What&#x27;s planned for each box</h2><p>These are the plans today. They may change before each one ships.</p></div>\n'
             f'  <div class="feat-groups">{specs}</div></div></section>\n'
             '<section class="pg"><div class="wrap"><div class="pg-head"><h2>Setting them up</h2><p>How each box is planned to go together, step by step.</p></div>\n'
             f'  <div class="hc-cats">{guides}</div>\n'
-            '  <p class="muted" style="margin-top:1.4rem">The controller, the input box and the output box come out together on Kickstarter in July 2027, ready for The Pedal and The In-Ears. Central Wave follows as a software addition in February 2028. None of it is for sale yet. <a href="/upcoming/">See what&#x27;s upcoming</a>.</p>\n</div></section>')
+            '  <p class="muted" style="margin-top:1.4rem">The control box, the input box and the output box come out together on Kickstarter in July 2027, ready for The Pedal and The In-Ears. Central Wave follows as a software addition in February 2028. None of it is for sale yet. <a href="/upcoming/">See what&#x27;s upcoming</a>.</p>\n</div></section>')
     OG_SHOT["io"] = "pedal-render-hero"
-    page("io/index.html", "io", "Central I/O: the controller, input boxes and output boxes | Motion Audio", "Three boxes for more outputs from the pedal, in-ears for the band and, from February 2028, a mix for every speaker with Central Wave. On Kickstarter in July 2027.", body)
+    page("io/index.html", "io", "Central I/O: the control box, input boxes and output boxes | Motion Audio", "Three boxes for more outputs from the pedal, in-ears for the band and, from February 2028, a mix for every speaker with Central Wave. On Kickstarter in July 2027.", body)
 
 
 def upcoming():
     U = C.UPCOMING
+    cb = U["control_box"]
     chip = lambda t: f'<div><span class="chip" style="background:var(--brass);color:#111;border-color:transparent">{E(t)}</span></div>'
-    def box(b):
-        pts = "".join(f"<li>{E(x)}</li>" for x in b["points"])
-        return (f'<div class="fact" id="{E(b["id"])}"><h3>{E(b["name"])}</h3>{chip(b["when"])}'
-                f'<p class="muted">{E(b["line"])}</p><p>{E(b["text"])}</p><ul>{pts}</ul>'
-                f'<a class="btn ghost small" href="/io/{E(b["id"])}.html">How it&#x27;s set up</a></div>')
+    def img(src, alt, cls="", lazy=True):
+        wh = img_size(src)
+        dims = f' width="{wh[0]}" height="{wh[1]}"' if wh else ""
+        return f'<img{(" class=" + chr(34) + cls + chr(34)) if cls else ""} src="/{E(src)}" alt="{E(alt)}"{dims}{" loading=" + chr(34) + "lazy" + chr(34) if lazy else ""} decoding="async">'
     def use(u):
         pts = "".join(f"<li>{E(x)}</li>" for x in u["points"])
-        return (f'<div class="fact" id="{E(u["id"])}"><h3>{E(u["name"])}</h3>{chip(u["when"])}'
+        return (f'<div class="fact use" id="{E(u["id"])}"><figure class="use-shot">{img(*u["shot"])}</figure><h3>{E(u["name"])}</h3>{chip(u["when"])}'
                 f'<p class="muted">{E(u["line"])}</p><p>{E(u["text"])}</p><ul>{pts}</ul>'
                 f'<p class="muted" style="font-size:.9rem"><b>You need:</b> {E(u["boxes"])}.</p>'
                 f'<a class="btn ghost small" href="/io/#{E(u["id"])}">How the boxes do it</a></div>')
-    body = (f'<section class="page-hero on-stage"><div class="wrap">\n  <div class="crumbs"><span>Upcoming</span></div>\n'
+    def box(b):
+        return (f'<div class="fact" id="{E(b["id"])}"><h3>{E(b["name"])}</h3>{chip(b["when"])}'
+                f'<p class="muted">{E(b["line"])}</p><p>{E(b["text"])}</p>'
+                f'<a class="btn ghost small" href="/io/{E(b["id"])}.html">How it&#x27;s set up</a></div>')
+    paras = "".join(f"<p>{E(x)}</p>" for x in cb["text"])
+    feats = "".join(f'<div class="fact"><h3>{E(t)}</h3><p class="muted">{E(d)}</p></div>' for t, d in cb["features"])
+    vers = "".join(f'<div class="fact"><h3>{E(t)}</h3><p>{E(d)}</p></div>' for t, d in cb["versions"])
+    shots = "".join(f'<figure>{img(f, alt)}<figcaption>{E(cap)}</figcaption></figure>' for f, alt, cap in cb["shots"])
+    body = (f'<section class="page-hero on-stage"><div class="wrap hero2">\n  <div><div class="crumbs"><span>Upcoming</span></div>\n'
             f'  <h1 data-edit="upcoming.title">{E(U["tag"])}</h1>\n  <p class="lede" data-edit="upcoming.lede">{E(U["lede"])}</p>\n'
-            '  <div class="ctas"><a class="btn brass" href="#boxes">The three boxes</a><a class="btn ghost" href="#uses">What they can do</a></div>\n</div></section>\n'
-            '<section class="pg" id="boxes"><div class="wrap"><div class="pg-head"><h2>The three boxes</h2><p>All three come out together on Kickstarter in July 2027.</p></div>\n'
-            f'  <div class="facts">{"".join(box(b) for b in U["boxes"])}</div>\n'
-            f'  <p class="muted" style="margin-top:1.2rem">{E(U["boxes_note"])}</p></div></section>\n'
-            '<section class="pg band" id="uses"><div class="wrap"><div class="pg-head"><h2>Three things they can do</h2><p>The boxes are the same for all three. Only the software on the controller changes.</p></div>\n'
+            '  <div class="ctas"><a class="btn brass" href="#control-box">The Control Box</a><a class="btn ghost" href="#uses">Three ways to use it</a></div></div>\n'
+            f'  <figure>{img(*cb["hero"], lazy=False)}</figure>\n</div></section>\n'
+            f'<section class="pg" id="control-box"><div class="wrap"><div class="pg-head"><h2>{E(cb["name"])}</h2><p>{E(cb["line"])}</p></div>\n'
+            f'  {chip(cb["when"])}<div class="cb-text">{paras}</div>\n'
+            f'  <div class="facts" style="margin-top:1.4rem">{feats}</div>\n'
+            f'  <h3 style="margin-top:2rem">Rack or standalone</h3><div class="facts two" style="margin-top:.8rem">{vers}</div>\n'
+            f'  <div class="render-grid cb-shots" style="margin-top:1.6rem">{shots}</div>\n'
+            f'  <p class="muted" style="margin-top:.8rem;font-size:.9rem">{E(cb["note"])}</p></div></section>\n'
+            '<section class="pg band" id="uses"><div class="wrap"><div class="pg-head"><h2>Three ways to use it</h2><p>The Control Box is the same for all three. Only its software changes.</p></div>\n'
             f'  <div class="facts">{"".join(use(u) for u in U["uses"])}</div></div></section>\n'
-            '<section class="pg"><div class="wrap">\n  <p><a class="btn ghost" href="/io/">See the Central I/O boxes</a></p>\n'
+            '<section class="pg" id="boxes"><div class="wrap"><div class="pg-head"><h2>The boxes it runs</h2><p>Add input and output boxes to the Control Box, up to 16.</p></div>\n'
+            f'  <div class="facts two">{"".join(box(b) for b in U["boxes"])}</div>\n'
+            f'  <p class="muted" style="margin-top:1.2rem">{E(U["boxes_note"])}</p>\n'
+            '  <p style="margin-top:1.2rem"><a class="btn ghost" href="/io/">See all of Central I/O</a></p>\n'
             '  <p class="muted" style="margin-top:1rem">None of this is for sale yet, and the details will change before it ships.</p>\n</div></section>')
     OG_SHOT["upcoming"] = "pedal-render-hero"
-    page("upcoming/index.html", "upcoming", "Upcoming: Central I/O, the controller, input box and output box | Motion Audio", "What Motion Audio is building next: Central I/O, a controller, an input box and an output box, on Kickstarter in July 2027. They run The Pedal and The In-Ears, and Central Wave from February 2028.", body)
+    page("upcoming/index.html", "upcoming", "Upcoming: the Control Box and three ways to use it | Motion Audio", "What Motion Audio is building next: the Control Box, the brain of Central I/O, on Kickstarter in July 2027. It runs The Pedal and The In-Ears, and Central Wave from February 2028.", body)
 
 
 def io_guide(b):

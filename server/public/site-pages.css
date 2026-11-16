@@ -338,3 +338,10 @@ form.launch-list label.ll-title{display:block;font-size:1.05rem;font-weight:600;
 .launch-list p.ll-msg{margin:.6rem 0 0;font-size:.92rem;line-height:1.5}
 .launch-list p.ll-msg:empty{display:none}
 .launch-list.done p.ll-msg{font-weight:600}
+/* (the Upcoming page) the Control Box, its pictures, and a picture on each of its three uses */
+.facts.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.cb-text{max-width:68ch;display:grid;gap:.8rem;margin-top:1rem}
+.render-grid.cb-shots{grid-template-columns:repeat(4,minmax(0,1fr))}
+.fact.use .use-shot{margin:-.4rem -.4rem .3rem;border-radius:calc(var(--r) - 4px);overflow:hidden;border:1px solid var(--line);background:#050506}
+.fact.use .use-shot img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+@media (max-width:860px){.facts.two{grid-template-columns:1fr}.render-grid.cb-shots{grid-template-columns:repeat(2,minmax(0,1fr))}}
