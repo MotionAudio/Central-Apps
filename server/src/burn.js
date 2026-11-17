@@ -1,16 +1,16 @@
 // Device codes and the Central Burner app (private: the owner and the people the owner adds as Burners).
 //
 // The Central Burner app (Ubuntu, central-native/apps/burner) puts the software on every device and gives each one a
-// code that is its own for life: P pedal · C control box · I input box · O output box, then random numbers (15 to 25;
-// an output box keeps 16 characters, so its code is O and 15 numbers).
-//   Pedal, control box (CM5)  the code goes with the board's serial when it's burned, and the burner leaves the code
-//                             and a one-time pass on its boot partition (central-device.json). At its first start the
-//                             device registers its number chip (ATECC608B) with pedals.js, which asks this file
-//                             through setDeviceClaim: the right pass ties the code to that chip for good. Updates then
-//                             need that chip's signature and that code (pedals.js). docs/DEVICE-CODES.md in the pedal.
-//   Output box (STM32 + chip) the burner reads its number chip's serial and key while the new firmware waits, and this
-//                             file signs serial + key + code with the loader key; the box keeps them for good.
-//   Input box (STM32)         the code goes in its flash's last 256 bytes, tied to the STM32's 96-bit ID.
+// code that is its own for life: P pedal · C control box · I input box · O output box, then 15 to 25 random numbers.
+// The code is written into the device's one-time chip, where it can never be changed, and kept here with what the
+// device is, its board revision and batch, the software, who burned it and when. No keys or signatures.
+//   Pedal, control box (CM5)  the code goes with the CM5's serial when it's burned, and the burner leaves the code and
+//                             a one-time pass on its boot partition (central-device.json). At its first start the
+//                             device writes the code into its chip, then checks in with pedals.js, which asks this file
+//                             through setDeviceClaim: the right pass ties the code to that chip's serial for good, and
+//                             its update checks have to come from that chip (pedals.js). docs/DEVICE-CODES.md.
+//   Input, output box (STM32) the burner reads the chip's serial while the new firmware waits, gets the code here, and
+//                             the firmware writes it into the chip for good.
 // Burning the same chip again keeps its code. A scrapped board's code can be freed (the owner); never given out again.
 //
 // The zips come from the newest releases on GitHub (BURN_REPO, private, read with GITHUB_TOKEN), so staff don't need
@@ -19,18 +19,17 @@
 //   GET  /burn/me                       can this account burn?
 //   GET  /burn/software                 the newest zip on GitHub for each slot (and the burner app itself)
 //   GET  /burn/software/:asset/link     a short-lived download link for one of them
-//   POST /burn/claim                    the chip's code (new or kept): {kind, chip, use?, mac?, software?, peek?};
-//                                       pedal / control: + a new one-time pass; output: {serial, publicKey} → + signature
+//   POST /burn/claim                    the chip's code (new or kept): {kind, chip | serial, use?, mac?, software?,
+//                                       boardRev?, batch?, peek?}; pedal / control: + a new one-time pass
 //   POST /burn/done                     {code, chip, software, sha256?, ok, notes?} → the burn in the history
 //   GET  /burn/devices?q=               the codes, newest first
 //   POST /burn/devices/:code/free       {why} the owner only: a scrapped board's code stops working
-//   GET  /burn/loader-key               the owner: the loader key's public half (for the output box's ident_key.h)
 //   GET  /admin/burners · POST /admin/burners {email} · POST /admin/burners/delete {email}   the owner only
 import crypto from "node:crypto";
 import { q, one } from "./db.js";
 import { isOwner } from "./auth.js";
 import { requireStep } from "./signin.js";
-import { setDeviceClaim, hasDeviceClaim } from "./pedals.js";
+import { setDeviceClaim } from "./pedals.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 
@@ -67,12 +66,10 @@ export function sameChip(row, chip, mac) {
   const m = cleanMac(mac);
   return !!(row.mac && m && row.mac === m);
 }
-// a new code: the kind's letter and 15-25 random numbers (any of them may be 0). An output box's number chip keeps 16
-// characters (firmware/output-box/inc/ident.h), so its code is O and 15 numbers.
-export const CODE_MAX = { output: 16 };
+// a new code: the kind's letter and 15-25 random numbers (any of them may be 0). It fits the chip's 32 bytes.
 export function newCode(kind) {
   const k = KINDS[kind]; if (!k) throw bad("Unknown kind of device.");
-  const n = CODE_MAX[kind] ? CODE_MAX[kind] - 1 : crypto.randomInt(15, 26);
+  const n = crypto.randomInt(15, 26);
   let s = k.letter;
   for (let i = 0; i < n; i++) s += String(crypto.randomInt(0, 10));
   return s;
@@ -142,63 +139,32 @@ async function assetLink(id) {
 const out = (d) => ({ code: d.code, kind: d.kind, kindName: (KINDS[d.kind] || {}).name || d.kind, use: d.use || null, useName: USES[d.use] || null, chip: d.chip, mac: d.mac || null,
   software: d.software || null, burns: d.burns, burnedBy: d.by_name || d.by_email || null, burnedAt: d.burned_at, lastSeen: d.p_seen || null, lastVersion: d.p_version || null, approved: d.p_status ? d.p_status === "approved" : null,
   freed: !!d.freed_at, freedAt: d.freed_at, freedWhy: d.freed_why || null, createdAt: d.created_at,
-  numberChip: d.number_serial || null, registeredAt: d.registered_at || null });
+  numberChip: d.number_serial || null, registeredAt: d.registered_at || null, boardRev: d.board_rev || null, batch: d.batch || null });
 
 // ---------------------------------------------------------------- pedals and control boxes: the one-time pass
 const sha = (x) => crypto.createHash("sha256").update(String(x)).digest("hex");
 const newPass = () => crypto.randomBytes(24).toString("base64url");   // (32 characters: 192 random bits)
 const NUMBER_KIND = { pedal: "pedal", controller: "control" };
-// pedals.js asks this when a pedal or control box registers its number chip with the code and pass the burner left
-// (docs/DEVICE-CODES.md): the right pass ties the code to that chip for good; the same chip asking again gets yes
-// again; any other chip is turned down.
-export async function claimForChip({ kind, code, pass, serial, publicKey }) {
+// pedals.js asks this when a pedal or control box checks in (docs/DEVICE-CODES.md). With the pass the burner left: the
+// code is tied to that chip's serial for good (the same chip again gets yes again). Without a pass (an update check):
+// the serial has to be the one already tied to it, or, before it has checked in, the board has to be the CM5 the code
+// was burned on. Anything else is turned down.
+export async function claimForChip({ kind, code, pass, serial, board }) {
   const want = NUMBER_KIND[kind];
   const d = await one("SELECT * FROM device_codes WHERE code=$1", [String(code || "").toUpperCase()]);
   if (!d || !want || d.kind !== want) throw bad("That code isn't one of Motion Audio's.", 404);
   if (d.freed_at) throw bad("That code was freed. Burn the board again to give it a new one.", 403);
-  const a = Buffer.from(sha(pass), "hex"), b = Buffer.from(String(d.pass_hash || ""), "hex");
-  if (a.length !== 32 || b.length !== 32 || !crypto.timingSafeEqual(a, b)) throw bad("That pass isn't the one the burner left. Burn the board again.", 403);
-  const s = String(serial || "").toLowerCase(), k = String(publicKey || "").toLowerCase();
-  if (d.number_serial && d.number_serial !== s) throw bad("That code is already another chip's.", 403);
-  if (!d.number_serial) await q("UPDATE device_codes SET number_serial=$2, number_key=$3, registered_at=now() WHERE code=$1 AND number_serial IS NULL", [d.code, s, k]);
+  const s = String(serial || "").toLowerCase();
+  if (d.number_serial && d.number_serial !== s) throw bad("That code is already another device's.", 403);
+  if (pass !== undefined && pass !== null) {
+    const a = Buffer.from(sha(pass), "hex"), b = Buffer.from(String(d.pass_hash || ""), "hex");
+    if (a.length !== 32 || b.length !== 32 || !crypto.timingSafeEqual(a, b)) throw bad("That pass isn't the one the burner left. Burn the board again.", 403);
+  } else if (!d.number_serial && !(board && sameChip(d, board))) throw bad("This device hasn't checked in with Motion Audio yet.", 403);
+  if (!d.number_serial) await q("UPDATE device_codes SET number_serial=$2, registered_at=now() WHERE code=$1 AND number_serial IS NULL", [d.code, s]);
   const now = await one("SELECT number_serial FROM device_codes WHERE code=$1", [d.code]);
-  if (now.number_serial !== s) throw bad("That code is already another chip's.", 403);   // (two at once: the first kept it)
+  if (now.number_serial !== s) throw bad("That code is already another device's.", 403);   // (two at once: the first kept it)
   return { code: d.code };
 }
-
-// ---------------------------------------------------------------- output boxes: the loader key
-// The box only keeps a code signed by the key in its firmware (ident_key.h): P-256 ECDSA (r || s) over
-// SHA-256(serial[9] || pub[64] || code[16, zero-padded]). Made here the first time it's needed and kept in its own table,
-// or BURN_LOADER_KEY (a PKCS#8 PEM). Only its public half ever leaves the server.
-let loaderCached = null;
-function rawPub(keyObject) {
-  const j = crypto.createPublicKey(keyObject).export({ format: "jwk" });
-  return Buffer.concat([Buffer.from(j.x, "base64url"), Buffer.from(j.y, "base64url")]).toString("hex");
-}
-export async function loaderKey() {
-  if (loaderCached) return loaderCached;
-  let pem = process.env.BURN_LOADER_KEY ? String(process.env.BURN_LOADER_KEY).replace(/\\n/g, "\n") : null;
-  if (!pem) {
-    let row = await one("SELECT private_pem FROM burn_loader_key WHERE id=1");
-    if (!row) {
-      const { privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-      await q("INSERT INTO burn_loader_key (id, private_pem, public_hex) VALUES (1,$1,$2) ON CONFLICT (id) DO NOTHING", [privateKey.export({ type: "pkcs8", format: "pem" }), rawPub(privateKey)]);
-      row = await one("SELECT private_pem FROM burn_loader_key WHERE id=1");
-    }
-    pem = row.private_pem;
-  }
-  const priv = crypto.createPrivateKey(pem);
-  loaderCached = { priv, publicHex: rawPub(priv) };
-  return loaderCached;
-}
-export function boxMessage(serialHex, pubHex, code) {
-  const c = Buffer.alloc(16); Buffer.from(code, "latin1").copy(c);
-  return Buffer.concat([Buffer.from(serialHex, "hex"), Buffer.from(pubHex, "hex"), c]);
-}
-async function signBox(serialHex, pubHex, code) {
-  return crypto.sign("sha256", boxMessage(serialHex, pubHex, code), { key: (await loaderKey()).priv, dsaEncoding: "ieee-p1363" }).toString("hex");
-}
-export const cArray = (hex) => "static const uint8_t IDENT_LOADER_KEY[64] = {\n" + hex.match(/.{32}/g).map((r) => "    " + r.match(/../g).map((b) => "0x" + b.toUpperCase()).join(", ") + ",").join("\n") + "\n};";
 
 // (a pedal's or control box's registration: pedals.js keeps when it last checked for updates, and which version)
 const DEV = `SELECT d.*, u.name AS by_name, u.email AS by_email, p.last_seen AS p_seen, p.last_version AS p_version, p.status AS p_status
@@ -206,9 +172,7 @@ const DEV = `SELECT d.*, u.name AS by_name, u.email AS by_email, p.last_seen AS 
 const withNames = (code) => one(DEV + " WHERE d.code=$1", [code]);
 
 export function routes(api, { wrap, requireUser }) {
-  // (pedals.js: a pedal or control box registering with the burner's code and pass. BURN_CLAIM=off: no code list, for
-  // the pedal tests of approval by hand; a test's own stand-in, set first, is kept)
-  if (process.env.BURN_CLAIM !== "off" && !hasDeviceClaim()) setDeviceClaim(claimForChip);
+  setDeviceClaim(claimForChip);   // (pedals.js: a pedal or control box checking in with the burner's code and pass)
   api.get("/burn/me", requireUser, wrap(async (req, res) => {
     res.json({ canBurn: await canBurn(req.user), owner: isOwner(req.user), email: req.user.email, name: req.user.name || "", kinds: KINDS, uses: USES });
   }));
@@ -229,42 +193,39 @@ export function routes(api, { wrap, requireUser }) {
     await gate(req);
     const b = req.body || {}, kind = String(b.kind || ""), mac = cleanMac(b.mac);
     if (!KINDS[kind]) throw bad("Pick what's being burned: pedal, control, input or output.");
-    // an output box: its number chip's serial (9 bytes) and key (64 bytes), read while the new firmware waits
-    const nSerial = String(b.serial || "").toLowerCase(), nKey = String(b.publicKey || "").toLowerCase();
-    if (kind === "output" && !b.peek && (!/^[0-9a-f]{18}$/.test(nSerial) || !/^[0-9a-f]{128}$/.test(nKey))) throw bad("The box's number chip didn't answer with its serial and key. Start it again and retry.");
-    const chip = cleanChip(kind === "output" && nSerial ? nSerial : b.chip);
+    // an input or output box: its one-time chip's serial (9 bytes), read while the new firmware waits; it's the box's ID
+    const box = kind === "input" || kind === "output", nSerial = String(b.serial || "").toLowerCase();
+    if (box && !/^[0-9a-f]{18}$/.test(nSerial)) throw bad("The box's chip didn't answer with its serial. Start it again and retry.");
+    const chip = cleanChip(box ? nSerial : b.chip);
     if (chip.length < 8) throw bad("The chip's ID didn't come through (" + (String(b.chip || "").slice(0, 40) || "nothing") + "). Plug it in again and retry.");
     const use = kind === "control" ? String(b.use || "") : "";
     if (kind === "control" && !USES[use]) throw bad("Pick the control box's job: pedal, inears or wave.");
     const software = String(b.software || "").slice(0, 200);
+    const boardRev = String(b.boardRev || "").trim().slice(0, 40), batch = String(b.batch || "").trim().slice(0, 80);
     // the chip already has a code (burned before): keep it. The CM5's serial may come through 8 or 16 digits long
     const have = (await q("SELECT * FROM device_codes WHERE kind=$1 AND freed_at IS NULL AND (chip=$2 OR chip LIKE $3 OR $2 LIKE '%' || chip OR ($4 <> '' AND mac=$4))",
       [kind, chip, "%" + chip, mac])).find((r) => sameChip(r, chip, mac));
     if (b.peek) return res.json({ code: have ? have.code : null, kept: !!have, device: have ? out(have) : null });
-    // what goes with the code: a pedal's or control box's one-time pass; an output box's signature
+    // what goes with the code: a pedal's or control box's one-time pass
     const extras = async (row, kept) => {
       const r = { code: row.code, kept };
       if (kind === "pedal" || kind === "control") {
         r.pass = newPass();
         await q("UPDATE device_codes SET pass_hash=$2 WHERE code=$1", [row.code, sha(r.pass)]);
       }
-      if (kind === "output") {
-        if (row.number_key && row.number_key !== nKey) throw bad("This box's number chip has a different key from the one its code was signed for. Contact Motion Audio.", 409);
-        r.signature = await signBox(nSerial, nKey, row.code);
-        await q("UPDATE device_codes SET number_serial=$2, number_key=$3 WHERE code=$1", [row.code, nSerial, nKey]);
-      }
       r.device = out(await withNames(row.code));
       return r;
     };
     if (have) {
-      const u = await one("UPDATE device_codes SET use=$2, mac=CASE WHEN $3 <> '' THEN $3 ELSE mac END, software=CASE WHEN $4 <> '' THEN $4 ELSE software END WHERE code=$1 RETURNING *", [have.code, use, mac, software]);
+      const u = await one(`UPDATE device_codes SET use=$2, mac=CASE WHEN $3 <> '' THEN $3 ELSE mac END, software=CASE WHEN $4 <> '' THEN $4 ELSE software END,
+        board_rev=CASE WHEN $5 <> '' THEN $5 ELSE board_rev END, batch=CASE WHEN $6 <> '' THEN $6 ELSE batch END WHERE code=$1 RETURNING *`, [have.code, use, mac, software, boardRev, batch]);
       return res.json(await extras(u, true));
     }
     for (let i = 0; i < 20; i++) {
       const code = newCode(kind);
       try {
-        const r = await one(`INSERT INTO device_codes (code,kind,use,chip,mac,software,burned_by) VALUES ($1,$2,$3,$4,$5,$6,$7)
-          ON CONFLICT DO NOTHING RETURNING *`, [code, kind, use, chip, mac, software, req.user.id]);
+        const r = await one(`INSERT INTO device_codes (code,kind,use,chip,mac,software,burned_by,board_rev,batch,number_serial) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          ON CONFLICT DO NOTHING RETURNING *`, [code, kind, use, chip, mac, software, req.user.id, boardRev, batch, box ? nSerial : null]);
         if (r) return res.json(await extras(r, false));
         // (no row: the code was taken, or another burn of this chip got there first)
         const again = await one("SELECT * FROM device_codes WHERE kind=$1 AND chip=$2 AND freed_at IS NULL", [kind, chip]);
@@ -273,13 +234,6 @@ export function routes(api, { wrap, requireUser }) {
     }
     throw bad("Couldn't make a new code. Try again.", 500);
   }));
-  // the loader key's public half, for the output box's firmware (inc/ident_key.h)
-  api.get("/burn/loader-key", requireUser, wrap(async (req, res) => {
-    await ownerGate(req);
-    const k = await loaderKey();
-    res.json({ publicKey: k.publicHex, header: cArray(k.publicHex) });
-  }));
-
   api.post("/burn/done", requireUser, wrap(async (req, res) => {
     await gate(req);
     const b = req.body || {}, code = String(b.code || "").toUpperCase();
@@ -298,7 +252,8 @@ export function routes(api, { wrap, requireUser }) {
     await gate(req);
     const s = String(req.query.q || "").trim().slice(0, 60);
     const like = "%" + s.replace(/[%_\\]/g, (c) => "\\" + c) + "%";
-    const rows = await q(DEV + ` WHERE ($1 = '' OR d.code ILIKE $2 OR d.chip ILIKE $2 OR d.software ILIKE $2 OR d.kind ILIKE $2 OR d.number_serial ILIKE $2)
+    const rows = await q(DEV + ` WHERE ($1 = '' OR d.code ILIKE $2 OR d.chip ILIKE $2 OR d.software ILIKE $2 OR d.kind ILIKE $2 OR d.number_serial ILIKE $2
+      OR d.board_rev ILIKE $2 OR d.batch ILIKE $2)
       ORDER BY d.created_at DESC LIMIT 500`, [s, like]);
     const counts = await q("SELECT kind, count(*)::int AS n FROM device_codes WHERE freed_at IS NULL GROUP BY kind");
     res.set("Cache-Control", "no-store");

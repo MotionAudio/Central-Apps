@@ -1,8 +1,9 @@
-// Rev E: the pedals' own numbers (server/src/pedals.js) through the API, with a pretend chip (a P-256 key made here):
-// registering (the chip's signature checked; a code and a ticket; the same again for the same key), approving by the
-// code (the owner only), the certificate (the website's signature, checked with the key it hands out), another chip
-// with the same serial refused, and updates only for an approved pedal whose chip signs a fresh one-use challenge:
-// the build marked to ship (a .deb, newer), its SHA-256 and a link that gives the same file; updates off; removing.
+// Rev E: the CM5 pedals' and control boxes' codes (server/src/pedals.js, with burn.js's code list) through the API.
+// The burner gives a board its code and a one-time pass; the device checks in with them and its one-time chip's serial
+// (the pass ties the code to that chip for good; the same chip again is fine, another chip or an old pass isn't); its
+// update checks need its code from that chip (or, before it has checked in, the board the code was burned on): the
+// build marked to ship (a .deb, newer), its SHA-256 and a link that gives the same file; a control box gets its job's
+// build, never the pedal's; updates off; a freed code gets nothing; taking one off the list doesn't stop it.
 //   node test/reve-pedals.mjs postgres://.../ma [port]
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
@@ -13,11 +14,11 @@ import pg from "pg";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const db = process.argv[2] || "postgres://postgres@127.0.0.1:55432/ma", port = Number(process.argv[3] || 18943), base = "http://127.0.0.1:" + port;
-const S = Date.now(), V = "1." + (S % 1000000), OWNER = "owner" + S + "@motion.test", STAFF = "staff" + S + "@motion.test";
+const S = Date.now(), OWNER = "owner" + S + "@motion.test", STAFF = "staff" + S + "@motion.test";
 const mails = [];
 const stub = http.createServer((req, res) => { let b = ""; req.on("data", (d) => (b += d)); req.on("end", () => { mails.push(JSON.parse(b || "{}")); res.end('{"id":"x"}'); }); });
 await new Promise((r) => stub.listen(0, "127.0.0.1", r));
-const srv = spawn(process.execPath, [path.join(here, "..", "src", "index.js")], { env: Object.assign({}, process.env, { DATABASE_URL: db, BURN_CLAIM: "off", PORT: String(port), STRIPE_SECRET_KEY: "", RESEND_API_KEY: "re_test", MAIL_FROM: "M <t@motion.test>",
+const srv = spawn(process.execPath, [path.join(here, "..", "src", "index.js")], { env: Object.assign({}, process.env, { DATABASE_URL: db, PORT: String(port), STRIPE_SECRET_KEY: "", RESEND_API_KEY: "re_test", MAIL_FROM: "M <t@motion.test>",
   RESEND_API_URL: "http://127.0.0.1:" + stub.address().port + "/emails", PUBLIC_URL: base, ADMIN_EMAILS: STAFF, OWNER_EMAILS: OWNER, REMINDERS: "off", STATUS_CHECKS: "off", CC_UPDATE_API: "http://127.0.0.1:9", R2_ENDPOINT: "" }), stdio: ["ignore", "pipe", "pipe"] });
 let log = ""; srv.stdout.on("data", (d) => (log += d)); srv.stderr.on("data", (d) => (log += d));
 for (let i = 0; i < 150 && !/Motion Audio server on/.test(log); i++) await new Promise((r) => setTimeout(r, 100));
@@ -30,7 +31,6 @@ const j = async (method, p, body, tok) => { const r = await fetch(base + "/v1" +
 const waitMail = async (who, re) => { for (let i = 0; i < 50; i++) { const m = mails.filter((x) => x.to && x.to[0] === who && (!re || re.test(x.subject))).pop(); if (m) return m; await new Promise((r) => setTimeout(r, 100)); } return null; };
 const codeIn = (m) => (m && (m.subject.match(/(\d{6})/) || m.text.match(/(\d{6})/)) || [])[1];
 async function token(email, n) {
-  // sign up, confirm the email (the owner's tools need it), then sign in with the codes: password, the phone, the codes
   const pw = "pass-" + S + "-" + n;
   await j("POST", "/signup", { email, password: pw, name: n === 1 ? "Sam" : "Pat", device: "t" });
   const conf = await waitMail(email, /Confirm your email/), t = String((conf && conf.text) || "").match(/#confirm-([A-Za-z0-9_-]+)/);
@@ -41,110 +41,93 @@ async function token(email, n) {
   if (st.step === "phone") st = (await j("POST", "/login/phone", { ticket: st.ticket, phone: "555-01" + n + "-" + String(S).slice(-4) })).body;
   for (let i = 0; i < 50 && !mails.slice(before).some((x) => x.to && x.to[0] === email && /code/i.test(x.subject)); i++) await new Promise((r) => setTimeout(r, 100));
   const codes = mails.slice(before).filter((x) => x.to && x.to[0] === email && /code/i.test(x.subject)).map(codeIn);
-  const r = (await j("POST", "/login/code", { ticket: st.ticket, code: codes[0], emailCode: codes[codes.length - 1], device: "t2" })).body;
-  return r.token;
+  return (await j("POST", "/login/code", { ticket: st.ticket, code: codes[0], emailCode: codes[codes.length - 1], device: "t2" })).body.token;
 }
 const blob = (n, seed) => { const b = Buffer.alloc(n); for (let i = 0; i < n; i++) b[i] = (i * 31 + seed) & 255; return b; };
 const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
 const put = (url, b) => fetch(url, { method: "PUT", body: b, headers: { "Content-Type": "application/octet-stream" } });
-
-
-// the pretend chip: its own key, signing SHA-256 of a message (R then S), like the ATECC608B
-function chip() {
-  const { privateKey, publicKey } = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-  const jw = publicKey.export({ format: "jwk" });
-  const pub = Buffer.concat([Buffer.from(jw.x, "base64url"), Buffer.from(jw.y, "base64url")]).toString("hex");
-  return { pub, sign: (m) => crypto.sign("sha256", Buffer.from(m), { key: privateKey, dsaEncoding: "ieee-p1363" }).toString("hex") };
-}
-const keyOf = (hex) => { const b = Buffer.from(hex, "hex"); return crypto.createPublicKey({ key: { kty: "EC", crv: "P-256", x: b.subarray(0, 32).toString("base64url"), y: b.subarray(32).toString("base64url") }, format: "jwk" }); };
-const serial = crypto.randomBytes(9).toString("hex");
-const reg = (c, s = serial, extra = {}) => j("POST", "/pedals/register", Object.assign({ serial: s, publicKey: c.pub, signature: c.sign("central-pedal-register|" + s + "|" + c.pub), version: "10.7.0" }, extra));
+const hex = (n) => crypto.randomBytes(n).toString("hex");
 
 try {
   const owner = await token(OWNER, 1), staff = await token(STAFF, 2);
   ok(!!owner && !!staff, "the owner and a staff member signed in");
-  const A = chip();
-  // ---- registering
-  ok((await reg(A, serial, { signature: A.sign("something else") })).status === 403, "a signature over anything else is refused");
-  ok((await reg(A, "not-a-serial")).status === 400 && (await reg(A, serial, { publicKey: "00".repeat(64) })).status >= 400, "a bad serial or key is refused");
-  const Z = chip(), sz = crypto.randomBytes(9).toString("hex");
-  const rz = await reg(Z, sz, { code: "CP-00001", pass: "p".repeat(24) });
-  ok(rz.status === 200 && rz.body.status === "pending", "a code and pass with no code list on the website: the usual approval by hand", rz.body);
-  await sql("DELETE FROM pedals WHERE serial=$1", [sz]);
-  const r1 = await reg(A);
-  ok(r1.status === 200 && r1.body.status === "pending" && /^[A-Z2-9]{3}-[A-Z2-9]{4}$/.test(r1.body.code) && r1.body.ticket.length >= 30, "registered: waiting, with a code to approve and a ticket", r1.body);
-  const r2 = await reg(A);
-  ok(r2.body.ticket === r1.body.ticket && r2.body.code === r1.body.code, "the same chip again: the same code");
-  ok((await j("GET", "/pedals/register/" + r1.body.ticket)).body.status === "pending", "asking with the ticket: still waiting");
-  ok((await j("GET", "/pedals/register/nope")).status === 404, "an unknown ticket: not found");
-  ok((await j("POST", "/pedals/challenge", { serial })).status === 404, "no updates before it's approved");
-
-  // ---- the owner approves it
-  ok((await j("GET", "/admin/pedals")).status === 401 && (await j("GET", "/admin/pedals", null, staff)).status === 403, "the pedals list: the owner only");
-  const l1 = await j("GET", "/admin/pedals", null, owner);
-  const mine = (l1.body.pedals || []).find((p) => p.serial === serial);
-  ok(l1.status === 200 && mine && mine.status === "pending" && mine.code === r1.body.code && /^[0-9a-f]{128}$/.test(l1.body.serverKey), "the owner sees it waiting, with its code", l1.body);
-  ok(!/PRIVATE|BEGIN/.test(JSON.stringify(l1.body)), "the website's private key is never handed out");
-  ok((await j("POST", "/admin/pedals/approve", { code: "AAA-AAAA" }, owner)).status === 404, "a code nobody shows: refused");
-  ok((await j("POST", "/admin/pedals/approve", { code: r1.body.code }, staff)).status === 403, "other staff can't approve");
-  const ap = await j("POST", "/admin/pedals/approve", { code: r1.body.code.toLowerCase().replace("-", " "), note: "Bench pedal 1" }, owner);
-  ok(ap.status === 200 && ap.body.pedal.status === "approved" && ap.body.pedal.note === "Bench pedal 1" && ap.body.pedal.code === null, "approved by its code (any case, any dash)", ap.body);
-  const got = await j("GET", "/pedals/register/" + r1.body.ticket);
-  const key = (await j("GET", "/pedals/key")).body.serverKey;
-  ok(got.body.status === "approved" && got.body.serverKey === key && key === l1.body.serverKey, "the pedal gets its certificate and the website's key", got.body);
-  ok(crypto.verify("sha256", Buffer.from("central-pedal-cert-v1|" + serial + "|" + A.pub), { key: keyOf(key), dsaEncoding: "ieee-p1363" }, Buffer.from(got.body.certificate, "hex")),
-    "the certificate is the website's signature over the serial and the chip's key");
-  const r3 = await reg(A);
-  ok(r3.body.status === "approved" && r3.body.certificate === got.body.certificate, "registering again (after a reset): the certificate straight back");
-  const B = chip();
-  const r4 = await reg(B);
-  ok(r4.status === 409 && /another chip/.test(r4.body.error), "another chip claiming the same serial: refused", r4.body);
-  ok((await sql("SELECT count(*)::int AS n FROM pedal_signing_key"))[0].n === 1, "one signing key, kept in its own table");
-
-  // ---- a build to ship
-  const deb = blob(150000, 5);
+  const up = async (kind, name, version, seed) => {
+    const b = blob(120000, seed);
+    const nb = await j("POST", "/admin/builds", { kind, version, name, size: b.length, notes: kind + " notes" }, owner);
+    await put(nb.body.uploadUrl, b);
+    await j("POST", "/admin/builds/" + nb.body.build.id + "/done", {}, owner);
+    for (let i = 0; i < 50; i++) { const x = (await j("GET", "/admin/builds", null, owner)).body.builds.find((y) => y.id === nb.body.build.id); if (x && x.sha256) break; await new Promise((r) => setTimeout(r, 100)); }
+    return { b, id: nb.body.build.id };
+  };
   const ver = "99." + (S % 1000) + ".0";
-  const nb = await j("POST", "/admin/builds", { kind: "pedal", version: ver, name: "central-pedal_" + ver + "_arm64.deb", size: deb.length, notes: "Faster start-up" }, owner);
-  await put(nb.body.uploadUrl, deb);
-  await j("POST", "/admin/builds/" + nb.body.build.id + "/done", {}, owner);
-  for (let i = 0; i < 50; i++) { const b = (await j("GET", "/admin/builds", null, owner)).body.builds.find((x) => x.id === nb.body.build.id); if (b && b.sha256) break; await new Promise((r) => setTimeout(r, 100)); }
+  const deb = await up("pedal", "central-pedal_" + ver + "_arm64.deb", ver, 5);
+  const wave = await up("io-wave", "central-io-wave_11.4.0_arm64.deb", "11.4.0", 3);
 
-  // ---- updates: a challenge, signed by the chip
-  const ch1 = await j("POST", "/pedals/challenge", { serial });
-  ok(ch1.status === 200 && /^[0-9a-f]{64}$/.test(ch1.body.nonce), "a challenge for an approved pedal", ch1.body);
-  const upd = (nonce, signer, version = "10.7.0") => j("POST", "/pedals/update", { serial, nonce, signature: signer.sign("central-pedal-update|" + nonce + "|" + serial), version });
-  const bad1 = await upd(ch1.body.nonce, B);
-  ok(bad1.status === 403, "signed by another chip: refused", bad1.body);
-  ok((await upd(ch1.body.nonce, A)).status === 400, "a challenge works once, even after a wrong try");
-  const ch2 = await j("POST", "/pedals/challenge", { serial });
-  const u = await upd(ch2.body.nonce, A);
-  ok(u.status === 200 && u.body.update && u.body.update.version === ver && u.body.update.sha256 === sha(deb) && u.body.update.notes === "Faster start-up", "the update: the build to ship, newer, with its SHA-256", u.body);
+  // ---- the burner gives a pedal its code and pass (the owner can always burn)
+  const board = "10000000" + hex(4), serial = "01" + hex(8);
+  const p = (await j("POST", "/burn/claim", { kind: "pedal", chip: board, boardRev: "rev E", batch: "JLC-2026-11" }, owner)).body;
+  ok(/^P\d{15,25}$/.test(p.code) && /^[A-Za-z0-9_-]{32}$/.test(p.pass), "the burner: a code and a one-time pass", p);
+  const reg = (extra) => j("POST", "/pedals/register", Object.assign({ kind: "pedal", code: p.code, pass: p.pass, serial, version: "10.7.0" }, extra));
+  const upd = (extra) => j("POST", "/pedals/update", Object.assign({ kind: "pedal", code: p.code, serial, version: "10.7.0" }, extra));
+
+  // ---- before it's online: an update check needs the board it was burned on
+  ok((await upd({ board: "deadbeef" + hex(4) })).status === 403, "before checking in, an update check from another board: refused");
+  ok((await reg({ serial: "nope" })).status === 400 && (await reg({ code: "x" })).status === 400, "a bad serial or code: refused");
+  ok((await reg({ pass: "A".repeat(32) })).status === 403, "a wrong pass: refused");
+  ok((await reg({ code: "P" + "1".repeat(20) })).status === 404, "a code that isn't on the website: refused");
+  // ---- checking in
+  const r1 = await reg();
+  ok(r1.status === 200 && r1.body.status === "ok" && r1.body.deviceCode === p.code, "checked in with its code and pass", r1.body);
+  ok((await reg()).status === 200, "the same chip again (a dropped network): yes again");
+  ok((await reg({ serial: "02" + hex(8) })).status === 403, "another chip with the same code and pass: refused");
+  const row = (await sql("SELECT number_serial, registered_at, board_rev, batch FROM device_codes WHERE code=$1", [p.code]))[0];
+  ok(row.number_serial === serial && row.registered_at && row.board_rev === "rev E" && row.batch === "JLC-2026-11", "the code is tied to that chip, with its board revision and batch", row);
+  const again = (await j("POST", "/burn/claim", { kind: "pedal", chip: board }, owner)).body;
+  ok(again.code === p.code && again.pass !== p.pass, "burned again: the same code, a new pass");
+  ok((await reg({ pass: p.pass })).status === 403 && (await reg({ pass: again.pass })).status === 200, "after that, the old pass is turned down and the new one fits");
+
+  // ---- updates: the code and that chip
+  ok((await upd({ serial: "03" + hex(8) })).status === 403, "an update check from another chip: refused");
+  ok((await upd({ code: "P" + "2".repeat(18) })).status === 404, "with a code that isn't on the website: refused");
+  const u = await upd();
+  ok(u.status === 200 && u.body.update && u.body.update.version === ver && u.body.update.sha256 === sha(deb.b) && u.body.update.notes === "pedal notes", "the update: the build to ship, newer, with its SHA-256", u.body);
   const dl = Buffer.from(await (await fetch(u.body.update.url)).arrayBuffer());
-  ok(sha(dl) === sha(deb), "its link gives the same file");
-  const ch3 = await j("POST", "/pedals/challenge", { serial });
-  const same = await upd(ch3.body.nonce, A, ver);
+  ok(sha(dl) === sha(deb.b), "its link gives the same file");
+  const same = await upd({ version: ver });
   ok(same.status === 200 && same.body.upToDate === true && !same.body.update, "already on that version: up to date", same.body);
-  const seen = (await j("GET", "/admin/pedals", null, owner)).body.pedals.find((p) => p.serial === serial);
-  ok(seen.version === ver && seen.lastSeen, "the owner sees the version it last checked with", seen);
-  // ---- a challenge left too long
-  const ch4 = await j("POST", "/pedals/challenge", { serial });
-  await sql("UPDATE pedals SET challenge_at = now() - interval '6 minutes' WHERE serial=$1", [serial]);
-  ok((await upd(ch4.body.nonce, A)).status === 400, "a challenge older than 5 minutes: refused");
-  // ---- updates off for this pedal
+  ok((await j("GET", "/admin/pedals")).status === 401 && (await j("GET", "/admin/pedals", null, staff)).status === 403, "the pedals list: the owner only");
+  const mine = (await j("GET", "/admin/pedals", null, owner)).body.pedals.find((x) => x.serial === serial);
+  ok(mine && mine.deviceCode === p.code && mine.version === ver && mine.lastSeen && mine.updates, "the owner sees it, its code and the version it last checked with", mine);
+  const listed = (await j("GET", "/burn/devices?q=" + p.code, null, owner)).body.devices.find((x) => x.code === p.code);
+  ok(listed && listed.numberChip === serial && listed.lastSeen && listed.boardRev === "rev E" && listed.batch === "JLC-2026-11", "Device codes shows its chip, last check, revision and batch", listed);
+  // ---- updates off, then a removed one comes back
   await j("POST", "/admin/pedals/" + mine.id, { updates: false }, owner);
-  const ch5 = await j("POST", "/pedals/challenge", { serial });
-  const off = await upd(ch5.body.nonce, A);
+  const off = await upd();
   ok(off.status === 403 && /off for this pedal/.test(off.body.error), "updates turned off for this pedal", off.body);
   await j("POST", "/admin/pedals/" + mine.id, { updates: true }, owner);
-  // ---- a waiting pedal nobody approved goes after a week
-  const C = chip(), s2 = crypto.randomBytes(9).toString("hex");
-  await reg(C, s2);
-  await sql("UPDATE pedals SET created_at = now() - interval '8 days' WHERE serial=$1", [s2]);
-  ok(!(await j("GET", "/admin/pedals", null, owner)).body.pedals.some((p) => p.serial === s2), "a code nobody used is gone after a week");
-  // ---- removed: no more updates
   await j("POST", "/admin/pedals/" + mine.id + "/delete", {}, owner);
-  ok((await j("POST", "/pedals/challenge", { serial })).status === 404, "a removed pedal gets no updates");
-  await j("POST", "/admin/builds/" + nb.body.build.id + "/delete", {}, owner);
+  ok((await upd()).status === 200 && (await j("GET", "/admin/pedals", null, owner)).body.pedals.some((x) => x.serial === serial), "taken off the list: it's back at its next update check");
+
+  // ---- a control box: the same calls, kind controller, its job's build
+  const cb = "20000000" + hex(4), cs = "01" + hex(8);
+  const c = (await j("POST", "/burn/claim", { kind: "control", use: "wave", chip: cb, boardRev: "rev B" }, owner)).body;
+  ok(/^C\d{15,25}$/.test(c.code) && c.pass, "the burner: a control box's code and pass", c);
+  ok((await j("POST", "/pedals/register", { kind: "pedal", code: c.code, pass: c.pass, serial: cs })).status === 404, "a control box's code doesn't check in as a pedal");
+  ok((await j("POST", "/pedals/register", { kind: "controller", code: c.code, pass: p.pass, serial: cs })).status === 403, "a pedal's pass doesn't fit a control box's code");
+  // (before checking in, the board it was burned on is enough)
+  const cu0 = await j("POST", "/pedals/update", { kind: "controller", code: c.code, serial: cs, board: cb.slice(8), version: "11.0.0", job: "wave" });
+  ok(cu0.status === 200 && cu0.body.update && cu0.body.update.version === "11.4.0" && /central-io-wave/.test(cu0.body.update.name) && cu0.body.update.sha256 === sha(wave.b), "before checking in, from its own board: Central Wave's build to ship, never the pedal's", cu0.body);
+  ok((await j("POST", "/pedals/update", { kind: "controller", code: c.code, serial: cs, version: "11.0.0" })).status === 400, "an update check that doesn't say its job: refused");
+  const ci = await j("POST", "/pedals/update", { kind: "controller", code: c.code, serial: cs, version: "11.0.0", job: "inears" });
+  ok(ci.status === 200 && ci.body.upToDate === true, "a job with no build yet: up to date", ci.body);
+  ok((await j("POST", "/pedals/register", { kind: "controller", code: c.code, pass: c.pass, serial: "05" + hex(8) })).status === 403, "its code is tied to the chip that checked first");
+  ok((await j("GET", "/admin/pedals", null, owner)).body.pedals.find((x) => x.deviceCode === c.code).kind === "controller", "it's on the list as a control box");
+
+  // ---- a freed code: nothing
+  ok((await j("POST", "/burn/devices/" + p.code + "/free", { why: "scrapped" }, owner)).body.device.freed, "the owner frees the pedal's code");
+  ok((await upd()).status === 403 && (await reg()).status === 403, "a freed code gets no updates and can't check in");
+  await j("POST", "/admin/builds/" + deb.id + "/delete", {}, owner);
+  await j("POST", "/admin/builds/" + wave.id + "/delete", {}, owner);
 } catch (e) { console.error(e); fails++; }
 finally { srv.kill(); stub.close(); }
 if (fails) console.log(log.split("\n").slice(-30).join("\n"));

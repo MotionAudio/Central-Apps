@@ -1,9 +1,9 @@
 // Device codes and the Central Burner (burn.js), through the API: only the owner and the Burners the owner adds can
-// burn; a code is the kind's letter and 15-25 random numbers (an output box: 15); the same chip keeps its code (the
-// CM5's serial read 8 or 16 digits long); the newest zips come from GitHub (a stand-in here) with a short-lived link;
-// a pedal or control box registers its number chip with the code and one-time pass (pedals.js asks burn.js) and its
-// update checks need that code; an output box's code is signed with the loader key; a freed code stops working and is
-// never given out again.
+// burn; a code is the kind's letter and 15-25 random numbers; the same chip keeps its code (the CM5's serial read 8 or
+// 16 digits long; a box's one-time chip serial); each code keeps its board revision and batch; the newest zips come
+// from GitHub (a stand-in here) with a short-lived link; a pedal or control box checks in with the code and one-time
+// pass (pedals.js asks burn.js); no keys or signatures anywhere; a freed code stops working and is never given out
+// again. (The check-in and update checks in full: test/reve-pedals.mjs.)
 //   node test/burn.mjs postgres://.../ma [port]
 import { spawn } from "node:child_process";
 import http from "node:http";
@@ -11,7 +11,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import crypto from "node:crypto";
-import { newCode, cleanChip, sameChip, SLOTS, boxMessage } from "../src/burn.js";
+import { newCode, cleanChip, sameChip, SLOTS } from "../src/burn.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const db = process.argv[2] || "postgres://postgres@127.0.0.1:55432/ma", port = Number(process.argv[3] || 18951), base = "http://127.0.0.1:" + port;
@@ -25,7 +25,7 @@ const ok = (c, m, d) => { console.log((c ? "  ✓ " : "  ✗ ") + m + (c || d ==
   for (let i = 0; i < 4000; i++) { const c = newCode(["pedal", "control", "input", "output"][i % 4]); lens.add(c.length - 1); if (!/^[PCIO]\d{15,25}$/.test(c) || c[0] !== "PCIO"[i % 4]) allOk = false; }
   ok(allOk, "codes are P/C/I/O and 15-25 numbers");
   ok(lens.has(15) && lens.has(25) && lens.size === 11, "every length from 15 to 25 turns up", [...lens].sort());
-  ok(Array.from({ length: 200 }, () => newCode("output")).every((c) => /^O\d{15}$/.test(c)), "an output box's code is O and 15 numbers (it keeps 16 characters)");
+  ok(Array.from({ length: 400 }, () => newCode("output")).some((c) => c.length > 20), "an output box's code is as long as any other (it fits the chip's 32 bytes)");
   ok(cleanChip("0x0000ABCD1234") === "abcd1234" && cleanChip("d8:3a:dd") === "d83add", "chip IDs cleaned the same way");
   ok(sameChip({ chip: "abcd1234" }, "10000000abcd1234") && !sameChip({ chip: "abcd1234" }, "abcd1235") && !sameChip({ chip: "1234" }, "991234"), "8 vs 16 digits of one serial match; others don't");
   ok(sameChip({ chip: "aaaa0000", mac: "d8:3a:dd:01:02:03" }, "bbbb1111", "D8-3A-DD-01-02-03"), "the same Ethernet address matches");
@@ -121,11 +121,17 @@ try {
   ok(/^C\d{15,25}$/.test(c1.code) && c1.device.use === "inears", "a control box gets C, with its job", c1);
   const c2 = (await j("POST", "/burn/claim", { kind: "control", use: "wave", chip: "c0ffee" + String(S).slice(-6) }, staff)).body;
   ok(c2.code === c1.code && c2.device.use === "wave", "burned for another job: same code, new job", c2);
-  const uid = "2f0041000f51333233373731"; const i1 = (await j("POST", "/burn/claim", { kind: "input", chip: uid.slice(0, 18) + String(S).slice(-6) }, staff)).body;
-  const k0 = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" }).publicKey.export({ format: "jwk" });
-  const o1 = (await j("POST", "/burn/claim", { kind: "output", serial: "01" + crypto.randomBytes(8).toString("hex"), publicKey: Buffer.concat([Buffer.from(k0.x, "base64url"), Buffer.from(k0.y, "base64url")]).toString("hex") }, staff)).body;
-  ok(/^I\d{15,25}$/.test(i1.code) && /^O\d{15,25}$/.test(o1.code), "input box I, output box O (each kind counts its own chips)", [i1.code, o1.code]);
-  const par = await Promise.all([1, 2, 3, 4, 5].map(() => j("POST", "/burn/claim", { kind: "input", chip: "9999" + String(S).slice(-8) }, staff)));
+  ok((await j("POST", "/burn/claim", { kind: "input", chip: "2f0041000f51333233373731" }, staff)).status === 400, "a box without its chip's serial is refused");
+  const iSerial = "01" + crypto.randomBytes(8).toString("hex"), oSerial = "01" + crypto.randomBytes(8).toString("hex");
+  const i1 = (await j("POST", "/burn/claim", { kind: "input", serial: iSerial, boardRev: "rev A", batch: "PCBWay 1" }, staff)).body;
+  const o1 = (await j("POST", "/burn/claim", { kind: "output", serial: oSerial, boardRev: "rev C", batch: "JLC-2026-11", software: "central-output-1.0.2.zip" }, staff)).body;
+  ok(/^I\d{15,25}$/.test(i1.code) && /^O\d{15,25}$/.test(o1.code) && !i1.pass && !o1.signature, "input box I, output box O: just a code (no pass, no signature)", [i1, o1]);
+  ok(i1.device.numberChip === iSerial && i1.device.chip === iSerial.replace(/^0+/, "") && o1.device.boardRev === "rev C" && o1.device.batch === "JLC-2026-11", "a box's code goes with its chip's serial, its board revision and batch", o1.device);
+  const o2 = (await j("POST", "/burn/claim", { kind: "output", serial: oSerial, boardRev: "rev D" }, staff)).body;
+  ok(o2.code === o1.code && o2.kept && o2.device.boardRev === "rev D" && o2.device.batch === "JLC-2026-11", "the same box again keeps its code (a new revision kept, the batch left as it was)", o2.device);
+  ok((await j("GET", "/burn/loader-key", null, owner)).status === 404, "there's no loader key any more");
+  const parSerial = "09" + crypto.randomBytes(8).toString("hex");
+  const par = await Promise.all([1, 2, 3, 4, 5].map(() => j("POST", "/burn/claim", { kind: "input", serial: parSerial }, staff)));
   ok(new Set(par.map((r) => r.body.code)).size === 1 && par.every((r) => r.status === 200), "five burns of one chip at once still give it one code", par.map((r) => r.body.code || r.body.error));
 
   // ---- the history
@@ -139,55 +145,36 @@ try {
   ok(list.devices.some((x) => x.code === p1.code) && list.owner === false, "codes can be found", list.devices.length);
   ok((await j("GET", "/burn/devices", null, owner)).body.counts.pedal >= 2, "counted by kind");
 
-  // ---- a pedal registers its number chip with the code and the one-time pass the burner left (pedals.js → burn.js)
+  // ---- a pedal checks in with the code and the one-time pass the burner left (pedals.js → burn.js)
   const c = new pg.Client({ connectionString: db }); await c.connect();
   ok(typeof p2.pass === "string" && /^[A-Za-z0-9_-]{32}$/.test(p2.pass) && typeof c1.pass === "string", "pedals and control boxes get a one-time pass with their code");
-  const chipKey = () => { const { privateKey, publicKey } = crypto.generateKeyPairSync("ec", { namedCurve: "prime256v1" }); const jw = publicKey.export({ format: "jwk" }); return { privateKey, pub: Buffer.concat([Buffer.from(jw.x, "base64url"), Buffer.from(jw.y, "base64url")]).toString("hex") }; };
-  const signed = (k, msg) => crypto.sign("sha256", Buffer.from(msg), { key: k.privateKey, dsaEncoding: "ieee-p1363" }).toString("hex");
-  const reg = (k, serial, kind, code, pass) => j("POST", "/pedals/register", { kind, serial, publicKey: k.pub, signature: signed(k, (kind === "controller" ? "central-io" : "central-pedal") + "-register|" + serial + "|" + k.pub), version: "11.0.0", code, pass });
-  const A = chipKey(), B = chipKey(), sA = "01" + crypto.randomBytes(8).toString("hex"), sB = "01" + crypto.randomBytes(8).toString("hex");
+  const reg = (serial, kind, code, pass) => j("POST", "/pedals/register", { kind, serial, version: "11.0.0", code, pass });
+  const sA = "01" + crypto.randomBytes(8).toString("hex"), sB = "01" + crypto.randomBytes(8).toString("hex");
   const pass = p2.pass;   // (the newest pass for p1's code: the second burn's)
-  ok((await reg(A, sA, "pedal", p1.code, p1.pass)).status === 403, "an old pass (from an earlier burn) is turned down");
-  const r1 = await reg(A, sA, "pedal", p1.code, pass);
-  ok(r1.status === 200 && r1.body.status === "approved" && r1.body.deviceCode === p1.code, "the right pass: approved straight away, with its code", r1.body);
-  ok((await reg(A, sA, "pedal", p1.code, pass)).body.status === "approved", "the same chip asking again (a dropped network) gets yes again");
-  const rB = await reg(B, sB, "pedal", p1.code, pass);
-  ok(rB.status >= 400 && rB.status < 500, "another chip with the same code and pass is turned down", rB.body);
-  ok((await reg(B, sB, "controller", c1.code, p1.pass)).status === 403, "a pedal's pass doesn't fit a control box's code");
-  const rc = await reg(B, sB.replace(/^01/, "02"), "controller", c1.code, c2.pass);
-  ok(rc.status === 200 && rc.body.deviceCode === c1.code, "a control box registers the same way (kind controller)", rc.body);
+  ok((await reg(sA, "pedal", p1.code, p1.pass)).status === 403, "an old pass (from an earlier burn) is turned down");
+  const r1 = await reg(sA, "pedal", p1.code, pass);
+  ok(r1.status === 200 && r1.body.status === "ok" && r1.body.deviceCode === p1.code, "the right pass: checked in, with its code", r1.body);
+  ok((await reg(sA, "pedal", p1.code, pass)).body.status === "ok", "the same chip asking again (a dropped network) gets yes again");
+  const rB = await reg(sB, "pedal", p1.code, pass);
+  ok(rB.status === 403, "another chip with the same code and pass is turned down", rB.body);
+  ok((await reg(sB, "controller", c1.code, p1.pass)).status === 403, "a pedal's pass doesn't fit a control box's code");
+  const rc = await reg(sB.replace(/^01/, "02"), "controller", c1.code, c2.pass);
+  ok(rc.status === 200 && rc.body.deviceCode === c1.code, "a control box checks in the same way (kind controller)", rc.body);
   const row = (await c.query("SELECT number_serial, registered_at FROM device_codes WHERE code=$1", [p1.code])).rows[0];
-  ok(row.number_serial === sA && row.registered_at, "the code is tied to that number chip");
-  // its update checks need its chip's signature and its code
-  const upd = async (k, serial, code) => {
-    const n = (await j("POST", "/pedals/challenge", { serial })).body.nonce;
-    return j("POST", "/pedals/update", { serial, nonce: n, signature: signed(k, "central-pedal-update|" + n + "|" + serial), version: "11.0.0", code });
-  };
-  ok((await upd(A, sA, "P123")).status === 403, "an update check with the wrong code is refused");
-  const u1 = await upd(A, sA, p1.code);
-  ok(u1.status === 200 && (u1.body.upToDate || u1.body.update), "with its code it's answered", u1.body);
+  ok(row.number_serial === sA && row.registered_at, "the code is tied to that chip");
+  const upd = (serial, code) => j("POST", "/pedals/update", { kind: "pedal", serial, version: "11.0.0", code });
+  ok((await upd(sA, p3.code)).status === 403, "an update check with another pedal's code is refused");
+  const u1 = await upd(sA, p1.code);
+  ok(u1.status === 200 && (u1.body.upToDate || u1.body.update), "with its own code it's answered", u1.body);
   const listed = (await j("GET", "/burn/devices?q=" + p1.code, null, owner)).body.devices.find((x) => x.code === p1.code);
-  ok(listed && listed.numberChip === sA && listed.approved === true && listed.lastSeen, "the codes list shows its number chip, that it's approved and its last check", listed);
-
-  // ---- an output box: its number chip's serial and key → a code signed with the loader key
-  const box = chipKey(), boxSerial = "01" + crypto.randomBytes(8).toString("hex");
-  ok((await j("POST", "/burn/claim", { kind: "output", chip: boxSerial }, staff)).status === 400, "an output box without its chip's key is refused");
-  const o2 = (await j("POST", "/burn/claim", { kind: "output", serial: boxSerial, publicKey: box.pub, software: "central-output-1.0.2.zip" }, staff)).body;
-  ok(/^O\d{15}$/.test(o2.code) && /^[0-9a-f]{128}$/.test(o2.signature), "an output box gets O + 15 numbers and a signature", o2);
-  ok((await j("GET", "/burn/loader-key", null, staff)).status === 403, "only the owner sees the loader key");
-  const lk = (await j("GET", "/burn/loader-key", null, owner)).body;
-  ok(/^[0-9a-f]{128}$/.test(lk.publicKey) && /IDENT_LOADER_KEY\[64\]/.test(lk.header) && (lk.header.match(/0x/g) || []).length === 64, "the owner gets the key for ident_key.h", lk.header);
-  const lkObj = crypto.createPublicKey({ key: { kty: "EC", crv: "P-256", x: Buffer.from(lk.publicKey.slice(0, 64), "hex").toString("base64url"), y: Buffer.from(lk.publicKey.slice(64), "hex").toString("base64url") }, format: "jwk" });
-  ok(crypto.verify("sha256", boxMessage(boxSerial, box.pub, o2.code), { key: lkObj, dsaEncoding: "ieee-p1363" }, Buffer.from(o2.signature, "hex")), "the signature checks out: serial + key + code (16 bytes)");
-  const o3 = (await j("POST", "/burn/claim", { kind: "output", serial: boxSerial, publicKey: box.pub }, staff)).body;
-  ok(o3.code === o2.code && o3.kept, "the same box asking again keeps its code");
-  ok((await j("POST", "/burn/claim", { kind: "output", serial: boxSerial, publicKey: chipKey().pub }, staff)).status === 409, "the same serial with another key is refused");
+  ok(listed && listed.numberChip === sA && listed.approved === true && listed.lastSeen, "the codes list shows its chip and its last check", listed);
+  ok((await j("GET", "/burn/devices?q=JLC-2026-11", null, owner)).body.devices.some((x) => x.code === o1.code), "codes can be found by batch");
 
   // ---- freeing a code
   ok((await j("POST", "/burn/devices/" + p1.code + "/free", { why: "x" }, staff)).status === 403, "a Burner can't free codes");
   ok((await j("POST", "/burn/devices/" + p1.code + "/free", { why: "scrapped" }, owner)).body.device.freed, "the owner frees a scrapped board's code");
-  ok((await upd(A, sA, p1.code)).status === 403, "its pedal gets no more updates");
-  ok((await reg(B, "03" + sB.slice(2), "pedal", p1.code, pass)).status >= 400, "and nothing can register with it");
+  ok((await upd(sA, p1.code)).status === 403, "its pedal gets no more updates");
+  ok((await reg("03" + sB.slice(2), "pedal", p1.code, pass)).status >= 400, "and nothing can check in with it");
   const p4 = (await j("POST", "/burn/claim", { kind: "pedal", chip: chipP }, staff)).body;
   ok(p4.code && p4.code !== p1.code && p4.kept === false, "that chip burned again gets a new code (the old one is never reused)", p4);
   ok((await j("POST", "/burn/done", { code: p1.code, chip: chipP }, staff)).status === 409, "a freed code can't be burned");

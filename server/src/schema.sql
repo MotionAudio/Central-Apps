@@ -815,9 +815,9 @@ CREATE TABLE IF NOT EXISTS builds (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS builds_kind_at ON builds (kind, created_at);
--- (rev E) the pedals' own numbers (pedals.js): each CM5 pedal's ATECC608B, burned at the factory test - its serial and its
--- key's public half (hex). A pedal registers itself (pending, with a code the owner types to approve it); approved, it
--- gets the website's certificate and asks for updates with its chip's signature (challenge: one use, 5 minutes).
+-- (rev E) the CM5 pedals and control boxes that have checked in (pedals.js): the serial of the one-time chip holding
+-- each one's code, the code, and when it last asked for updates. (public_key, ticket, code, certificate and challenge are
+-- from the first design, when the website signed certificates: no longer used.)
 CREATE TABLE IF NOT EXISTS pedals (
   id            BIGSERIAL PRIMARY KEY,
   serial        TEXT UNIQUE NOT NULL,
@@ -842,13 +842,8 @@ ALTER TABLE pedals ADD COLUMN IF NOT EXISTS device_code TEXT;
 -- what it is: 'pedal', or 'controller' (a Central I/O control box: the same calls, its own messages and builds)
 ALTER TABLE pedals ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'pedal';
 CREATE UNIQUE INDEX IF NOT EXISTS pedals_device_code ON pedals (device_code) WHERE device_code IS NOT NULL;
--- the website's own key for the pedals' certificates (made by the server the first time; only its public half leaves it)
-CREATE TABLE IF NOT EXISTS pedal_signing_key (
-  id          INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  private_pem TEXT NOT NULL,
-  public_hex  TEXT NOT NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+ALTER TABLE pedals ALTER COLUMN public_key DROP NOT NULL;
+ALTER TABLE pedals ALTER COLUMN ticket DROP NOT NULL;
 -- the email list (Kickstarter news and updates, signup on /apps/pedal/, launchlist.js): double opt-in, so confirmed_at is
 -- set when they press the link in the email. token = that link. synced_at = when they were added to the Resend segment
 -- the list emails go out from (RESEND_SEGMENT_ID).
@@ -867,14 +862,13 @@ CREATE TABLE IF NOT EXISTS launch_list (
 -- Device codes (burn.js): every pedal, control box, input box and output box gets a code when it's burned with the
 -- Central Burner app: its letter (P pedal, C control box, I input box, O output box) and 15-25 random numbers (an
 -- output box: 15). The code goes with the chip (chip: the CM5's serial, the input box's STM32 ID, the output box's
--- number chip); a pedal or control box ties it to its number chip when it registers (pedals.js), and its updates need
--- that. Burning the same chip again keeps its code. Freeing a code (a scrapped board) keeps the row, so a code is never
+-- ID); a pedal or control box ties it to its own ID when it registers (pedals.js), and its updates need that. Burning the same chip again keeps its code. Freeing a code (a scrapped board) keeps the row, so a code is never
 -- given out twice.
 CREATE TABLE IF NOT EXISTS device_codes (
   code          TEXT PRIMARY KEY,
   kind          TEXT NOT NULL,                 -- pedal | control | input | output
   use           TEXT NOT NULL DEFAULT '',      -- a control box's job: pedal (outputs) | inears | wave
-  chip          TEXT NOT NULL,                 -- the chip's factory ID, lower-case hex, no leading zeros
+  chip          TEXT NOT NULL,                 -- its factory ID (a CM5's serial; a box's one-time chip serial), hex, no leading zeros
   mac           TEXT NOT NULL DEFAULT '',      -- a CM5's Ethernet address (a second check)
   software      TEXT NOT NULL DEFAULT '',      -- the zip it was last burned with
   burns         INTEGER NOT NULL DEFAULT 0,
@@ -899,19 +893,15 @@ CREATE TABLE IF NOT EXISTS device_burns (
   at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS device_burns_code ON device_burns (code, at);
--- (pedals and control boxes) the one-time pass the burner left with the code, as a SHA-256; and the number chip
--- (ATECC608B) the code was tied to when the device registered with it (pedals.js asks burn.js through setDeviceClaim)
+-- (pedals and control boxes) the one-time pass the burner left with the code, as a SHA-256. number_serial: the serial
+-- of the one-time chip the code is written in (input and output boxes: when they're burned; pedals and control boxes:
+-- when they check in, pedals.js asking burn.js through setDeviceClaim)
 ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS pass_hash TEXT;
 ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS number_serial TEXT;
-ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS number_key TEXT;
 ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS registered_at TIMESTAMPTZ;
--- the key the website signs output boxes' codes with (the box only takes codes it signed: firmware/output-box/inc/ident_key.h)
-CREATE TABLE IF NOT EXISTS burn_loader_key (
-  id          INTEGER PRIMARY KEY,
-  private_pem TEXT NOT NULL,
-  public_hex  TEXT NOT NULL,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+-- the board it was made on: its revision (rev E...) and the board order (batch) it came from, picked in the burner app
+ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS board_rev TEXT NOT NULL DEFAULT '';
+ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS batch TEXT NOT NULL DEFAULT '';
 -- the staff who may use the Central Burner app (the owner always can; only the owner adds or removes people)
 CREATE TABLE IF NOT EXISTS burners (
   email     TEXT PRIMARY KEY,

@@ -318,7 +318,6 @@ ul.hl li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-wei
 .burn-scroll{overflow-x:auto}
 .burn-table td{vertical-align:top}
 .burn-code{cursor:copy;font-size:.85rem;overflow-wrap:anywhere}
-.burn-key{font-size:.78rem;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:.6rem .8rem;overflow-x:auto;margin:.4rem 0}
 @media (max-width:640px){.burn-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .bld-edit{display:flex;gap:.5rem;align-items:flex-end}
 .bld-edit textarea{flex:1}

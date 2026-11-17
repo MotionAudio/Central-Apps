@@ -11,7 +11,7 @@
   const user = () => (typeof me !== "undefined" ? me : null);
   const size = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + " GB" : n >= 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB");
   const when = (d) => (d ? new Date(d).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "");
-  let devs = null, sw = null, swErr = "", burners = null, search = "", loader = null;
+  let devs = null, sw = null, swErr = "", burners = null, search = "";
 
   async function load(el) {
     const owner = !!(user() && user().owner);
@@ -19,8 +19,7 @@
       api("GET", "/burn/devices?q=" + encodeURIComponent(search)).catch((e) => ({ error: e.message })),
       sw ? Promise.resolve(sw) : api("GET", "/burn/software").catch((e) => ({ error: e.message })),
       owner ? api("GET", "/admin/burners").catch((e) => ({ error: e.message })) : Promise.resolve(null),
-      owner && !loader ? api("GET", "/burn/loader-key").catch(() => null) : Promise.resolve(loader),
-    ]).then((r) => { loader = r[3]; return r; });
+    ]);
     if (d.error) { el.innerHTML = '<h3>Device codes</h3><div class="err">' + esc(d.error) + "</div>"; return; }
     devs = d; burners = b && !b.error ? b.burners : null;
     if (s.error) { swErr = s.error; sw = null; } else { sw = s; swErr = ""; }
@@ -30,10 +29,11 @@
   function devRow(x) {
     return `<tr data-code="${esc(x.code)}"${x.freed ? ' class="muted"' : ""}><td><code class="burn-code" title="Copy">${esc(x.code)}</code>${x.freed ? ' <span class="chip off">Freed</span>' : ""}</td>
       <td>${esc(x.kindName)}${x.useName ? '<div class="muted">' + esc(x.useName) + "</div>" : ""}</td>
+      <td>${x.boardRev ? esc(x.boardRev) : '<span class="muted">-</span>'}${x.batch ? '<div class="muted">' + esc(x.batch) + "</div>" : ""}</td>
       <td><code class="muted" title="${esc(x.chip)}">${esc(x.chip.length > 16 ? x.chip.slice(0, 16) + "…" : x.chip)}</code></td>
       <td>${x.software ? esc(x.software) : '<span class="muted">-</span>'}${x.burns > 1 ? '<div class="muted">' + x.burns + " burns</div>" : ""}</td>
       <td>${x.burnedAt ? esc(when(x.burnedAt)) + (x.burnedBy ? '<div class="muted">' + esc(x.burnedBy) + "</div>" : "") : '<span class="muted">not finished</span>'}</td>
-      <td>${x.lastSeen ? esc(when(x.lastSeen)) + (x.lastVersion ? '<div class="muted">' + esc(x.lastVersion) + "</div>" : "") : x.kind === "pedal" || x.kind === "control" ? '<span class="muted">' + (x.registeredAt ? "registered, no check yet" : "not registered yet") + "</span>" : '<span class="muted">-</span>'}</td>
+      <td>${x.lastSeen ? esc(when(x.lastSeen)) + (x.lastVersion ? '<div class="muted">' + esc(x.lastVersion) + "</div>" : "") : x.kind === "pedal" || x.kind === "control" ? '<span class="muted">' + (x.registeredAt ? "checked in, no update check yet" : "not online yet") + "</span>" : '<span class="muted">-</span>'}</td>
       <td>${devs.owner && !x.freed ? '<button class="btn small ghost" type="button" data-free>Free</button>' : ""}</td></tr>`;
   }
 
@@ -42,7 +42,7 @@
     const app = sw && sw.slots.find((x) => x.slot === "burner");
     const zips = sw ? sw.slots.filter((x) => x.slot !== "burner") : [];
     el.innerHTML = `<h3>Device codes <span class="chip plan">Private</span></h3>
-      <p class="muted" style="margin:0;font-size:.9rem">Every pedal, control box, input box and output box gets its own code when it's burned with the Central Burner app: P, C, I or O and 15 to 25 random numbers. The code goes with the chip, so it can't be moved to another board. A pedal or control box ties it to its number chip the first time it starts, and only gets updates with that chip and that code.</p>
+      <p class="muted" style="margin:0;font-size:.9rem">Every pedal, control box, input box and output box gets its own code when it's burned with the Central Burner app: P, C, I or O and 15 to 25 random numbers. The app picks a random code nobody has, the code is written into the device's one-time chip for good, and it's kept here with the board revision and batch. A pedal or control box writes its code into its chip at its first start, checks in the first time it's online, and only gets updates from that chip.</p>
       <div class="burn-stats">${["pedal", "control", "input", "output"].map((k) => `<div><b>${c[k] || 0}</b><span class="muted">${{ pedal: "pedals", control: "control boxes", input: "input boxes", output: "output boxes" }[k]}</span></div>`).join("")}</div>
       <h4>The Central Burner app</h4>
       ${app && app.asset ? `<p style="margin:0">For Ubuntu. <button class="btn small" type="button" data-get="${app.asset}">Download ${esc(app.name)}</button> <span class="muted">${size(app.bytes)} · ${esc(app.version)}</span></p>
@@ -56,20 +56,15 @@
         <p class="muted" style="margin:0;font-size:.88rem">You always can. Add the staff who burn devices; they sign in to the app with their own Motion Audio account.</p>
         <form class="burn-add" id="burnAdd"><input type="email" id="burnEmail" placeholder="their@email.com" autocomplete="off" aria-label="Email of someone who can burn"><button class="btn small" type="submit">Add</button></form>
         ${burners && burners.length ? `<table class="ktable">${burners.map((b) => `<tr><td>${esc(b.email)}${b.name ? '<div class="muted">' + esc(b.name) + "</div>" : ""}</td><td>${b.hasAccount ? "" : '<span class="muted">no account yet</span>'}</td><td style="text-align:right"><button class="btn small ghost" type="button" data-unburn="${esc(b.email)}">Remove</button></td></tr>`).join("")}</table>` : '<p class="muted" style="margin:.3rem 0 0">Nobody else yet.</p>'}` : ""}
-      ${owner && loader ? `<h4>Output box loader key</h4>
-        <p class="muted" style="margin:0;font-size:.88rem">An output box only keeps a code this website signed. Its firmware needs this key in <code>firmware/output-box/inc/ident_key.h</code> before boxes ship (until then a box takes any signature).</p>
-        <pre class="burn-key">${esc(loader.header)}</pre><button class="btn small ghost" type="button" id="burnKeyCopy">Copy</button>` : ""}
       <h4>Codes</h4>
-      <form class="burn-search" id="burnFind"><input type="search" id="burnQ" value="${esc(search)}" placeholder="Find a code, chip or zip" aria-label="Find a device code"></form>
-      ${devs.devices.length ? `<div class="burn-scroll"><table class="ktable burn-table"><tr><th>Code</th><th>Device</th><th>Chip</th><th>Burned with</th><th>Burned</th><th>Last update check</th><th></th></tr>${devs.devices.map(devRow).join("")}</table></div>`
+      <form class="burn-search" id="burnFind"><input type="search" id="burnQ" value="${esc(search)}" placeholder="Find a code, chip, zip, revision or batch" aria-label="Find a device code"></form>
+      ${devs.devices.length ? `<div class="burn-scroll"><table class="ktable burn-table"><tr><th>Code</th><th>Device</th><th>Board</th><th>Chip</th><th>Burned with</th><th>Burned</th><th>Last update check</th><th></th></tr>${devs.devices.map(devRow).join("")}</table></div>`
         : '<p class="muted" style="margin:0">' + (search ? "Nothing matches." : "No devices burned yet.") + "</p>"}`;
 
     el.querySelectorAll("[data-get]").forEach((btn) => (btn.onclick = async () => {
       try { const r = await api("GET", "/burn/software/" + btn.dataset.get + "/link"); const a = document.createElement("a"); a.href = r.url; a.download = r.name; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove(); toast("Downloading " + r.name); }
       catch (e) { toast(e.message); }
     }));
-    const kc = $("#burnKeyCopy", el);
-    if (kc) kc.onclick = async () => { try { await navigator.clipboard.writeText(loader.header); toast("Copied"); } catch (_) { prompt("ident_key.h:", loader.header); } };
     el.querySelectorAll(".burn-code").forEach((c) => (c.onclick = async () => { try { await navigator.clipboard.writeText(c.textContent); toast("Code copied"); } catch (_) { prompt("Code:", c.textContent); } }));
     el.querySelectorAll("tr[data-code] [data-free]").forEach((btn) => (btn.onclick = async () => {
       const code = btn.closest("tr").dataset.code;
