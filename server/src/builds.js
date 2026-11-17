@@ -19,6 +19,9 @@ export const KINDS = [
   { id: "image", name: "SD card image", hint: "The whole pedal system, ready to flash: .img.xz" },
   { id: "audio-fw", name: "Audio board firmware", hint: "The RP2040 on the main board: .uf2" },
   { id: "controls-fw", name: "Controls board firmware", hint: "The RP2040 on the footswitch board: .uf2" },
+  { id: "io-pedal", name: "Control Box: Central I/O for Central Pedal", hint: "central-io-pedal_<version>_arm64.deb (tools/build-io-arm64.sh)" },
+  { id: "io-inears", name: "Control Box: Central I/O In-Ears", hint: "central-io-inears_<version>_arm64.deb" },
+  { id: "io-wave", name: "Control Box: Central Wave", hint: "central-io-wave_<version>_arm64.deb" },
   { id: "other", name: "Other files", hint: "Source archives, notes, anything else for the pedal" },
 ];
 const KIND = Object.fromEntries(KINDS.map((k) => [k.id, k]));

@@ -60,6 +60,8 @@
       if (m && !ver.value) ver.value = m[1];
       if (picked && /\.uf2$/i.test(picked.name) && kind.value === "pedal") { kind.value = /control|fsw|foot/i.test(picked.name) ? "controls-fw" : "audio-fw"; hint(); }
       if (picked && /\.img(\.\w+)?$/i.test(picked.name) && kind.value === "pedal") { kind.value = "image"; hint(); }
+      const io = picked && picked.name.match(/^central-io-(pedal|inears|wave)_/i);
+      if (io && kind.value === "pedal") { kind.value = "io-" + io[1].toLowerCase(); hint(); }
     };
     file.onchange = () => pick(file.files[0]);
     drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
@@ -142,7 +144,7 @@
     try { d = await api("GET", "/admin/pedals"); } catch (e) { el.innerHTML = '<h3>Pedals</h3><div class="err">' + esc(e.message) + "</div>"; return; }
     const state = (p) => p.status === "pending" ? '<span class="chip">Waiting</span> <code style="white-space:nowrap">' + esc(p.code || "") + "</code>"
       : p.updates ? '<span class="chip plan">Registered</span>' : '<span class="chip">Updates off</span>';
-    const prow = (p) => `<tr data-pid="${p.id}"><td>${p.deviceCode ? "<b>" + esc(p.deviceCode) + "</b><br>" : ""}<code>${esc(p.serialText)}</code>${p.note ? '<div class="muted">' + esc(p.note) + "</div>" : ""}</td>
+    const prow = (p) => `<tr data-pid="${p.id}"><td>${p.kind === "controller" ? '<span class="chip">Control Box</span> ' : ""}${p.deviceCode ? "<b>" + esc(p.deviceCode) + "</b><br>" : ""}<code>${esc(p.serialText)}</code>${p.note ? '<div class="muted">' + esc(p.note) + "</div>" : ""}</td>
       <td>${state(p)}</td>
       <td>${esc(p.version || "–")}${p.lastSeen ? '<div class="muted">checked ' + esc(when(p.lastSeen)) + "</div>" : ""}</td>
       <td>${esc(when(p.approvedAt || p.registeredAt))}${p.approvedBy ? '<div class="muted">' + esc(p.approvedBy) + "</div>" : ""}</td>

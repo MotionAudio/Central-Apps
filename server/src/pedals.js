@@ -39,9 +39,16 @@ export async function pedalByDeviceCode(code) { return one("SELECT id, serial, s
 const CODE_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // (no 0/O or 1/I to mix up)
 export const PENDING_DAYS = 7;
 
-export const certMessage = (serial, pub) => "central-pedal-cert-v1|" + serial + "|" + pub;
-export const registerMessage = (serial, pub) => "central-pedal-register|" + serial + "|" + pub;
-export const updateMessage = (nonce, serial) => "central-pedal-update|" + nonce + "|" + serial;
+// A Central I/O control box uses the same calls with kind "controller" (and its job on update checks). Its messages
+// start "central-io-" instead of "central-pedal-", so a pedal's approval can't stand in for a control box's or the
+// other way round; its updates are the ship build of its job's kind (io-pedal, io-inears, io-wave in builds.js).
+const PREFIX = { pedal: "central-pedal", controller: "central-io" };
+export const kindOf = (k) => (k === "controller" ? "controller" : "pedal");
+const noun = (kind) => (kind === "controller" ? "control box" : "pedal");
+const JOB_BUILDS = { pedal: "io-pedal", inears: "io-inears", wave: "io-wave" };
+export const certMessage = (serial, pub, kind = "pedal") => PREFIX[kindOf(kind)] + "-cert-v1|" + serial + "|" + pub;
+export const registerMessage = (serial, pub, kind = "pedal") => PREFIX[kindOf(kind)] + "-register|" + serial + "|" + pub;
+export const updateMessage = (nonce, serial, kind = "pedal") => PREFIX[kindOf(kind)] + "-update|" + nonce + "|" + serial;
 
 // ---------------------------------------------------------------- the keys
 let cached = null;
@@ -74,9 +81,9 @@ export function publicKeyOf(hex) {
 export function chipSigned(pubHex, message, sigHex) {
   try { return crypto.verify("sha256", Buffer.from(message), { key: publicKeyOf(pubHex), dsaEncoding: "ieee-p1363" }, Buffer.from(sigHex, "hex")); } catch (_) { return false; }
 }
-async function certificate(serial, pub) {
+async function certificate(serial, pub, kind = "pedal") {
   const k = await signingKey();
-  return crypto.sign("sha256", Buffer.from(certMessage(serial, pub)), { key: k.priv, dsaEncoding: "ieee-p1363" }).toString("hex");
+  return crypto.sign("sha256", Buffer.from(certMessage(serial, pub, kind)), { key: k.priv, dsaEncoding: "ieee-p1363" }).toString("hex");
 }
 function newCode() {
   const b = crypto.randomBytes(7);
@@ -91,7 +98,7 @@ export function newer(a, b) {
   return false;
 }
 const pretty = (serial) => String(serial || "").toUpperCase().replace(/(.{4})(?=.)/g, "$1 ");
-const out = (p) => ({ id: Number(p.id), serial: p.serial, serialText: pretty(p.serial), deviceCode: p.device_code || "", status: p.status, code: p.status === "pending" ? p.code : null, updates: p.updates,
+const out = (p) => ({ id: Number(p.id), kind: kindOf(p.kind), serial: p.serial, serialText: pretty(p.serial), deviceCode: p.device_code || "", status: p.status, code: p.status === "pending" ? p.code : null, updates: p.updates,
   note: p.note, version: p.last_version || p.first_version || "", lastSeen: p.last_seen, registeredAt: p.created_at, approvedAt: p.approved_at, approvedBy: p.approved_by_email || "" });
 const ROW = "SELECT p.*, u.email AS approved_by_email FROM pedals p LEFT JOIN users u ON u.id=p.approved_by";
 
@@ -106,32 +113,34 @@ export function routes(api, { wrap, brake, requireUser }) {
   api.post("/pedals/register", wrap(async (req, res) => {
     slow(req);
     const b = req.body || {}, serial = String(b.serial || "").toLowerCase(), pub = String(b.publicKey || "").toLowerCase(), sig = String(b.signature || "").toLowerCase();
-    if (!SERIAL.test(serial) || !KEY.test(pub) || !SIG.test(sig)) throw bad("That isn't a pedal's number.");
-    if (!chipSigned(pub, registerMessage(serial, pub), sig)) throw bad("That signature doesn't check out.", 403);
+    const kind = kindOf(b.kind), what = noun(kind);
+    if (!SERIAL.test(serial) || !KEY.test(pub) || !SIG.test(sig)) throw bad("That isn't a " + what + "'s number.");
+    if (!chipSigned(pub, registerMessage(serial, pub, kind), sig)) throw bad("That signature doesn't check out.", 403);
     const version = VERSION.test(String(b.version || "")) ? String(b.version) : "";
     await q("DELETE FROM pedals WHERE status='pending' AND created_at < now() - ($1 || ' days')::interval", [String(PENDING_DAYS)]);
     const was = await one("SELECT * FROM pedals WHERE serial=$1", [serial]);
-    if (was && was.status === "approved" && was.public_key !== pub) throw bad("This pedal's number is already registered to another chip. Contact Motion Audio.", 409);
+    if (was && was.status === "approved" && was.public_key !== pub) throw bad(kind === "pedal" ? "This pedal's number is already registered to another chip. Contact Motion Audio." : "This control box's number is already registered. Contact Motion Audio.", 409);
+    if (was && was.status === "approved" && kindOf(was.kind) !== kind) throw bad("This number is registered as a " + noun(was.kind) + ". Contact Motion Audio.", 409);
     // ---- the burner's code and one-time pass: approved straight away, when its code list says so
     const devCode = String(b.code || "").toUpperCase(), pass = String(b.pass || "");
     if (deviceClaim && DEVICE_CODE.test(devCode) && PASS.test(pass)) {
-      if (was && was.device_code && was.device_code !== devCode) throw bad("This pedal already has the code " + was.device_code + ". Contact Motion Audio.", 409);
-      const said = await deviceClaim({ kind: "pedal", code: devCode, pass, serial, publicKey: pub });
+      if (was && was.device_code && was.device_code !== devCode) throw bad("This " + what + " already has the code " + was.device_code + ". Contact Motion Audio.", 409);
+      const said = await deviceClaim({ kind, code: devCode, pass, serial, publicKey: pub });
       const dc = String((said && said.code) || devCode).toUpperCase();
       if (!DEVICE_CODE.test(dc)) throw bad("The code list gave back a code that isn't one.", 500);
       const taken = await one("SELECT id FROM pedals WHERE device_code=$1 AND serial<>$2", [dc, serial]);
-      if (taken) throw bad("The code " + dc + " is already another pedal's. Contact Motion Audio.", 409);
-      const cert = was && was.status === "approved" ? was.certificate : await certificate(serial, pub);
-      if (was) await q("UPDATE pedals SET status='approved', public_key=$2, certificate=$3, code=NULL, device_code=$4, approved_at=COALESCE(approved_at, now()), note=CASE WHEN note='' THEN 'Loaded with the burner' ELSE note END WHERE id=$1", [was.id, pub, cert, dc]);
-      else await q("INSERT INTO pedals (serial, public_key, ticket, status, certificate, device_code, first_version, approved_at, note) VALUES ($1,$2,$3,'approved',$4,$5,$6,now(),'Loaded with the burner')",
-        [serial, pub, crypto.randomBytes(24).toString("base64url"), cert, dc, version]);
+      if (taken) throw bad("The code " + dc + " is already another device's. Contact Motion Audio.", 409);
+      const cert = was && was.status === "approved" ? was.certificate : await certificate(serial, pub, kind);
+      if (was) await q("UPDATE pedals SET status='approved', kind=$5, public_key=$2, certificate=$3, code=NULL, device_code=$4, approved_at=COALESCE(approved_at, now()), note=CASE WHEN note='' THEN 'Loaded with the burner' ELSE note END WHERE id=$1", [was.id, pub, cert, dc, kind]);
+      else await q("INSERT INTO pedals (serial, kind, public_key, ticket, status, certificate, device_code, first_version, approved_at, note) VALUES ($1,$7,$2,$3,'approved',$4,$5,$6,now(),'Loaded with the burner')",
+        [serial, pub, crypto.randomBytes(24).toString("base64url"), cert, dc, version, kind]);
       return res.json({ status: "approved", certificate: cert, serverKey: (await signingKey()).publicHex, deviceCode: dc });
     }
     if (was && was.status === "approved") return res.json({ status: "approved", certificate: was.certificate, serverKey: (await signingKey()).publicHex, deviceCode: was.device_code || undefined });
-    if (was && was.public_key === pub) return res.json({ status: "pending", ticket: was.ticket, code: was.code });
+    if (was && was.public_key === pub && kindOf(was.kind) === kind) return res.json({ status: "pending", ticket: was.ticket, code: was.code });
     const ticket = crypto.randomBytes(24).toString("base64url"), code = newCode();
-    if (was) await q("UPDATE pedals SET public_key=$2, ticket=$3, code=$4, first_version=$5, created_at=now() WHERE id=$1", [was.id, pub, ticket, code, version]);
-    else await q("INSERT INTO pedals (serial, public_key, ticket, code, first_version) VALUES ($1,$2,$3,$4,$5)", [serial, pub, ticket, code, version]);
+    if (was) await q("UPDATE pedals SET kind=$6, public_key=$2, ticket=$3, code=$4, first_version=$5, created_at=now() WHERE id=$1", [was.id, pub, ticket, code, version, kind]);
+    else await q("INSERT INTO pedals (serial, kind, public_key, ticket, code, first_version) VALUES ($1,$6,$2,$3,$4,$5)", [serial, pub, ticket, code, version, kind]);
     res.json({ status: "pending", ticket, code });
   }));
   api.get("/pedals/register/:ticket", wrap(async (req, res) => {
@@ -158,14 +167,17 @@ export function routes(api, { wrap, brake, requireUser }) {
     // (the challenge is used up here, whatever happens next)
     const p = await one("UPDATE pedals SET challenge=NULL WHERE serial=$1 AND status='approved' AND challenge=$2 AND challenge_at > now() - interval '5 minutes' RETURNING *", [serial, nonce]);
     if (!p) throw bad("That check ran out. Try again.", 400);
-    if (!chipSigned(p.public_key, updateMessage(nonce, serial), sig)) throw bad("That signature doesn't check out.", 403);
-    // (a pedal the burner gave a code has to say that code)
-    if (p.device_code && String(b.code || "").toUpperCase() !== p.device_code) throw bad("This pedal's code doesn't match the website. Contact Motion Audio.", 403);
+    const kind = kindOf(p.kind), what = noun(kind);
+    if (!chipSigned(p.public_key, updateMessage(nonce, serial, kind), sig)) throw bad("That signature doesn't check out.", 403);
+    // (a device the burner gave a code has to say that code)
+    if (p.device_code && String(b.code || "").toUpperCase() !== p.device_code) throw bad("This " + what + "'s code doesn't match the website. Contact Motion Audio.", 403);
+    const buildKind = kind === "controller" ? JOB_BUILDS[String(b.job || "")] : "pedal";
+    if (!buildKind) throw bad("Which program is this control box running?");
     const version = VERSION.test(String(b.version || "")) ? String(b.version) : "";
     await q("UPDATE pedals SET last_seen=now(), last_version=$2 WHERE id=$1", [p.id, version]);
-    if (!p.updates) throw bad("Updates are off for this pedal. Contact Motion Audio.", 403);
+    if (!p.updates) throw bad("Updates are off for this " + what + ". Contact Motion Audio.", 403);
     res.set("Cache-Control", "no-store");
-    const ship = await one("SELECT * FROM builds WHERE kind='pedal' AND ship AND state='ready'");
+    const ship = await one("SELECT * FROM builds WHERE kind=$1 AND ship AND state='ready'", [buildKind]);
     if (!ship || !/\.deb$/i.test(ship.name) || !ship.sha256 || !newer(ship.version, version)) return res.json({ upToDate: true, version: ship ? ship.version : version });
     await q("UPDATE builds SET downloads=downloads+1 WHERE id=$1", [ship.id]);
     res.json({ update: { version: ship.version, notes: ship.notes || "", sha256: ship.sha256, bytes: Number(ship.bytes), name: ship.name, url: await store.downloadUrl(ship.storage_key, ship.name) } });
@@ -184,7 +196,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     if (code.length !== 7) throw bad("Type the 7-letter code the pedal shows (like K7P-4QXR).");
     const p = (await q("SELECT * FROM pedals WHERE status='pending' AND created_at > now() - ($1 || ' days')::interval", [String(PENDING_DAYS)])).find((x) => plainCode(x.code) === code);
     if (!p) throw bad("No pedal is waiting with that code. Check it on the pedal's screen (it changes if the pedal registers again).", 404);
-    const cert = await certificate(p.serial, p.public_key);
+    const cert = await certificate(p.serial, p.public_key, p.kind);
     await q("UPDATE pedals SET status='approved', certificate=$2, code=NULL, approved_at=now(), approved_by=$3, note=$4 WHERE id=$1",
       [p.id, cert, req.user.id, String((req.body || {}).note || p.note || "").slice(0, 200)]);
     res.json({ pedal: out(await one(ROW + " WHERE p.id=$1", [p.id])) });
