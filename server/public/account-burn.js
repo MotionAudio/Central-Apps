@@ -47,10 +47,10 @@
       <h4>The Central Burner app</h4>
       ${app && app.asset ? `<p style="margin:0">For Ubuntu. <button class="btn small" type="button" data-get="${app.asset}">Download ${esc(app.name)}</button> <span class="muted">${size(app.bytes)} · ${esc(app.version)}</span></p>
         <p class="muted" style="margin:.3rem 0 0;font-size:.88rem">Install it with <code>sudo apt install ./${esc(app.name)}</code>, then sign in with your Motion Audio account.</p>`
-        : `<p class="muted" style="margin:0">${swErr ? esc(swErr) : "No Central Burner .deb on GitHub yet."}</p>`}
-      <h4>Newest zips on GitHub</h4>
+        : `<p class="muted" style="margin:0">${swErr ? esc(swErr) : "No Central Burner app here yet: the next GitHub build sends it."}</p>`}
+      <h4>Newest zips</h4>
       ${zips.length ? `<table class="ktable"><tr><th>For</th><th>Zip</th><th>Version</th><th></th></tr>${zips.map((z) => `<tr><td>${esc(z.slotName)}</td><td>${z.asset ? esc(z.name) + '<div class="muted">' + size(z.bytes) + " · " + esc(when(z.published)) + "</div>" : '<span class="muted">none yet</span>'}</td><td>${z.asset ? esc(z.version) : ""}</td><td>${z.asset ? `<button class="btn small ghost" type="button" data-get="${z.asset}">Download</button>` : ""}</td></tr>`).join("")}</table>
-        <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">From the releases of ${esc(sw.repo)}. Name the files <code>central-pedal-1.0.0.zip</code>, <code>central-io-pedal-1.0.0.zip</code>, <code>central-io-inears-…</code>, <code>central-io-wave-…</code>, <code>central-input-…</code>, <code>central-output-…</code> and <code>central-burner-1.0.0-amd64.deb</code>.</p>`
+        <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">Sent here by the GitHub builds of ${esc(sw.repo)} as they're made (Actions → Burner zips). Name the files <code>central-pedal-1.0.0.zip</code>, <code>central-io-pedal-1.0.0.zip</code>, <code>central-io-inears-…</code>, <code>central-io-wave-…</code>, <code>central-input-…</code>, <code>central-output-…</code> and <code>central-burner-1.0.0-amd64.deb</code>.</p>`
         : swErr ? '<p class="err">' + esc(swErr) + "</p>" : ""}
       ${owner ? `<h4>Who can burn</h4>
         <p class="muted" style="margin:0;font-size:.88rem">You always can. Add the staff who burn devices; they sign in to the app with their own Motion Audio account.</p>

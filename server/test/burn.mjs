@@ -3,7 +3,8 @@
 // 16 digits long; a box's one-time chip serial); each code keeps its board revision and batch; the newest zips come
 // from GitHub (a stand-in here) with a short-lived link; a pedal or control box checks in with the code and one-time
 // pass (pedals.js asks burn.js); no keys or signatures anywhere; a freed code stops working and is never given out
-// again. (The check-in and update checks in full: test/reve-pedals.mjs.)
+// again; a GitHub build of the repo (its OIDC token, made here with a stand-in key) sends a zip straight to the site,
+// and that's the one the app gets. (The check-in and update checks in full: test/reve-pedals.mjs.)
 //   node test/burn.mjs postgres://.../ma [port]
 import { spawn } from "node:child_process";
 import http from "node:http";
@@ -34,7 +35,16 @@ const ok = (c, m, d) => { console.log((c ? "  ✓ " : "  ✗ ") + m + (c || d ==
 
 // ---- a stand-in for GitHub's releases API
 const ghCalls = [];
+const oidc = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+const oidcJwk = Object.assign(oidc.publicKey.export({ format: "jwk" }), { kid: "test-kid", alg: "RS256", use: "sig" });
+const jwt = (claims, key = oidc.privateKey, kid = "test-kid") => {
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
+  const now = Math.floor(Date.now() / 1000);
+  const body = enc({ alg: "RS256", kid, typ: "JWT" }) + "." + enc(Object.assign({ iss: "https://token.actions.githubusercontent.com", aud: "motionaudio-burner", repository: "MotionAudio/central-native", ref_name: "pedal-v11.2.0", run_id: "77", iat: now, nbf: now - 5, exp: now + 300 }, claims));
+  return body + "." + crypto.sign("RSA-SHA256", Buffer.from(body), key).toString("base64url");
+};
 const gh = http.createServer((req, res) => {
+  if (req.url === "/.well-known/jwks") { res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ keys: [oidcJwk] })); }
   ghCalls.push({ url: req.url, auth: req.headers.authorization || "", accept: req.headers.accept || "" });
   const rel = (tag, assets) => ({ tag_name: tag, draft: false, prerelease: false, published_at: "2026-11-16T10:00:00Z", assets });
   const a = (id, name, size, digest) => ({ id, name, size, updated_at: "2026-11-16T10:00:00Z", browser_download_url: "https://example.invalid/" + name, digest });
@@ -55,7 +65,7 @@ const stub = http.createServer((req, res) => { let b = ""; req.on("data", (d) =>
 await new Promise((r) => stub.listen(0, "127.0.0.1", r));
 const srv = spawn(process.execPath, [path.join(here, "..", "src", "index.js")], { env: Object.assign({}, process.env, { DATABASE_URL: db, PORT: String(port), STRIPE_SECRET_KEY: "", RESEND_API_KEY: "re_test", MAIL_FROM: "M <t@motion.test>",
   RESEND_API_URL: "http://127.0.0.1:" + stub.address().port + "/emails", PUBLIC_URL: base, ADMIN_EMAILS: "", OWNER_EMAILS: OWNER, REMINDERS: "off", STATUS_CHECKS: "off", CC_UPDATE_API: "http://127.0.0.1:9", R2_ENDPOINT: "",
-  BURN_GITHUB_API: "http://127.0.0.1:" + gh.address().port, GITHUB_TOKEN: "ghp_test", BURN_REPO: "" }), stdio: ["ignore", "pipe", "pipe"] });
+  BURN_GITHUB_API: "http://127.0.0.1:" + gh.address().port, GITHUB_TOKEN: "ghp_test", BURN_REPO: "", BURN_OIDC_JWKS: "http://127.0.0.1:" + gh.address().port + "/.well-known/jwks" }), stdio: ["ignore", "pipe", "pipe"] });
 let log = ""; srv.stdout.on("data", (d) => (log += d)); srv.stderr.on("data", (d) => (log += d));
 for (let i = 0; i < 150 && !/Motion Audio server on/.test(log); i++) await new Promise((r) => setTimeout(r, 100));
 const j = async (method, p, body, tok) => { const r = await fetch(base + "/v1" + p, { method, headers: Object.assign({ "Content-Type": "application/json" }, tok ? { Authorization: "Bearer " + tok } : {}), body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
@@ -104,6 +114,33 @@ try {
   const link = (await j("GET", "/burn/software/11/link", null, staff)).body;
   ok(link.url === "https://objects.example.invalid/asset/11?sig=x" && link.name === "central-pedal-11.1.0.zip", "a short-lived link to the file", link);
   ok((await j("GET", "/burn/software/7/link", null, staff)).status === 404, "only the burner's files get links");
+
+  // ---- a GitHub build sends a zip straight here (its OIDC token): that's the one the app gets
+  const zipBytes = Buffer.from("PK" + "z".repeat(5000));
+  const zsha = crypto.createHash("sha256").update(zipBytes).digest("hex");
+  const send = (tok, body) => fetch(base + "/v1/burn/upload", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tok }, body: JSON.stringify(body) }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }));
+  const upBody = { name: "central-pedal-11.2.0.zip", bytes: zipBytes.length, sha256: zsha };
+  ok((await j("POST", "/burn/upload", upBody)).status === 401, "a zip sent without a GitHub token: refused");
+  ok((await send(jwt({ repository: "someone/else" }), upBody)).status === 403, "a build of another repo: refused");
+  ok((await send(jwt({ aud: "other" }), upBody)).status === 401 && (await send(jwt({ exp: Math.floor(Date.now() / 1000) - 10 }), upBody)).status === 401, "the wrong audience, or a token that ran out: refused");
+  ok((await send(jwt({}, crypto.generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey), upBody)).status === 401, "a token signed with another key: refused");
+  ok((await send(jwt({}), { ...upBody, name: "notes.txt" })).status === 400, "a file that isn't one of the burner's: refused");
+  const up1 = await send(jwt({}), upBody);
+  ok(up1.status === 200 && up1.body.slot === "pedal" && /^http/.test(up1.body.uploadUrl), "a build of the repo gets an upload link", up1.body);
+  const short = await send(jwt({}), { ...upBody, bytes: zipBytes.length + 1 });
+  await fetch(short.body.uploadUrl, { method: "PUT", body: zipBytes, headers: { "Content-Type": "application/octet-stream" } });
+  ok((await fetch(base + "/v1/burn/upload/" + short.body.id + "/done", { method: "POST", headers: { Authorization: "Bearer " + jwt({}) } })).status === 400, "a file that didn't all arrive isn't kept");
+  await fetch(up1.body.uploadUrl, { method: "PUT", body: zipBytes, headers: { "Content-Type": "application/octet-stream" } });
+  ok((await fetch(base + "/v1/burn/upload/" + up1.body.id + "/done", { method: "POST" })).status === 401, "\"done\" needs the token too");
+  const d1z = await fetch(base + "/v1/burn/upload/" + up1.body.id + "/done", { method: "POST", headers: { Authorization: "Bearer " + jwt({}) } });
+  ok(d1z.status === 200, "all there: kept");
+  const sw2 = (await j("GET", "/burn/software", null, staff)).body;
+  const p2s = sw2.slots.find((x) => x.slot === "pedal"), i2s = sw2.slots.find((x) => x.slot === "input");
+  ok(p2s.name === "central-pedal-11.2.0.zip" && p2s.version === "11.2.0" && p2s.from === "website" && p2s.asset === "f" + up1.body.id && p2s.sha256 === zsha && p2s.release === "pedal-v11.2.0", "the app now gets the one the build sent", p2s);
+  ok(i2s.from === "github" && i2s.name === "central-input-1.0.0.zip", "slots nothing was sent for still come from GitHub");
+  const l2 = (await j("GET", "/burn/software/" + p2s.asset + "/link", null, staff)).body;
+  ok(l2.name === "central-pedal-11.2.0.zip" && l2.sha256 === zsha && Buffer.from(await (await fetch(l2.url)).arrayBuffer()).equals(zipBytes), "its link gives the same file", l2);
+  ok((await j("GET", "/burn/software/f999999/link", null, staff)).status === 404 && (await j("GET", "/burn/software/" + p2s.asset + "/link", null, other)).status === 403, "an unknown file, or someone who can't burn: no link");
 
   // ---- codes
   ok((await j("POST", "/burn/claim", { kind: "pedal", chip: "12" }, staff)).status === 400, "a chip ID that didn't come through is refused");

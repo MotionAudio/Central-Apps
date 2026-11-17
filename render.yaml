@@ -39,7 +39,7 @@ services:
         sync: false
       - key: MAIL_FROM           # Motion Audio <noreply@motionaudio.org> (motionaudio.org verified in Resend; docs/DOMAIN-AND-EMAIL.md)
         sync: false
-      - key: GITHUB_TOKEN        # the Central Burner's zips: a GitHub token (fine-grained, read-only "Contents" on MotionAudio/central-native) so the website can hand staff the private releases
+      - key: GITHUB_TOKEN        # (optional, not needed: the GitHub builds send the Central Burner's zips straight to the site) a GitHub token (fine-grained, read-only "Contents" on MotionAudio/central-native) so the website can hand staff the private releases
         sync: false
       - key: BURN_REPO           # where the Central Burner's zips are released (empty: MotionAudio/central-native)
         sync: false

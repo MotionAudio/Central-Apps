@@ -902,6 +902,22 @@ ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS registered_at TIMESTAMPTZ;
 -- the board it was made on: its revision (rev E...) and the board order (batch) it came from, picked in the burner app
 ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS board_rev TEXT NOT NULL DEFAULT '';
 ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS batch TEXT NOT NULL DEFAULT '';
+-- the burner's zips the GitHub builds send here (burn.js /burn/upload): the newest ready one in each slot is the one the
+-- app gets
+CREATE TABLE IF NOT EXISTS burn_files (
+  id          BIGSERIAL PRIMARY KEY,
+  slot        TEXT NOT NULL,                 -- pedal | control-pedal | control-inears | control-wave | input | output | burner
+  name        TEXT NOT NULL,
+  version     TEXT NOT NULL DEFAULT '',
+  release     TEXT NOT NULL DEFAULT '',      -- the GitHub release (or tag) it came with
+  bytes       BIGINT NOT NULL,
+  sha256      TEXT NOT NULL DEFAULT '',
+  storage_key TEXT NOT NULL,
+  state       TEXT NOT NULL DEFAULT 'uploading',
+  run         TEXT NOT NULL DEFAULT '',      -- the GitHub Actions run that sent it
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS burn_files_slot ON burn_files (slot, created_at);
 -- the staff who may use the Central Burner app (the owner always can; only the owner adds or removes people)
 CREATE TABLE IF NOT EXISTS burners (
   email     TEXT PRIMARY KEY,

@@ -13,11 +13,14 @@
 //                             the firmware writes it into the chip for good.
 // Burning the same chip again keeps its code. A scrapped board's code can be freed (the owner); never given out again.
 //
-// The zips come from the newest releases on GitHub (BURN_REPO, private, read with GITHUB_TOKEN), so staff don't need
-// GitHub access: the app asks here and gets a short-lived download link. It can also burn a zip from the computer.
+// The zips: the GitHub builds (central-native's .github/workflows/burner-zips.yml) send each one here as it's made
+// (POST /burn/upload, signed in as that GitHub job with its OIDC token: no secret to set anywhere), into the site's own
+// storage; the app asks here and gets a short-lived download link. Without any sent here yet, the newest GitHub
+// releases are used when GITHUB_TOKEN is set (BURN_REPO, private). The app can also burn a zip from the computer.
 //
 //   GET  /burn/me                       can this account burn?
-//   GET  /burn/software                 the newest zip on GitHub for each slot (and the burner app itself)
+//   GET  /burn/software                 the newest zip for each slot (and the burner app itself)
+//   POST /burn/upload · /burn/upload/:id/done   a GitHub build of BURN_REPO sending a zip (its OIDC token, not an account)
 //   GET  /burn/software/:asset/link     a short-lived download link for one of them
 //   POST /burn/claim                    the chip's code (new or kept): {kind, chip | serial, use?, mac?, software?,
 //                                       boardRev?, batch?, peek?}; pedal / control: + a new one-time pass
@@ -30,6 +33,7 @@ import { q, one } from "./db.js";
 import { isOwner } from "./auth.js";
 import { requireStep } from "./signin.js";
 import { setDeviceClaim } from "./pedals.js";
+import * as store from "./storage.js";
 
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 
@@ -112,19 +116,56 @@ async function releases() {
   return list;
 }
 const verOf = (rel, name) => { const m = String(name).match(/[-_]v?(\d+\.\d+(?:\.\d+)?(?:-[\w.]+)?)(?=[-_.](?:zip|deb|amd64|x86_64|arm64))/i) || String(rel.tag_name || "").match(/(\d+\.\d+(?:\.\d+)?(?:-[\w.]+)?)/); return m ? m[1] : rel.tag_name || ""; };
+// ---------------------------------------------------------------- the zips the GitHub builds send here
+// A GitHub Actions job proves who it is with its OIDC token (RS256, from token.actions.githubusercontent.com, for the
+// audience "motionaudio-burner"): only a job in BURN_REPO is let in.
+const OIDC_ISSUER = "https://token.actions.githubusercontent.com", OIDC_AUDIENCE = "motionaudio-burner";
+const jwksUrl = () => process.env.BURN_OIDC_JWKS || OIDC_ISSUER + "/.well-known/jwks";
+let jwks = { at: 0, keys: [] };
+async function oidcKeys(kid) {
+  if (!jwks.keys.some((k) => k.kid === kid) || Date.now() - jwks.at > 3600e3) {
+    const r = await fetch(jwksUrl(), { signal: AbortSignal.timeout(10000) }).catch(() => null);
+    if (r && r.ok) jwks = { at: Date.now(), keys: ((await r.json()) || {}).keys || [] };
+  }
+  return jwks.keys.find((k) => k.kid === kid) || null;
+}
+export async function githubJob(req) {
+  const m = String(req.headers.authorization || "").match(/^Bearer\s+([\w-]+)\.([\w-]+)\.([\w-]+)$/);
+  if (!m) throw bad("Only a GitHub build can send the burner's zips.", 401);
+  let head, claims;
+  try { head = JSON.parse(Buffer.from(m[1], "base64url")); claims = JSON.parse(Buffer.from(m[2], "base64url")); } catch { throw bad("That isn't a GitHub token.", 401); }
+  if (head.alg !== "RS256" || !head.kid) throw bad("That isn't a GitHub token.", 401);
+  const jwk = await oidcKeys(head.kid);
+  if (!jwk) throw bad("GitHub's keys don't know that token.", 401);
+  const ok = crypto.verify("RSA-SHA256", Buffer.from(m[1] + "." + m[2]), crypto.createPublicKey({ key: jwk, format: "jwk" }), Buffer.from(m[3], "base64url"));
+  const now = Date.now() / 1000;
+  if (!ok || claims.iss !== OIDC_ISSUER || [].concat(claims.aud).indexOf(OIDC_AUDIENCE) < 0 || !(claims.exp > now) || (claims.nbf && claims.nbf > now + 60)) throw bad("That GitHub token doesn't check out.", 401);
+  if (String(claims.repository || "").toLowerCase() !== repo().toLowerCase()) throw bad("Only " + repo() + "'s builds can send the burner's zips.", 403);
+  return claims;
+}
+const slotOf = (name) => SLOTS.find((x) => x.match.test(name)) || null;
+const verOfName = (name) => { const m = String(name).match(/[-_]v?(\d+\.\d+(?:\.\d+)?(?:-[\w.]+)?)(?=[-_.](?:zip|deb|amd64|x86_64|arm64))/i); return m ? m[1] : ""; };
+
 export async function software() {
-  const rels = await releases();
+  const sent = await q(`SELECT DISTINCT ON (slot) * FROM burn_files WHERE state='ready' ORDER BY slot, created_at DESC, id DESC`);
+  let rels = null;
+  if (SLOTS.some((x) => !sent.find((f) => f.slot === x.id)) && (process.env.GITHUB_TOKEN || process.env.BURN_GITHUB_TOKEN)) rels = await releases().catch(() => null);
   return SLOTS.map((s) => {
-    for (const rel of rels) for (const a of rel.assets || []) {
+    const f = sent.find((x) => x.slot === s.id);
+    const base = { slot: s.id, kind: s.kind || null, use: s.use || null, slotName: s.name };
+    if (f) return { ...base, asset: "f" + f.id, name: f.name, bytes: Number(f.bytes), version: f.version, release: f.release || null, published: f.created_at, sha256: f.sha256 || null, prerelease: false, from: "website" };
+    for (const rel of rels || []) for (const a of rel.assets || []) {
       if (!s.match.test(a.name)) continue;
       const digest = /^sha256:[0-9a-f]{64}$/.test(a.digest || "") ? a.digest.slice(7) : null;
-      return { slot: s.id, kind: s.kind || null, use: s.use || null, slotName: s.name, asset: a.id, name: a.name, bytes: a.size, version: verOf(rel, a.name),
-        release: rel.tag_name, published: a.updated_at || rel.published_at, sha256: digest, prerelease: !!rel.prerelease };
+      return { ...base, asset: a.id, name: a.name, bytes: a.size, version: verOf(rel, a.name), release: rel.tag_name, published: a.updated_at || rel.published_at, sha256: digest, prerelease: !!rel.prerelease, from: "github" };
     }
-    return { slot: s.id, kind: s.kind || null, use: s.use || null, slotName: s.name, asset: null };
+    return { ...base, asset: null };
   });
 }
 async function assetLink(id) {
+  const f = /^f\d+$/.test(String(id)) ? await one("SELECT * FROM burn_files WHERE id=$1 AND state='ready'", [Number(String(id).slice(1))]) : null;
+  if (f) return { url: await store.downloadUrl(f.storage_key, f.name), name: f.name, bytes: Number(f.bytes), sha256: f.sha256 || null };
+  if (/^f/.test(String(id))) throw bad("That file isn't one of the burner's zips.", 404);
   const rels = await releases();
   let asset = null;
   for (const rel of rels) for (const a of rel.assets || []) if (String(a.id) === String(id)) asset = a;
@@ -186,6 +227,31 @@ export function routes(api, { wrap, requireUser }) {
     await gate(req);
     res.set("Cache-Control", "no-store");
     res.json(await assetLink(req.params.asset));
+  }));
+
+  // a GitHub build sending a zip: its row and a signed upload link; then "done" once it's all there
+  api.post("/burn/upload", wrap(async (req, res) => {
+    const job = await githubJob(req);
+    const b = req.body || {}, name = String(b.name || "").replace(/[^\w.+-]/g, "").slice(0, 120), bytes = Number(b.bytes), sha256 = String(b.sha256 || "").toLowerCase();
+    const slot = slotOf(name);
+    if (!slot) throw bad("That file isn't one of the burner's zips (" + name + ").");
+    if (!(bytes > 0) || bytes > 4.9e9) throw bad("That file's size doesn't fit (" + bytes + " bytes).");
+    if (!/^[0-9a-f]{64}$/.test(sha256)) throw bad("Send the file's SHA-256 with it.");
+    const key = "burn/" + slot.id + "/" + Date.now().toString(36) + "-" + name;
+    const release = String(b.release || job.ref_name || "").slice(0, 120);
+    const row = await one("INSERT INTO burn_files (slot,name,version,release,bytes,sha256,storage_key,run) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id",
+      [slot.id, name, verOfName(name), release, Math.round(bytes), sha256, key, String(job.run_id || "").slice(0, 40)]);
+    res.json({ id: Number(row.id), slot: slot.id, uploadUrl: await store.uploadUrl(key, "application/octet-stream") });
+  }));
+  api.post("/burn/upload/:id/done", wrap(async (req, res) => {
+    await githubJob(req);
+    const f = await one("SELECT * FROM burn_files WHERE id=$1", [Number(req.params.id) || 0]);
+    if (!f) throw bad("That upload isn't there.", 404);
+    const got = await store.sizeOf(f.storage_key);
+    if (got == null) throw bad("The file didn't reach the storage. Send it again.");
+    if (got !== Number(f.bytes)) throw bad("Only " + got + " of " + f.bytes + " bytes arrived. Send it again.");
+    await q("UPDATE burn_files SET state='ready' WHERE id=$1", [f.id]);
+    res.json({ ok: true, slot: f.slot, name: f.name });
   }));
 
   // the chip's code: the one it has, or a new one. peek: only say whether it has one (nothing is made)
