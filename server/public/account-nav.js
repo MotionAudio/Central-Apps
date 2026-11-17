@@ -22,6 +22,7 @@
     ["help", "Help & tickets", ["helpCard"]],   // (10.3)
     ["review", "Review", ["reviewCard"]],
     ["builds", "Pedal builds", ["buildsCard"]],   // (rev E: the owner's private pedal software, images and firmware)
+    ["burn", "Device codes", ["burnCard"]],   // (the Central Burner: every device's code, the zips, who can burn)
     ["staff", "Staff", ["editHowCard", "supportDeskCard", "statusCard", "staffCard", "reviewersCard", "opsCard", "saleCard", "pricesCard", "codesCard", "relCard", "editorsCard", "defKeysCard"]],
   ];
   const home = {}; SECTIONS.forEach(([k, , ids]) => ids.forEach((id) => (home[id] = k)));

@@ -63,7 +63,7 @@ try {
   ok((await fetch(base + "/download/pedal/usb", { redirect: "manual" })).status === 404, "no public link to the pedal update");
   ok((await fetch(base + "/sd-card.sh")).status === 404 || !/^#!/.test(await (await fetch(base + "/sd-card.sh")).text()), "the SD card maker isn't a public file");
   const list0 = await j("GET", "/admin/builds", null, owner);
-  ok(list0.status === 200 && list0.body.kinds.map((k) => k.id).join() === "pedal,image,audio-fw,controls-fw,other" && list0.body.maxBytes === 4.9e9, "the owner sees the five kinds of build", list0.body);
+  ok(list0.status === 200 && list0.body.kinds.map((k) => k.id).join() === "pedal,image,audio-fw,controls-fw,io-pedal,io-inears,io-wave,other" && list0.body.maxBytes === 4.9e9, "the owner sees the eight kinds of build (with the control box's three programs)", list0.body);
 
   // ---- what gets turned away
   const tries = [

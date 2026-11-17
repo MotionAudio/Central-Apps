@@ -308,6 +308,18 @@ ul.hl li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-wei
 .bld-acts{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end}
 .bld-notes td{padding-top:0}
 .bld-notes p{margin:0;white-space:pre-wrap;font-size:.88rem}
+/* Account → Device codes (the Central Burner) */
+#burnCard h4{margin:.9rem 0 .3rem;font-size:1rem}
+.burn-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;margin:.6rem 0 0}
+.burn-stats div{display:grid;border:1px solid var(--line);border-radius:var(--r);padding:.5rem .7rem;background:var(--paper)}
+.burn-stats b{font-size:1.3rem;font-variant-numeric:tabular-nums}
+.burn-add,.burn-search{display:flex;gap:.5rem;margin:.4rem 0}
+.burn-add input,.burn-search input{flex:1 1 auto;min-width:0}
+.burn-scroll{overflow-x:auto}
+.burn-table td{vertical-align:top}
+.burn-code{cursor:copy;font-size:.85rem;overflow-wrap:anywhere}
+.burn-key{font-size:.78rem;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:.6rem .8rem;overflow-x:auto;margin:.4rem 0}
+@media (max-width:640px){.burn-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .bld-edit{display:flex;gap:.5rem;align-items:flex-end}
 .bld-edit textarea{flex:1}
 @media (max-width:700px){.bld-up{grid-template-columns:minmax(0,1fr)}}

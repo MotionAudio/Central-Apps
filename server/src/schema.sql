@@ -864,3 +864,57 @@ CREATE TABLE IF NOT EXISTS launch_list (
   synced_at       TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Device codes (burn.js): every pedal, control box, input box and output box gets a code when it's burned with the
+-- Central Burner app: its letter (P pedal, C control box, I input box, O output box) and 15-25 random numbers (an
+-- output box: 15). The code goes with the chip (chip: the CM5's serial, the input box's STM32 ID, the output box's
+-- number chip); a pedal or control box ties it to its number chip when it registers (pedals.js), and its updates need
+-- that. Burning the same chip again keeps its code. Freeing a code (a scrapped board) keeps the row, so a code is never
+-- given out twice.
+CREATE TABLE IF NOT EXISTS device_codes (
+  code          TEXT PRIMARY KEY,
+  kind          TEXT NOT NULL,                 -- pedal | control | input | output
+  use           TEXT NOT NULL DEFAULT '',      -- a control box's job: pedal (outputs) | inears | wave
+  chip          TEXT NOT NULL,                 -- the chip's factory ID, lower-case hex, no leading zeros
+  mac           TEXT NOT NULL DEFAULT '',      -- a CM5's Ethernet address (a second check)
+  software      TEXT NOT NULL DEFAULT '',      -- the zip it was last burned with
+  burns         INTEGER NOT NULL DEFAULT 0,
+  burned_by     BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  burned_at     TIMESTAMPTZ,
+  freed_at      TIMESTAMPTZ,
+  freed_by      BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  freed_why     TEXT NOT NULL DEFAULT '',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS device_codes_chip ON device_codes (kind, chip) WHERE freed_at IS NULL;
+CREATE INDEX IF NOT EXISTS device_codes_at ON device_codes (created_at);
+-- every burn, for the history (who burned what, when, and whether it finished)
+CREATE TABLE IF NOT EXISTS device_burns (
+  id         BIGSERIAL PRIMARY KEY,
+  code       TEXT NOT NULL REFERENCES device_codes(code) ON DELETE CASCADE,
+  software   TEXT NOT NULL DEFAULT '',
+  sha256     TEXT NOT NULL DEFAULT '',
+  ok         BOOLEAN NOT NULL DEFAULT TRUE,
+  notes      TEXT NOT NULL DEFAULT '',
+  by_user    BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS device_burns_code ON device_burns (code, at);
+-- (pedals and control boxes) the one-time pass the burner left with the code, as a SHA-256; and the number chip
+-- (ATECC608B) the code was tied to when the device registered with it (pedals.js asks burn.js through setDeviceClaim)
+ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS pass_hash TEXT;
+ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS number_serial TEXT;
+ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS number_key TEXT;
+ALTER TABLE device_codes ADD COLUMN IF NOT EXISTS registered_at TIMESTAMPTZ;
+-- the key the website signs output boxes' codes with (the box only takes codes it signed: firmware/output-box/inc/ident_key.h)
+CREATE TABLE IF NOT EXISTS burn_loader_key (
+  id          INTEGER PRIMARY KEY,
+  private_pem TEXT NOT NULL,
+  public_hex  TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- the staff who may use the Central Burner app (the owner always can; only the owner adds or removes people)
+CREATE TABLE IF NOT EXISTS burners (
+  email     TEXT PRIMARY KEY,
+  added_by  BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  added_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);

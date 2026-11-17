@@ -27,7 +27,7 @@ import * as store from "./storage.js";
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const SERIAL = /^[0-9a-f]{18}$/, KEY = /^[0-9a-f]{128}$/, SIG = /^[0-9a-f]{128}$/, NONCE = /^[0-9a-f]{64}$/;
 const VERSION = /^[0-9][0-9A-Za-z.+~-]{0,39}$/;
-const DEVICE_CODE = /^[A-Za-z0-9][A-Za-z0-9-]{2,23}$/, PASS = /^[A-Za-z0-9_-]{16,128}$/;
+const DEVICE_CODE = /^[A-Za-z0-9][A-Za-z0-9-]{2,25}$/, PASS = /^[A-Za-z0-9_-]{16,128}$/;
 
 // The burner's code list says whether a code and its one-time pass may go to this chip:
 //   fn({kind: "pedal", code, pass, serial, publicKey}) → {code} (the code as the list keeps it) when it may; throws an
@@ -35,6 +35,7 @@ const DEVICE_CODE = /^[A-Za-z0-9][A-Za-z0-9-]{2,23}$/, PASS = /^[A-Za-z0-9_-]{16
 //   with the same pass (a retry after the network dropped) must get yes again.
 let deviceClaim = null;
 export function setDeviceClaim(fn) { deviceClaim = typeof fn === "function" ? fn : null; }
+export function hasDeviceClaim() { return !!deviceClaim; }   // (burn.js sets the real one unless a test set its own first)
 export async function pedalByDeviceCode(code) { return one("SELECT id, serial, status, updates, last_seen, last_version FROM pedals WHERE device_code=$1", [String(code || "")]); }
 const CODE_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // (no 0/O or 1/I to mix up)
 export const PENDING_DAYS = 7;

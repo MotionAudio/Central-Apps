@@ -42,6 +42,7 @@ import * as status from "./status.js";
 import * as builds from "./builds.js";
 import * as pedals from "./pedals.js";
 import * as launchlist from "./launchlist.js";
+import * as burn from "./burn.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -118,6 +119,7 @@ projects.routes(api, { wrap, requireUser });
 helpdesk.routes(api, app, { wrap, requireUser, optionalUser: (req, res, next) => next() });   // (10.3: the Help Center's articles, support tickets)
 builds.routes(api, { wrap, requireUser });   // (rev E: the pedal's builds, private, the owner only)
 pedals.routes(api, { wrap, brake, requireUser });   // (rev E: the pedals' own numbers - registering, approving, and updates only for them)
+burn.routes(api, { wrap, requireUser });   // (device codes and the Central Burner app: the owner and the Burners they add; the pedals' code list)
 launchlist.routes(api, { wrap, requireUser });   // (the email list: Kickstarter news and updates, signup on /apps/pedal/)
 status.routes(api, { wrap, requireUser });   // (10.3: the public status page)
 status.start();   // (10.2: Central Production projects saved to the account)
@@ -172,7 +174,7 @@ api.get("/me", requireUser, wrap(async (req, res) => {
   const u = req.user;
   const c = await lic.churchOf(u.id);
   const payoutsReady = u.connect_account && !u.connect_ready ? await pay.refreshConnect(u) : !!u.connect_ready;   // (back from Stripe's payout setup)
-  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), owner: isOwner(u), builds: builds.canSee(u), reviewer: await creators.isReviewer(u), reviewUrl: (await creators.isReviewer(u)) ? config.publicUrl + creators.reviewPath() + "/" : undefined, reviewerDiscount: await creators.reviewerStatus(u), payoutsReady, payoutsStarted: !!u.connect_account,
+  res.json({ email: u.email, name: u.name, subscribed: await pay.isSubscribed(u), ownSubscription: u.subscribed, admin: isAdmin(u), owner: isOwner(u), builds: builds.canSee(u), burn: await burn.canBurn(u), reviewer: await creators.isReviewer(u), reviewUrl: (await creators.isReviewer(u)) ? config.publicUrl + creators.reviewPath() + "/" : undefined, reviewerDiscount: await creators.reviewerStatus(u), payoutsReady, payoutsStarted: !!u.connect_account,
     idStatus: u.id_status, idRequired: !!(config.stripe.requireIdToPublish && pay.stripe),
     emailConfirmed: !!u.email_confirmed, phone: u.phone ? signin.maskPhone(u.phone) : null, phoneConfirmed: u.phone_confirmed, twoStep: await signin.needsCode(u),
     church: c ? { name: c.name, role: c.role, hasPack: c.has_pack, owned: await pay.ownedCounts(c.id), hasServices: (c.services_slots || 0) > 0 || lic.trialActive(c), servicesSlots: c.services_slots || 0, subscribed: c.subscribed, trialUntil: lic.trialActive(c) ? c.trial_until : null, trialUsed: !!c.trial_code } : null });
