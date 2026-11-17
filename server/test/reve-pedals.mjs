@@ -67,6 +67,10 @@ try {
   // ---- registering
   ok((await reg(A, serial, { signature: A.sign("something else") })).status === 403, "a signature over anything else is refused");
   ok((await reg(A, "not-a-serial")).status === 400 && (await reg(A, serial, { publicKey: "00".repeat(64) })).status >= 400, "a bad serial or key is refused");
+  const Z = chip(), sz = crypto.randomBytes(9).toString("hex");
+  const rz = await reg(Z, sz, { code: "CP-00001", pass: "p".repeat(24) });
+  ok(rz.status === 200 && rz.body.status === "pending", "a code and pass with no code list on the website: the usual approval by hand", rz.body);
+  await sql("DELETE FROM pedals WHERE serial=$1", [sz]);
   const r1 = await reg(A);
   ok(r1.status === 200 && r1.body.status === "pending" && /^[A-Z2-9]{3}-[A-Z2-9]{4}$/.test(r1.body.code) && r1.body.ticket.length >= 30, "registered: waiting, with a code to approve and a ticket", r1.body);
   const r2 = await reg(A);

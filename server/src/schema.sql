@@ -837,6 +837,9 @@ CREATE TABLE IF NOT EXISTS pedals (
   approved_at   TIMESTAMPTZ,
   approved_by   BIGINT REFERENCES users(id) ON DELETE SET NULL
 );
+-- the burner app's device code for a pedal it loaded (CP-00001...), tied to this chip when the pedal registered with it
+ALTER TABLE pedals ADD COLUMN IF NOT EXISTS device_code TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS pedals_device_code ON pedals (device_code) WHERE device_code IS NOT NULL;
 -- the website's own key for the pedals' certificates (made by the server the first time; only its public half leaves it)
 CREATE TABLE IF NOT EXISTS pedal_signing_key (
   id          INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),

@@ -142,13 +142,13 @@
     try { d = await api("GET", "/admin/pedals"); } catch (e) { el.innerHTML = '<h3>Pedals</h3><div class="err">' + esc(e.message) + "</div>"; return; }
     const state = (p) => p.status === "pending" ? '<span class="chip">Waiting</span> <code style="white-space:nowrap">' + esc(p.code || "") + "</code>"
       : p.updates ? '<span class="chip plan">Registered</span>' : '<span class="chip">Updates off</span>';
-    const prow = (p) => `<tr data-pid="${p.id}"><td><code>${esc(p.serialText)}</code>${p.note ? '<div class="muted">' + esc(p.note) + "</div>" : ""}</td>
+    const prow = (p) => `<tr data-pid="${p.id}"><td>${p.deviceCode ? "<b>" + esc(p.deviceCode) + "</b><br>" : ""}<code>${esc(p.serialText)}</code>${p.note ? '<div class="muted">' + esc(p.note) + "</div>" : ""}</td>
       <td>${state(p)}</td>
       <td>${esc(p.version || "–")}${p.lastSeen ? '<div class="muted">checked ' + esc(when(p.lastSeen)) + "</div>" : ""}</td>
       <td>${esc(when(p.approvedAt || p.registeredAt))}${p.approvedBy ? '<div class="muted">' + esc(p.approvedBy) + "</div>" : ""}</td>
       <td><div class="bld-acts">${p.status === "approved" ? `<button class="btn small ghost" type="button" data-upd>${p.updates ? "Turn updates off" : "Turn updates on"}</button>` : ""}<button class="btn small ghost" type="button" data-pnote>Note</button><button class="btn small ghost" type="button" data-pdel>Remove</button></div></td></tr>`;
     el.innerHTML = `<h3>Pedals <span class="chip plan">Private</span></h3>
-      <p class="muted" style="margin:0;font-size:.9rem">Each CM5 pedal's own number. Its chip is burned in the factory test, then the pedal shows a code: type it here to approve that pedal. It starts, and from then on it gets the Central Pedal software marked "the one to ship" above. A pedal nobody approves gets nothing. Codes last ${d.pendingDays} days.</p>
+      <p class="muted" style="margin:0;font-size:.9rem">Each CM5 pedal's own number. A pedal loaded with the burner app approves itself with its device code. Any other one burns its chip in the factory test, then shows a code: type it here to approve that pedal. It starts, and from then on it gets the Central Pedal software marked "the one to ship" above. A pedal nobody approves gets nothing. Codes last ${d.pendingDays} days.</p>
       <form class="bld-up" id="pedForm" novalidate>
         <label>The code on the pedal<input id="pedCode" placeholder="K7P-4QXR" autocomplete="off" spellcheck="false" style="text-transform:uppercase"></label>
         <label>Note <span class="muted">(optional)</span><input id="pedNote" placeholder="Who it's for, or its build number" autocomplete="off"></label>

@@ -10,6 +10,12 @@
 //              the chip's signature checks out against the key approved for that serial, and that pedal's updates are
 //              on, the answer is the "pedal" build marked "the one to ship" (a .deb, when it's newer): its version, what
 //              changed, its SHA-256 and a download link for an hour. Nothing else gets a link to the pedal's software.
+//   the burner  The burner app keeps the device codes (CP-00001 and so on) and gives each pedal it loads a code and a
+//              one-time pass. The pedal registers with both ({..., code, pass}); this file hands them to the burner's
+//              code list through setDeviceClaim(fn) and, when it says yes, approves the pedal straight away and keeps
+//              its code (no code to type). Update checks then have to carry that code. Without a claim function set,
+//              or for a pedal with no code, it's the usual approval by hand. The contract is in the pedal's
+//              docs/DEVICE-CODES.md.
 // The website's signing key (P-256) is made here the first time it's needed and kept in its own table - or comes from
 // PEDAL_SIGNING_KEY (a PKCS#8 PEM) if that's set. Only its public half ever leaves the server.
 import crypto from "node:crypto";
@@ -21,6 +27,15 @@ import * as store from "./storage.js";
 function bad(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
 const SERIAL = /^[0-9a-f]{18}$/, KEY = /^[0-9a-f]{128}$/, SIG = /^[0-9a-f]{128}$/, NONCE = /^[0-9a-f]{64}$/;
 const VERSION = /^[0-9][0-9A-Za-z.+~-]{0,39}$/;
+const DEVICE_CODE = /^[A-Za-z0-9][A-Za-z0-9-]{2,23}$/, PASS = /^[A-Za-z0-9_-]{16,128}$/;
+
+// The burner's code list says whether a code and its one-time pass may go to this chip:
+//   fn({kind: "pedal", code, pass, serial, publicKey}) → {code} (the code as the list keeps it) when it may; throws an
+//   Error with .status (403 a wrong or used pass, 404 no such code...) when it may not. The same chip asking again
+//   with the same pass (a retry after the network dropped) must get yes again.
+let deviceClaim = null;
+export function setDeviceClaim(fn) { deviceClaim = typeof fn === "function" ? fn : null; }
+export async function pedalByDeviceCode(code) { return one("SELECT id, serial, status, updates, last_seen, last_version FROM pedals WHERE device_code=$1", [String(code || "")]); }
 const CODE_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // (no 0/O or 1/I to mix up)
 export const PENDING_DAYS = 7;
 
@@ -76,7 +91,7 @@ export function newer(a, b) {
   return false;
 }
 const pretty = (serial) => String(serial || "").toUpperCase().replace(/(.{4})(?=.)/g, "$1 ");
-const out = (p) => ({ id: Number(p.id), serial: p.serial, serialText: pretty(p.serial), status: p.status, code: p.status === "pending" ? p.code : null, updates: p.updates,
+const out = (p) => ({ id: Number(p.id), serial: p.serial, serialText: pretty(p.serial), deviceCode: p.device_code || "", status: p.status, code: p.status === "pending" ? p.code : null, updates: p.updates,
   note: p.note, version: p.last_version || p.first_version || "", lastSeen: p.last_seen, registeredAt: p.created_at, approvedAt: p.approved_at, approvedBy: p.approved_by_email || "" });
 const ROW = "SELECT p.*, u.email AS approved_by_email FROM pedals p LEFT JOIN users u ON u.id=p.approved_by";
 
@@ -96,10 +111,23 @@ export function routes(api, { wrap, brake, requireUser }) {
     const version = VERSION.test(String(b.version || "")) ? String(b.version) : "";
     await q("DELETE FROM pedals WHERE status='pending' AND created_at < now() - ($1 || ' days')::interval", [String(PENDING_DAYS)]);
     const was = await one("SELECT * FROM pedals WHERE serial=$1", [serial]);
-    if (was && was.status === "approved") {
-      if (was.public_key !== pub) throw bad("This pedal's number is already registered to another chip. Contact Motion Audio.", 409);
-      return res.json({ status: "approved", certificate: was.certificate, serverKey: (await signingKey()).publicHex });
+    if (was && was.status === "approved" && was.public_key !== pub) throw bad("This pedal's number is already registered to another chip. Contact Motion Audio.", 409);
+    // ---- the burner's code and one-time pass: approved straight away, when its code list says so
+    const devCode = String(b.code || "").toUpperCase(), pass = String(b.pass || "");
+    if (deviceClaim && DEVICE_CODE.test(devCode) && PASS.test(pass)) {
+      if (was && was.device_code && was.device_code !== devCode) throw bad("This pedal already has the code " + was.device_code + ". Contact Motion Audio.", 409);
+      const said = await deviceClaim({ kind: "pedal", code: devCode, pass, serial, publicKey: pub });
+      const dc = String((said && said.code) || devCode).toUpperCase();
+      if (!DEVICE_CODE.test(dc)) throw bad("The code list gave back a code that isn't one.", 500);
+      const taken = await one("SELECT id FROM pedals WHERE device_code=$1 AND serial<>$2", [dc, serial]);
+      if (taken) throw bad("The code " + dc + " is already another pedal's. Contact Motion Audio.", 409);
+      const cert = was && was.status === "approved" ? was.certificate : await certificate(serial, pub);
+      if (was) await q("UPDATE pedals SET status='approved', public_key=$2, certificate=$3, code=NULL, device_code=$4, approved_at=COALESCE(approved_at, now()), note=CASE WHEN note='' THEN 'Loaded with the burner' ELSE note END WHERE id=$1", [was.id, pub, cert, dc]);
+      else await q("INSERT INTO pedals (serial, public_key, ticket, status, certificate, device_code, first_version, approved_at, note) VALUES ($1,$2,$3,'approved',$4,$5,$6,now(),'Loaded with the burner')",
+        [serial, pub, crypto.randomBytes(24).toString("base64url"), cert, dc, version]);
+      return res.json({ status: "approved", certificate: cert, serverKey: (await signingKey()).publicHex, deviceCode: dc });
     }
+    if (was && was.status === "approved") return res.json({ status: "approved", certificate: was.certificate, serverKey: (await signingKey()).publicHex, deviceCode: was.device_code || undefined });
     if (was && was.public_key === pub) return res.json({ status: "pending", ticket: was.ticket, code: was.code });
     const ticket = crypto.randomBytes(24).toString("base64url"), code = newCode();
     if (was) await q("UPDATE pedals SET public_key=$2, ticket=$3, code=$4, first_version=$5, created_at=now() WHERE id=$1", [was.id, pub, ticket, code, version]);
@@ -111,7 +139,7 @@ export function routes(api, { wrap, brake, requireUser }) {
     res.set("Cache-Control", "no-store");
     if (!p) throw bad("That registration isn't there any more. Register again.", 404);
     if (p.status !== "approved") return res.json({ status: "pending" });
-    res.json({ status: "approved", certificate: p.certificate, serverKey: (await signingKey()).publicHex });
+    res.json({ status: "approved", certificate: p.certificate, serverKey: (await signingKey()).publicHex, deviceCode: p.device_code || undefined });
   }));
   api.get("/pedals/key", wrap(async (req, res) => res.json({ serverKey: (await signingKey()).publicHex })));
   api.post("/pedals/challenge", wrap(async (req, res) => {
@@ -131,6 +159,8 @@ export function routes(api, { wrap, brake, requireUser }) {
     const p = await one("UPDATE pedals SET challenge=NULL WHERE serial=$1 AND status='approved' AND challenge=$2 AND challenge_at > now() - interval '5 minutes' RETURNING *", [serial, nonce]);
     if (!p) throw bad("That check ran out. Try again.", 400);
     if (!chipSigned(p.public_key, updateMessage(nonce, serial), sig)) throw bad("That signature doesn't check out.", 403);
+    // (a pedal the burner gave a code has to say that code)
+    if (p.device_code && String(b.code || "").toUpperCase() !== p.device_code) throw bad("This pedal's code doesn't match the website. Contact Motion Audio.", 403);
     const version = VERSION.test(String(b.version || "")) ? String(b.version) : "";
     await q("UPDATE pedals SET last_seen=now(), last_version=$2 WHERE id=$1", [p.id, version]);
     if (!p.updates) throw bad("Updates are off for this pedal. Contact Motion Audio.", 403);
