@@ -85,6 +85,8 @@ async function token(email, n) {
   return (await j("POST", "/login/code", { ticket: st.ticket, code: codes[0], emailCode: codes[codes.length - 1], device: "t2" })).body.token;
 }
 try {
+  // (a fresh start: zips sent here by an earlier run would stand in for GitHub's)
+  { const c0 = new pg.Client({ connectionString: db }); await c0.connect(); await c0.query("DELETE FROM burn_files").catch(() => {}); await c0.end(); }
   const owner = await token(OWNER, 1), staff = await token(STAFF, 2), other = await token(OTHER, 3);
   ok(owner && staff && other, "three accounts signed in");
 
