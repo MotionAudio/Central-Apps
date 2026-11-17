@@ -111,7 +111,8 @@ async function releases() {
     if (r.status === 404 || r.status === 401) throw bad("The website can't read the releases of " + repo() + " on GitHub. Set GITHUB_TOKEN on Render to a token that can read that repo.", 502);
     throw bad("GitHub didn't answer (" + (r.status || r.why) + "). Try again in a minute.", 502);
   }
-  const list = (await r.json()).filter((x) => !x.draft);
+  // (newest first by when it was published: GitHub lists releases by tag name, and pedal-v11.0.0-5 sorts after -11)
+  const list = (await r.json()).filter((x) => !x.draft).sort((a, b) => String(b.published_at || b.created_at || "").localeCompare(String(a.published_at || a.created_at || "")));
   relCache = { at: Date.now(), list };
   return list;
 }
