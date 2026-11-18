@@ -96,6 +96,12 @@
   "shot": "pedal-render-hero"
  },
  {
+  "id": "projects",
+  "title": "Projects: what's out now and what's coming",
+  "kicker": "Every Motion Audio project in one place: the Central apps, out now, and the Central Pedal, the Central I/O boxes and Central Wave, with when each one is coming.",
+  "shot": "pedal-render-hero"
+ },
+ {
   "id": "io",
   "title": "Central I/O: the control box, input boxes and output boxes",
   "kicker": "Three boxes for more outputs from the pedal, in-ears for the band and, from February 2028, a mix for every speaker with Central Wave. On Kickstarter in July 2027.",

@@ -89,7 +89,7 @@ APPS = [
             ("Network", "Ethernet and Wi-Fi"),
             ("I/O port", "A second network jack on the right side, for Central I/O"),
             ("Power", "USB-C from a 45 W USB-C power supply, with a battery inside"),
-            ("Inside", "A Raspberry Pi Compute Module 5"),
+            ("Inside", "A state-of-the-art chip"),
             ("Audio", "48 kHz, 24-bit"),
             ("Size", "About 19.6 × 10.5 inches (498 × 266 mm), sloped 10° toward you"),
         ],
@@ -339,7 +339,7 @@ HELP_FAQ = [
         ("What if a plan runs out in the middle of a service?", "Nothing cuts out mid-song. Anything from that plan that's already playing carries on until the song ends. After that it's bypassed and shows which plan it needs. You can't add anything new from that plan until you renew, and when you do, it all comes back on by itself."),
     ]),
     ("Sound and audio", [
-        ("The pedal's headphone jack crackles and I can't hear the music.", "Open Settings → Sound → Output device and set Headphone jack buffer to Biggest. The Pi's own jack needs a bigger buffer than a proper sound card. Test sound also turns it up by itself if it hears dropouts."),
+        ("The pedal's headphone jack crackles and I can't hear the music.", "Open Settings → Sound → Output device and set Headphone jack buffer to Biggest. The pedal's own headphone jack needs a bigger buffer than a proper sound card. Test sound also turns it up by itself if it hears dropouts."),
         ("Can I use an audio interface?", "Yes, for inputs and outputs. Plug it in before you start and it shows up under Settings → Sound → Output device. Its outputs come after the headphone jack (1 and 2) and the DAC board (3 and 4)."),
         ("There's no sound at all.", "Open Settings → Sound → Test sound on the pedal and press 1. It plays a tone, works out where the sound stops and fixes what it can. If that doesn't do it, the No sound guide in the Help Center goes through the rest."),
     ]),
@@ -459,7 +459,7 @@ UPCOMING = {
         "name": "The Control Box", "when": "Kickstarter, July 2027",
         "line": "One box at your sound desk. Its software decides what it does.",
         "text": [
-            "The Control Box connects to your church network, your sound board and the Central Pedal, and it tells every input box and output box what to do. Inside is a Raspberry Pi Compute Module 5. The hardware is the same whatever you use it for. You pick its job by picking its software: The Pedal, The In-Ears or Central Wave.",
+            "The Control Box connects to your church network, your sound board and the Central Pedal, and it tells every input box and output box what to do. Inside is a state-of-the-art chip. The hardware is the same whatever you use it for. You pick its job by picking its software: The Pedal, The In-Ears or Central Wave.",
             "It's a black 1U box with gold lettering, only 140 mm deep, so it fits a shallow rack. One long 6.9-inch colour screen runs across the front. It shows what the box is doing, every channel's level and how fast each network link is running. A push-knob pages through it, and a USB-C port on the front lets you plug in a computer to set it up.",
         ],
         "features": [
@@ -523,8 +523,8 @@ IO = {
     "boxes": [
         {"slug": "controller", "name": "Central I/O Control Box", "short": "Control Box", "when": "On Kickstarter in July 2027",
          "line": "The brain. It runs The Pedal, The In-Ears or Central Wave.",
-         "text": "The control box connects to your church network, your sound board and the pedal, and it decides what every other box does. It runs a Raspberry Pi Compute Module 5 and one of three programs: The Pedal, The In-Ears or Central Wave. It shapes each mix with our own plugins or VST3 plugins you've installed, and you can change any of it by hand. One long colour screen across the front shows what it's doing, every channel's level and how fast each network link is running.",
-         "specs": [("Computer", "Raspberry Pi Compute Module 5 with 8 GB of memory"), ("Software", "One of: The Pedal, The In-Ears, Central Wave (from February 2028)"),
+         "text": "The control box connects to your church network, your sound board and the pedal, and it decides what every other box does. It has a state-of-the-art chip inside and runs one of three programs: The Pedal, The In-Ears or Central Wave. It shapes each mix with our own plugins or VST3 plugins you've installed, and you can change any of it by hand. One long colour screen across the front shows what it's doing, every channel's level and how fast each network link is running.",
+         "specs": [("Computer", "A state-of-the-art chip with 8 GB of memory"), ("Software", "One of: The Pedal, The In-Ears, Central Wave (from February 2028)"),
                    ("Network", "Locking network jacks (etherCON): NETWORK for the church network and your sound board, PEDAL for the Central Pedal, and BOXES on the standalone version"),
                    ("Audio over the network", "AES67 to and from your sound board. Dante boards work in their AES67 mode"),
                    ("Boxes", "Up to 16 output and input boxes"),
@@ -672,4 +672,39 @@ IO_GUIDES = {
         ("When something's wrong", ["If an input's meter doesn't move, check the cable and the gain. A condenser mic needs phantom power.",
                                     "If you hear a hum, try the pad, check the cable, and move the cable away from power cords."]),
     ],
+}
+
+# ---------------------------------------------------------------------------------------------- Projects (/projects/)
+# Every project in one place with when it comes out (decided Nov 17 2026: its own tab beside Upcoming, which stays the
+# Control Box page). The apps are out now; the pedal, the three Central I/O boxes and Central Wave carry their estimates,
+# taken from the Upcoming page so the dates stay in one place. A card is an app (by slug, from APPS) or its own entry
+# with a picture: "shot" names one in img/apps/shots.json, "img" is (file, alt).
+_CB, _USES = UPCOMING["control_box"], {u["id"]: u for u in UPCOMING["uses"]}
+PROJECTS = {
+    "title": "Every project, and when it's coming",
+    "lede": "Here's everything I'm working on at Motion Audio in one place. The apps are out now. The pedal and the Central I/O boxes are still being built, so their dates are my best estimate, and I'll change them here if they move.",
+    "now": {"title": "Out now", "text": "You can download these today. Central Production is free and runs in your browser.",
+            "apps": ["pedal-control", "control", "usage", "services", "production"], "chip": "Out now"},
+    "coming": {"title": "Coming", "text": "None of these are for sale yet, and some details will change before they ship."},
+    "groups": [
+        {"when": "Mid 2027", "note": "", "items": [
+            {"id": "central-pedal", "name": "Central Pedal", "icon": "central-pedal", "chip": "Coming mid 2027", "shot": "pedal-render-hero",
+             "line": "The pedal at the worship leader's feet. It plays your tracks and pads, shows the band the chart and the lyrics, and runs your guitar or keys rig, all from 8 footswitches and a 7-inch touch screen.",
+             "href": "/apps/pedal/", "go": "See what it does"}]},
+        {"when": "July 2027", "note": "All three Central I/O boxes come out together on Kickstarter.", "items": [
+            {"id": "control-box", "name": "Central I/O Control Box", "chip": "On Kickstarter, July 2027", "img": _CB["hero"],
+             "line": "The brain of Central I/O, at your sound desk. It puts every channel the pedal plays on its own output (The Pedal) and builds the band's in-ear mixes (The In-Ears).",
+             "href": "/upcoming/", "go": "See the Control Box"},
+            {"id": "input-box", "name": "Central I/O Input Box", "chip": "On Kickstarter, July 2027", "img": _USES["in-ears"]["shot"],
+             "line": "8 inputs, for mics, instruments and sound boards without AES67. You set the gain, the pad and phantom power from Central Control.",
+             "href": "/io/#spec-input-box", "go": "See the specs"},
+            {"id": "output-box", "name": "Central I/O Output Box", "chip": "On Kickstarter, July 2027", "shot": "io-output8-rack-front",
+             "line": "8 balanced outputs, for the pedal's stems, in-ear mixes or the speakers in the room.",
+             "href": "/io/#spec-output-box", "go": "See the specs"}]},
+        {"when": "February 2028", "note": "A software addition for the Control Box.", "items": [
+            {"id": "central-wave", "name": "Central Wave", "chip": "Coming February 2028", "img": _USES["wave"]["shot"],
+             "line": "Every speaker in the room gets its own mix, timing and EQ. It's new software for the same Control Box.",
+             "href": "/upcoming/#wave", "go": "How it works"}]},
+    ],
+    "note": "The dates are estimates and can move. I'll keep this page up to date.",
 }
