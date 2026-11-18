@@ -158,7 +158,7 @@ Central Tracks is the Motion Audio library, built into **Add a song → Central 
 
 ## What's new
 
-**New in version 10.7.0:** Central Control's Lighting page opens without a stall and moves more smoothly, and every app's drop-downs, tick boxes and scroll bars get the same dark-and-brass finish as the rest of the apps.
+**New in version 10.8.0:** press Ctrl+K (⌘K on a Mac) for a keyboard you can play from the computer in Central Production, Central Usage and Central Pedal Control, with the search moving to Ctrl+P. Central Production takes stems, MIDI files and your own SFZ, Decent Sampler and SoundFont instruments by drag and drop, plays external MIDI synths, and has MIDI effects, Capture and Bounce to audio. There are 50 more plugins (82, 27 of them free) and the free Central Starter library gains 138 samples, three drum kits, an accordion, a glockenspiel and a mbira.
 
 **New in version 10.6.0:** Central Production can take a song all the way to the Central Pedal. Drag sections around and their music goes with them, move the whole song to a new key and tempo, add a click and spoken cues, check how loud it is and what Central Tracks will grade it, and export a pack the pedal reads with its sections marked. A MIDI footswitch or pad can run it too.
 

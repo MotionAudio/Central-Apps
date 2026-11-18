@@ -2,6 +2,10 @@
 
 The short version of what changed in each release, newest first. Most versions also have their own page in this folder with the full notes.
 
+### 10.8.0
+
+A pop-up keyboard on Ctrl+K in Central Production, Central Usage and Central Pedal Control (the search moves to Ctrl+P); drag and drop in Central Production for stems, MIDI files, your own SFZ, Decent Sampler and SoundFont instruments, samples and track reordering, and dragging a track out as a WAV; external MIDI synth tracks, MIDI effects (scale, chords, arpeggiator), Capture, the sustain pedal and pitch wheel recorded, swing, MIDI files out and Bounce to audio; 50 more plugins (82, 27 free, including Airwindows ports); and Central Starter 1.1 with 138 free samples, three drum kits, an accordion, a glockenspiel and a mbira.
+
 ### 10.7.0
 
 A smoother Lighting page in Central Control (it gets ready ahead of time and draws once per frame of your screen) and a cleaner finish on every app's drop-downs, tick boxes and scroll bars, with a few rough edges fixed.
