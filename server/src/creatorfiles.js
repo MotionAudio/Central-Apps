@@ -174,7 +174,7 @@ export const KINDS = {
   board: { name: "Pedal board", packs: ["pedals"], what: "a pedal board preset (.json) exported from the pedal board", max: 1024 ** 2 },
   plugin: { name: "Plugin", packs: ["plugins"], what: "a zip per platform with one plugin bundle, or one .cmfx.json made in the plugin builder (it plays on every device)", max: 300 * 1024 ** 2 },
 };
-export const PLATFORMS = { "linux-x64": "Linux (64-bit PC)", "linux-arm64": "Central Pedal (Raspberry Pi) / Linux ARM", mac: "Mac", "win-x64": "Windows (64-bit)" };
+export const PLATFORMS = { "linux-x64": "Linux (64-bit PC)", "linux-arm64": "Central Pedal / Linux ARM", mac: "Mac", "win-x64": "Windows (64-bit)" };
 // (10.2) a Central FX plugin (made in Central Production's plugin builder) is one .cmfx.json that plays on every device
 PLATFORMS.all = "Every device (a Central FX plugin from the plugin builder)";
 

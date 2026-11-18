@@ -824,7 +824,7 @@ async function showDownloads(thanks) {
   const pedalCard = (p) => `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">${p.held ? "Being checked before it ships" : p.shipsTo ? "Ships to " + esc(p.shipsTo) : "Ships to the address you gave"}</span></div></div>
     <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
     <p class="muted" style="margin:0;font-size:.9rem">It comes with a P key for Central Pedal Control (its card is here too), to get your songs ready at home.</p><p class="muted" style="margin:0;font-size:.9rem">${NO_NET}</p>${OWNER_SLOT}</div>`;
-  const pedalPublic = `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">Raspberry Pi 4 · needs no key</span></div></div>
+  const pedalPublic = `<div class="dl-card"><div class="dl-head"><img src="/brand/central-pedal.svg" alt=""><div><h3>Central Pedal</h3><span class="muted">Software built in · needs no key</span></div></div>
     <p style="margin:0">It arrives with its card in and its software on it, and needs no key. The first time it starts, set it up from your phone:</p><ol class="steps">${pub.pedalSetup.map((s) => `<li>${esc(s)}</li>`).join("")}</ol><p class="muted" style="margin:0;font-size:.9rem">${NO_NET}</p>${OWNER_SLOT}</div>`;
   const sv = pub.services;
   const servicesCard = `<div class="dl-card"><div class="dl-head"><img src="/brand/${esc(sv.icon)}.svg" alt=""><div><h3>${esc(sv.name)}</h3><span class="muted">${esc(sv.runsOn)}</span></div></div>

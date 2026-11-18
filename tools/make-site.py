@@ -65,7 +65,7 @@ def header():
     <span class="nav-main" id="navMain">
       <div class="dd"><button class="dd-btn" type="button" aria-expanded="false" aria-controls="ddApps">Apps</button><div class="dd-panel" id="ddApps">{apps}<a class="dd-all" href="/apps/">Compare the apps: which ones do we need?</a></div></div>
       <div class="dd"><button class="dd-btn" type="button" aria-expanded="false" aria-controls="ddSounds">Sounds</button><div class="dd-panel" id="ddSounds">{plans}<a class="dd-all" href="/sounds/">All sounds and packs</a></div></div>
-      <a href="/upcoming/" data-edit="nav.upcoming">Upcoming</a><a href="/pricing/" data-edit="nav.store">Pricing</a><a href="/#tracks" data-edit="nav.tracks">Central Tracks</a><a href="/create/" data-edit="nav.create">Make &amp; sell</a><a href="/#downloads" data-edit="nav.downloads">Downloads</a><a href="/help/" data-edit="nav.help">Help</a>
+      <a href="/upcoming/" data-edit="nav.upcoming">Upcoming</a><a href="/projects/" data-edit="nav.projects">Projects</a><a href="/pricing/" data-edit="nav.store">Pricing</a><a href="/#tracks" data-edit="nav.tracks">Central Tracks</a><a href="/create/" data-edit="nav.create">Make &amp; sell</a><a href="/#downloads" data-edit="nav.downloads">Downloads</a><a href="/help/" data-edit="nav.help">Help</a>
     </span>
     <span class="nav-end">
     <a href="/#account" id="acctLink">Sign in</a>
@@ -85,7 +85,7 @@ def footer():
   <div class="about"><a class="logo" href="/"><span style="color:var(--brass-hi)">{LOGO_SVG}</span>Motion Audio</a>
     <p class="apps" data-edit="footer.about">I make Central for church worship and production teams. If you've got a question or something isn't working, email us and we'll write back.</p>
     <a class="mail" href="mailto:{E(C.SUPPORT_EMAIL)}">{E(C.SUPPORT_EMAIL)}</a></div>
-  {col("Apps", [(a["name"], app_href(a)) for a in C.APPS] + [("Compare the apps", "/apps/"), ("Upcoming", "/upcoming/")])}
+  {col("Apps", [(a["name"], app_href(a)) for a in C.APPS] + [("Compare the apps", "/apps/"), ("Upcoming", "/upcoming/"), ("Projects", "/projects/")])}
   {col("Sounds", [(p["name"], "/sounds/" + p["id"] + "/") for p in C.PLANS] + [(C.TRACKS["name"], "/sounds/tracks/")])}
   {col("Buy", [("Pricing", "/pricing/"), ("Church packs", "/pricing/#packsTop"), ("Sound plans", "/pricing/#plans"), ("Central Tracks", "/#tracks"), ("Make & sell", "/create/"), ("Downloads", "/#downloads"), ("My products", "/#account-products")])}
   {col("Help", [("Help Center", "/help/"), ("Contact support", "/help/#contact"), ("Install the apps", "/help/install.html"), ("How accounts work", "/help/accounts.html"), ("Status", "/status/"), ("Privacy", "/privacy"), ("Terms", "/terms"), ("Refunds", "/refunds")])}
@@ -376,6 +376,42 @@ def upcoming():
     page("upcoming/index.html", "upcoming", "Upcoming: the Control Box and three ways to use it | Motion Audio", "What Motion Audio is building next: the Control Box, the brain of Central I/O, on Kickstarter in July 2027. It runs The Pedal and The In-Ears, and Central Wave from February 2028.", body)
 
 
+
+def projects():
+    """/projects/: every project with when it comes out - the apps (out now), then the pedal, the boxes and Central Wave
+    by date, with a list at the top to see it all at once"""
+    P = C.PROJECTS
+    apps = {a["slug"]: a for a in C.APPS}
+    def pic(it):
+        if it.get("shot"): return shot_img(it["shot"])
+        src, alt = it["img"]; wh = img_size(src)
+        dims = f' width="{wh[0]}" height="{wh[1]}"' if wh else ""
+        return f'<img src="/{E(src)}" alt="{E(alt)}"{dims} loading="lazy" decoding="async">'
+    def card(it, chip, cls):
+        icon = f'<img src="/brand/{E(it["icon"])}.svg" alt="">' if it.get("icon") else ""
+        return (f'<a class="app-card proj" id="{E(it["id"])}" href="{E(it["href"])}"><div class="shot">{pic(it)}</div>'
+                f'<div class="in"><h3>{icon}{E(it["name"])}</h3><span class="chip {cls}">{E(chip)}</span></div>'
+                f'<p>{E(it["line"])}</p><span class="go">{E(it["go"])}</span></a>')
+    now = [dict(id=a["slug"], name=a["name"], icon=a["icon"], shot=a["shot"], line=a["lede"], href=app_href(a),
+                go="See what it does") for a in (apps[s] for s in P["now"]["apps"])]
+    glance = "".join(f'<li><a href="#{E(it["id"])}"><span>{E(it["name"])}</span><span class="when now">{E(P["now"]["chip"])}</span></a></li>' for it in now)
+    glance += "".join(f'<li><a href="#{E(it["id"])}"><span>{E(it["name"])}</span><span class="when">{E(g["when"])}</span></a></li>' for g in P["groups"] for it in g["items"])
+    groups = "".join(f'<div class="proj-when"><h3>{E(g["when"])}</h3>{("<p>" + E(g["note"]) + "</p>") if g["note"] else ""}</div>'
+                     f'<div class="app-grid">{"".join(card(it, it["chip"], "plan") for it in g["items"])}</div>' for g in P["groups"])
+    body = (f'<section class="page-hero on-stage"><div class="wrap hero2">\n  <div><div class="crumbs"><span>Projects</span></div>\n'
+            f'  <h1 data-edit="projects.title">{E(P["title"])}</h1>\n  <p class="lede" data-edit="projects.lede">{E(P["lede"])}</p>\n'
+            '  <div class="ctas"><a class="btn brass" href="#now">What&#x27;s out now</a><a class="btn ghost" href="#coming">What&#x27;s coming</a></div></div>\n'
+            f'  <div class="proj-glance"><h2>At a glance</h2><ul>{glance}</ul></div>\n</div></section>\n'
+            f'<section class="pg" id="now"><div class="wrap"><div class="pg-head"><h2>{E(P["now"]["title"])}</h2><p>{E(P["now"]["text"])}</p></div>\n'
+            f'  <div class="app-grid">{"".join(card(it, P["now"]["chip"], "free") for it in now)}</div></div></section>\n'
+            f'<section class="pg band" id="coming"><div class="wrap"><div class="pg-head"><h2>{E(P["coming"]["title"])}</h2><p>{E(P["coming"]["text"])}</p></div>\n'
+            f'  {groups}\n  <p class="muted" style="margin-top:1.6rem">{E(P["note"])}</p>\n'
+            f'  <div style="margin-top:1.4rem;max-width:560px">{launch_form("projects")}</div>\n</div></section>')
+    OG_SHOT["projects"] = "pedal-render-hero"
+    page("projects/index.html", "projects", "Projects: what's out now and what's coming | Motion Audio",
+         "Every Motion Audio project in one place: the Central apps, out now, and the Central Pedal, the Central I/O boxes and Central Wave, with when each one is coming.", body)
+
+
 def io_guide(b):
     I = C.IO
     secs = C.IO_GUIDES[b["slug"]]
@@ -636,6 +672,7 @@ def main():
     for p in C.PLANS: plan_page(p)
     tracks_page()
     upcoming()
+    projects()
     io_hub()
     for b in C.IO["boxes"]: io_guide(b)
     pricing()
