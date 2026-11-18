@@ -158,10 +158,11 @@
 
   // ------------------------------------------------------------- the project
   function newTrack(kind, name, sound) {
-    var t = { id: uid("t"), name: name || { audio: "Audio", drums: "Drums", bus: "Bus" }[kind] || "Keys", kind: kind || "instrument", color: COLORS[0], volume: 0, pan: 0, mute: false, solo: false, arm: false, monitor: "auto",
+    var t = { id: uid("t"), name: name || { audio: "Audio", drums: "Drums", bus: "Bus", external: "Synth" }[kind] || "Keys", kind: kind || "instrument", color: COLORS[0], volume: 0, pan: 0, mute: false, solo: false, arm: false, monitor: kind === "external" ? "in" : "auto",
       input: kind === "audio" ? "1" : "any", output: "master", sends: [], inserts: [], clips: [], auto: {}, lanes: [], height: 64 };
     if (kind === "instrument" || kind === "drums") t.layers = [{ sound: sound || (kind === "drums" ? "builtin:kit" : "builtin:keys"), lo: 0, hi: 127, velLo: 1, velHi: 127, octave: 0, transpose: 0, volume: 1, pan: 0 }];
     if (kind === "bus") { t.input = null; t.inserts = [{ id: uid("f"), type: "reverb", on: true, params: { type: 1, mix: 1 } }]; }
+    if (kind === "external") t.ext = { port: "", channel: 1, audio: "1+2", offsetMs: 0, program: null };   // (10.8: a hardware synth - see MidiOut)
     return t;
   }
   function newProject(o) {
@@ -264,7 +265,8 @@
       // sends: post-fader (or pre) to the buses
       var want = {}; (t.sends || []).forEach(function (sd) { var b = self.strips[sd.to]; if (!b || sd.to === t.id) return; want[sd.to] = 1; var g = s.sends[sd.to]; if (!g || g.pre !== !!sd.pre) { if (g) try { g.node.disconnect(); } catch (_) { } var n = G(self.c, 0); (sd.pre ? s.preOut : s.mute).connect(n); n.connect(b.input); g = s.sends[sd.to] = { node: n, pre: !!sd.pre }; } if (!(aut["send:" + sd.to] && aut["send:" + sd.to].length)) g.node.gain.setTargetAtTime(dbToGain(sd.level), now, 0.012); });
       Object.keys(s.sends).forEach(function (k) { if (!want[k]) { try { s.sends[k].node.disconnect(); } catch (_) { } delete s.sends[k]; } });
-      if (t.layers && t.kind !== "audio" && t.kind !== "bus") { var sig = JSON.stringify(t.layers); if (self.instSig[t.id] !== sig) { if (self.insts[t.id]) self.insts[t.id].allOff(now, true); self.insts[t.id] = SND.instrument(self.c, t.layers); self.instSig[t.id] = sig; } }
+      if (t.layers && t.kind !== "audio" && t.kind !== "bus" && t.kind !== "external") { var sig = JSON.stringify(t.layers); if (self.instSig[t.id] !== sig) { if (self.insts[t.id]) self.insts[t.id].allOff(now, true); self.insts[t.id] = SND.instrument(self.c, t.layers); self.instSig[t.id] = sig; } }
+      if (t.kind === "external") { var es = "ext:" + JSON.stringify(t.ext || {}); if (self.instSig[t.id] !== es) { if (self.insts[t.id]) self.insts[t.id].allOff(now, true); if (self.offline) delete self.insts[t.id]; else self.insts[t.id] = new MidiOut(self.c, t); self.instSig[t.id] = es; } }   // (10.8: in an export it's silent - record its sound first)
     });
     Object.keys(this.strips).forEach(function (id) { if (!ids[id]) { self.strips[id].route(null); if (self.insts[id]) self.insts[id].allOff(now, true); delete self.strips[id]; delete self.insts[id]; delete self.instSig[id]; } });
     this.master.fader.gain.setTargetAtTime(dbToGain(p.master.volume || 0), now, 0.012);
@@ -272,6 +274,44 @@
     this.click.gain.setTargetAtTime(p.metronome.level == null ? 0.6 : p.metronome.level, now, 0.01);
     return Promise.all(Object.keys(this.insts).map(function (id) { return self.insts[id].ready; }));
   };
+  // (10.8) an external MIDI instrument: a hardware synth, a keyboard's own sounds, another app's virtual MIDI port. Its
+  // notes go out of the track's MIDI port on its channel, each sent a few ms ahead with its exact time (Web MIDI's
+  // timestamps, from the sound card's clock: getOutputTimestamp), so they're heard when the audio around them is; the
+  // track's offset moves them for a slow synth. Its sound comes back in on the interface (t.ext.audio) through the track's
+  // strip (the track's I button). It works like a track's instrument: noteOn / noteOff / allOff, plus raw() for the rest.
+  function MidiOut(c, t) {
+    this.c = c; this.ext = Object.assign({ port: "", channel: 1, offsetMs: 0, program: null }, t.ext || {}); this.q = []; this.on = {}; this.timer = null; this.ready = Promise.resolve(this);
+    if (this.ext.program != null && this.ext.port) this.out([0xC0 | this.ch(), this.ext.program & 127]);
+  }
+  MidiOut.prototype.ch = function () { return ((this.ext.channel || 1) - 1) & 15; };
+  MidiOut.prototype.perf = function (when) {
+    var c = this.c, ts = c.getOutputTimestamp ? c.getOutputTimestamp() : null, off = +this.ext.offsetMs || 0;
+    if (ts && ts.performanceTime) return ts.performanceTime + (when - ts.contextTime) * 1000 + off;
+    return performance.now() + (when - c.currentTime + (c.baseLatency || 0) + (c.outputLatency || 0)) * 1000 + off;
+  };
+  MidiOut.prototype.out = function (bytes, at) { var M = window.CUMidiIn; if (!M || !this.ext.port) return false; return M.send(this.ext.port, bytes, at); };
+  MidiOut.prototype.later = function (bytes, when) {   // now, or queued until a moment before its time (a stop takes queued notes back)
+    if (!when || when <= this.c.currentTime + 0.003) { this.out(bytes); return null; }
+    var e = { at: this.perf(when), bytes: bytes }; this.q.push(e); this.pump(); return e;
+  };
+  MidiOut.prototype.pump = function () {
+    var self = this; if (this.timer || !this.q.length) return;
+    this.timer = setInterval(function () { var now = performance.now(), keep = []; self.q.forEach(function (e) { if (e.at - now < 30) self.out(e.bytes, Math.max(now, e.at)); else keep.push(e); }); self.q = keep; if (!keep.length) { clearInterval(self.timer); self.timer = null; } }, 5);
+  };
+  MidiOut.prototype.noteOn = function (dest, note, vel, when) {
+    var self = this, ch = this.ch(), n = note & 127, onE = this.later([0x90 | ch, n, Math.max(1, Math.min(127, vel | 0))], when), done = false;
+    this.on[n] = (this.on[n] || 0) + 1;
+    function off(w) { if (done) return; done = true; self.on[n] = Math.max(0, (self.on[n] || 1) - 1); self.later([0x80 | ch, n, 0], w); }
+    return { note: n, start: when, parts: [{ release: off, kill: function (w) { var i = onE ? self.q.indexOf(onE) : -1; if (i >= 0) { self.q.splice(i, 1); done = true; self.on[n] = Math.max(0, (self.on[n] || 1) - 1); } else off(w); } }] };
+  };
+  MidiOut.prototype.noteOff = function (voice, when) { if (voice) voice.parts.forEach(function (p) { p.release(when || 0); }); };
+  MidiOut.prototype.allOff = function () {
+    var ch = this.ch(), self = this; this.q = []; clearInterval(this.timer); this.timer = null;
+    Object.keys(this.on).forEach(function (n) { if (self.on[n] > 0) self.out([0x80 | ch, +n, 0]); }); this.on = {};
+    this.out([0xB0 | ch, 64, 0]); this.out([0xB0 | ch, 123, 0]);
+  };
+  MidiOut.prototype.raw = function (data, when) { if (!data || !data.length) return; var st = data[0] & 0xF0; this.later([st | this.ch()].concat(Array.prototype.slice.call(data, 1)), when); };
+  MidiOut.prototype.bend = function (cents, when) { var v = Math.max(0, Math.min(16383, Math.round(8192 + cents / 200 * 8192))); this.later([0xE0 | this.ch(), v & 127, (v >> 7) & 127], when); };
   // (10.4) a tempo change at `when`: in an export the render pauses there, so even a plugin's knob lands on its beat
   Graph.prototype.applyTempo = function (bpm, when) {
     if (!(bpm > 0) || this.bpmNow === bpm) return; this.bpmNow = bpm; var self = this, c = this.c;
@@ -435,12 +475,14 @@
           sink.sources.push({ src: src, g: gn, track: t.id }); src.onended = function () { var i = sink.sources.findIndex(function (x) { return x.src === src; }); if (i >= 0) sink.sources.splice(i, 1); };
         } else {
           var inst = g.insts[t.id]; if (!inst) return;
-          var L = cl.loopLen && cl.loopLen > 0 ? cl.loopLen : cl.len, reps = Math.ceil(cl.len / L);
-          for (var r = 0; r < reps; r++) (cl.notes || []).forEach(function (n) {
-            if (n.s >= L) return; var at = cl.start + r * L + n.s; if (at < a || at >= b || at >= cl.start + cl.len) return;
-            var end = Math.min(at + n.d, cl.start + cl.len), wOn = sink.time(at), wOff = sink.time(end);
+          var bends = clipBends(cl);
+          notesFor(t, cl).forEach(function (n) {
+            var at = n.s; if (at < a || at >= b) return;
+            var end = n.s + n.d, wOn = sink.time(at), wOff = sink.time(end);
             var voice = inst.noteOn(strip.input, n.p, n.v, wOn); sink.notes.push({ voice: voice, inst: inst, on: wOn, off: wOff, track: t.id }); inst.noteOff(voice, wOff);
+            if (bends.length && inst.bendVoice) { inst.bendVoice(voice, bendAt(bends, at), wOn); bends.forEach(function (x) { if (x.b > at && x.b < end) inst.bendVoice(voice, x.v, sink.time(x.b)); }); }
           });
+          if (bends.length && inst.bend && !inst.bendVoice) bends.forEach(function (x) { if (x.b >= a && x.b < b) inst.bend(x.v, sink.time(x.b)); });   // (an external synth: the bends go out as they come)
         }
       });
     });
@@ -457,6 +499,20 @@
       }
     }
   }
+  // (10.8) a MIDI clip's notes where they play (its loop repeats laid out, cut at its end), through the track's MIDI
+  // effects (daw-midifx.js); the same for the same clip, so it's worked out once
+  var nfCache = {}, nfKeys = [];
+  function notesFor(t, cl) {
+    var fx = t.midifx && t.midifx.length && window.CDawMidiFx && window.CDawMidiFx.on(t.midifx) ? t.midifx : null, key = JSON.stringify([cl.start, cl.len, cl.loopLen, cl.notes, fx, fx ? proj.key : ""]);
+    if (nfCache[key]) return nfCache[key];
+    var L = cl.loopLen && cl.loopLen > 0 ? cl.loopLen : cl.len, reps = Math.ceil(cl.len / L - 1e-9), out = [];
+    for (var r = 0; r < reps; r++) (cl.notes || []).forEach(function (n) { if (n.s >= L) return; var at = cl.start + r * L + n.s; if (at >= cl.start + cl.len) return; out.push({ p: n.p, v: n.v, s: at, d: Math.max(0.001, Math.min(at + n.d, cl.start + cl.len) - at) }); });
+    if (fx) out = window.CDawMidiFx.transform(out, fx, { key: proj.key }).filter(function (n) { return n.s < cl.start + cl.len; }).map(function (n) { n.d = Math.min(n.d, cl.start + cl.len - n.s); return n; });
+    nfCache[key] = out; nfKeys.push(key); if (nfKeys.length > 400) delete nfCache[nfKeys.shift()];
+    return out;
+  }
+  function clipBends(cl) { return (cl.bends || []).filter(function (x) { return x.s < cl.len; }).map(function (x) { return { b: cl.start + x.s, v: x.v }; }); }
+  function bendAt(list, beat) { var v = 0; for (var i = 0; i < list.length; i++) { if (list[i].b <= beat) v = list[i].v; else break; } return v; }
   function curve(level, up) { var n = 32, c = new Float32Array(n); for (var i = 0; i < n; i++) { var x = i / (n - 1); c[i] = level * (up ? Math.sin(x * Math.PI / 2) : Math.cos(x * Math.PI / 2)); } return c; }
   function autoStart(g, beat, when) {
     proj.tracks.forEach(function (t) { Object.keys(t.auto || {}).forEach(function (k) { var list = t.auto[k]; if (!list || !list.length) return; var tg = g.autoTarget(t, k); if (!tg) return; try { tg.param.cancelScheduledValues(when); tg.param.setValueAtTime(tg.val(autoAt(list, beat)), when); } catch (_) { } }); });
@@ -507,6 +563,7 @@
     var pos = Math.max(0, position()); if (T.recording) finishRecording(pos);
     if (window.PPPedals && PPPedals.busy) PPPedals.busy("daw", false);
     T.playing = false; clearInterval(T.timer); silence(T.sink, now); T.sink = null; rt.auto = false;
+    Object.keys(rt.insts).forEach(function (id) { var i = rt.insts[id]; if (i instanceof MidiOut) i.allOff(); });   // (10.8: an external synth hears "all notes off")
     Object.keys(rt.strips).forEach(function (id) { var s = rt.strips[id]; try { s.fader.gain.cancelScheduledValues(now); s.pan.pan.cancelScheduledValues(now); } catch (_) { } }); syncGraph();
     T.pos = opts && opts.home ? 0 : opts && opts.back ? T.startedAt || 0 : pos;
     fire("transport", state());
@@ -534,7 +591,7 @@
   }
 
   // ------------------------------------------------------------- recording
-  var rec = { midi: {}, held: {}, nodes: [], stream: null };
+  var rec = { midi: {}, held: {}, sus: {}, bends: {}, nodes: [], stream: null };
   function armed() { return proj.tracks.filter(function (t) { return t.arm && t.kind !== "bus"; }); }
   function record() {
     if (T.recording) { stop(); return; }
@@ -542,7 +599,7 @@
     var tracks = armed(); if (!tracks.length) { fire("message", "Arm a track first (its ● button), then record."); return; }
     var from = proj.punch.on ? Math.min(T.pos, proj.punch.start) : T.pos;
     if (proj.punch.on && T.pos > proj.punch.start) from = Math.max(0, proj.punch.start - beatToBar(proj.punch.start).per);
-    T.recording = true; rec.from = proj.punch.on ? proj.punch.start : (proj.loop.on ? Math.max(T.pos, proj.loop.start) : T.pos); rec.midi = {}; rec.held = {};
+    T.recording = true; rec.from = proj.punch.on ? proj.punch.start : (proj.loop.on ? Math.max(T.pos, proj.loop.start) : T.pos); rec.midi = {}; rec.held = {}; rec.sus = {}; rec.bends = {};
     T.startedAt = from;
     var audio = tracks.filter(function (t) { return t.kind === "audio"; });
     (audio.length ? startAudio(audio) : Promise.resolve()).then(function () { if (!T.recording) return; play({ from: from, record: true }); fire("record", { on: true }); })
@@ -589,8 +646,9 @@
         if (!notes.length) return;
         var a = loopOn ? proj.loop.start : Math.floor(beatToBar(Math.min.apply(null, notes.map(function (n) { return n.s; }))).bar), startBeat = loopOn ? a : barToBeat(a), endB = loopOn ? proj.loop.end : barToBeat(beatToBar(Math.max.apply(null, notes.map(function (n) { return n.s + n.d; }))).bar + 1);
         var existing = t.clips.filter(function (c) { return c.kind === "midi" && c.start <= startBeat + 0.01 && c.start + c.len >= endB - 0.01; })[0];
-        if (existing && (loopOn || p.overdub)) notes.forEach(function (n) { n.s -= existing.start; existing.notes.push(n); });
-        else { if (!p.overdub) t.clips = t.clips.filter(function (c) { return !(c.kind === "midi" && c.start >= startBeat && c.start + c.len <= endB); }); var cl = { id: uid("c"), kind: "midi", start: startBeat, len: endB - startBeat, name: t.name, notes: notes.map(function (n) { n.s -= startBeat; return n; }) }; t.clips.push(cl); }
+        var bends = (rec.bends[id] || []).filter(function (x) { return x.b >= punchA - 0.25 && x.b < punchB; });   // (10.8: the pitch wheel, with the notes)
+        if (existing && (loopOn || p.overdub)) { notes.forEach(function (n) { n.s -= existing.start; existing.notes.push(n); }); if (bends.length) existing.bends = (existing.bends || []).concat(bends.map(function (x) { return { s: x.b - existing.start, v: x.v }; })).sort(function (x, y) { return x.s - y.s; }); }
+        else { if (!p.overdub) t.clips = t.clips.filter(function (c) { return !(c.kind === "midi" && c.start >= startBeat && c.start + c.len <= endB); }); var cl = { id: uid("c"), kind: "midi", start: startBeat, len: endB - startBeat, name: t.name, notes: notes.map(function (n) { n.s -= startBeat; return n; }) }; if (bends.length) cl.bends = bends.map(function (x) { return { s: x.b - startBeat, v: x.v }; }).concat([{ s: Math.max(0, bends[bends.length - 1].b - startBeat + 0.01), v: 0 }].filter(function () { return bends[bends.length - 1].v !== 0; })); t.clips.push(cl); }
       });
       // audio: placed where it was heard (latency compensated); with the loop on, each pass is a take of one clip
       audioDone.forEach(function (d) {
@@ -636,28 +694,108 @@
   }
 
   // ------------------------------------------------------------- playing live (MIDI keyboards, the computer keys)
-  var live = { held: {}, sustain: {}, sustained: {} }, monitor = { ok: false, tracks: {}, latencyMs: null, error: null, started: false };
+  var live = { held: {}, sustain: {}, sustained: {}, arps: {}, cap: {} }, monitor = { ok: false, tracks: {}, latencyMs: null, error: null, started: false };
   function liveMidi(trackId, data, perfMs) {
     var t = track(trackId); if (!t || t.kind === "audio" || t.kind === "bus") return;
     var c = ensureCtx(); if (c.state === "suspended") c.resume();
     var st = data[0] & 0xF0, n = data[1], v = data[2] || 0, inst = rt.insts[t.id], strip = rt.strips[t.id], k = t.id + ":" + n;
+    // (10.8) MIDI effects on the track (chord, scale, arpeggiator): played here, in the page
+    var FXM = window.CDawMidiFx, fxOn = !!(FXM && t.midifx && t.midifx.length && FXM.on(t.midifx)), arpOn = fxOn && FXM.hasArp(t.midifx);
+    // (10.8) an external synth: everything but the notes and the pedal (wheels, aftertouch, knobs) goes straight out to it
+    if (t.kind === "external" && inst && inst.raw && st !== 0x90 && st !== 0x80 && !(st === 0xB0 && n === 64)) inst.raw(data);
     // (10.4) a track with VST3 / CLAP plugins: the keyboard goes through them (see "a keyboard through a track's plugins")
-    var mode = kbMode(t), K = mode === "track" ? kbStream(t) : null, dest = K ? K.input : strip && strip.input;
+    var mode = fxOn || t.kind === "external" ? null : kbMode(t), K = mode === "track" ? kbStream(t) : null, dest = K ? K.input : strip && strip.input;
     if (mode === "direct") { var msg = [data[0], n, v]; kbRig(t).then(function () { NH.host.midi(msg); }, function () { }); inst = null; }
     if (K && st === 0x90 && v > 0) kbWake(K);
-    var native = !mode && monitor.ok && monitor.tracks[t.id] && NAT && NAT.monitor;
+    var native = !mode && !fxOn && monitor.ok && monitor.tracks[t.id] && NAT && NAT.monitor;
     if (native) NAT.monitor.send({ action: "midi", track: t.id, data: [data[0], n, v] });
     if (st === 0x90 && v > 0) {
-      if (!native && inst && dest) { if (live.held[k]) inst.noteOff(live.held[k], 0); live.held[k] = inst.noteOn(dest, n, v, 0); }
-      if (T.recording && t.arm) { var b = position(); if (proj.loop.on && b >= proj.loop.end) b = proj.loop.start + ((b - proj.loop.start) % (proj.loop.end - proj.loop.start)); (rec.midi[t.id] = rec.midi[t.id] || []).push({ p: n, v: v, on: b }); rec.held[k] = rec.midi[t.id][rec.midi[t.id].length - 1]; }
+      capNote(t.id, n, v, true);
+      if (!native && inst && dest) {
+        if (arpOn) FXM.map(n, t.midifx, { key: proj.key }).forEach(function (q) { liveArp(t).press(q, v); });
+        else { if (live.held[k]) inst.noteOff(live.held[k], 0); live.held[k] = playFx(t, inst, dest, n, v, fxOn); }
+      }
+      if (T.recording && t.arm) {
+        var b = position(); if (proj.loop.on && b >= proj.loop.end) b = proj.loop.start + ((b - proj.loop.start) % (proj.loop.end - proj.loop.start));
+        (rec.sus[t.id] || []).forEach(function (x) { if (x.p === n && x.off == null) x.off = b; });   // (struck again under the pedal: the old one ends)
+        (rec.midi[t.id] = rec.midi[t.id] || []).push({ p: n, v: v, on: b }); rec.held[k] = rec.midi[t.id][rec.midi[t.id].length - 1];
+      }
     } else if (st === 0x80 || (st === 0x90 && v === 0)) {
-      if (live.sustain[t.id]) { (live.sustained[t.id] = live.sustained[t.id] || []).push(k); }
+      capNote(t.id, n, 0, false);
+      if (arpOn) { if (live.arps[t.id]) FXM.map(n, t.midifx, { key: proj.key }).forEach(function (q) { live.arps[t.id].release(q); }); }
+      else if (live.sustain[t.id]) { (live.sustained[t.id] = live.sustained[t.id] || []).push(k); }
       else if (live.held[k] && inst) { inst.noteOff(live.held[k], 0); delete live.held[k]; }
-      if (rec.held[k]) { rec.held[k].off = position(); delete rec.held[k]; }
+      // (10.8) recorded under the pedal: the note lasts until the pedal comes up, as it sounded
+      if (rec.held[k]) { if (live.sustain[t.id]) (rec.sus[t.id] = rec.sus[t.id] || []).push(rec.held[k]); else rec.held[k].off = position(); delete rec.held[k]; }
     } else if (st === 0xB0 && n === 64) {
       live.sustain[t.id] = v >= 64;
-      if (!live.sustain[t.id]) { (live.sustained[t.id] || []).forEach(function (k2) { if (live.held[k2] && inst) { inst.noteOff(live.held[k2], 0); delete live.held[k2]; } }); live.sustained[t.id] = []; }
+      if (!live.sustain[t.id]) {
+        (live.sustained[t.id] || []).forEach(function (k2) { if (live.held[k2] && inst) { inst.noteOff(live.held[k2], 0); delete live.held[k2]; } }); live.sustained[t.id] = [];
+        var pb = position(); (rec.sus[t.id] || []).forEach(function (x) { if (x.off == null) x.off = pb; }); rec.sus[t.id] = [];
+      }
+    } else if (st === 0xE0) {   // (10.8) the pitch wheel: ±2 semitones, heard and recorded
+      var cents = (((v << 7) | n) - 8192) / 8192 * 200;
+      if (!native && inst && inst.bend && t.kind !== "external") inst.bend(cents, 0);
+      if (T.recording && t.arm) (rec.bends[t.id] = rec.bends[t.id] || []).push({ b: position(), v: Math.round(cents) });
     }
+  }
+  // (10.8) a note through the track's chord and scale effects: one voice that holds every note it became
+  function playFx(t, inst, dest, n, v, fxOn) {
+    if (!fxOn) return inst.noteOn(dest, n, v, 0);
+    var combo = { parts: [], note: n, start: 0 };
+    window.CDawMidiFx.map(n, t.midifx, { key: proj.key }).forEach(function (q) { var vv = inst.noteOn(dest, q, v, 0); if (vv && vv.parts) combo.parts = combo.parts.concat(vv.parts); });
+    return combo;
+  }
+  function liveArp(t) {
+    if (live.arps[t.id]) return live.arps[t.id];
+    var id = t.id;
+    return (live.arps[id] = new window.CDawMidiFx.Live({
+      fx: function () { var x = track(id); return x && x.midifx; }, now: function () { return ctx.currentTime; },
+      secPerBeat: function () { return 60 / bpmAt(T.playing ? position() : T.pos || 0); },
+      beatAt: function (time) { return T.playing ? position() + (time - ctx.currentTime) * bpmAt(position()) / 60 : null; },
+      noteOn: function (p, vel, when) { var i2 = rt.insts[id], d2 = rt.strips[id] && rt.strips[id].input; return i2 && d2 ? i2.noteOn(d2, p, vel, when) : null; },
+      noteOff: function (voice, when) { var i2 = rt.insts[id]; if (voice && i2) i2.noteOff(voice, when); }
+    }));
+  }
+  // (10.8) Capture MIDI: what you played lately, kept whether or not you were recording (the last three minutes)
+  function capNote(id, n, v, on) {
+    var now = performance.now(), cap = live.cap[id] = live.cap[id] || [];
+    if (on) cap.push({ p: n, v: v, t: now, b: T.playing ? position() : null });
+    else for (var i = cap.length - 1; i >= 0; i--) if (cap[i].p === n && cap[i].off == null) { cap[i].off = now; cap[i].offB = T.playing ? position() : null; break; }
+    while (cap.length && now - cap[0].t > 180000) cap.shift();
+  }
+  function capture(trackId) {
+    var t = track(trackId), cap = live.cap[trackId] || []; if (!t || !cap.length) return null;
+    // the last thing you played: back from the end to a gap of four seconds with nothing held
+    var i = cap.length - 1, ends = cap[i].off || cap[i].t;
+    for (; i > 0; i--) { ends = Math.max(ends, cap[i].off || cap[i].t); var prevEnd = 0; for (var j = 0; j < i; j++) prevEnd = Math.max(prevEnd, cap[j].off || cap[j].t + 300); if (cap[i].t - prevEnd > 4000) break; }
+    var take = cap.slice(i), timed = take.every(function (x) { return x.b != null; }), bpm = bpmAt(T.pos || 0), first = take[0], notes;
+    if (timed) notes = take.map(function (x) { var d = x.offB != null && x.offB > x.b ? x.offB - x.b : ((x.off || x.t + 300) - x.t) / 1000 * bpm / 60; return { p: x.p, v: x.v, s: x.b, d: Math.max(0.05, d) }; });
+    else { var s0 = barToBeat(beatToBar(T.pos || 0).bar); notes = take.map(function (x) { return { p: x.p, v: x.v, s: s0 + (x.t - first.t) / 1000 * bpm / 60, d: Math.max(0.05, ((x.off || x.t + 300) - x.t) / 1000 * bpm / 60) }; }); }
+    var lo = Math.min.apply(null, notes.map(function (x) { return x.s; })), hi = Math.max.apply(null, notes.map(function (x) { return x.s + x.d; }));
+    var start = barToBeat(beatToBar(lo).bar), end = barToBeat(beatToBar(hi - 1e-6).bar + 1);
+    live.cap[trackId] = cap.slice(0, i);
+    return edit("Capture MIDI", function () {
+      var cl = { id: uid("c"), kind: "midi", start: start, len: Math.max(end - start, beatToBar(start).per), name: t.name, notes: notes.map(function (x) { return { p: x.p, v: x.v, s: x.s - start, d: x.d }; }) };
+      track(trackId).clips.push(cl); return cl;
+    });
+  }
+  // (10.8) Bounce to audio: the track as it sounds (its sound, its effects; not the master's, not its sends) as a new audio
+  // track under it, with its level, pan and sends; the original is muted, so it's there to change later
+  function bounce(trackId) {
+    var t = track(trackId); if (!t || t.kind === "bus") return Promise.reject(new Error("Pick a track with something on it."));
+    if (t.kind === "external") return Promise.reject(new Error("An external synth's sound comes in from your interface: use “Record its sound to an audio track”."));
+    var end = t.clips.reduce(function (a, c) { return c.mute ? a : Math.max(a, c.start + c.len); }, 0); if (!(end > 0)) return Promise.reject(new Error("“" + t.name + "” has nothing on it to bounce."));
+    return render({ tracks: [t.id], from: 0, to: end, tail: 2, noMaster: true, noSends: true, flat: true }).then(function (buf) {
+      var src = addAudio(buf);
+      return edit("Bounce " + t.name + " to audio", function (p) {
+        var x = track(t.id), a = newTrack("audio", (x.name + " (audio)").slice(0, 28)), i = p.tracks.findIndex(function (q) { return q.id === x.id; });
+        a.color = x.color; a.volume = x.volume; a.pan = x.pan; a.sends = clone(x.sends || []); a.output = x.output || "master";
+        if (x.auto && (x.auto.volume || x.auto.pan)) { a.auto = {}; if (x.auto.volume) a.auto.volume = clone(x.auto.volume); if (x.auto.pan) a.auto.pan = clone(x.auto.pan); }
+        a.clips.push({ id: uid("c"), kind: "audio", start: 0, len: secToBeat(buf.duration), name: x.name, audio: { src: src, offset: 0, gain: 0, fadeIn: 0.004, fadeOut: 0.05, loop: false, warp: null } });
+        p.tracks.splice(i + 1, 0, a); x.mute = true; return a;
+      });
+    });
   }
   function nativeTracks() { var out = []; monitor.tracks = {}; proj.tracks.forEach(function (t) { if (!t.layers || t.kind === "audio" || t.kind === "bus") return; if (NH.host && natives(t).length) return;   /* (10.4: through its plugins instead) */ var ls = SND.nativeLayers && SND.nativeLayers(t.layers); if (!ls) return; out.push({ id: t.id, volume: dbToGain(t.volume), pan: t.pan, mute: t.mute, layers: ls }); monitor.tracks[t.id] = 1; }); return out; }
   var monSig = "";
@@ -672,16 +810,18 @@
   // hearing an audio track's input while it's armed (or monitor "in")
   var mon = { src: null, split: null, conns: {} };
   function syncInputMonitor() {
-    var want = proj.tracks.filter(function (t) { return t.kind === "audio" && (t.monitor === "in" || (t.monitor === "auto" && t.arm)); });
-    var viaRig = NH.host && NH.host.monitor ? want.filter(function (t) { return natives(t).length; })[0] || null : null;   // (one track at a time through the rig)
+    // (10.8) an external synth's sound coming back in: heard through its own track (t.ext.audio), unless its I is off
+    function inOf(t) { return t.kind === "external" ? (t.ext && t.ext.audio) || "1+2" : t.input; }
+    var want = proj.tracks.filter(function (t) { return (t.kind === "audio" && (t.monitor === "in" || (t.monitor === "auto" && t.arm))) || (t.kind === "external" && t.monitor !== "off" && t.ext && t.ext.port); });
+    var viaRig = NH.host && NH.host.monitor ? want.filter(function (t) { return t.kind === "audio" && natives(t).length; })[0] || null : null;   // (one track at a time through the rig)
     if (NH.host && NH.host.monitor) { var mk = viaRig ? viaRig.id + ":" + viaRig.input + ":" + natives(viaRig).map(function (f) { return nativeSlot(f) + (f.plugin.key || f.plugin.id); }).join(",") : ""; if (mk !== NH.monKey) { NH.monKey = mk; NH.host.monitor(viaRig ? { track: viaRig.id, input: viaRig.input || "1", plugins: natives(viaRig).map(function (f) { return Object.assign(nativeJob(f), { slot: ("dm" + String(f.id).replace(/[^A-Za-z0-9]/g, "")).slice(0, 12), stateFrom: nativeSlot(f) }); }) } : null); } }
     if (viaRig) want = want.filter(function (t) { return t !== viaRig; });
     if (!want.length) { Object.keys(mon.conns).forEach(function (id) { try { mon.conns[id].g.disconnect(); } catch (_) { } }); mon.conns = {}; return; }
     ensureCtx(); inputStream().then(function (s) {
       var nch = Math.max(2, rec.chs || 2);
       if (!mon.src || mon.src.mediaStream !== s) { mon.src = ctx.createMediaStreamSource(s); mon.src.channelCount = nch; mon.src.channelInterpretation = "discrete"; mon.split = ctx.createChannelSplitter(nch); mon.src.connect(mon.split); mon.conns = {}; }
-      var ids = {}; want.forEach(function (t) { ids[t.id] = 1; var strip = rt.strips[t.id], c0 = mon.conns[t.id]; if (!strip || (c0 && c0.input === t.input)) return; if (c0) try { c0.g.disconnect(); } catch (_) { }
-        var g = G(ctx, 1), m = ctx.createChannelMerger(2), ch = chansOf(t.input).map(function (c2) { return Math.min(c2, nch - 1); }); mon.split.connect(m, ch[0], 0); mon.split.connect(m, ch[1] != null ? ch[1] : ch[0], 1); m.connect(g).connect(strip.input); mon.conns[t.id] = { g: g, input: t.input }; });
+      var ids = {}; want.forEach(function (t) { ids[t.id] = 1; var strip = rt.strips[t.id], c0 = mon.conns[t.id], inp = inOf(t); if (!strip || (c0 && c0.input === inp)) return; if (c0) try { c0.g.disconnect(); } catch (_) { }
+        var g = G(ctx, 1), m = ctx.createChannelMerger(2), ch = chansOf(inp).map(function (c2) { return Math.min(c2, nch - 1); }); mon.split.connect(m, ch[0], 0); mon.split.connect(m, ch[1] != null ? ch[1] : ch[0], 1); m.connect(g).connect(strip.input); mon.conns[t.id] = { g: g, input: inp }; });
       Object.keys(mon.conns).forEach(function (id) { if (!ids[id]) { try { mon.conns[id].g.disconnect(); } catch (_) { } delete mon.conns[id]; } });
     }).catch(function () { });
   }
@@ -959,7 +1099,7 @@
   function kbPlugins(t) { return natives(t).map(function (f) { return Object.assign(nativeJob(f), { slot: kbSlot(f), stateFrom: nativeSlot(f), params: knobList(f) }); }); }
   function kbVer(t) { return natives(t).map(function (f) { return f.v || 0; }).join(","); }   // (the plugin's window closed: its saved state changed)
   function kbMode(t) {
-    if (!t || t.kind === "audio" || t.kind === "bus" || !natives(t).length || !NH.host || !ctx) return null;
+    if (!t || t.kind === "audio" || t.kind === "bus" || t.kind === "external" || !natives(t).length || !NH.host || !ctx) return null;
     var a = audioSettings(), ls = SND.nativeLayers && SND.nativeLayers(t.layers);
     if (a.keysRoute !== "track" && NH.host.keys && NH.host.midi && !NH.monKey && ls && !KB.rigFail[t.id]) return "direct";
     return liveHost() ? "track" : null;
@@ -1158,6 +1298,9 @@
     var keep = proj; proj = clone(proj);
     if (o.tracks) proj.tracks.forEach(function (t) { if (t.kind === "bus") return; t.solo = o.tracks.indexOf(t.id) >= 0; if (t.solo) t.mute = false; });
     if (o.clips) proj.tracks.forEach(function (t) { t.clips.forEach(function (c) { if (o.clips.indexOf(c.id) < 0) c.mute = true; }); });   // (10.8: one clip on its own - dragged out as a WAV)
+    if (o.noMaster) proj.master = { volume: 0, inserts: [] };   // (10.8: a bounce - the track's own sound, not the master's)
+    if (o.tracks && (o.noSends || o.flat)) proj.tracks.forEach(function (t) { if (o.tracks.indexOf(t.id) < 0) return; if (o.noSends) t.sends = []; if (o.flat) { t.volume = 0; t.pan = 0; t.output = "master"; if (t.auto) { delete t.auto.volume; delete t.auto.pan; } } });
+    if (proj.tracks.some(function (t) { return t.kind === "external" && !t.mute && (!o.tracks || o.tracks.indexOf(t.id) >= 0) && t.clips.some(function (c) { return !c.mute && c.start < to && c.start + c.len > from; }); })) fire("message", "External synths aren't in exports: record their sound to an audio track first (the track's ⋯ menu).");
     if (o.temp) proj.tracks.forEach(function (t) { if (o.temp[t.id]) { t.frozen = Object.assign({}, o.temp[t.id]); t.frozen.sig = freezeSig(t); } });
     if (o.dry) { proj.tracks.forEach(function (t) { if (t.id !== o.dry) return; t.inserts = []; t.volume = 0; t.pan = 0; t.sends = []; t.auto = {}; t.output = "master"; t.frozen = null; t.mute = false; t.solo = true; }); proj.master = { volume: 0, inserts: [] }; }
     proj.metronome = Object.assign({}, proj.metronome, { on: false });
@@ -1224,7 +1367,7 @@
   window.addEventListener("pagehide", function () { if (dirty) recovery.keep(); });
 
   // ------------------------------------------------------------- helpers for the UI
-  function quantize(notes, grid, strength) { var g = typeof grid === "number" ? grid : SNAP[grid] || 0.25, k = strength == null ? 1 : strength; if (!g) return notes; notes.forEach(function (n) { var q = Math.round(n.s / g) * g; n.s = Math.max(0, n.s + (q - n.s) * k); if (k >= 1) n.d = Math.max(g / 2, Math.round(n.d / g) * g || g); }); return notes; }
+  function quantize(notes, grid, strength, swing) { var g = typeof grid === "number" ? grid : SNAP[grid] || 0.25, k = strength == null ? 1 : strength, sw = Math.max(0, Math.min(1, swing || 0)); if (!g) return notes; notes.forEach(function (n) { var q = Math.round(n.s / g) * g; if (sw && Math.round(q / g) % 2 === 1) q += g * sw / 3;   /* (10.8 swing: every other step later, up to a triplet's feel) */ n.s = Math.max(0, n.s + (q - n.s) * k); if (k >= 1) n.d = Math.max(g / 2, Math.round(n.d / g) * g || g); }); return notes; }
   function humanize(notes, timingBeats, vel) { notes.forEach(function (n) { n.s = Math.max(0, n.s + (Math.random() * 2 - 1) * timingBeats); n.v = clamp(Math.round(n.v + (Math.random() * 2 - 1) * vel), 1, 127); }); return notes; }
   function split(clipId, beat) {
     var f = findClip(clipId); if (!f || beat <= f.clip.start + 0.01 || beat >= f.clip.start + f.clip.len - 0.01) return null;
@@ -1239,7 +1382,7 @@
     canUndo: function () { return undoStack.length ? undoStack[undoStack.length - 1].label : null; }, canRedo: function () { return redoStack.length ? redoStack[redoStack.length - 1].label : null; },
     isDirty: function () { return dirty; }, markSaved: markSaved, load: load, fresh: fresh,
     play: play, stop: stop, toggle: toggle, setPos: setPos, position: position, state: state, record: record, live: liveMidi, startMonitor: startMonitor, monitor: function () { return monitor; },
-    render: render, stems: stems, songEnd: songEnd, buffers: buffers, addAudio: addAudio, decode: decode, importAudio: importAudio, importStems: importStems, importMidi: importMidi, midiOf: midiOf, stemName: stemName, soundFor: soundFor, usedAudio: usedAudio, rewarp: rewarp, keyShift: keyShift,
+    render: render, stems: stems, songEnd: songEnd, buffers: buffers, addAudio: addAudio, decode: decode, importAudio: importAudio, capture: capture, bounce: bounce, hasCapture: function (id) { return !!(live.cap[id] && live.cap[id].length); }, importStems: importStems, importMidi: importMidi, midiOf: midiOf, stemName: stemName, soundFor: soundFor, usedAudio: usedAudio, rewarp: rewarp, keyShift: keyShift,
     split: split, cutRange: cutRange, quantize: quantize, humanize: humanize, snapBeat: snapBeat, autoAt: autoAt, clipSrc: clipSrc,
     tempo: { NOTES: DNOTES, noteSec: noteSec, beatToSec: beatToSec, secToBeat: secToBeat, barToBeat: barToBeat, beatToBar: beatToBar, bpmAt: bpmAt, bpb: function (b) { return beatToBar(b || 0).per; } },
     FX: FX, fxDef: fxDef, fxDefaults: fxDefaults, pro: pro, ctx: ensureCtx, graph: function () { return rt; }, latency: latency, recovery: recovery,

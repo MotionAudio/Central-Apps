@@ -48,7 +48,7 @@
         (c ? "" : '<select class="cd-sig" aria-label="Time signature"><option>4/4</option><option>3/4</option><option>6/8</option><option>2/4</option><option>5/4</option><option>7/8</option><option>12/8</option></select>') +
         '<select class="cd-key" aria-label="Key">' + K.map(function (k) { return "<option>" + k + "</option>"; }).join("") + K.map(function (k) { return "<option>" + k + "m</option>"; }).join("") + "</select></div>" +
         '<div class="cd-g"><button data-a="click" class="cd-t" title="Click (C)">Click</button><select class="cd-count" aria-label="Count-in"><option value="0">No count-in</option><option value="1">Count in 1 bar</option><option value="2">Count in 2 bars</option></select><button data-a="loop" class="cd-t" title="Loop (L) - drag on the ruler\'s top strip to set it">Loop</button>' +
-        (c ? "" : '<button data-a="punch" class="cd-t" title="Punch in / out (P) - Alt-drag on the ruler\'s top strip to set it">Punch</button><button data-a="overdub" class="cd-t" title="Record MIDI over what\'s there instead of replacing it">Overdub</button>') + "</div>" +
+        (c ? "" : '<button data-a="punch" class="cd-t" title="Punch in / out (P) - Alt-drag on the ruler\'s top strip to set it">Punch</button><button data-a="overdub" class="cd-t" title="Record MIDI over what\'s there instead of replacing it">Overdub</button><button data-a="capture" title="Capture: what you just played on the selected track becomes a clip, even when you weren\'t recording (Ctrl+Shift+C)">Capture</button>') + "</div>" +
         '<div class="cd-g"><label class="cd-f">Snap<select class="cd-snap"><option value="bar">Bar</option><option value="1/2">1/2</option><option value="1/4">1/4</option><option value="1/8">1/8</option><option value="1/16">1/16</option><option value="1/32">1/32</option><option value="1/8T">1/8 T</option><option value="1/16T">1/16 T</option><option value="off">Off</option></select></label>' +
         '<button data-a="zout" title="Zoom out (−)">−</button><button data-a="zin" title="Zoom in (+)">+</button><button data-a="zfit" title="Show the whole song (Z)">Fit</button></div>' +
         '<div class="cd-g"><button data-a="undo" title="Undo (Ctrl+Z)">↶</button><button data-a="redo" title="Redo (Ctrl+Shift+Z)">↷</button></div>' +
@@ -89,6 +89,7 @@
     else if (a === "loop") D.edit("Loop", function (q) { q.loop.on = !q.loop.on; if (q.loop.on && !(q.loop.end > q.loop.start)) { q.loop.start = 0; q.loop.end = D.tempo.bpb() * 4; } });
     else if (a === "punch") D.edit("Punch", function (q) { q.punch.on = !q.punch.on; });
     else if (a === "overdub") D.edit("Overdub", function (q) { q.overdub = !q.overdub; });
+    else if (a === "capture") UI.capture();
     else if (a === "undo") { var u = D.undo(); if (u) UI.say("Undid: " + u); }
     else if (a === "redo") { var rd = D.redo(); if (rd) UI.say("Redid: " + rd); }
     else if (a === "zin" || a === "zout") zoom(a === "zin" ? 1.25 : 0.8);
@@ -209,6 +210,7 @@
       if (low === "z" || low === "x") { U.keyOct = D.clamp(U.keyOct + (low === "z" ? -1 : 1), 0, 8); UI.say("Octave " + U.keyOct); e.preventDefault(); return; }
       var i = KEYMAP.indexOf(low); if (i >= 0) { e.preventDefault(); if (e.repeat || held[low]) return; var n = (U.keyOct + 1) * 12 + i, t = UI.track(); if (t) { held[low] = { t: t.id, n: n }; D.live(t.id, [0x90, n, 100]); } return; }
     }
+    if (mod && e.shiftKey && low === "c") { e.preventDefault(); UI.capture(); return; }
     if (mod && low === "z") { e.preventDefault(); action(e.shiftKey ? "redo" : "undo"); return; }
     if (mod && low === "y") { e.preventDefault(); action("redo"); return; }
     if (mod && low === "s") { if (U.opts.onSave) { e.preventDefault(); U.opts.onSave(); } return; }
@@ -275,6 +277,16 @@
       sustain: function (on) { var t = keysTrack(); if (t) D.live(t.id, [0xB0, 64, on ? 127 : 0]); },
       hint: function () { return U.root && U.root.offsetParent !== null ? "Add an instrument or drums track (or select one) and the keys play it." : ""; }
     }, opts || {}));
+  };
+  // (10.8) Capture MIDI: what was just played on the selected (or armed) instrument track becomes a clip
+  UI.capture = function () {
+    var p = P(), t = D.track(U.sel); if (!t || t.kind === "audio" || t.kind === "bus") t = p.tracks.filter(function (x) { return x.kind !== "audio" && x.kind !== "bus" && x.arm; })[0] || null;
+    var pick = t && D.hasCapture(t.id) ? t : p.tracks.filter(function (x) { return x.kind !== "audio" && x.kind !== "bus" && D.hasCapture(x.id); })[0];
+    if (!pick) { UI.say("Nothing to capture yet: play something on an instrument track first (it's kept even when you're not recording).", true); return null; }
+    var cl = D.capture(pick.id); if (!cl) return null;
+    U.sel = pick.id; U.clips = [cl.id]; UI.draw("select");
+    UI.say("Captured " + cl.notes.length + " note" + (cl.notes.length === 1 ? "" : "s") + " on “" + pick.name + "”, bar " + (D.tempo.beatToBar(cl.start).bar + 1) + ".");
+    return cl;
   };
   // which MIDI keyboards are playing: the top bar's MIDI light and the keyboard's name (plug in and play - no arming needed)
   var midiLast = { name: "", at: 0 };
@@ -361,7 +373,7 @@
       NS.on(function (m) { if (m.type === "rigStopped") { D.native.setHost(D.native.host()); if (D.state && D.state().playing) UI.say("The plugin host stopped: press play again.", true); } if (m.type === "pluginScan") UI.say("Looking for plugins: " + m.done + " of " + m.total + (m.current ? " (" + m.current + ")" : "")); if (m.type === "instrumentStatus" && m.pluginErrors && Object.keys(m.pluginErrors).length) UI.say("A plugin didn't load: " + Object.values(m.pluginErrors)[0], true); });
     }
     D.on("freeze", function () { if (UI.parts.mixer && U.dockOpen) try { drawDock(); } catch (_) { } UI.draw(); });
-    if (window.CUMidiIn) { window.CUMidiIn.start().catch(function () { }); if (!midiOff) midiOff = window.CUMidiIn.on(midiIn); }
+    if (window.CUMidiIn) { window.CUMidiIn.start().catch(function () { }); if (!midiOff) { midiOff = window.CUMidiIn.on(midiIn); var known = null; window.CUMidiIn.onDevices(function (l) { var names = l.filter(function (d) { return !d.fake && d.state !== "disconnected"; }).map(function (d) { return d.name; }); if (known) { var add = names.filter(function (n) { return known.indexOf(n) < 0; }); if (add.length && U.root) UI.say("MIDI: " + add.join(", ") + " plugged in - it plays the selected instrument track, no setup needed."); } known = names; }); setTimeout(function () { if (!known) known = window.CUMidiIn.inputs().map(function (d) { return d.name; }); }, 1500); } }
     if (window.CKeys && U.opts.keys !== false) UI.keysTarget(U.opts.keysTarget);   // (10.8) ⌘K: the pop-up keyboard plays the selected instrument track
     if (window.CUStudioSounds && window.CUStudioSounds.refresh) window.CUStudioSounds.refresh();
     D.startMonitor();

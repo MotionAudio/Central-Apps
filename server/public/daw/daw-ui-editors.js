@@ -5,7 +5,7 @@
 (function () {
   "use strict";
   var D = window.CDaw, UI = window.CDawUI, U = UI.U, $ = UI.$, $$ = UI.$$, esc = UI.esc, SND = window.CUStudioSounds;
-  var ed = { body: null, clip: null, sel: [], zoom: UI.store("prZoom", 80), rowH: 12, top: 84, drum: null, lastLen: 1, q: UI.store("qStrength", 100), hum: UI.store("humanize", { ms: 12, vel: 10 }) };
+  var ed = { body: null, clip: null, sel: [], zoom: UI.store("prZoom", 80), rowH: 12, top: 84, drum: null, lastLen: 1, q: UI.store("qStrength", 100), swing: UI.store("qSwing", 0), hum: UI.store("humanize", { ms: 12, vel: 10 }) };
   var DRUMS = [[49, "Crash"], [57, "Crash 2"], [51, "Ride"], [53, "Ride bell"], [46, "Open hat"], [44, "Pedal hat"], [42, "Closed hat"], [50, "High tom"], [48, "Mid tom"], [45, "Low tom"], [43, "Floor tom"], [39, "Clap"], [54, "Tambourine"], [37, "Side stick"], [40, "Snare 2"], [38, "Snare"], [36, "Kick"], [35, "Kick 2"]];
   function P() { return D.project(); }
   function cur() { var f = U.clips.length === 1 ? D.findClip(U.clips[0]) : null; if (!f && U.clips.length) f = D.findClip(U.clips[U.clips.length - 1]); return f; }
@@ -26,7 +26,7 @@
   function drawRoll(body, f) {
     var c = f.clip;
     body.innerHTML = '<div class="cd-edtools"><div class="cd-seg"><button class="on">Piano roll</button><button data-e="drum">Drum grid</button></div>' +
-      '<button data-e="quant" title="Quantize the selected notes (or all) to the snap (Q)">Quantize</button><label class="cd-f">Strength<input type="range" min="10" max="100" step="5" value="' + ed.q + '" data-e="qs"></label>' +
+      '<button data-e="quant" title="Quantize the selected notes (or all) to the snap (Q)">Quantize</button><label class="cd-f">Strength<input type="range" min="10" max="100" step="5" value="' + ed.q + '" data-e="qs"></label><label class="cd-f" title="Every other step later, up to a triplet feel (0: straight)">Swing<input type="range" min="0" max="100" step="5" value="' + (ed.swing || 0) + '" data-e="qsw"></label>' +
       '<button data-e="hum" title="Nudge timing and velocity a little, like a person playing">Humanize</button><label class="cd-f">±<input type="number" min="0" max="60" value="' + ed.hum.ms + '" data-e="hms" style="width:48px"> ms</label><label class="cd-f">±<input type="number" min="0" max="40" value="' + ed.hum.vel + '" data-e="hvel" style="width:44px"> vel</label>' +
       '<button data-e="up" title="Up a semitone (↑, Shift: octave)">▲</button><button data-e="down" title="Down a semitone">▼</button><button data-e="legato" title="Each note up to the next one">Legato</button>' +
       '<span class="cd-dim">' + (c.loopLen > 0 ? "Repeats every " + c.loopLen + " beats" : (c.notes || []).length + " notes") + '</span><button data-e="zo">−</button><button data-e="zi">+</button></div>' +
@@ -113,12 +113,13 @@
       var b = e.target.closest("[data-e]"); if (!b) return; var k = b.dataset.e, id = f.clip.id;
       function notes(fn, label) { D.edit(label, function () { var c = D.findClip(id).clip, list = ed.sel.length ? ed.sel.map(function (i) { return c.notes[i]; }).filter(Boolean) : c.notes; fn(list, c); }); }
       if (k === "drum") { ed.drum = true; UI.drawDock(); } else if (k === "roll") { ed.drum = false; UI.drawDock(); }
-      else if (k === "quant") notes(function (l) { D.quantize(l, P().snap, ed.q / 100); }, "Quantize");
+      else if (k === "quant") notes(function (l) { D.quantize(l, P().snap, ed.q / 100, (ed.swing || 0) / 100); }, "Quantize");
       else if (k === "hum") notes(function (l) { D.humanize(l, ed.hum.ms / 1000 * D.tempo.bpmAt(f.clip.start) / 60, ed.hum.vel); }, "Humanize");
       else if (k === "up" || k === "down") notes(function (l) { l.forEach(function (n) { n.p = D.clamp(n.p + (k === "up" ? 1 : -1) * (e.shiftKey ? 12 : 1), 0, 127); }); }, "Transpose");
       else if (k === "legato") notes(function (l) { var s = l.slice().sort(function (a, z) { return a.s - z.s; }); s.forEach(function (n, i) { var nx = s.slice(i + 1).filter(function (m) { return m.s > n.s + 1e-6; })[0]; if (nx) n.d = nx.s - n.s; }); }, "Legato");
       else if (k === "zi" || k === "zo") { ed.zoom = D.clamp(ed.zoom * (k === "zi" ? 1.25 : 0.8), 12, 600); UI.keep("prZoom", ed.zoom); UI.drawDock(); }
     };
+    $$("[data-e=qsw]", body).forEach(function (i) { i.onchange = function () { ed.swing = +i.value; UI.keep("qSwing", ed.swing); }; });
     $$("[data-e=qs],[data-e=hms],[data-e=hvel]", body).forEach(function (i) { i.onchange = function () { if (i.dataset.e === "qs") { ed.q = +i.value; UI.keep("qStrength", ed.q); } else { ed.hum[i.dataset.e === "hms" ? "ms" : "vel"] = +i.value; UI.keep("humanize", ed.hum); } }; });
   }
   api.key = function (e) {
@@ -127,7 +128,7 @@
     if (!ed.body.matches(":hover") && !api.focused) return false;
     if ((k === "Delete" || k === "Backspace") && ed.sel.length) { var s = ed.sel.slice().sort(function (a, b) { return b - a; }); D.edit("Delete notes", function () { var c = D.findClip(f.clip.id).clip; s.forEach(function (i) { c.notes.splice(i, 1); }); }); ed.sel = []; e.preventDefault(); return true; }
     if (mod && low === "a") { ed.sel = (f.clip.notes || []).map(function (_, i) { return i; }); UI.drawDock(); e.preventDefault(); return true; }
-    if (!mod && low === "q") { D.edit("Quantize", function () { var c = D.findClip(f.clip.id).clip; D.quantize(ed.sel.length ? ed.sel.map(function (i) { return c.notes[i]; }) : c.notes, P().snap, ed.q / 100); }); e.preventDefault(); return true; }
+    if (!mod && low === "q") { D.edit("Quantize", function () { var c = D.findClip(f.clip.id).clip; D.quantize(ed.sel.length ? ed.sel.map(function (i) { return c.notes[i]; }) : c.notes, P().snap, ed.q / 100, (ed.swing || 0) / 100); }); e.preventDefault(); return true; }
     if ((k === "ArrowUp" || k === "ArrowDown") && ed.sel.length) { D.edit("Transpose", function () { var c = D.findClip(f.clip.id).clip; ed.sel.forEach(function (i) { var n = c.notes[i]; if (n) n.p = D.clamp(n.p + (k === "ArrowUp" ? 1 : -1) * (e.shiftKey ? 12 : 1), 0, 127); }); }); e.preventDefault(); return true; }
     if ((k === "ArrowLeft" || k === "ArrowRight") && ed.sel.length) { var g = D.SNAP[P().snap] || 0.25; D.edit("Move notes", function () { var c = D.findClip(f.clip.id).clip; ed.sel.forEach(function (i) { var n = c.notes[i]; if (n) n.s = Math.max(0, n.s + (k === "ArrowLeft" ? -g : g)); }); }); e.preventDefault(); return true; }
     return false;
@@ -201,8 +202,8 @@
   // ------------------------------------------------------------- the track's sound (instrument layers)
   function drawSound(body, t) {
     if (!t || t.kind === "audio" || t.kind === "bus") { body.innerHTML = '<div class="cd-empty"><p>' + (t && t.kind === "audio" ? "An audio track plays what you record or drop on it. Its effects are in the Mixer." : "Pick an instrument or drums track to choose its sound.") + "</p></div>"; return; }
-    var list = SND ? SND.list() : [], cats = SND ? SND.CAT_ORDER : [], layers = t.layers || [];
-    body.innerHTML = '<div class="cd-sound">' + layers.map(function (l, i) {
+    var list = SND ? SND.list() : [], cats = SND ? SND.CAT_ORDER : [], layers = t.kind === "external" ? [] : t.layers || [];
+    body.innerHTML = '<div class="cd-sound">' + (t.kind === "external" && UI.externalPanel ? UI.externalPanel(t) : "") + layers.map(function (l, i) {
       var s = SND && SND.byId(l.sound), locked = s && SND.locked(s);
       var smp = l.sound === "sampler", zones = l.zones || [];
       return '<div class="cd-layer" data-l="' + i + '"><div class="cd-line"><b>Layer ' + (i + 1) + '</b><select data-ls="sound">' + (smp ? '<option value="sampler" selected>' + esc((l.kit ? "Kit: " : "Sampler: ") + (l.name || "samples")) + " (" + zones.length + ")</option>" : "") + cats.map(function (cat) { var items = list.filter(function (x) { return x.category === cat && (t.kind !== "drums" || x.drums || cat === "Drums"); }); return items.length ? '<optgroup label="' + esc(cat) + '">' + items.map(function (x) { return '<option value="' + esc(x.id) + '"' + (x.id === l.sound ? " selected" : "") + ">" + esc(x.name) + (x.bankName && !x.builtin ? " · " + esc(x.bankName) : "") + (SND.locked(x) ? " (" + esc(SND.lockText(x)) + ")" : "") + "</option>"; }).join("") + "</optgroup>" : ""; }).join("") + "</select>" +
@@ -212,7 +213,9 @@
         '<label class="cd-f">Octave <input type="number" min="-3" max="3" value="' + (l.octave || 0) + '" data-ls="octave" style="width:48px"></label><label class="cd-f">Level <input type="range" min="0" max="1.5" step="0.01" value="' + (l.volume == null ? 1 : l.volume) + '" data-ls="volume"></label><label class="cd-f">Pan <input type="range" min="-1" max="1" step="0.01" value="' + (l.pan || 0) + '" data-ls="pan"></label></div>' +
         (smp ? '<div class="cd-zones">' + (l.kit ? zones.slice().sort(function (a, b) { return a.lo - b.lo; }).map(function (z) { var zi = zones.indexOf(z); return '<span class="cd-zone"><b>' + esc(noteName(z.lo)) + "</b> " + esc(z.name || "sample") + ' <button class="ghost" data-zplay="' + i + ":" + z.lo + '" title="Hear it">▶</button><button class="ghost" data-zdel="' + i + ":" + zi + '" title="Take it out of the kit">✕</button></span>'; }).join("") + '<span class="cd-dim">Drop more samples on the track to add pads (a kick lands on C1, a snare on D1, hats on F#1 / A#1…).</span>'
           : '<span class="cd-dim">' + zones.length + " sample" + (zones.length === 1 ? "" : "s") + (zones.length ? ", " + esc(noteName(Math.min.apply(null, zones.map(function (z) { return z.lo; })))) + "–" + esc(noteName(Math.max.apply(null, zones.map(function (z) { return z.hi; })))) : "") + ". Drop samples named by their note (Piano C4.wav) to spread them across the keys, or an .sfz / .dspreset with its samples.</span>") + "</div>" : "") + "</div>";
-    }).join("") + '<div class="cd-line">' + (layers.length < 4 ? '<button data-ladd>Add a layer</button>' : "") + '<span class="cd-dim">Layers play together - a piano with a pad under it, or split the keyboard (a bass below C3, keys above). Plan sounds are open with your sound plan\'s package key.</span></div></div>';
+    }).join("") + (t.kind === "external" ? "" : '<div class="cd-line">' + (layers.length < 4 ? '<button data-ladd>Add a layer</button>' : "") + '<span class="cd-dim">Layers play together - a piano with a pad under it, or split the keyboard (a bass below C3, keys above). Plan sounds are open with your sound plan\'s package key. Drop a SoundFont, an SFZ or Decent Sampler instrument (with its samples), or your own samples on the track to play them.</span></div>') + (UI.midiFxPanel ? UI.midiFxPanel(t) : "") + "</div>";
+    if (UI.externalWire && t.kind === "external") UI.externalWire(body, t);
+    if (UI.midiFxWire) UI.midiFxWire(body, t);
     function set(i, k, v) { D.edit("Sound", function () { var tt = D.track(t.id), ly = tt.layers[i]; ly[k] = v; if (k === "sound" && v !== "sampler") { delete ly.zones; delete ly.kit; delete ly.env; delete ly.name; } }); }
     $$("[data-zplay]", body).forEach(function (b) { b.onclick = function () { var n = +b.dataset.zplay.split(":")[1]; audition(t, n); }; });
     $$("[data-zdel]", body).forEach(function (b) { b.onclick = function () { var a = b.dataset.zdel.split(":"); D.edit("Take a pad out of the kit", function () { var ly = D.track(t.id).layers[+a[0]]; if (ly && ly.zones) ly.zones.splice(+a[1], 1); }); }; });

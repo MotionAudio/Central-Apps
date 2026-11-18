@@ -229,6 +229,97 @@ await check("the browser's Samples tab: a sample dragged onto the timeline becom
   await shot("dnd-samples");
 });
 
+
+// ------------------------------------------------------------- MIDI: external synths, MIDI effects, capture, the pedal and the wheel, bounce
+await check("an external MIDI instrument track: its clip's notes go out of its port on its channel, ahead with their times; Stop sends all notes off", async () => {
+  const r = await T(async () => {
+    window.__out = []; const M = window.CUMidiIn; M.send = (port, bytes, at) => { window.__out.push({ port, bytes: Array.from(bytes), at: at || 0, now: performance.now() }); return true; };
+    CDaw.edit("ext", (p) => { const t = CDaw.newTrack("external", "Prophet"); t.id = "text"; t.ext.port = "Fake Synth"; t.ext.channel = 3; t.clips = [{ id: "ce", kind: "midi", start: 0, len: 4, notes: [{ p: 60, v: 100, s: 0, d: 0.5 }, { p: 64, v: 90, s: 1, d: 0.5 }], bends: [{ s: 1.2, v: 100 }] }]; CDaw.insertTrack(t); });
+    CDaw.setPos(0); CDaw.play(); await new Promise((res) => setTimeout(res, 1500)); CDaw.stop({ home: true }); await new Promise((res) => setTimeout(res, 100));
+    const msgs = __out.map((m) => m.bytes), ons = msgs.filter((b) => b[0] === 0x92), offs = msgs.filter((b) => b[0] === 0x82), late = __out.filter((m) => m.at && m.at < m.now - 5).length;
+    return { port: [...new Set(__out.map((m) => m.port))], ons: ons.map((b) => b[1]), offs: offs.length, bend: msgs.some((b) => b[0] === 0xE2), stop: msgs.some((b) => b[0] === 0xB2 && b[1] === 123), late, timed: __out.filter((b) => b.bytes[0] === 0x92).every((m) => m.at > 0) };
+  });
+  assert.deepEqual(r.port, ["Fake Synth"]); assert.deepEqual(r.ons, [60, 64]); assert.ok(r.offs >= 2, "note offs " + r.offs); assert.ok(r.bend, "the clip's bend goes out"); assert.ok(r.stop, "all notes off on Stop"); assert.ok(r.timed, "sent with their times"); assert.equal(r.late, 0);
+});
+await check("the keyboard and the wheel on an external synth go straight out; an export says its sound has to be recorded first", async () => {
+  const r = await T(async () => {
+    __out = []; CDawUI.select("text"); CDaw.live("text", [0x90, 67, 80]); CDaw.live("text", [0xE0, 0, 96]); CDaw.live("text", [0x80, 67, 0]);
+    const msgs = __out.map((m) => m.bytes); let said = ""; const off = CDaw.on("message", (m) => { said = m; }); try { await CDaw.render({ from: 0, to: 4, tail: 0 }); } catch (_) { } off();
+    return { msgs, said };
+  });
+  assert.deepEqual(r.msgs[0], [0x92, 67, 80]); assert.deepEqual(r.msgs[1], [0xE2, 0, 96]); assert.deepEqual(r.msgs[2], [0x82, 67, 0]); assert.match(r.said, /External synths aren't in exports/);
+  await T(() => CDaw.edit("x", (p) => { p.tracks = p.tracks.filter((t) => t.id !== "text"); }));
+});
+await check("MIDI effects: scale, chord (a shape, or the key's own) and an arpeggiator - the same on clips and on what you play", async () => {
+  const r = await T(async () => {
+    const F = CDawMidiFx, n = (p, s, d) => ({ p, v: 100, s, d });
+    const scale = F.transform([n(61, 0, 1), n(66, 1, 1)], [{ type: "scale", params: { key: "song", scale: "major" } }], { key: "C" }).map((x) => x.p);
+    const chord = F.map(62, [{ type: "chord", params: { shape: "minor" } }], { key: "C" }), dia = F.map(62, [{ type: "chord", params: { diatonic: true } }], { key: "C" }), dia5 = F.map(67, [{ type: "chord", params: { diatonic: true } }], { key: "C" });
+    const arp = F.transform([n(60, 0, 1), n(64, 0, 1), n(67, 0, 1)], [{ type: "arp", params: { mode: "up", rate: "1/16", octaves: 1, gate: 0.5 } }], {}).map((x) => [x.p, x.s, x.d]);
+    const arp2 = F.transform([n(60, 0, 4), n(64, 0, 4)], [{ type: "arp", params: { mode: "updown", rate: "1/8", octaves: 2 } }], {}).map((x) => x.p);
+    // a clip with one held chord and an arpeggiator: the render has a note every sixteenth
+    CDaw.edit("arp", (p) => { const t = CDaw.newTrack("instrument", "Arp"); t.id = "tarp"; t.midifx = [{ id: "m1", type: "arp", on: true, params: { mode: "up", rate: "1/16", octaves: 2, gate: 0.4 } }]; t.clips = [{ id: "ca", kind: "midi", start: 0, len: 1, notes: [n(60, 0, 1), n(67, 0, 1)] }]; CDaw.insertTrack(t); });
+    await new Promise((res) => setTimeout(res, 50));
+    const inst = CDaw.graph().insts.tarp, played = [], orig = inst.noteOn; inst.noteOn = function (dest, p) { played.push(p); return orig.apply(this, arguments); };
+    CDaw.setPos(0); CDaw.play(); await new Promise((res) => setTimeout(res, 700)); CDaw.stop({ home: true }); inst.noteOn = orig;
+    return { scale, chord, dia, dia5, arp, arp2, played };
+  });
+  assert.deepEqual(r.scale, [60, 65]); assert.deepEqual(r.chord, [62, 65, 69]); assert.deepEqual(r.dia, [62, 65, 69]); assert.deepEqual(r.dia5, [67, 71, 74]);
+  assert.deepEqual(r.arp, [[60, 0, 0.125], [64, 0.25, 0.125], [67, 0.5, 0.125], [60, 0.75, 0.125]]); assert.deepEqual(r.arp2, [60, 64, 72, 76, 72, 64, 60, 64]);
+  assert.deepEqual(r.played, [60, 67, 72, 79], "the clip plays through the arpeggiator: " + r.played);
+});
+await check("a live chord: one key plays the whole chord, and letting go stops all of it", async () => {
+  const r = await T(() => {
+    CDaw.edit("chd", () => { CDaw.track("tarp").midifx = [{ id: "m2", type: "chord", on: true, params: { shape: "major" } }]; });
+    const inst = CDaw.graph().insts.tarp, seen = []; const orig = inst.noteOn; inst.noteOn = function (dest, p) { seen.push(p); return orig.apply(this, arguments); };
+    CDaw.live("tarp", [0x90, 60, 100]); const held = inst.voices.length; CDaw.live("tarp", [0x80, 60, 0]); inst.noteOn = orig;
+    return { seen, held };
+  });
+  assert.deepEqual(r.seen, [60, 64, 67]); assert.ok(r.held >= 3);
+});
+await check("Capture: what you just played (not recording, the song stopped) becomes a clip at the playhead", async () => {
+  const r = await T(async () => {
+    CDaw.edit("cap", () => { CDaw.track("tarp").midifx = []; CDaw.track("tarp").clips = []; }); CDaw.setPos(CDaw.tempo.barToBeat(3) + 1); CDawUI.select("tarp");
+    const w = (ms) => new Promise((res) => setTimeout(res, ms));
+    if (CDaw.hasCapture("tarp")) { CDaw.capture("tarp"); CDaw.undo(); }   // (the chord test's note is still kept: take it first)
+    CDaw.live("tarp", [0x90, 60, 90]); await w(120); CDaw.live("tarp", [0x80, 60, 0]); CDaw.live("tarp", [0x90, 62, 80]); await w(120); CDaw.live("tarp", [0x80, 62, 0]); CDaw.live("tarp", [0x90, 64, 70]); await w(100); CDaw.live("tarp", [0x80, 64, 0]);
+    const cl = CDawUI.capture(); return cl && { want: CDaw.tempo.barToBeat(3), start: cl.start, notes: cl.notes.map((n) => n.p), first: cl.notes[0].s, undo: CDaw.canUndo(), again: CDaw.hasCapture("tarp") };
+  });
+  assert.ok(r, "a clip"); assert.equal(r.start, r.want, "at the bar the playhead is in"); assert.deepEqual(r.notes, [60, 62, 64]); assert.equal(r.first, 0); assert.equal(r.undo, "Capture MIDI"); assert.equal(r.again, false, "captured once");
+});
+await check("recording: a note let go under the sustain pedal lasts until the pedal comes up; the pitch wheel is recorded into the clip", async () => {
+  const r = await T(async () => {
+    const w = (ms) => new Promise((res) => setTimeout(res, ms));
+    CDaw.edit("rec", (p) => { p.tracks.forEach((t) => { t.arm = false; }); p.metronome.countIn = 0; p.punch.on = false; p.loop.on = false; CDaw.track("tarp").arm = true; CDaw.track("tarp").clips = []; });
+    CDaw.setPos(0); CDaw.record(); await w(150);
+    CDaw.live("tarp", [0xB0, 64, 127]); CDaw.live("tarp", [0x90, 60, 100]); await w(150); CDaw.live("tarp", [0x80, 60, 0]); CDaw.live("tarp", [0xE0, 0, 100]); await w(500); CDaw.live("tarp", [0xB0, 64, 0]); CDaw.live("tarp", [0xE0, 0, 64]); await w(100);
+    CDaw.stop({ home: true }); await w(100);
+    const cl = CDaw.track("tarp").clips[0], n = cl && cl.notes[0], spb = 60 / CDaw.project().bpm;
+    return cl ? { secs: n.d * spb, bends: (cl.bends || []).map((b) => b.v) } : null;
+  });
+  assert.ok(r, "a clip was recorded"); assert.ok(r.secs > 0.55 && r.secs < 0.9, "held by the pedal: " + r.secs + " s"); assert.ok(r.bends.length >= 2 && r.bends[0] > 50 && r.bends.includes(0), "bends " + r.bends);
+});
+await check("quantize with swing; Save as a MIDI file; Bounce to audio makes an audio track that sounds like it and mutes the original", async () => {
+  const r = await T(async () => {
+    const q = CDaw.quantize([{ p: 60, v: 100, s: 0.03, d: 0.4 }, { p: 62, v: 100, s: 0.52, d: 0.4 }], 0.5, 1, 1).map((n) => Math.round(n.s * 1000) / 1000);
+    CDaw.edit("bnc", () => { const t = CDaw.track("tarp"); t.arm = false; t.clips = [{ id: "cb", kind: "midi", start: 0, len: 4, notes: [{ p: 57, v: 110, s: 0, d: 3 }] }]; });
+    const mid = CDawSMF.read(CDaw.midiOf(["tarp"])).parts[0].notes.map((n) => [n.p, n.s, n.d]);
+    const a = await CDaw.bounce("tarp"), clip = a.clips[0], buf = CDaw.buffers[clip.audio.src], d = buf.getChannelData(0); let e = 0; for (let i = Math.round(buf.sampleRate * 0.2); i < buf.sampleRate * 1.2; i++) e += d[i] * d[i];
+    return { q, mid, name: a.name, kind: a.kind, muted: CDaw.track("tarp").mute, energy: Math.sqrt(e / buf.sampleRate), after: CDaw.project().tracks.findIndex((t) => t.id === a.id) - CDaw.project().tracks.findIndex((t) => t.id === "tarp") };
+  });
+  assert.deepEqual(r.q, [0, 0.667]); assert.deepEqual(r.mid, [[57, 0, 3]]); assert.equal(r.name, "Arp (audio)"); assert.equal(r.kind, "audio"); assert.ok(r.muted); assert.equal(r.after, 1); assert.ok(r.energy > 0.01, "it has the sound: " + r.energy);
+});
+await check("the Sound panel: an external synth's port, channel and input; MIDI effects added, changed and taken off", async () => {
+  await T(() => { CDaw.edit("ext2", (p) => { const t = CDaw.newTrack("external", "Juno"); t.id = "tjuno"; CDaw.insertTrack(t); }); CDawUI.select("tjuno"); CDawUI.openEditor("sound"); });
+  await page.waitForSelector('[data-ext="port"]');
+  await page.selectOption('[data-ext="channel"]', "10"); await page.click('[data-mfxadd="chord"]');
+  await page.waitForSelector('[data-mfx="0:shape"]'); await page.selectOption('[data-mfx="0:shape"]', "sus4");
+  const r = await T(() => ({ ch: CDaw.track("tjuno").ext.channel, fx: CDaw.track("tjuno").midifx.map((f) => [f.type, f.params.shape]) }));
+  assert.equal(r.ch, 10); assert.deepEqual(r.fx, [["chord", "sus4"]]);
+  await shot("sound-panel");
+  await page.click('[data-mfxdel="0"]'); assert.equal(await T(() => CDaw.track("tjuno").midifx.length), 0);
+});
+
 if (errs.length) { failures++; console.error("  ✗ no errors on the page\n      " + errs.slice(0, 5).join("\n      ")); }
 await browser.close(); srv.close();
 console.log(failures ? "\n" + failures + " failed" : "\n\nall passed"); process.exit(failures ? 1 : 0);

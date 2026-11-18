@@ -161,6 +161,7 @@
       if (v.excl) self.voices.forEach(function (o) { if (o !== v && o.excl === v.excl && o.layer === L) o.kill(v.start); });
       v.layer = L;
     });
+    if (this.bendC) out.forEach(function (v) { (v.sources || []).forEach(function (src) { if (src.detune) { src.__d0 = src.detune.value; src.detune.value = src.__d0 + self.bendC; } }); });
     var voice = { parts: out, note: note, start: when };
     this.voices = this.voices.concat(out);
     if (this.voices.length > 256 && !(window.OfflineAudioContext && ctx instanceof OfflineAudioContext)) {   // (too many at once while playing: the oldest that have started go; an export schedules everything up front)
@@ -170,6 +171,14 @@
     return voice;
   };
   Instrument.prototype.noteOff = function (voice, when) { if (voice) voice.parts.forEach(function (p) { p.release(when || 0); }); };
+  // (10.8) pitch bend: every sounding note (and the ones after it) bends by `cents` - a keyboard's wheel, or a clip's bends
+  Instrument.prototype.bend = function (cents, when) {
+    var at = Math.max(when || 0, this.ctx.currentTime); this.bendC = cents || 0;
+    this.voices.forEach(function (v) { (v.sources || []).forEach(function (src) { if (!src.detune) return; if (src.__d0 == null) src.__d0 = src.detune.value; try { src.detune.setTargetAtTime(src.__d0 + cents, at, 0.004); } catch (_) { } }); });
+  };
+  Instrument.prototype.bendVoice = function (voice, cents, when) {   // one note's bend at a time (a clip's bends, scheduled with it)
+    voice.parts.forEach(function (v) { (v.sources || []).forEach(function (src) { if (!src.detune) return; if (src.__d0 == null) src.__d0 = src.detune.value; try { src.detune.setValueAtTime(src.__d0 + cents, when); } catch (_) { } }); });
+  };
   Instrument.prototype.allOff = function (when, hard) { var ctx = this.ctx; this.voices.forEach(function (v) { if (hard) v.kill(when || ctx.currentTime); else v.release(when || ctx.currentTime); }); this.voices = []; };
   Instrument.prototype.names = function () { return this.layers.map(function (L) { return L.s.name + (L.standIn ? " (stand-in)" : ""); }); };
 

@@ -213,5 +213,55 @@
     if (spec.samples && spec.samples.length) return fromSamples(spec.samples, trackId);
     return Promise.resolve();
   };
+  // (10.8) an external synth's sound onto a new audio track: its input, armed alone, the punch over its part, and record
+  UI.recordExternal = function (id) {
+    var t = D.track(id); if (!t || !t.clips.length) return;
+    var first = Math.min.apply(null, t.clips.map(function (c) { return c.start; })), last = Math.max.apply(null, t.clips.map(function (c) { return c.start + c.len; })), input = (t.ext && t.ext.audio) || "1+2";
+    D.edit("Record " + t.name + "'s sound", function (p) {
+      p.tracks.forEach(function (x) { x.arm = false; });
+      var a = D.newTrack("audio", (t.name + " (audio)").slice(0, 28)), i = p.tracks.findIndex(function (x) { return x.id === id; });
+      a.input = input; a.arm = true; a.monitor = "off"; a.color = t.color; p.tracks.splice(i + 1, 0, a);
+      p.punch = { on: true, start: first, end: last }; p.loop.on = false; U.sel = a.id;
+    });
+    D.setPos(Math.max(0, first - D.tempo.bpb(first)));
+    UI.say("Recording “" + t.name + "”: it plays its part and records what comes back on input " + input + ". Press Stop when it's done.");
+    D.record();
+  };
+  // (10.8) the Sound panel's extra parts: an external synth's settings, and any instrument track's MIDI effects
+  UI.externalPanel = function (t) {
+    var M = window.CUMidiIn, outs = M ? M.outputs() : [], e = t.ext || {}, ins = D.audio && D.audio.choices ? D.audio.choices(32) : [];
+    return '<div class="cd-ext"><div class="cd-line"><b>External MIDI instrument</b><span class="cd-dim">Its notes go out to a hardware synth (or your keyboard\'s own sounds); its sound comes back in on your interface.</span></div>' +
+      '<div class="cd-line"><label class="cd-f">MIDI out <select data-ext="port"><option value="">' + (outs.length ? "Pick one" : "No MIDI outputs - plug the synth in") + "</option>" + outs.map(function (o) { return '<option' + (o.name === e.port ? " selected" : "") + ">" + UI.esc(o.name) + "</option>"; }).join("") + (e.port && !outs.some(function (o) { return o.name === e.port; }) ? '<option selected value="' + UI.esc(e.port) + '">' + UI.esc(e.port) + " (not plugged in)</option>" : "") + "</select></label>" +
+      '<label class="cd-f">Channel <select data-ext="channel">' + Array.apply(null, Array(16)).map(function (_, i) { return "<option" + (i + 1 === (e.channel || 1) ? " selected" : "") + ">" + (i + 1) + "</option>"; }).join("") + "</select></label>" +
+      '<label class="cd-f">Program <input type="number" min="0" max="127" placeholder="-" value="' + (e.program == null ? "" : e.program) + '" data-ext="program" style="width:58px" title="Sent when the song starts (leave it empty to leave the synth on its own sound)"></label>' +
+      '<label class="cd-f">Its sound comes in on <select data-ext="audio">' + (ins.length ? ins : [{ id: "1+2", name: "Inputs 1+2" }, { id: "1", name: "Input 1" }]).map(function (c) { return '<option value="' + UI.esc(c.id) + '"' + (c.id === (e.audio || "1+2") ? " selected" : "") + ">" + UI.esc(c.name) + "</option>"; }).join("") + "</select></label>" +
+      '<label class="cd-f">Timing <input type="number" min="-200" max="200" step="1" value="' + (e.offsetMs || 0) + '" data-ext="offsetMs" style="width:64px" title="ms: earlier (−) for a synth that answers slowly, later (+) if it plays ahead"> ms</label></div>' +
+      '<div class="cd-line"><span class="cd-dim">Hear it through this track with its <b>I</b> button (on by default). Exports don\'t have its sound until you record it: ⋯ → Record its sound to an audio track.</span></div></div>';
+  };
+  UI.externalWire = function (body, t) {
+    UI.$$("[data-ext]", body).forEach(function (inp) { inp.onchange = function () { var k = inp.dataset.ext, v = inp.value; D.edit("External synth", function () { var x = D.track(t.id); x.ext = Object.assign({}, x.ext || {}); x.ext[k] = k === "channel" ? +v : k === "offsetMs" ? +v || 0 : k === "program" ? (v === "" ? null : Math.max(0, Math.min(127, +v | 0))) : v; }); }; });
+    if (window.CUMidiIn && window.CUMidiIn.outputs().length === 0) window.CUMidiIn.start().then(function () { if (window.CUMidiIn.outputs().length && UI.openEditor) UI.openEditor("sound"); }).catch(function () { });
+  };
+  var MFX = window.CDawMidiFx;
+  UI.midiFxPanel = function (t) {
+    if (!MFX) return "";
+    var list = t.midifx || [], T = MFX.TYPES;
+    function sel(i, k, opts, cur) { return '<select data-mfx="' + i + ":" + k + '">' + opts.map(function (o) { var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + UI.esc(v) + '"' + (String(v) === String(cur) ? " selected" : "") + ">" + UI.esc(l) + "</option>"; }).join("") + "</select>"; }
+    return '<div class="cd-mfx"><div class="cd-line"><b>MIDI effects</b><span class="cd-dim">What happens to the notes before the sound: the same on what you play and on the clips (they keep the notes you played).</span></div>' +
+      list.map(function (f, i) {
+        var p = Object.assign({}, (T[f.type] || {}).params, f.params), h = '<div class="cd-line cd-mfxrow"><label class="cd-f"><input type="checkbox" data-mfx="' + i + ':on"' + (f.on !== false ? " checked" : "") + "><b>" + UI.esc((T[f.type] || {}).name || f.type) + "</b></label>";
+        if (f.type === "scale") h += '<label class="cd-f">Key ' + sel(i, "key", [["song", "The song's (" + D.project().key + ")"]].concat(["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]), p.key) + '</label><label class="cd-f">Scale ' + sel(i, "scale", Object.keys(MFX.SCALES), p.scale) + "</label>";
+        if (f.type === "chord") h += '<label class="cd-f">Chord ' + sel(i, "shape", Object.keys(MFX.SHAPES).concat(["custom"]), p.shape) + '</label><label class="cd-f" title="Semitones from the note, like 4 7 11">Own <input data-mfx="' + i + ':custom" value="' + UI.esc(p.custom || "") + '" placeholder="4 7" style="width:76px"></label><label class="cd-f"><input type="checkbox" data-mfx="' + i + ':diatonic"' + (p.diatonic ? " checked" : "") + "> The key's own chord</label>";
+        if (f.type === "arp") h += '<label class="cd-f">Play ' + sel(i, "mode", [["up", "Up"], ["down", "Down"], ["updown", "Up and down"], ["played", "As played"], ["random", "Random"]], p.mode) + '</label><label class="cd-f">Rate ' + sel(i, "rate", MFX.RATES.map(function (r) { return r[0]; }), p.rate) + '</label><label class="cd-f">Octaves ' + sel(i, "octaves", [1, 2, 3, 4], p.octaves) + '</label><label class="cd-f">Gate <input type="range" min="0.05" max="1" step="0.05" value="' + p.gate + '" data-mfx="' + i + ':gate"></label>';
+        return h + '<button class="ghost" data-mfxdel="' + i + '" title="Take it off">✕</button></div>';
+      }).join("") +
+      '<div class="cd-line"><button data-mfxadd="scale">+ Scale</button><button data-mfxadd="chord">+ Chord</button><button data-mfxadd="arp">+ Arpeggiator</button></div></div>';
+  };
+  UI.midiFxWire = function (body, t) {
+    UI.$$("[data-mfx]", body).forEach(function (inp) { inp.onchange = function () { var a = inp.dataset.mfx.split(":"), i = +a[0], k = a[1], v = inp.type === "checkbox" ? inp.checked : inp.type === "range" || k === "octaves" ? +inp.value : inp.value;
+      D.edit("MIDI effect", function () { var f = D.track(t.id).midifx[i]; if (!f) return; if (k === "on") f.on = v; else { f.params = Object.assign({}, f.params); f.params[k] = v; } }); }; });
+    UI.$$("[data-mfxdel]", body).forEach(function (b) { b.onclick = function () { D.edit("Take off a MIDI effect", function () { D.track(t.id).midifx.splice(+b.dataset.mfxdel, 1); }); }; });
+    UI.$$("[data-mfxadd]", body).forEach(function (b) { b.onclick = function () { var ty = b.dataset.mfxadd; D.edit("Add a MIDI effect", function () { var x = D.track(t.id); x.midifx = (x.midifx || []).concat([{ id: D.uid("m"), type: ty, on: true, params: Object.assign({}, MFX.TYPES[ty].params) }]); }); }; });
+  };
   UI.sfz = sfz; UI.dspreset = dspreset; UI.drumNote = drumNote; UI.noteFromName = noteFromName;
 })();

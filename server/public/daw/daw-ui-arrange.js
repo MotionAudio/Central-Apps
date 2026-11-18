@@ -48,7 +48,8 @@
   }
   function addTrackMenu(btn) {
     function add(kind, name, sound) { D.edit("Add a track", function (p) { var t = D.newTrack(kind, name, sound); t.color = D.COLORS[p.tracks.length % D.COLORS.length]; if (kind === "bus") p.tracks.push(t); else D.insertTrack(t); U.sel = t.id; }); }
-    UI.menu(btn, [["Audio (a microphone, a guitar, an interface input)", function () { add("audio"); }], ["Instrument (keys, synths, strings…)", function () { add("instrument", "Keys"); }], ["Drums", function () { add("drums"); }], null,
+    UI.menu(btn, [["Audio (a microphone, a guitar, an interface input)", function () { add("audio"); }], ["Instrument (keys, synths, strings…)", function () { add("instrument", "Keys"); }], ["Drums", function () { add("drums"); }],
+      ["External MIDI instrument (a hardware synth, or your keyboard's own sounds)", function () { add("external", "Synth"); UI.openEditor("sound"); }], null,
       ["Bus (a reverb or delay return, or a group)", function () { add("bus", "Bus"); }]]);
   }
 
@@ -60,11 +61,11 @@
     if (what === "nudge" && rows.childElementCount) { updateHeads(); return; }
     var html = "";
     p.tracks.forEach(function (t) {
-      var sel = t.id === U.sel, h = t.height || 64, kindIcon = { audio: "〰", instrument: "♪", drums: "🥁", bus: "⇢" }[t.kind] || "♪";
+      var sel = t.id === U.sel, h = t.height || 64, kindIcon = { audio: "〰", instrument: "♪", drums: "🥁", bus: "⇢", external: "⎆" }[t.kind] || "♪";
       html += '<div class="cd-row' + (sel ? " sel" : "") + (t.kind === "bus" ? " bus" : "") + '" data-t="' + t.id + '" style="height:' + h + 'px;--tc:' + t.color + '"><div class="cd-head" data-t="' + t.id + '"><i class="cd-tc"></i>' +
         '<div class="cd-hl1"><span class="cd-ticon" title="' + esc(t.kind) + '">' + kindIcon + '</span><input class="cd-tname" value="' + esc(t.name) + '" aria-label="Track name">' + (t.kind !== "bus" && t.clips.length ? '<button class="cd-tout" draggable="true" data-tout="' + t.id + '" title="Drag this onto your desktop or a folder to save the track as a WAV (or click to save it)" aria-label="Save the track as a WAV">⤓</button>' : "") + '<button class="cd-tmenu" data-tm="' + t.id + '" title="More">⋯</button></div>' +
         '<div class="cd-hl2"><button class="cd-m' + (t.mute ? " on" : "") + '" data-tb="mute" title="Mute (M)">M</button><button class="cd-s' + (t.solo ? " on" : "") + '" data-tb="solo" title="Solo (Shift+S)">S</button>' +
-        (t.kind !== "bus" ? '<button class="cd-r' + (t.arm ? " on" : "") + '" data-tb="arm" title="Arm for recording">●</button>' : "") + (t.kind === "audio" ? '<button class="cd-i' + (t.monitor === "in" ? " on" : t.monitor === "auto" ? " auto" : "") + '" data-tb="monitor" title="Hear the input: automatic (while armed), always, or off">I</button>' : "") +
+        (t.kind !== "bus" ? '<button class="cd-r' + (t.arm ? " on" : "") + '" data-tb="arm" title="Arm for recording">●</button>' : "") + (t.kind === "audio" || t.kind === "external" ? '<button class="cd-i' + (t.monitor === "in" || (t.kind === "external" && t.monitor !== "off") ? " on" : t.monitor === "auto" ? " auto" : "") + '" data-tb="monitor" title="' + (t.kind === "external" ? "Hear the synth's sound coming back in on your interface: on or off" : "Hear the input: automatic (while armed), always, or off") + '">I</button>' : "") +
         '<button class="cd-a' + (t.lanes && t.lanes.length ? " on" : "") + '" data-tb="auto" title="Automation lanes">A</button><input class="cd-vol" type="range" min="-60" max="6" step="0.1" value="' + t.volume + '" data-tv="' + t.id + '" title="Volume ' + t.volume.toFixed(1) + ' dB"><canvas class="cd-hmeter" data-hm="' + t.id + '"></canvas></div></div>' +
         '<div class="cd-lane" data-lane="' + t.id + '">' + t.clips.map(function (c) { return clipHtml(t, c); }).join("") + "</div></div>";
       (t.lanes || []).forEach(function (key) {
@@ -225,7 +226,7 @@
     $$(".cd-tname", rows).forEach(function (inp) { inp.onchange = function () { var id = inp.closest("[data-t]").dataset.t, v = inp.value.trim() || "Track"; D.edit("Rename track", function () { D.track(id).name = v; }); }; inp.onfocus = function () { U.sel = inp.closest("[data-t]").dataset.t; }; });
     $$("[data-tb]", rows).forEach(function (b) { b.onclick = function () { var id = b.closest("[data-t]").dataset.t, k = b.dataset.tb; U.sel = id;
       if (k === "auto") { D.edit("Automation lane", function () { var t = D.track(id); t.lanes = t.lanes && t.lanes.length ? [] : ["volume"]; }); return; }
-      if (k === "monitor") { D.edit("Input monitoring", function () { var t = D.track(id); t.monitor = { auto: "in", "in": "off", off: "auto" }[t.monitor || "auto"]; }); return; }
+      if (k === "monitor") { D.edit("Input monitoring", function () { var t = D.track(id); t.monitor = t.kind === "external" ? (t.monitor === "off" ? "in" : "off") : { auto: "in", "in": "off", off: "auto" }[t.monitor || "auto"]; }); return; }
       D.edit(k === "mute" ? "Mute" : k === "solo" ? "Solo" : "Arm", function () { var t = D.track(id); t[k] = !t[k]; }); }; });
     $$("[data-tv]", rows).forEach(function (s) { s.oninput = function () { var id = s.dataset.tv, v = +s.value; D.nudge("Volume", function () { D.track(id).volume = v; }); s.title = "Volume " + v.toFixed(1) + " dB"; }; s.ondblclick = function () { var id = s.dataset.tv; D.edit("Volume", function () { D.track(id).volume = 0; }); }; });
     $$("[data-tm]", rows).forEach(function (b) { b.onclick = function () { trackMenu(b, D.track(b.dataset.tm)); }; });
@@ -257,6 +258,16 @@
     var p = P(), buses = p.tracks.filter(function (x) { return x.kind === "bus" && x.id !== t.id; });
     var items = [];
     if (t.kind === "instrument" || t.kind === "drums") items.push(["Choose its sound…", function () { U.sel = t.id; UI.openEditor("sound"); }]);
+    // (10.8) external synths, capture, MIDI files, bouncing
+    if (t.kind === "external") {
+      items.push(["MIDI out: " + (t.ext && t.ext.port ? t.ext.port : "pick one") + " · channel " + ((t.ext && t.ext.channel) || 1) + "…", function () { U.sel = t.id; UI.openEditor("sound"); }]);
+      items.push(["Record its sound to an audio track", function () { UI.recordExternal(t.id); }, !!(t.ext && t.ext.port) && t.clips.length > 0]);
+    }
+    if (t.kind !== "audio" && t.kind !== "bus") {
+      items.push(["Capture what I just played", function () { U.sel = t.id; UI.capture(); }, D.hasCapture(t.id)]);
+      items.push(["Save as a MIDI file…", function () { var b = D.midiOf([t.id]); if (!b) return UI.say("“" + t.name + "” has no notes yet.", true); UI.saveFiles(t.name, [{ name: (D.project().name ? D.project().name + " - " : "") + t.name + ".mid", data: b }]); }, t.clips.some(function (c) { return c.kind === "midi" && c.notes && c.notes.length; })]);
+    }
+    if (t.kind !== "bus" && t.kind !== "external" && t.clips.length) items.push(["Bounce to audio (it plays as it sounds now; this track is muted)", function () { UI.say("Bouncing “" + t.name + "”…"); D.bounce(t.id).then(function (a) { U.sel = a.id; UI.say("“" + a.name + "” has the sound of “" + t.name + "”; the original is muted, to change later."); }).catch(function (e) { UI.say(e.message || String(e), true); }); }]);
     if (D.native.list(t).length) { var nst = D.native.state(t); items.push([nst === "frozen" ? "Freeze again (VST3 / CLAP plugins)" : "Freeze (VST3 / CLAP plugins)", function () { D.native.freeze(t.id).catch(function (er) { UI.say(er.message || String(er), true); }); }, !!D.native.host() && nst !== "freezing"]); if (t.frozen) items.push(["Unfreeze", function () { D.native.unfreeze(t.id); }]); }
     if (t.kind === "audio") items.push(["Records from: " + ((D.audio.choices(32).filter(function (c) { return c.id === (t.input || "1"); })[0] || {}).name || "Input 1") + "…", function () { var anchor = document.querySelector('.cd-head[data-t="' + t.id + '"]') || document.body; UI.menu(anchor, D.audio.choices().map(function (c) { return [(c.id === (t.input || "1") ? "✓ " : "") + c.name, function () { D.edit("Input", function () { D.track(t.id).input = c.id; }); }]; }).concat([null, ["Audio settings…", function () { UI.audioDialog(); }]])); }]);
     items.push(["Add an automation lane", function () { D.edit("Automation lane", function () { var x = D.track(t.id), opts = autoParams(x).map(function (o) { return o[0]; }).filter(function (k) { return x.lanes.indexOf(k) < 0; }); if (opts.length) x.lanes.push(opts[0]); }); }]);

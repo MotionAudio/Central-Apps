@@ -236,3 +236,6 @@ body.cd-movingtrack,body.cd-movingtrack *{cursor:grabbing!important}
 .cd-cout{position:absolute;right:3px;top:2px;z-index:4;font:700 11px/1 Archivo,system-ui,sans-serif;padding:2px 4px;border-radius:4px;background:rgba(0,0,0,.45);color:var(--d-mut);cursor:grab}.cd-cout.ready{color:var(--d-acc2);background:rgba(0,0,0,.6)}
 /* (10.8) a sampler layer's samples, and a kit's pads */
 .cd-zones{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:6px}.cd-zone{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 8px;border:1px solid var(--d-line);border-radius:6px;background:var(--d-bg2);font-size:12px}.cd-zone b{color:var(--d-acc2);font-variant-numeric:tabular-nums}.cdaw .cd-zone button{padding:0 5px}
+/* (10.8) an external synth's settings and the MIDI effects, in the Sound panel */
+.cd-ext,.cd-mfx{margin-top:10px;padding-top:10px;border-top:1px solid var(--d-line)}.cd-ext:first-child{margin-top:0;padding-top:0;border-top:0}
+.cd-mfxrow{padding:4px 0}.cd-mfxrow b{color:var(--d-acc2)}.cd-mfx .cd-line button{margin-right:6px}
