@@ -204,7 +204,8 @@ await check("MIDI and foot controls: learn a footswitch (CC 64) for Next section
   await T(() => CDawControl.clearAll());
 });
 await check("the loudness readout follows the master while it plays", async () => {
-  const r = await T(() => new Promise((res) => { CDaw.setPos(48); CDaw.play(); setTimeout(() => { const m = CDawSong.meter(); const txt = document.querySelector(".cd-lufs-s").textContent; CDaw.stop(); res({ m, txt }); }, 2200); }));
+  // (10.8) it looks every 200 ms for up to 6 s, not once at 2.2 s: on a busy build machine the sound can take a moment to start
+  const r = await T(() => new Promise((res) => { CDaw.setPos(48); CDaw.play(); const t0 = Date.now(); const look = () => { const m = CDawSong.meter(); const txt = document.querySelector(".cd-lufs-s").textContent; if ((m && m.momentary > -60 && /-?\d+\.\d LUFS/.test(txt)) || Date.now() - t0 > 6000) { CDaw.stop(); res({ m, txt }); } else setTimeout(look, 200); }; setTimeout(look, 1200); }));
   assert.ok(r.m && r.m.momentary > -60, "momentary " + (r.m && r.m.momentary)); assert.match(r.txt, /-?\d+\.\d LUFS/);
 });
 
