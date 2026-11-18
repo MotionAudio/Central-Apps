@@ -29,6 +29,36 @@ Each sound library and the Central Tracks release carry their own `CREDITS.txt` 
 
 The pedals on the Pi are built from free LV2 and LADSPA plugins installed in the image: **Guitarix**, **Calf**, **Invada**, **TAP**, **CAPS**, **swh**, **x42**, **Dragonfly**, **ZamAudio**, **MDA** and others. Each keeps its own licence, mostly the GNU GPL, and comes from Raspberry Pi OS's own packages.
 
+## Plugins
+
+Nine of the Central FX plugins (10.8) are ports of **Airwindows** effects by Chris Johnson (github.com/airwindows/airwindows), written again in the plugin builder's code language with Chris's algorithms: Density, Purest Drive (PurestDrive), Spiral, Clipper (ClipOnly2), Warm (PurestWarm), Tube (Tube2), Console Preamp (Mackity), ButterComp (ButterComp2) and Slew (Slew2). Airwindows is under the MIT licence:
+
+```
+MIT License
+
+Copyright (c) 2018 Chris Johnson
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+The same notice is in `production/plugin-collection/LICENSE-airwindows.txt`, and each of those plugins names Chris as its author. The rest of the collection is Motion Audio's own, built from the engine's blocks.
+
 ## Words
 
 - **Bibles:** the King James Version, World English Bible, American Standard Version (1901) and Reina-Valera 1909, all in the public domain.

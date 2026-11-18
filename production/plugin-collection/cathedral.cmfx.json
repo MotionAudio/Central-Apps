@@ -1,0 +1,180 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "cathedral",
+ "name": "Cathedral",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "plugins",
+ "description": "Stone and height: a huge, slow tail with the low end kept clear. For pads, choirs, piano and the big ending.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "size",
+   "name": "Size",
+   "min": 0.75,
+   "max": 1,
+   "default": 0.94
+  },
+  {
+   "id": "predelay",
+   "name": "Pre-delay",
+   "min": 0,
+   "max": 250,
+   "default": 60,
+   "unit": "ms"
+  },
+  {
+   "id": "bright",
+   "name": "Brightness",
+   "min": -9,
+   "max": 6,
+   "default": -2,
+   "unit": "dB"
+  },
+  {
+   "id": "lowcut",
+   "name": "Low cut",
+   "min": 60,
+   "max": 600,
+   "default": 180,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Cathedral",
+   "values": {
+    "mix": 0.3
+   }
+  },
+  {
+   "name": "Choir loft",
+   "values": {
+    "mix": 0.38,
+    "size": 0.97,
+    "predelay": 90,
+    "bright": -3
+   }
+  },
+  {
+   "name": "Ambient wash",
+   "values": {
+    "mix": 0.55,
+    "size": 1,
+    "predelay": 120,
+    "bright": -4,
+    "lowcut": 300
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "lowcut"
+     },
+     "q": 0.7,
+     "slope": 24
+    }
+   },
+   {
+    "id": "verb",
+    "type": "reverb",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "size": {
+      "param": "size"
+     },
+     "damp": 0.35,
+     "mix": 1,
+     "predelay": {
+      "param": "predelay"
+     },
+     "width": 1,
+     "mod": 0.7
+    }
+   },
+   {
+    "id": "air",
+    "type": "eq",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "highshelf",
+     "freq": 5000,
+     "q": 0.7,
+     "gain": {
+      "param": "bright"
+     }
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "verb.in"
+   },
+   {
+    "from": "verb.out",
+    "to": "air.in"
+   },
+   {
+    "from": "air.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

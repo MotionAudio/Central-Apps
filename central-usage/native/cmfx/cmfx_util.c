@@ -86,6 +86,11 @@ double cm_atan2(double y, double x) {
 double cm_pow(double a, double b) {
   if (b == 0) return 1;
   if (a == 0) return b > 0 ? 0 : 8.2e307;
+  if (b == cm_floor(b) && b >= -32 && b <= 32) {   /* (10.8) a whole power: multiply (exact, and much quicker than exp/log) */
+    int n = (int)(b < 0 ? -b : b); double r = 1, m = a;
+    while (n) { if (n & 1) r *= m; m *= m; n >>= 1; }
+    return b < 0 ? 1.0 / r : r;
+  }
   if (a > 0) return cm_exp(b * cm_log(a));
   if (b == cm_floor(b)) { double v = cm_exp(b * cm_log(-a)); long long bi = (long long)b; return (bi & 1) ? -v : v; }
   return 0;

@@ -1,0 +1,119 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "high-pass",
+ "name": "High-Pass Filter",
+ "author": "Motion Audio",
+ "family": "filter",
+ "tier": "free",
+ "description": "Takes the bottom away: clears rumble, thins a sound to make room, or sweeps for a build. The free one.",
+ "params": [
+  {
+   "id": "cutoff",
+   "name": "Cutoff",
+   "min": 20,
+   "max": 8000,
+   "default": 120,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "resonance",
+   "name": "Resonance",
+   "min": 0.5,
+   "max": 12,
+   "default": 0.7
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Rumble",
+   "values": {
+    "cutoff": 60
+   }
+  },
+  {
+   "name": "Thin it out",
+   "values": {
+    "cutoff": 400
+   }
+  },
+  {
+   "name": "Build",
+   "values": {
+    "cutoff": 1500,
+    "resonance": 3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "cutoff"
+     },
+     "q": {
+      "param": "resonance"
+     },
+     "slope": 24
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

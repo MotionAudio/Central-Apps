@@ -110,11 +110,12 @@
     });
   }
   window.addEventListener("pp-plans", lapseInserts);
+  var FAMILY = { reverb: "Reverb", delay: "Delay", compressor: "Compressors", dynamics: "Dynamics", eq: "EQ", filter: "Filters", saturation: "Saturation and drive", modulation: "Modulation", pitch: "Pitch", stereo: "Stereo and utility", limiter: "Limiters and clippers" };   // (10.8)
   function insertsCol(x) {
     var list = x.ins || [], fams = [];
     coll().forEach(function (p) { if (fams.indexOf(p.family) < 0) fams.push(p.family); });
     var add = list.length >= 4 ? '<p class="muted small">Up to 4 on a channel.</p>' : '<select data-mxi="add"><option value="">+ Add an insert…</option>' + fams.map(function (f) {
-      return '<optgroup label="' + esc(f[0].toUpperCase() + f.slice(1)) + '">' + coll().filter(function (p) { return p.family === f; }).map(function (p) { var lk = insLocked(p); return '<option value="' + esc(p.id) + '"' + (lk ? " disabled" : "") + ">" + (lk ? "🔒 " : "") + esc(p.name) + "</option>"; }).join("") + "</optgroup>";
+      return '<optgroup label="' + esc(FAMILY[f] || (f[0].toUpperCase() + f.slice(1))) + '">' + coll().filter(function (p) { return p.family === f; }).map(function (p) { var lk = insLocked(p); return '<option value="' + esc(p.id) + '"' + (lk ? " disabled" : "") + (p.description ? ' title="' + esc(p.description) + '"' : "") + ">" + (lk ? "🔒 " : "") + esc(p.name) + "</option>"; }).join("") + "</optgroup>";
     }).join("") + "</select>";
     var info = X.insertInfo || {};
     return '<div class="mx-dcol mx-ins"><h4>Inserts <small class="muted">after the compressor</small></h4>' + list.map(function (q, k) {

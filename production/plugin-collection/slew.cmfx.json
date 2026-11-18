@@ -1,0 +1,52 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "slew",
+ "name": "Slew",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "eq",
+ "tier": "plugins",
+ "description": "Airwindows Slew2 by Chris Johnson: tames harsh, spiky highs by limiting how fast the wave can move - smooths cymbals, sibilance and brittle digital sound. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "clamp",
+   "name": "Clamp",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Smooth",
+   "values": {
+    "clamp": 0.3
+   }
+  },
+  {
+   "name": "De-harsh",
+   "values": {
+    "clamp": 0.55
+   }
+  },
+  {
+   "name": "Vintage",
+   "values": {
+    "clamp": 0.75
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows Slew2, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n@init\ndec = 0.915965594177219015\ndd = dec * dec\ntw = 0.0414213562373095048801688\n@block\nth = pow(1 - clamp, 4) / (2 / 44100 * srate)\ngo = db2gain(output)\n@sample\nx = inL\nlsL = (x + l1L + (l3L - l2L) * tw) * 0.5\nl3L = l2L; l2L = l1L; l1L = x\nbL *= dec\nhdf = bL * dec\ny = clamp(x, lsL - th, lsL + th)\nlsL = y\nc = y - x\naL = aL * dd + c + 1e-20\nbL = bL * dec - c + 1e-20\ndf = aL * dec\noutL = (x + (df + hdf + pdL) / 0.734) * go\npdL = df * 0.5\nx = inR\nlsR = (x + l1R + (l3R - l2R) * tw) * 0.5\nl3R = l2R; l2R = l1R; l1R = x\nbR *= dec\nhdf = bR * dec\ny = clamp(x, lsR - th, lsR + th)\nlsR = y\nc = y - x\naR = aR * dd + c + 1e-20\nbR = bR * dec - c + 1e-20\ndf = aR * dec\noutR = (x + (df + hdf + pdR) / 0.734) * go\npdR = df * 0.5\n"
+}

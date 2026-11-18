@@ -1,0 +1,120 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "low-pass",
+ "name": "Low-Pass Filter",
+ "author": "Motion Audio",
+ "family": "filter",
+ "tier": "free",
+ "description": "Takes the top off, from a gentle darkening to a resonant synth filter. The free filter.",
+ "params": [
+  {
+   "id": "cutoff",
+   "name": "Cutoff",
+   "min": 40,
+   "max": 20000,
+   "default": 4000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "resonance",
+   "name": "Resonance",
+   "min": 0.5,
+   "max": 12,
+   "default": 0.7
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Darker",
+   "values": {
+    "cutoff": 6000
+   }
+  },
+  {
+   "name": "Underwater",
+   "values": {
+    "cutoff": 400,
+    "resonance": 1.5
+   }
+  },
+  {
+   "name": "Synth",
+   "values": {
+    "cutoff": 1200,
+    "resonance": 6
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "cutoff"
+     },
+     "q": {
+      "param": "resonance"
+     },
+     "slope": 24
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

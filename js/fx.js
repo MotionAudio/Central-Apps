@@ -489,7 +489,18 @@
         return '<div class="fx-band">' + toggle(x.name || pl.name || "Plugin", "plugins." + i + ".on") + pre + ' <button class="link" data-fx-cm-del="' + i + '">Remove</button>' + sync +
           ps.map(function (q) { var lo = q.min != null ? +q.min : 0, hi = q.max != null ? +q.max : 1; return row(q.name || q.id, "plugins." + i + ".values." + q.id, lo, hi, (hi - lo) / 200, q.unit === "dB" || q.unit === "Hz" || q.unit === "ms" || q.unit === "%" ? q.unit : ""); }).join("") + "</div>";
       }).join("") +
-      (!window.CMFx ? '<p class="muted small">The plugin engine isn\'t in this version of the app.</p>' : '<div class="row"><select data-fx-cm-pick><option value="">+ Add a plugin…</option>' + cmChoices.map(function (c, i) { var locked = cmLocked(c); return '<option value="' + i + '"' + (locked ? " disabled" : "") + ">" + esc((locked ? LOCK : "") + c.name + (c.from === "collection" ? (locked ? " (" + lockText() + ")" : "") : c.from === "mine" ? " (yours)" : c.from === "example" ? " (example)" : c.author ? " (by " + c.author + ")" : " (installed)")) + "</option>"; }).join("") + "</select></div>") + "</section>";
+      (!window.CMFx ? '<p class="muted small">The plugin engine isn\'t in this version of the app.</p>' : '<div class="row"><select data-fx-cm-pick><option value="">+ Add a plugin…</option>' + cmGroups().map(function (g) { return '<optgroup label="' + esc(g[0]) + '">' + g[1].map(function (i) { var c = cmChoices[i], locked = cmLocked(c); return '<option value="' + i + '"' + (locked ? " disabled" : "") + (c.plugin && c.plugin.description ? ' title="' + esc(c.plugin.description) + '"' : "") + ">" + esc((locked ? LOCK : "") + c.name + (c.from === "collection" ? (locked ? " (" + lockText() + ")" : "") : c.from === "mine" ? " (yours)" : c.from === "example" ? " (example)" : c.author ? " (by " + c.author + ")" : " (installed)")) + "</option>"; }).join("") + "</optgroup>"; }).join("") + "</select></div>") + "</section>";
+  }
+  // (10.8) the choices in groups (yours and installed, then the collection by kind, then the examples), as indexes into cmChoices
+  var CM_FAMILY = { reverb: "Reverb", delay: "Delay", compressor: "Compressors", dynamics: "Dynamics", eq: "EQ", filter: "Filters", saturation: "Saturation and drive", modulation: "Modulation", pitch: "Pitch", stereo: "Stereo and utility", limiter: "Limiters and clippers" };
+  function cmGroups() {
+    var out = [], at = {};
+    cmChoices.forEach(function (c, i) {
+      var g = c.from === "collection" ? "Central FX · " + (CM_FAMILY[c.family] || c.family || "Other") : c.from === "example" ? "The plugin builder's examples" : c.from === "mine" ? "Yours" : "Installed";
+      if (!(g in at)) { at[g] = out.length; out.push([g, []]); }
+      out[at[g]][1].push(i);
+    });
+    return out;
   }
   function open(t) { target = t; draw(); if (window.CMFx && t.kind !== "bus") cmfxList().then(function (l) { cmChoices = l; if (target === t) draw(); }); var d = dialog(); if (!d.open) { try { d.showModal(); } catch (_) { d.setAttribute("open", ""); } } }
   function commitTo(t) {

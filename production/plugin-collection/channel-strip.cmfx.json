@@ -1,0 +1,319 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "channel-strip",
+ "name": "Channel Strip",
+ "author": "Motion Audio",
+ "family": "dynamics",
+ "tier": "plugins",
+ "description": "A console channel in one: low cut, gate, three-band EQ, compressor and a touch of drive, in the order a mixing desk has them.",
+ "params": [
+  {
+   "id": "lowcut",
+   "name": "Low cut",
+   "min": 20,
+   "max": 400,
+   "default": 80,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Filter"
+  },
+  {
+   "id": "gate",
+   "name": "Gate",
+   "min": -90,
+   "max": -20,
+   "default": -70,
+   "unit": "dB",
+   "group": "Gate"
+  },
+  {
+   "id": "low",
+   "name": "Low",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "group": "EQ"
+  },
+  {
+   "id": "mid",
+   "name": "Mid",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "group": "EQ"
+  },
+  {
+   "id": "midFreq",
+   "name": "Mid freq",
+   "min": 200,
+   "max": 6000,
+   "default": 1200,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "EQ"
+  },
+  {
+   "id": "high",
+   "name": "High",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB",
+   "group": "EQ"
+  },
+  {
+   "id": "threshold",
+   "name": "Threshold",
+   "min": -50,
+   "max": 0,
+   "default": -18,
+   "unit": "dB",
+   "group": "Compressor"
+  },
+  {
+   "id": "ratio",
+   "name": "Ratio",
+   "min": 1,
+   "max": 10,
+   "default": 3,
+   "unit": ":1",
+   "group": "Compressor"
+  },
+  {
+   "id": "makeup",
+   "name": "Makeup",
+   "min": -6,
+   "max": 18,
+   "default": 3,
+   "unit": "dB",
+   "group": "Compressor"
+  },
+  {
+   "id": "drive",
+   "name": "Drive",
+   "min": 0,
+   "max": 18,
+   "default": 2,
+   "unit": "dB",
+   "group": "Output"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal",
+   "values": {
+    "lowcut": 100,
+    "mid": -1,
+    "midFreq": 400,
+    "high": 2.5,
+    "threshold": -20,
+    "ratio": 3,
+    "makeup": 4
+   }
+  },
+  {
+   "name": "Acoustic guitar",
+   "values": {
+    "lowcut": 90,
+    "low": -2,
+    "mid": 1.5,
+    "midFreq": 2500,
+    "high": 2,
+    "threshold": -18,
+    "ratio": 2.5
+   }
+  },
+  {
+   "name": "Kick drum",
+   "values": {
+    "lowcut": 30,
+    "gate": -40,
+    "low": 3,
+    "mid": -4,
+    "midFreq": 350,
+    "high": 2,
+    "threshold": -16,
+    "ratio": 4,
+    "makeup": 3
+   }
+  },
+  {
+   "name": "Bass",
+   "values": {
+    "lowcut": 35,
+    "low": 2,
+    "mid": 1.5,
+    "midFreq": 800,
+    "threshold": -22,
+    "ratio": 4,
+    "makeup": 4,
+    "drive": 6
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "lowcut"
+     },
+     "q": 0.7
+    }
+   },
+   {
+    "id": "gate",
+    "type": "gate",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "threshold": {
+      "param": "gate"
+     },
+     "range": -40,
+     "attack": 0.5,
+     "hold": 30,
+     "release": 120
+    }
+   },
+   {
+    "id": "lo",
+    "type": "eq",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "lowshelf",
+     "freq": 110,
+     "q": 0.7,
+     "gain": {
+      "param": "low"
+     }
+    }
+   },
+   {
+    "id": "mid",
+    "type": "eq",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": {
+      "param": "midFreq"
+     },
+     "q": 0.9,
+     "gain": {
+      "param": "mid"
+     }
+    }
+   },
+   {
+    "id": "hi",
+    "type": "eq",
+    "x": 1040,
+    "y": 40,
+    "props": {
+     "mode": "highshelf",
+     "freq": 8000,
+     "q": 0.7,
+     "gain": {
+      "param": "high"
+     }
+    }
+   },
+   {
+    "id": "comp",
+    "type": "compressor",
+    "x": 1240,
+    "y": 40,
+    "props": {
+     "style": "clean",
+     "detect": "rms",
+     "threshold": {
+      "param": "threshold"
+     },
+     "ratio": {
+      "param": "ratio"
+     },
+     "attack": 8,
+     "release": 140,
+     "knee": 6,
+     "makeup": {
+      "param": "makeup"
+     }
+    }
+   },
+   {
+    "id": "sat",
+    "type": "drive",
+    "x": 1440,
+    "y": 40,
+    "props": {
+     "mode": "tape",
+     "drive": {
+      "param": "drive"
+     },
+     "tone": 16000,
+     "level": 0,
+     "mix": 1,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1640,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "gate.in"
+   },
+   {
+    "from": "gate.out",
+    "to": "lo.in"
+   },
+   {
+    "from": "lo.out",
+    "to": "mid.in"
+   },
+   {
+    "from": "mid.out",
+    "to": "hi.in"
+   },
+   {
+    "from": "hi.out",
+    "to": "comp.in"
+   },
+   {
+    "from": "comp.out",
+    "to": "sat.in"
+   },
+   {
+    "from": "sat.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

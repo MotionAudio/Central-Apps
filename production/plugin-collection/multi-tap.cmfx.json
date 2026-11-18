@@ -1,0 +1,324 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "multi-tap",
+ "name": "Multi-Tap Delay",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "plugins",
+ "description": "Three repeats at once - the beat, the dotted eighth and the half - spread across the stereo field. Rhythmic and wide.",
+ "params": [
+  {
+   "id": "time",
+   "tempoSync": true,
+   "name": "Beat",
+   "min": 150,
+   "max": 1000,
+   "default": 500,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.7,
+   "default": 0.25
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 1500,
+   "max": 12000,
+   "default": 4500,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Rhythmic",
+   "values": {
+    "time": 500,
+    "mix": 0.3
+   }
+  },
+  {
+   "name": "Wide ambience",
+   "values": {
+    "time": 700,
+    "mix": 0.4,
+    "feedback": 0.45,
+    "tone": 3500
+   }
+  },
+  {
+   "name": "Tight",
+   "values": {
+    "time": 300,
+    "mix": 0.22,
+    "feedback": 0.1
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "beat",
+    "type": "param",
+    "x": 40,
+    "y": 610,
+    "props": {
+     "param": "time"
+    }
+   },
+   {
+    "id": "t0",
+    "type": "math",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "op": "multiply",
+     "b": 0.75
+    }
+   },
+   {
+    "id": "d0",
+    "type": "delay",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": 1,
+     "tone": {
+      "param": "tone"
+     },
+     "maxTime": 2000
+    }
+   },
+   {
+    "id": "p0",
+    "type": "stereo",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "pan": -0.7
+    }
+   },
+   {
+    "id": "g0",
+    "type": "gain",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "gain": -3
+    }
+   },
+   {
+    "id": "t1",
+    "type": "math",
+    "x": 240,
+    "y": 230,
+    "props": {
+     "op": "multiply",
+     "b": 1.0
+    }
+   },
+   {
+    "id": "d1",
+    "type": "delay",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": 1,
+     "tone": {
+      "param": "tone"
+     },
+     "maxTime": 2000
+    }
+   },
+   {
+    "id": "p1",
+    "type": "stereo",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "pan": 0.0
+    }
+   },
+   {
+    "id": "g1",
+    "type": "gain",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "gain": -1
+    }
+   },
+   {
+    "id": "t2",
+    "type": "math",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "op": "multiply",
+     "b": 1.5
+    }
+   },
+   {
+    "id": "d2",
+    "type": "delay",
+    "x": 440,
+    "y": 420,
+    "props": {
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": 1,
+     "tone": {
+      "param": "tone"
+     },
+     "maxTime": 2000
+    }
+   },
+   {
+    "id": "p2",
+    "type": "stereo",
+    "x": 640,
+    "y": 420,
+    "props": {
+     "pan": 0.7
+    }
+   },
+   {
+    "id": "g2",
+    "type": "gain",
+    "x": 840,
+    "y": 420,
+    "props": {
+     "gain": -5
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 1040,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1240,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "beat.out",
+    "to": "t0.a"
+   },
+   {
+    "from": "in.out",
+    "to": "d0.in"
+   },
+   {
+    "from": "t0.out",
+    "to": "d0.time"
+   },
+   {
+    "from": "d0.out",
+    "to": "p0.in"
+   },
+   {
+    "from": "p0.out",
+    "to": "g0.in"
+   },
+   {
+    "from": "g0.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "beat.out",
+    "to": "t1.a"
+   },
+   {
+    "from": "in.out",
+    "to": "d1.in"
+   },
+   {
+    "from": "t1.out",
+    "to": "d1.time"
+   },
+   {
+    "from": "d1.out",
+    "to": "p1.in"
+   },
+   {
+    "from": "p1.out",
+    "to": "g1.in"
+   },
+   {
+    "from": "g1.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "beat.out",
+    "to": "t2.a"
+   },
+   {
+    "from": "in.out",
+    "to": "d2.in"
+   },
+   {
+    "from": "t2.out",
+    "to": "d2.time"
+   },
+   {
+    "from": "d2.out",
+    "to": "p2.in"
+   },
+   {
+    "from": "p2.out",
+    "to": "g2.in"
+   },
+   {
+    "from": "g2.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

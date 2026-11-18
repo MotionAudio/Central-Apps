@@ -1,0 +1,158 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "gated-reverb",
+ "name": "Gated Reverb",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "plugins",
+ "description": "The big 80s drum sound: a large room that stops dead. The gate follows the dry sound, so the tail shuts with each hit.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.45
+  },
+  {
+   "id": "size",
+   "name": "Size",
+   "min": 0.4,
+   "max": 0.9,
+   "default": 0.75
+  },
+  {
+   "id": "hold",
+   "name": "Gate time",
+   "min": 40,
+   "max": 500,
+   "default": 180,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "threshold",
+   "name": "Gate threshold",
+   "min": -60,
+   "max": -10,
+   "default": -35,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "80s snare",
+   "values": {
+    "mix": 0.5,
+    "size": 0.8,
+    "hold": 200
+   }
+  },
+  {
+   "name": "Tight toms",
+   "values": {
+    "mix": 0.4,
+    "size": 0.6,
+    "hold": 120
+   }
+  },
+  {
+   "name": "Huge",
+   "values": {
+    "mix": 0.6,
+    "size": 0.9,
+    "hold": 320
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "verb",
+    "type": "reverb",
+    "x": 240,
+    "y": 230,
+    "props": {
+     "size": {
+      "param": "size"
+     },
+     "damp": 0.3,
+     "mix": 1,
+     "predelay": 0,
+     "width": 1,
+     "mod": 0.2
+    }
+   },
+   {
+    "id": "gate",
+    "type": "gate",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "threshold": {
+      "param": "threshold"
+     },
+     "range": -80,
+     "attack": 0.5,
+     "hold": {
+      "param": "hold"
+     },
+     "release": 25
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "verb.in"
+   },
+   {
+    "from": "verb.out",
+    "to": "gate.in"
+   },
+   {
+    "from": "in.out",
+    "to": "gate.key"
+   },
+   {
+    "from": "gate.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

@@ -320,6 +320,32 @@ await check("the Sound panel: an external synth's port, channel and input; MIDI 
   await page.click('[data-mfxdel="0"]'); assert.equal(await T(() => CDaw.track("tjuno").midifx.length), 0);
 });
 
+// ------------------------------------------------------------- (10.8) the bigger Central FX collection in Add effect
+await check("Add effect: 82 Central FX plugins under headings by kind, a search box that narrows the list, and Enter adds the first", async () => {
+  const id = await T(() => { const t = CDaw.project().tracks.find((x) => x.kind === "audio" || x.kind === "instrument"); CDawUI.select(t.id); return t.id; });
+  const mixerOpen = await T(() => !!document.querySelector(".cdaw .cd-strip"));
+  if (!mixerOpen) await page.click('.cdaw [data-a="mixer"]');
+  await page.waitForSelector('.cdaw .cd-strip[data-s="' + id + '"] [data-fx="add"]');
+  await page.click('.cdaw .cd-strip[data-s="' + id + '"] [data-fx="add"]');
+  await page.waitForSelector(".cdaw .cd-pop:not([hidden]) .cd-popq");
+  const r = await T(() => {
+    const m = document.querySelector(".cdaw .cd-pop"), heads = [...m.querySelectorAll(".cd-pophead")].map((h) => h.textContent);
+    return { coll: window.CMFxCollection.length, free: window.CMFxCollection.filter((p) => p.tier === "free").length, heads, focused: document.activeElement === m.querySelector(".cd-popq"),
+      airwindows: !!m.querySelector('button[title*="Airwindows"]') };
+  });
+  assert.equal(r.coll, 82); assert.equal(r.free, 27); assert.ok(r.focused, "the search box has the focus");
+  ["Built in", "Central FX · Reverb", "Central FX · Filters", "Central FX · Pitch", "Central FX · Limiters and clippers"].forEach((h) => assert.ok(r.heads.includes(h), "heading " + h + " in " + r.heads.join(", ")));
+  assert.ok(r.airwindows, "the Airwindows ports say who made them");
+  await shot("add-effect-list");
+  await page.keyboard.type("plate free");
+  const vis = await T(() => [...document.querySelectorAll(".cdaw .cd-pop button[data-i]")].filter((b) => !b.hidden).map((b) => b.textContent));
+  assert.deepEqual(vis, ["Plate Reverb"], "the search narrows to " + vis.join(", "));
+  await page.keyboard.press("Enter");
+  const fx = await T((tid) => { const t = CDaw.track(tid); const f = t.inserts[t.inserts.length - 1]; return { type: f.type, name: f.plugin && f.plugin.name, hidden: document.querySelector(".cdaw .cd-pop").hidden }; }, id);
+  assert.equal(fx.type, "cmfx"); assert.equal(fx.name, "Plate Reverb"); assert.ok(fx.hidden, "the list closed");
+  await shot("add-effect");
+});
+
 if (errs.length) { failures++; console.error("  ✗ no errors on the page\n      " + errs.slice(0, 5).join("\n      ")); }
 await browser.close(); srv.close();
 console.log(failures ? "\n" + failures + " failed" : "\n\nall passed"); process.exit(failures ? 1 : 0);

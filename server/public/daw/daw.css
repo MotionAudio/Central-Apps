@@ -152,6 +152,9 @@
 .cd-pop{position:absolute;z-index:40;min-width:240px;max-width:340px;max-height:70vh;overflow:auto;background:var(--d-panel);border:1px solid var(--d-line2);border-radius:9px;box-shadow:0 16px 40px rgba(0,0,0,.6);padding:4px;display:flex;flex-direction:column}
 .cd-pop button{display:flex;align-items:center;text-align:left;background:none;border:0;border-radius:5px;padding:6px 10px;white-space:normal}.cd-pop button:hover:not(:disabled){background:var(--d-panel3)}
 .cd-pop hr{border:0;border-top:1px solid var(--d-line);margin:3px 2px}
+.cd-pophead{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--d-dim,#8a8f98);padding:8px 10px 3px}
+.cd-pop .cd-popq{position:sticky;top:-4px;z-index:1;margin:-4px -4px 4px;padding:8px 10px;border:0;border-bottom:1px solid var(--d-line);border-radius:9px 9px 0 0;background:var(--d-panel2,var(--d-panel));color:inherit;font:inherit;outline:none}
+.cd-pop{min-width:260px}
 .cd-modal{position:absolute;inset:0;z-index:45;background:rgba(5,6,8,.55);display:flex;align-items:flex-start;justify-content:center;padding-top:10vh}
 .cd-dialog{width:min(440px,92%);background:var(--d-panel);border:1px solid var(--d-line2);border-radius:12px;padding:14px 16px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
 .cd-dialog h3{margin:0 0 8px;color:var(--d-acc2);font-size:15px}.cd-dialog p{margin:4px 0 8px;color:var(--d-mut)}

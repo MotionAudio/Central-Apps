@@ -1,0 +1,259 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "multiband-saturator",
+ "name": "Multiband Saturator",
+ "author": "Motion Audio",
+ "family": "saturation",
+ "tier": "plugins",
+ "description": "Three bands, each driven on its own: weight in the lows, bite in the mids, sheen on top, without one muddying the others.",
+ "params": [
+  {
+   "id": "xlow",
+   "name": "Low / mid split",
+   "min": 80,
+   "max": 600,
+   "default": 220,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Bands"
+  },
+  {
+   "id": "xhigh",
+   "name": "Mid / high split",
+   "min": 1500,
+   "max": 9000,
+   "default": 3500,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Bands"
+  },
+  {
+   "id": "lowDrive",
+   "name": "Low drive",
+   "min": 0,
+   "max": 24,
+   "default": 6,
+   "unit": "dB",
+   "group": "Low"
+  },
+  {
+   "id": "midDrive",
+   "name": "Mid drive",
+   "min": 0,
+   "max": 24,
+   "default": 4,
+   "unit": "dB",
+   "group": "Mid"
+  },
+  {
+   "id": "highDrive",
+   "name": "High drive",
+   "min": 0,
+   "max": 24,
+   "default": 3,
+   "unit": "dB",
+   "group": "High"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -18,
+   "max": 6,
+   "default": -3,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Bass weight",
+   "values": {
+    "lowDrive": 12,
+    "midDrive": 4,
+    "highDrive": 0
+   }
+  },
+  {
+   "name": "Drum bus",
+   "values": {
+    "lowDrive": 6,
+    "midDrive": 8,
+    "highDrive": 4,
+    "output": -5
+   }
+  },
+  {
+   "name": "Mix glue",
+   "values": {
+    "lowDrive": 3,
+    "midDrive": 3,
+    "highDrive": 2,
+    "output": -2
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "low",
+    "type": "crossover",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "band": "low",
+     "low": {
+      "param": "xlow"
+     },
+     "high": {
+      "param": "xhigh"
+     }
+    }
+   },
+   {
+    "id": "lowD",
+    "type": "drive",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "tube",
+     "drive": {
+      "param": "lowDrive"
+     },
+     "tone": 20000,
+     "level": 0,
+     "mix": 1,
+     "oversample": 1
+    }
+   },
+   {
+    "id": "mid",
+    "type": "crossover",
+    "x": 240,
+    "y": 230,
+    "props": {
+     "band": "mid",
+     "low": {
+      "param": "xlow"
+     },
+     "high": {
+      "param": "xhigh"
+     }
+    }
+   },
+   {
+    "id": "midD",
+    "type": "drive",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "mode": "tape",
+     "drive": {
+      "param": "midDrive"
+     },
+     "tone": 20000,
+     "level": 0,
+     "mix": 1,
+     "oversample": 1
+    }
+   },
+   {
+    "id": "high",
+    "type": "crossover",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "band": "high",
+     "low": {
+      "param": "xlow"
+     },
+     "high": {
+      "param": "xhigh"
+     }
+    }
+   },
+   {
+    "id": "highD",
+    "type": "drive",
+    "x": 440,
+    "y": 420,
+    "props": {
+     "mode": "soft",
+     "drive": {
+      "param": "highDrive"
+     },
+     "tone": 20000,
+     "level": 0,
+     "mix": 1,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "o",
+    "type": "gain",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "gain": {
+      "param": "output"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "low.in"
+   },
+   {
+    "from": "low.out",
+    "to": "lowD.in"
+   },
+   {
+    "from": "lowD.out",
+    "to": "o.in"
+   },
+   {
+    "from": "in.out",
+    "to": "mid.in"
+   },
+   {
+    "from": "mid.out",
+    "to": "midD.in"
+   },
+   {
+    "from": "midD.out",
+    "to": "o.in"
+   },
+   {
+    "from": "in.out",
+    "to": "high.in"
+   },
+   {
+    "from": "high.out",
+    "to": "highD.in"
+   },
+   {
+    "from": "highD.out",
+    "to": "o.in"
+   },
+   {
+    "from": "o.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

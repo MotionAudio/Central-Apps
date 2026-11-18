@@ -1,0 +1,182 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "synth-filter",
+ "name": "Synth Filter",
+ "author": "Motion Audio",
+ "family": "filter",
+ "tier": "plugins",
+ "description": "A resonant 24 dB low-pass with drive in front and a soft clip after, for synths, drum loops and builds. The resonance sings without blowing up.",
+ "params": [
+  {
+   "id": "cutoff",
+   "name": "Cutoff",
+   "min": 40,
+   "max": 18000,
+   "default": 1800,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "resonance",
+   "name": "Resonance",
+   "min": 0.7,
+   "max": 10,
+   "default": 3
+  },
+  {
+   "id": "drive",
+   "name": "Drive",
+   "min": 0,
+   "max": 24,
+   "default": 6,
+   "unit": "dB"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -18,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Acid",
+   "values": {
+    "cutoff": 900,
+    "resonance": 8,
+    "drive": 12
+   }
+  },
+  {
+   "name": "Warm",
+   "values": {
+    "cutoff": 3500,
+    "resonance": 1.5,
+    "drive": 4
+   }
+  },
+  {
+   "name": "Closed",
+   "values": {
+    "cutoff": 300,
+    "resonance": 4
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "pre",
+    "type": "drive",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "tube",
+     "drive": {
+      "param": "drive"
+     },
+     "tone": 18000,
+     "level": -3,
+     "mix": 1,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "res",
+    "type": "filter",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "cutoff"
+     },
+     "q": {
+      "param": "resonance"
+     }
+    }
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "cutoff"
+     },
+     "q": 0.6
+    }
+   },
+   {
+    "id": "tame",
+    "type": "drive",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mode": "soft",
+     "drive": 0,
+     "tone": 20000,
+     "level": 0,
+     "mix": 1,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "o",
+    "type": "gain",
+    "x": 1040,
+    "y": 40,
+    "props": {
+     "gain": {
+      "param": "output"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1240,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "pre.in"
+   },
+   {
+    "from": "pre.out",
+    "to": "res.in"
+   },
+   {
+    "from": "res.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "tame.in"
+   },
+   {
+    "from": "tame.out",
+    "to": "o.in"
+   },
+   {
+    "from": "o.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

@@ -19,7 +19,9 @@
 #include "cmfx_int.h"
 
 enum { OP_K, OP_LD, OP_ST, OP_POP, OP_DUP, OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_POW, OP_NEG, OP_NOT, OP_NE0,
-  OP_EQ, OP_NE, OP_LT, OP_GT, OP_LE, OP_GE, OP_JMP, OP_JZ, OP_CALL, OP_AL, OP_AS, OP_DW, OP_DR, OP_LEN, OP_LOOPI, OP_LOOPC, OP_END };
+  OP_EQ, OP_NE, OP_LT, OP_GT, OP_LE, OP_GE, OP_JMP, OP_JZ, OP_CALL, OP_AL, OP_AS, OP_DW, OP_DR, OP_LEN, OP_LOOPI, OP_LOOPC,
+  /* (10.8) fused steps, the same sums in fewer instructions: x + 2, x * gain, ... and a store that ends a statement */
+  OP_ADDK, OP_SUBK, OP_MULK, OP_DIVK, OP_ADDV, OP_SUBV, OP_MULV, OP_DIVV, OP_STP, OP_END };
 enum { F_SIN, F_COS, F_TAN, F_TANH, F_EXP, F_LOG, F_LOG10, F_LOG2, F_SQRT, F_ABS, F_FLOOR, F_CEIL, F_ROUND, F_SIGN, F_ATAN,
   F_DB2GAIN, F_GAIN2DB, F_POW, F_MIN, F_MAX, F_ATAN2, F_FMOD, F_CLAMP, F_MIX, F_RAND, F_NOISE };
 static const struct { const char *name; int n; int id; } FUNCS[] = {
@@ -37,6 +39,7 @@ typedef struct {
   CCode *c; CProg *p; const char *src; int len, pos, line, paren; Tok tok, peek; int hasPeek;
   char *err; int errLen; int failed; int depth;
   int lvKind, lvOp, lvVar;                    /* the last thing parsed, if it can be assigned to (1 var, 2 array element) */
+  int target;                                 /* the latest place a jump lands (no step there may be fused away) */
   char arrNames[64][24];
   float sr;
 } CS;
@@ -101,7 +104,17 @@ static int emitA(CS *s, int op, int a, float k) {
 }
 #define emit(s, op, k) emitA(s, op, 0, k)
 #define emitI(s, op, a) emitA(s, op, a, 0)
-static void patch(CS *s, int at) { s->c->ops[at].a = s->c->nOps; }
+static void patch(CS *s, int at) { s->c->ops[at].a = s->c->nOps; s->target = s->c->nOps; }
+/* a + - * / whose right side was one number or one variable becomes one step (x * 0.5: LD x, MULK 0.5) */
+static int emitBin(CS *s, int op) {
+  int n = s->c->nOps;
+  if (!s->failed && n > 0 && s->target != n && (s->c->ops[n - 1].op == OP_K || s->c->ops[n - 1].op == OP_LD)) {
+    CInst *pr = &s->c->ops[n - 1];
+    pr->op = (pr->op == OP_K ? OP_ADDK : OP_ADDV) + (op == OP_ADD ? 0 : op == OP_SUB ? 1 : op == OP_MUL ? 2 : 3);
+    s->lvKind = 0; return n - 1;
+  }
+  return emitA(s, op, 0, 0);
+}
 static int varIndex(CS *s, const char *name, int create) {
   CProg *p = s->p; CCode *c = s->c;
   for (int i = 0; i < p->nVars; i++) if (cm_streq(c->varNames[p->base + i], name)) return i;
@@ -135,7 +148,7 @@ static void primary(CS *s) {
       if (!isOp(s, ")")) for (;;) { expr(s); n++; if (isOp(s, ",")) { next(s); continue; } break; }
       expect(s, ")", "a ')' is missing");
       if (n != FUNCS[f].n) { char b[64]; cm_fmt(b, sizeof b, "%s() takes %d number%s", name, FUNCS[f].n, FUNCS[f].n == 1 ? "" : "s"); fail(s, line, "%s", b); return; }
-      emitI(s, OP_CALL, FUNCS[f].id);
+      { int k = emitI(s, OP_CALL, FUNCS[f].id); if (!s->failed) s->c->ops[k].b = n; }   /* (10.8) the count of numbers it takes, so a call needn't look it up */
     } else {
       int a = arrIndex(s, name);
       if (a >= 0) {
@@ -178,11 +191,11 @@ static void unary(CS *s) {
 }
 static void mul(CS *s) {
   unary(s);
-  while (!s->failed && (isOp(s, "*") || isOp(s, "/") || isOp(s, "%"))) { char o = s->tok.s[0]; next(s); unary(s); emit(s, o == '*' ? OP_MUL : o == '/' ? OP_DIV : OP_MOD, 0); }
+  while (!s->failed && (isOp(s, "*") || isOp(s, "/") || isOp(s, "%"))) { char o = s->tok.s[0]; next(s); unary(s); if (o == '%') emit(s, OP_MOD, 0); else emitBin(s, o == '*' ? OP_MUL : OP_DIV); }
 }
 static void add(CS *s) {
   mul(s);
-  while (!s->failed && (isOp(s, "+") || isOp(s, "-"))) { char o = s->tok.s[0]; next(s); mul(s); emit(s, o == '+' ? OP_ADD : OP_SUB, 0); }
+  while (!s->failed && (isOp(s, "+") || isOp(s, "-"))) { char o = s->tok.s[0]; next(s); mul(s); emitBin(s, o == '+' ? OP_ADD : OP_SUB); }
 }
 static void cmp(CS *s) {
   add(s);
@@ -226,7 +239,7 @@ static void expr(CS *s) {
     if (readOnly(v) || (v >= CV_PARAMS && v < CV_PARAMS + s->c->nParams)) { fail(s, line, "%s can't be changed here (it is read-only)", s->c->varNames[s->p->base + v]); return; }
     next(s);
     if (asg == 1) { s->c->nOps--; expr(s); emitI(s, OP_ST, v); }
-    else { expr(s); emit(s, asg, 0); emitI(s, OP_ST, v); }
+    else { expr(s); emitBin(s, asg); emitI(s, OP_ST, v); }
   } else {
     next(s);
     if (asg == 1) { s->c->nOps--; expr(s); emitI(s, OP_AS, v); }
@@ -287,13 +300,16 @@ static void statement(CS *s) {
     char hidden[24]; cm_fmt(hidden, sizeof hidden, " loop%d", s->c->nOps); int v = varIndex(s, hidden, 1);
     emitI(s, OP_LOOPI, v); int top = s->c->nOps; int chk = emitI(s, OP_LOOPC, v);
     blockOrStatement(s); emitI(s, OP_JMP, top);
-    s->c->ops[chk].b = s->c->nOps;   /* where it goes when the count runs out */
+    s->c->ops[chk].b = s->c->nOps; s->target = s->c->nOps;   /* where it goes when the count runs out */
     return;
   }
   if (s->tok.t == T_ID && cm_streq(s->tok.s, "else")) { fail(s, line, "else without an if before it%s", ""); return; }
   if (isOp(s, "{")) { blockOrStatement(s); return; }
   if (isOp(s, ";")) { next(s); return; }
-  expr(s); if (s->failed) return; emit(s, OP_POP, 0); endStatement(s);
+  expr(s); if (s->failed) return;
+  int n = s->c->nOps;
+  if (n > 0 && s->c->ops[n - 1].op == OP_ST && s->target != n) s->c->ops[n - 1].op = OP_STP; else emit(s, OP_POP, 0);
+  endStatement(s);
 }
 
 int code_compile(CCode *c, const char *src, int len, float sr, char *err, int errLen) {
@@ -305,7 +321,7 @@ int code_compile(CCode *c, const char *src, int len, float sr, char *err, int er
   for (int i = 0; i < CV_PARAMS; i++) { int n = cm_strlen(BUILTIN[i]); cm_memcpy(c->varNames[p->base + i], BUILTIN[i], (unsigned long)n + 1); }
   for (int i = 0; i < c->nParams; i++) { int n = cm_strlen(c->paramIds[i]); if (n > 23) n = 23; cm_memcpy(c->varNames[p->base + CV_PARAMS + i], c->paramIds[i], (unsigned long)n); c->varNames[p->base + CV_PARAMS + i][n] = 0; }
   p->nVars = CV_PARAMS + c->nParams;
-  CS s0; CS *s = &s0; cm_memset(s, 0, sizeof *s);
+  CS s0; CS *s = &s0; cm_memset(s, 0, sizeof *s); s->target = -1;
   s->c = c; s->p = p; s->src = src; s->len = len; s->line = 1; s->err = err; s->errLen = errLen; s->sr = sr > 0 ? sr : 48000;
   int startOps = c->nOps;
   next(s);
@@ -362,7 +378,6 @@ static float callF(CProg *p, int f, float *a) {
   }
   return 0;
 }
-static int nargs(int f) { for (int i = 0; FUNCS[i].name; i++) if (FUNCS[i].id == f) return FUNCS[i].n; return 0; }
 
 int code_run(CCode *c, CProg *p, int entry) {
   if (entry < 0) return 0;
@@ -394,7 +409,7 @@ int code_run(CCode *c, CProg *p, int entry) {
       case OP_GE: sp--; st[sp - 1] = st[sp - 1] >= st[sp] ? 1.0f : 0.0f; break;
       case OP_JMP: pc = in.a; break;
       case OP_JZ: sp--; if (st[sp] == 0) pc = in.a; break;
-      case OP_CALL: { int f = in.a, n = nargs(f); float a[3] = { 0, 0, 0 }; for (int i = n - 1; i >= 0; i--) a[i] = st[--sp]; PUSH(callF(p, f, a)); break; }
+      case OP_CALL: { int f = in.a, n = in.b; float a[3] = { 0, 0, 0 }; for (int i = n - 1; i >= 0; i--) a[i] = st[--sp]; PUSH(callF(p, f, a)); break; }
       case OP_AL: case OP_AS: case OP_LEN: case OP_DW: case OP_DR: {
         int a = in.a, size = p->arrSize[a]; float *buf = p->arr[a];
         if (in.op == OP_LEN) { PUSH(p->arrIsDelay[a] ? (float)(size - 4) * 1000.0f / (v[CV_SRATE] > 0 ? v[CV_SRATE] : 48000.0f) : (float)size); break; }
@@ -414,6 +429,15 @@ int code_run(CCode *c, CProg *p, int entry) {
       }
       case OP_LOOPI: { float n = st[--sp]; if (!(n > 0)) n = 0; if (n > CM_LOOP_MAX) n = CM_LOOP_MAX; v[in.a] = (float)(int)n; break; }
       case OP_LOOPC: if (v[in.a] <= 0) pc = in.b; else v[in.a] -= 1; break;
+      case OP_ADDK: st[sp - 1] += in.k; break;
+      case OP_SUBK: st[sp - 1] -= in.k; break;
+      case OP_MULK: st[sp - 1] *= in.k; break;
+      case OP_DIVK: st[sp - 1] = in.k != 0 ? st[sp - 1] / in.k : 0; break;
+      case OP_ADDV: st[sp - 1] += v[in.a]; break;
+      case OP_SUBV: st[sp - 1] -= v[in.a]; break;
+      case OP_MULV: st[sp - 1] *= v[in.a]; break;
+      case OP_DIVV: { float d = v[in.a]; st[sp - 1] = d != 0 ? st[sp - 1] / d : 0; break; }
+      case OP_STP: v[in.a] = st[--sp]; break;
       case OP_END: return 0;
       default: return 1;
     }

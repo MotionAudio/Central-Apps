@@ -1,0 +1,155 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "telephone",
+ "name": "Telephone",
+ "author": "Motion Audio",
+ "family": "eq",
+ "tier": "free",
+ "description": "Through a phone or a small radio: only the middle, a little crunchy. For an intro, a breakdown or a voice in a drama.",
+ "params": [
+  {
+   "id": "low",
+   "name": "Low cut",
+   "min": 200,
+   "max": 1000,
+   "default": 450,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "high",
+   "name": "High cut",
+   "min": 1500,
+   "max": 5000,
+   "default": 3000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "crunch",
+   "name": "Crunch",
+   "min": 0,
+   "max": 24,
+   "default": 8,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Phone",
+   "values": {}
+  },
+  {
+   "name": "AM radio",
+   "values": {
+    "low": 600,
+    "high": 2500,
+    "crunch": 4
+   }
+  },
+  {
+   "name": "Megaphone",
+   "values": {
+    "low": 700,
+    "high": 3500,
+    "crunch": 18
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "low"
+     },
+     "q": 0.9,
+     "slope": 24
+    }
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "high"
+     },
+     "q": 0.9,
+     "slope": 24
+    }
+   },
+   {
+    "id": "honk",
+    "type": "eq",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": 1400,
+     "q": 1.2,
+     "gain": 5
+    }
+   },
+   {
+    "id": "cr",
+    "type": "drive",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mode": "hard",
+     "drive": {
+      "param": "crunch"
+     },
+     "tone": 6000,
+     "level": -6,
+     "mix": 0.8
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "honk.in"
+   },
+   {
+    "from": "honk.out",
+    "to": "cr.in"
+   },
+   {
+    "from": "cr.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

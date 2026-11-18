@@ -1,0 +1,63 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "tube",
+ "name": "Tube",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "saturation",
+ "tier": "plugins",
+ "description": "Airwindows Tube2 by Chris Johnson: a real triode-style curve with its asymmetry and slew, from a gentle glow to a fat tube push. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "input",
+   "name": "Input",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  },
+  {
+   "id": "tube",
+   "name": "Tube",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Glow",
+   "values": {
+    "input": 0.4,
+    "tube": 0.3
+   }
+  },
+  {
+   "name": "Warm tube",
+   "values": {
+    "input": 0.6,
+    "tube": 0.6
+   }
+  },
+  {
+   "name": "Fat",
+   "values": {
+    "input": 0.9,
+    "tube": 0.85,
+    "output": -3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows Tube2, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n@block\npf = floor(9 * (1 - tube)) + 1\npe = pf + 1\ngs = 1 / pe\nos2 = 1 + 1 / pf\nhi = srate / 44100 > 1.9\ngo = db2gain(output) * 1.923076923076923\n@sample\nx = inL * input\nif (hi) { st = x; x = (x + pA) * 0.5; pA = st }\nx = clamp(x, -1, 1) / pf\na = abs(x)\nr = sqrt(a)\nx = (x - x * a * (x < 0 ? 1 + r : 1 - r) * 0.25) * pf\nx = (x - (x < 0 ? -pow(-x, pe) : pow(x, pe)) * gs) * os2\nif (hi) { st = x; x = (x + pC) * 0.5; pC = st; sl = pE - x; st = x; x = (x + pE) * 0.5; pE = st } else { sl = pE - x; pE = x }\nsl = sl > 0 ? 1 + sqrt(sl) * 0.5 : 1 - sqrt(-sl) * 0.5\nx -= x * abs(x) * sl * gs\noutL = clamp(x, -0.52, 0.52) * go\ny = inR * input\nif (hi) { st = y; y = (y + pB2) * 0.5; pB2 = st }\ny = clamp(y, -1, 1) / pf\na = abs(y)\nr = sqrt(a)\ny = (y - y * a * (y < 0 ? 1 + r : 1 - r) * 0.25) * pf\ny = (y - (y < 0 ? -pow(-y, pe) : pow(y, pe)) * gs) * os2\nif (hi) { st = y; y = (y + pD) * 0.5; pD = st; sl = pF - y; st = y; y = (y + pF) * 0.5; pF = st } else { sl = pF - y; pF = y }\nsl = sl > 0 ? 1 + sqrt(sl) * 0.5 : 1 - sqrt(-sl) * 0.5\ny -= y * abs(y) * sl * gs\noutR = clamp(y, -0.52, 0.52) * go\n"
+}

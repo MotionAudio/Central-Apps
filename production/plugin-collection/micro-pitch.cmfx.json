@@ -1,0 +1,209 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "micro-pitch",
+ "name": "Micro Pitch",
+ "author": "Motion Audio",
+ "family": "modulation",
+ "tier": "plugins",
+ "description": "Two copies tuned a few cents apart, one each side: the classic wide vocal and the huge, stable doubled guitar - no wobble, unlike a chorus.",
+ "params": [
+  {
+   "id": "cents",
+   "name": "Detune",
+   "min": 0,
+   "max": 30,
+   "default": 9,
+   "unit": "cents"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.4
+  },
+  {
+   "id": "delay",
+   "name": "Delay",
+   "min": 0,
+   "max": 30,
+   "default": 12,
+   "unit": "ms"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Wide vocal",
+   "values": {
+    "cents": 9,
+    "mix": 0.35
+   }
+  },
+  {
+   "name": "Huge guitar",
+   "values": {
+    "cents": 14,
+    "mix": 0.5,
+    "delay": 18
+   }
+  },
+  {
+   "name": "Subtle",
+   "values": {
+    "cents": 5,
+    "mix": 0.25
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "cents",
+    "type": "param",
+    "x": 40,
+    "y": 610,
+    "props": {
+     "param": "cents"
+    }
+   },
+   {
+    "id": "neg",
+    "type": "math",
+    "x": 240,
+    "y": 610,
+    "props": {
+     "op": "negate"
+    }
+   },
+   {
+    "id": "up",
+    "type": "pitch",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "semitones": 0,
+     "mix": 1
+    }
+   },
+   {
+    "id": "dn",
+    "type": "pitch",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "semitones": 0,
+     "mix": 1
+    }
+   },
+   {
+    "id": "dl",
+    "type": "delay",
+    "x": 440,
+    "y": 420,
+    "props": {
+     "time": {
+      "param": "delay"
+     },
+     "feedback": 0,
+     "mix": 1,
+     "tone": 18000
+    }
+   },
+   {
+    "id": "pl",
+    "type": "stereo",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "pan": -1
+    }
+   },
+   {
+    "id": "pr",
+    "type": "stereo",
+    "x": 640,
+    "y": 420,
+    "props": {
+     "pan": 1
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "cents.out",
+    "to": "neg.a"
+   },
+   {
+    "from": "in.out",
+    "to": "up.in"
+   },
+   {
+    "from": "cents.out",
+    "to": "up.fine"
+   },
+   {
+    "from": "in.out",
+    "to": "dn.in"
+   },
+   {
+    "from": "neg.out",
+    "to": "dn.fine"
+   },
+   {
+    "from": "dn.out",
+    "to": "dl.in"
+   },
+   {
+    "from": "up.out",
+    "to": "pl.in"
+   },
+   {
+    "from": "dl.out",
+    "to": "pr.in"
+   },
+   {
+    "from": "pl.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "pr.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

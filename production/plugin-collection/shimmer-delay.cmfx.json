@@ -1,0 +1,170 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "shimmer-delay",
+ "name": "Shimmer Delay",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "plugins",
+ "description": "Repeats that climb an octave and melt into a soft reverb: the swelling worship guitar and the dreamy piano.",
+ "params": [
+  {
+   "id": "time",
+   "tempoSync": true,
+   "name": "Time",
+   "min": 150,
+   "max": 1200,
+   "default": 450,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.85,
+   "default": 0.5
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.35
+  },
+  {
+   "id": "shimmer",
+   "name": "Shimmer",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  }
+ ],
+ "presets": [
+  {
+   "name": "Worship swell",
+   "values": {
+    "time": 450,
+    "feedback": 0.55,
+    "mix": 0.38,
+    "shimmer": 0.5
+   }
+  },
+  {
+   "name": "Heavenly",
+   "values": {
+    "time": 700,
+    "feedback": 0.7,
+    "mix": 0.45,
+    "shimmer": 0.75
+   }
+  },
+  {
+   "name": "Subtle sparkle",
+   "values": {
+    "time": 350,
+    "feedback": 0.35,
+    "mix": 0.22,
+    "shimmer": 0.3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "echo",
+    "type": "delay",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "time": {
+      "param": "time"
+     },
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": 1,
+     "tone": 6000
+    }
+   },
+   {
+    "id": "up",
+    "type": "pitch",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "semitones": 12,
+     "mix": {
+      "param": "shimmer"
+     }
+    }
+   },
+   {
+    "id": "verb",
+    "type": "reverb",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "size": 0.7,
+     "damp": 0.35,
+     "mix": 0.45,
+     "predelay": 0,
+     "width": 1,
+     "mod": 0.6
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "echo.in"
+   },
+   {
+    "from": "echo.out",
+    "to": "up.in"
+   },
+   {
+    "from": "up.out",
+    "to": "verb.in"
+   },
+   {
+    "from": "verb.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

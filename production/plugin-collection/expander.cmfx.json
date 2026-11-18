@@ -1,0 +1,109 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "expander",
+ "name": "Expander",
+ "author": "Motion Audio",
+ "family": "dynamics",
+ "tier": "plugins",
+ "description": "A gentler gate: turns the quiet parts down by an amount instead of off, so spill and noise drop away naturally.",
+ "params": [
+  {
+   "id": "threshold",
+   "name": "Threshold",
+   "min": -80,
+   "max": -10,
+   "default": -45,
+   "unit": "dB"
+  },
+  {
+   "id": "range",
+   "name": "Range",
+   "min": -40,
+   "max": 0,
+   "default": -12,
+   "unit": "dB"
+  },
+  {
+   "id": "release",
+   "name": "Release",
+   "min": 20,
+   "max": 1000,
+   "default": 180,
+   "unit": "ms",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal spill",
+   "values": {
+    "threshold": -50,
+    "range": -10
+   }
+  },
+  {
+   "name": "Tom mics",
+   "values": {
+    "threshold": -38,
+    "range": -20,
+    "release": 250
+   }
+  },
+  {
+   "name": "Noise",
+   "values": {
+    "threshold": -60,
+    "range": -8,
+    "release": 300
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "exp",
+    "type": "gate",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "threshold": {
+      "param": "threshold"
+     },
+     "range": {
+      "param": "range"
+     },
+     "attack": 2,
+     "hold": 20,
+     "release": {
+      "param": "release"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "exp.in"
+   },
+   {
+    "from": "exp.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

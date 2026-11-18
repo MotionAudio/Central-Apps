@@ -1,0 +1,94 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "vibrato",
+ "name": "Vibrato",
+ "author": "Motion Audio",
+ "family": "modulation",
+ "tier": "free",
+ "description": "Pitch that wavers like a singer's or a whammy bar's. The free vibrato.",
+ "params": [
+  {
+   "id": "rate",
+   "name": "Rate",
+   "min": 0.1,
+   "max": 10,
+   "default": 5,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "depth",
+   "name": "Depth",
+   "min": 0,
+   "max": 1,
+   "default": 0.35
+  }
+ ],
+ "presets": [
+  {
+   "name": "Gentle",
+   "values": {
+    "rate": 5,
+    "depth": 0.25
+   }
+  },
+  {
+   "name": "Wide",
+   "values": {
+    "rate": 4,
+    "depth": 0.6
+   }
+  },
+  {
+   "name": "Fast warble",
+   "values": {
+    "rate": 8,
+    "depth": 0.4
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "vib",
+    "type": "chorus",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "rate": {
+      "param": "rate"
+     },
+     "depth": {
+      "param": "depth"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "vib.in"
+   },
+   {
+    "from": "vib.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

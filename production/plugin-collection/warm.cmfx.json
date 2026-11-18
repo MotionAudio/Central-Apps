@@ -1,0 +1,61 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "warm",
+ "name": "Warm",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "saturation",
+ "tier": "free",
+ "description": "Airwindows PurestWarm by Chris Johnson: rounds off one half of the wave only, for a subtle, even-harmonic warmth. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "side",
+   "name": "Which half (0 top, 1 bottom)",
+   "min": 0,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "id": "drive",
+   "name": "Input",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Top half",
+   "values": {
+    "side": 0
+   }
+  },
+  {
+   "name": "Bottom half",
+   "values": {
+    "side": 1
+   }
+  },
+  {
+   "name": "Pushed",
+   "values": {
+    "side": 0,
+    "drive": 6
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows PurestWarm, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n@block\ngi = db2gain(drive)\ngo = db2gain(output) / gi\n@sample\nxL = inL * gi\nxR = inR * gi\nif (side < 0.5) {\n  if (xL > 0) { xL = sin(xL * 1.57079634) / 1.57079634 }\n  if (xR > 0) { xR = sin(xR * 1.57079634) / 1.57079634 }\n} else {\n  if (xL < 0) { xL = -(sin(-xL * 1.57079634) / 1.57079634) }\n  if (xR < 0) { xR = -(sin(-xR * 1.57079634) / 1.57079634) }\n}\noutL = xL * go\noutR = xR * go\n"
+}

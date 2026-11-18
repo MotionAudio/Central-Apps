@@ -1,0 +1,74 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "utility",
+ "name": "Utility",
+ "author": "Motion Audio",
+ "family": "stereo",
+ "tier": "free",
+ "description": "The everyday tools in one: gain, balance, width (0 = mono), and each side's polarity. The free utility.",
+ "params": [
+  {
+   "id": "gain",
+   "name": "Gain",
+   "min": -36,
+   "max": 24,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "balance",
+   "name": "Balance",
+   "min": -1,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "id": "width",
+   "name": "Width",
+   "min": 0,
+   "max": 2,
+   "default": 1
+  },
+  {
+   "id": "flipL",
+   "name": "Invert left",
+   "min": 0,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "id": "flipR",
+   "name": "Invert right",
+   "min": 0,
+   "max": 1,
+   "default": 0
+  }
+ ],
+ "presets": [
+  {
+   "name": "Mono",
+   "values": {
+    "width": 0
+   }
+  },
+  {
+   "name": "Quieter",
+   "values": {
+    "gain": -6
+   }
+  },
+  {
+   "name": "Flip polarity",
+   "values": {
+    "flipL": 1,
+    "flipR": 1
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "@block\ng = db2gain(gain)\n@sample\nl = inL * g * (flipL > 0.5 ? -1 : 1)\nr = inR * g * (flipR > 0.5 ? -1 : 1)\nm = (l + r) * 0.5\ns = (l - r) * 0.5 * width\nl = m + s\nr = m - s\noutL = l * (balance > 0 ? 1 - balance : 1)\noutR = r * (balance < 0 ? 1 + balance : 1)\n"
+}

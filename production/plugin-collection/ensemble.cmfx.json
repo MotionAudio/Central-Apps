@@ -1,0 +1,227 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "ensemble",
+ "name": "Ensemble",
+ "author": "Motion Audio",
+ "family": "modulation",
+ "tier": "plugins",
+ "description": "Three choruses at once, at different speeds: the lush string machine and the big, wide keys of the 70s and 80s.",
+ "params": [
+  {
+   "id": "depth",
+   "name": "Depth",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.55
+  },
+  {
+   "id": "width",
+   "name": "Width",
+   "min": 0.5,
+   "max": 2,
+   "default": 1.5
+  }
+ ],
+ "presets": [
+  {
+   "name": "String machine",
+   "values": {
+    "depth": 0.6,
+    "mix": 0.7
+   }
+  },
+  {
+   "name": "Wide keys",
+   "values": {
+    "depth": 0.45,
+    "mix": 0.5,
+    "width": 1.8
+   }
+  },
+  {
+   "name": "Subtle",
+   "values": {
+    "depth": 0.3,
+    "mix": 0.35
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "c0",
+    "type": "chorus",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "rate": 0.63,
+     "depth": {
+      "param": "depth"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "p0",
+    "type": "stereo",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "pan": -0.8
+    }
+   },
+   {
+    "id": "c1",
+    "type": "chorus",
+    "x": 240,
+    "y": 230,
+    "props": {
+     "rate": 0.91,
+     "depth": {
+      "param": "depth"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "p1",
+    "type": "stereo",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "pan": 0.0
+    }
+   },
+   {
+    "id": "c2",
+    "type": "chorus",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "rate": 1.37,
+     "depth": {
+      "param": "depth"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "p2",
+    "type": "stereo",
+    "x": 440,
+    "y": 420,
+    "props": {
+     "pan": 0.8
+    }
+   },
+   {
+    "id": "g",
+    "type": "gain",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "gain": -4.8
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "wide",
+    "type": "stereo",
+    "x": 1040,
+    "y": 230,
+    "props": {
+     "width": {
+      "param": "width"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1240,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "c0.in"
+   },
+   {
+    "from": "c0.out",
+    "to": "p0.in"
+   },
+   {
+    "from": "p0.out",
+    "to": "g.in"
+   },
+   {
+    "from": "in.out",
+    "to": "c1.in"
+   },
+   {
+    "from": "c1.out",
+    "to": "p1.in"
+   },
+   {
+    "from": "p1.out",
+    "to": "g.in"
+   },
+   {
+    "from": "in.out",
+    "to": "c2.in"
+   },
+   {
+    "from": "c2.out",
+    "to": "p2.in"
+   },
+   {
+    "from": "p2.out",
+    "to": "g.in"
+   },
+   {
+    "from": "g.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "wide.in"
+   },
+   {
+    "from": "wide.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

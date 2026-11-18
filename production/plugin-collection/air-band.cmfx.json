@@ -1,0 +1,135 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "air-band",
+ "name": "Air Band",
+ "author": "Motion Audio",
+ "family": "eq",
+ "tier": "plugins",
+ "description": "Opens up the very top - breath, shimmer and space - with a wide, gentle shelf that doesn't make things harsh.",
+ "params": [
+  {
+   "id": "freq",
+   "name": "Frequency",
+   "min": 8000,
+   "max": 20000,
+   "default": 14000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "gain",
+   "name": "Air",
+   "min": 0,
+   "max": 12,
+   "default": 4,
+   "unit": "dB"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal air",
+   "values": {
+    "freq": 12000,
+    "gain": 4
+   }
+  },
+  {
+   "name": "Acoustic sparkle",
+   "values": {
+    "freq": 10000,
+    "gain": 3
+   }
+  },
+  {
+   "name": "Master",
+   "values": {
+    "freq": 16000,
+    "gain": 2
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "air",
+    "type": "eq",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highshelf",
+     "freq": {
+      "param": "freq"
+     },
+     "q": 0.5,
+     "gain": {
+      "param": "gain"
+     }
+    }
+   },
+   {
+    "id": "soft",
+    "type": "eq",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": 4500,
+     "q": 1.2,
+     "gain": -0.8
+    }
+   },
+   {
+    "id": "o",
+    "type": "gain",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "gain": {
+      "param": "output"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "air.in"
+   },
+   {
+    "from": "air.out",
+    "to": "soft.in"
+   },
+   {
+    "from": "soft.out",
+    "to": "o.in"
+   },
+   {
+    "from": "o.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

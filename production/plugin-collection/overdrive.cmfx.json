@@ -1,0 +1,134 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "overdrive",
+ "name": "Overdrive",
+ "author": "Motion Audio",
+ "family": "saturation",
+ "tier": "free",
+ "description": "A warm tube overdrive: from a little hair to a proper crunch. The free drive.",
+ "params": [
+  {
+   "id": "drive",
+   "name": "Drive",
+   "min": 0,
+   "max": 36,
+   "default": 12,
+   "unit": "dB"
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 1000,
+   "max": 12000,
+   "default": 5000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "level",
+   "name": "Level",
+   "min": -24,
+   "max": 6,
+   "default": -8,
+   "unit": "dB"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Edge of breakup",
+   "values": {
+    "drive": 8,
+    "level": -5
+   }
+  },
+  {
+   "name": "Crunch",
+   "values": {
+    "drive": 20,
+    "tone": 4500,
+    "level": -12
+   }
+  },
+  {
+   "name": "Keys grit",
+   "values": {
+    "drive": 10,
+    "tone": 7000,
+    "mix": 0.6
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": 70,
+     "q": 0.7
+    }
+   },
+   {
+    "id": "od",
+    "type": "drive",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "tube",
+     "drive": {
+      "param": "drive"
+     },
+     "tone": {
+      "param": "tone"
+     },
+     "level": {
+      "param": "level"
+     },
+     "mix": {
+      "param": "mix"
+     },
+     "oversample": 2
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "od.in"
+   },
+   {
+    "from": "od.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

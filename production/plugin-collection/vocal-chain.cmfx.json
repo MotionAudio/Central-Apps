@@ -1,0 +1,202 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "vocal-chain",
+ "name": "Vocal Chain",
+ "author": "Motion Audio",
+ "family": "dynamics",
+ "tier": "plugins",
+ "description": "Everything a lead vocal usually gets, in order and set up: low cut, gentle levelling, presence, air and a plate around it.",
+ "params": [
+  {
+   "id": "lowcut",
+   "name": "Low cut",
+   "min": 60,
+   "max": 300,
+   "default": 110,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "level",
+   "name": "Levelling",
+   "min": -40,
+   "max": 0,
+   "default": -22,
+   "unit": "dB"
+  },
+  {
+   "id": "presence",
+   "name": "Presence",
+   "min": -6,
+   "max": 9,
+   "default": 3,
+   "unit": "dB"
+  },
+  {
+   "id": "air",
+   "name": "Air",
+   "min": 0,
+   "max": 9,
+   "default": 3,
+   "unit": "dB"
+  },
+  {
+   "id": "space",
+   "name": "Space",
+   "min": 0,
+   "max": 0.5,
+   "default": 0.15
+  }
+ ],
+ "presets": [
+  {
+   "name": "Pop vocal",
+   "values": {
+    "level": -24,
+    "presence": 3,
+    "air": 4,
+    "space": 0.15
+   }
+  },
+  {
+   "name": "Worship lead",
+   "values": {
+    "level": -20,
+    "presence": 2,
+    "air": 3,
+    "space": 0.22
+   }
+  },
+  {
+   "name": "Spoken word",
+   "values": {
+    "lowcut": 90,
+    "level": -26,
+    "presence": 2,
+    "air": 1,
+    "space": 0.05
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": {
+      "param": "lowcut"
+     },
+     "q": 0.7,
+     "slope": 24
+    }
+   },
+   {
+    "id": "lvl",
+    "type": "compressor",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "style": "opto",
+     "detect": "rms",
+     "threshold": {
+      "param": "level"
+     },
+     "ratio": 3,
+     "attack": 10,
+     "release": 250,
+     "knee": 10,
+     "makeup": 8
+    }
+   },
+   {
+    "id": "pres",
+    "type": "eq",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": 3200,
+     "q": 0.9,
+     "gain": {
+      "param": "presence"
+     }
+    }
+   },
+   {
+    "id": "airy",
+    "type": "eq",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "highshelf",
+     "freq": 12000,
+     "q": 0.6,
+     "gain": {
+      "param": "air"
+     }
+    }
+   },
+   {
+    "id": "plate",
+    "type": "reverb",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "size": 0.45,
+     "damp": 0.2,
+     "mix": {
+      "param": "space"
+     },
+     "predelay": 30,
+     "width": 1,
+     "mod": 0.6
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "lvl.in"
+   },
+   {
+    "from": "lvl.out",
+    "to": "pres.in"
+   },
+   {
+    "from": "pres.out",
+    "to": "airy.in"
+   },
+   {
+    "from": "airy.out",
+    "to": "plate.in"
+   },
+   {
+    "from": "plate.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

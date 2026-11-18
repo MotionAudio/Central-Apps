@@ -1,0 +1,53 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "purest-drive",
+ "name": "Purest Drive",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "saturation",
+ "tier": "free",
+ "description": "Airwindows PurestDrive by Chris Johnson: the cleanest saturation there is - it only drives what's loud and leaves the highs open. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "drive",
+   "name": "Drive",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -24,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Gentle",
+   "values": {
+    "drive": 0.3
+   }
+  },
+  {
+   "name": "Warm",
+   "values": {
+    "drive": 0.6
+   }
+  },
+  {
+   "name": "All in",
+   "values": {
+    "drive": 1,
+    "output": -2
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows PurestDrive, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n@block\ng = db2gain(output)\n@sample\nsL = sin(inL)\nap = (abs(pL + sL) / 2) * drive\npL = sin(inL)\noutL = (inL * (1 - ap) + sL * ap) * g\nsR = sin(inR)\nap = (abs(pR + sR) / 2) * drive\npR = sin(inR)\noutR = (inR * (1 - ap) + sR * ap) * g\n"
+}

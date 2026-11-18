@@ -1,0 +1,182 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "spring-reverb",
+ "name": "Spring Reverb",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "plugins",
+ "description": "The springs in the back of a guitar amp: bouncy, a little metallic, and right for surf, country and vintage keys.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "decay",
+   "name": "Decay",
+   "min": 0.15,
+   "max": 0.6,
+   "default": 0.35
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 1500,
+   "max": 6000,
+   "default": 3200,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "drip",
+   "name": "Drip",
+   "min": 0,
+   "max": 0.75,
+   "default": 0.45
+  }
+ ],
+ "presets": [
+  {
+   "name": "Amp spring",
+   "values": {
+    "mix": 0.28
+   }
+  },
+  {
+   "name": "Surf",
+   "values": {
+    "mix": 0.45,
+    "decay": 0.45,
+    "drip": 0.65,
+    "tone": 3800
+   }
+  },
+  {
+   "name": "Subtle",
+   "values": {
+    "mix": 0.15,
+    "drip": 0.3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": 300,
+     "q": 0.6
+    }
+   },
+   {
+    "id": "bounce",
+    "type": "delay",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "time": 31,
+     "feedback": {
+      "param": "drip"
+     },
+     "mix": 1,
+     "tone": {
+      "param": "tone"
+     }
+    }
+   },
+   {
+    "id": "tank",
+    "type": "reverb",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "size": {
+      "param": "decay"
+     },
+     "damp": 0.55,
+     "mix": 1,
+     "predelay": 0,
+     "width": 0.6,
+     "mod": 0.9
+    }
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "tone"
+     },
+     "q": 1.4
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "bounce.in"
+   },
+   {
+    "from": "bounce.out",
+    "to": "tank.in"
+   },
+   {
+    "from": "tank.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

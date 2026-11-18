@@ -102,21 +102,29 @@ The builder ships with these, under **Examples…**:
 
 ## The Central FX collection
 
-Motion Audio's own effects are built on the same engine. There are 32 of them, in `production/plugin-collection/`, made by `tools/make-cmfx-collection.py`. The basic one of each kind is free. The others come with the Central Plugins plan.
+Motion Audio's own effects are built on the same engine. There are 82 of them, in `production/plugin-collection/`, made by `tools/make-cmfx-collection.py` (and, since 10.8, `tools/cmfx_more.py`). 27 come free with every app. The other 55 come with the Central Plugins plan.
 
 | Kind | Free | With Central Plugins |
 |---|---|---|
-| Reverb | Room Reverb | Vocal Plate, Lush Hall, Worship Shimmer |
-| Delay | Delay (its time can follow the tempo) | Dotted Eighth (follows the song's tempo), Ping-Pong and Tape Echo (their time can follow the tempo) |
-| Compressor | Compressor | FET (1176-style), Opto Leveler (LA-2A-style), Bus Glue, Multiband, De-esser Pro |
-| Dynamics | Gate | Transient Shaper |
-| EQ | 4-Band EQ, Low & High Cut | 8-Band Parametric, Tilt EQ |
-| Character | Chorus, Tremolo / Auto-pan | Dimension Chorus, Rotary Speaker, Phaser, Flanger, Tape Saturation, Exciter, Lo-Fi Filter |
-| Stereo and level | Limiter | Stereo Widener, True-Peak Limiter |
+| Reverb | Hall Reverb, Plate Reverb, Room Reverb | Cathedral, Chamber, Ducking Reverb, Gated Reverb, Lush Hall, Spring Reverb, Vocal Plate, Worship Shimmer |
+| Delay | Delay, Slapback | Analog Delay, Dotted Eighth Delay, Ducking Delay, Multi-Tap Delay, Ping-Pong Delay, Shimmer Delay, Tape Echo |
+| Compressor | Compressor | Bus Glue, ButterComp, De-esser Pro, FET Compressor (1176-style), Multiband Compressor, Opto Leveler (LA-2A-style), Parallel Compressor |
+| Dynamics | Gate | Channel Strip, Expander, Transient Shaper, Vocal Chain |
+| EQ | 4-Band EQ, Low & High Cut, Telephone | 8-Band Parametric EQ, Air Band, Slew, Tilt EQ, Vintage EQ |
+| Filters | High-Pass Filter, Low-Pass Filter | Auto Filter, Envelope Filter, Synth Filter |
+| Saturation and drive | Bitcrusher, Density, Overdrive, Purest Drive, Spiral, Warm | Console Preamp, Exciter, Lo-Fi Filter, Lo-Fi Tape, Multiband Saturator, Tape Saturation, Tube |
+| Modulation | Chorus, Doubler, Ring Modulator, Tremolo / Auto-pan, Vibrato | Dimension Chorus, Ensemble, Flanger, Harmonic Tremolo, Micro Pitch, Phaser, Rotary Speaker, Uni-Vibe |
+| Pitch | Pitch Shifter | Harmonizer, Octaver |
+| Stereo and utility | Utility | Haas Widener, Stereo Widener |
+| Limiters and clippers | Clipper, Limiter | Maximizer, True-Peak Limiter |
 
-Each one has its own knobs and three or four starting points. You'll find them wherever effects go: the track, pad and stem effects, Add effect in the Studio and Central Production, Add pedal → Central FX on pedal boards, and Central Control's channel inserts (up to 4 per channel, after the compressor). The locked ones say which plan they need.
+Density, Purest Drive, Spiral, Clipper, Warm, Tube, Console Preamp, ButterComp and Slew are ports of Airwindows effects by Chris Johnson (MIT licence, see [CREDITS.md](../CREDITS.md)), written in the code language. They show how far the code language goes: each is Chris's algorithm line for line.
+
+Each one has its own knobs and three or four starting points. You'll find them wherever effects go (in Central Production, a long Add effect list has a search box at the top): the track, pad and stem effects, Add effect in the Studio and Central Production, Add pedal → Central FX on pedal boards, and Central Control's channel inserts (up to 4 per channel, after the compressor). The locked ones say which plan they need.
 
 The engine picked up a few things along the way to make these. The reverb is an 8-line feedback network with slowly moving delays, so it's dense and doesn't ring. In the pitch shifter each new grain lines up with the one already playing, so held notes stay steady, which makes for a better shimmer. The compressor has styles (clean, fet, opto, glue), RMS or peak detection and a side-chain low cut. Drive can oversample 2x or 4x so the harmonics it makes don't alias. The limiter has look-ahead and true-peak detection. And there are three new blocks: band split, transient shaper and rotary speaker.
+
+In 10.8 the code language got quicker. A sum whose right side is one number or one name (`x * 0.5`, `y + gain`) is one step instead of two, and a statement that ends in a store doesn't need a step to tidy up after it, so the same code runs in about three quarters of the time. A whole-number power (`pow(x, 3)`, `x ^ 2`) is now worked out by multiplying, which is exact and much quicker. The sound is the same.
 
 `node test-cmfx-collection.mjs` checks every plugin and starting point (native and WebAssembly sound the same) and its CPU use, and measures the engine against reference behaviour.
 

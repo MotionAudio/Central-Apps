@@ -1,0 +1,152 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "maximizer",
+ "name": "Maximizer",
+ "author": "Motion Audio",
+ "family": "limiter",
+ "tier": "plugins",
+ "description": "Loudness for a finished mix: a soft clipper rounds the peaks, then a true-peak limiter holds the ceiling. Louder without crunch.",
+ "params": [
+  {
+   "id": "input",
+   "name": "Input",
+   "min": 0,
+   "max": 18,
+   "default": 4,
+   "unit": "dB"
+  },
+  {
+   "id": "character",
+   "name": "Clip softness",
+   "min": 0,
+   "max": 12,
+   "default": 3,
+   "unit": "dB"
+  },
+  {
+   "id": "ceiling",
+   "name": "Ceiling",
+   "min": -6,
+   "max": 0,
+   "default": -1,
+   "unit": "dB"
+  },
+  {
+   "id": "release",
+   "name": "Release",
+   "min": 10,
+   "max": 500,
+   "default": 60,
+   "unit": "ms",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Streaming",
+   "values": {
+    "input": 4,
+    "character": 2,
+    "ceiling": -1
+   }
+  },
+  {
+   "name": "Loud",
+   "values": {
+    "input": 9,
+    "character": 5,
+    "ceiling": -1,
+    "release": 40
+   }
+  },
+  {
+   "name": "Gentle",
+   "values": {
+    "input": 2,
+    "character": 1,
+    "ceiling": -1.5,
+    "release": 120
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "g",
+    "type": "gain",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "gain": {
+      "param": "input"
+     }
+    }
+   },
+   {
+    "id": "clip",
+    "type": "drive",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "soft",
+     "drive": {
+      "param": "character"
+     },
+     "tone": 20000,
+     "level": 0,
+     "mix": 0.5,
+     "oversample": 4
+    }
+   },
+   {
+    "id": "lim",
+    "type": "limiter",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "detect": "truepeak",
+     "lookahead": 5,
+     "ceiling": {
+      "param": "ceiling"
+     },
+     "release": {
+      "param": "release"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "g.in"
+   },
+   {
+    "from": "g.out",
+    "to": "clip.in"
+   },
+   {
+    "from": "clip.out",
+    "to": "lim.in"
+   },
+   {
+    "from": "lim.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

@@ -1,0 +1,54 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "clip-only",
+ "name": "Clipper",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "limiter",
+ "tier": "free",
+ "description": "Airwindows ClipOnly2 by Chris Johnson: a safety clipper that rounds off overs with no harshness, so nothing past full scale gets through. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "input",
+   "name": "Input",
+   "min": 0,
+   "max": 18,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 0,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Safety",
+   "values": {
+    "input": 0
+   }
+  },
+  {
+   "name": "Louder",
+   "values": {
+    "input": 4
+   }
+  },
+  {
+   "name": "Hot",
+   "values": {
+    "input": 9,
+    "output": -1
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows ClipOnly2, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\narray iL[18]\narray iR[18]\n@init\nsp = max(1, min(16, floor(srate / 44100)))\n@block\ngi = db2gain(input)\ngo = db2gain(output)\n@sample\nx = clamp(inL * gi, -4, 4)\nif (wpL > 0) { if (x < lL) { lL = 0.7058208 + x * 0.2609148 } else { lL = 0.2491717 + lL * 0.7390851 } }\nwpL = x > 0.9549925859\nif (wpL) { x = 0.7058208 + lL * 0.2609148 }\nif (wnL > 0) { if (x > lL) { lL = -0.7058208 + x * 0.2609148 } else { lL = -0.2491717 + lL * 0.7390851 } }\nwnL = x < -0.9549925859\nif (wnL) { x = -0.7058208 + lL * 0.2609148 }\niL[sp] = x\nk = sp\nloop (sp) { iL[k - 1] = iL[k]; k -= 1 }\noutL = lL * go\nlL = iL[0]\ny = clamp(inR * gi, -4, 4)\nif (wpR > 0) { if (y < lR) { lR = 0.7058208 + y * 0.2609148 } else { lR = 0.2491717 + lR * 0.7390851 } }\nwpR = y > 0.9549925859\nif (wpR) { y = 0.7058208 + lR * 0.2609148 }\nif (wnR > 0) { if (y > lR) { lR = -0.7058208 + y * 0.2609148 } else { lR = -0.2491717 + lR * 0.7390851 } }\nwnR = y < -0.9549925859\nif (wnR) { y = -0.7058208 + lR * 0.2609148 }\niR[sp] = y\nk = sp\nloop (sp) { iR[k - 1] = iR[k]; k -= 1 }\noutR = lR * go\nlR = iR[0]\n"
+}

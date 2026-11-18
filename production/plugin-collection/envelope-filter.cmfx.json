@@ -1,0 +1,195 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "envelope-filter",
+ "name": "Envelope Filter",
+ "author": "Motion Audio",
+ "family": "filter",
+ "tier": "plugins",
+ "description": "The auto-wah: the harder you play, the more the filter opens. Funk guitar, clavinet and bass.",
+ "params": [
+  {
+   "id": "sensitivity",
+   "name": "Sensitivity",
+   "min": -12,
+   "max": 24,
+   "default": 6,
+   "unit": "dB"
+  },
+  {
+   "id": "low",
+   "name": "From",
+   "min": 100,
+   "max": 1000,
+   "default": 300,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "high",
+   "name": "To",
+   "min": 1000,
+   "max": 8000,
+   "default": 3000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "q",
+   "name": "Peak",
+   "min": 1,
+   "max": 10,
+   "default": 4
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Funk guitar",
+   "values": {}
+  },
+  {
+   "name": "Bass quack",
+   "values": {
+    "low": 150,
+    "high": 1500,
+    "q": 6,
+    "sensitivity": 8
+   }
+  },
+  {
+   "name": "Clav",
+   "values": {
+    "low": 400,
+    "high": 5000,
+    "q": 3,
+    "sensitivity": 4
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "lo",
+    "type": "param",
+    "x": 40,
+    "y": 420,
+    "props": {
+     "param": "low"
+    }
+   },
+   {
+    "id": "hi",
+    "type": "param",
+    "x": 40,
+    "y": 610,
+    "props": {
+     "param": "high"
+    }
+   },
+   {
+    "id": "env",
+    "type": "envelope",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "attack": 4,
+     "release": 120,
+     "sensitivity": {
+      "param": "sensitivity"
+     }
+    }
+   },
+   {
+    "id": "f",
+    "type": "filter",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "q": {
+      "param": "q"
+     }
+    }
+   },
+   {
+    "id": "lift",
+    "type": "gain",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "gain": -2
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "env.in"
+   },
+   {
+    "from": "lo.out",
+    "to": "env.from"
+   },
+   {
+    "from": "hi.out",
+    "to": "env.to"
+   },
+   {
+    "from": "in.out",
+    "to": "f.in"
+   },
+   {
+    "from": "env.out",
+    "to": "f.freq"
+   },
+   {
+    "from": "f.out",
+    "to": "lift.in"
+   },
+   {
+    "from": "lift.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

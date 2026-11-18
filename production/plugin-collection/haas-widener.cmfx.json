@@ -1,0 +1,71 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "haas-widener",
+ "name": "Haas Widener",
+ "author": "Motion Audio",
+ "family": "stereo",
+ "tier": "plugins",
+ "description": "Width from timing: one side a few milliseconds later, so a mono sound spreads out. A low cut keeps the bass centred and mono-safe.",
+ "params": [
+  {
+   "id": "time",
+   "name": "Delay",
+   "min": 1,
+   "max": 30,
+   "default": 12,
+   "unit": "ms"
+  },
+  {
+   "id": "amount",
+   "name": "Amount",
+   "min": 0,
+   "max": 1,
+   "default": 0.7
+  },
+  {
+   "id": "side",
+   "name": "Delay side (0 left, 1 right)",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  },
+  {
+   "id": "bass",
+   "name": "Keep bass centred below",
+   "min": 40,
+   "max": 400,
+   "default": 150,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Wider",
+   "values": {
+    "time": 10,
+    "amount": 0.6
+   }
+  },
+  {
+   "name": "Very wide",
+   "values": {
+    "time": 20,
+    "amount": 0.9
+   }
+  },
+  {
+   "name": "Subtle",
+   "values": {
+    "time": 6,
+    "amount": 0.4
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "delay d[40]\n@sample\nm = (inL + inR) * 0.5\nk = 1 - exp(-2 * pi * bass / srate)\nlo += (m - lo) * k + 1e-20\nd.write(inR * (side > 0.5 ? 1 : 0) + inL * (side > 0.5 ? 0 : 1))\nw = d.read(time)\nhiL = inL - lo\nhiR = inR - lo\nif (side > 0.5) { outL = lo + hiL; outR = lo + mix(hiR, w - lo, amount) } else { outL = lo + mix(hiL, w - lo, amount); outR = lo + hiR }\n"
+}

@@ -1,0 +1,141 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "plate-reverb",
+ "name": "Plate Reverb",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "free",
+ "description": "A smooth, bright plate: the classic for vocals and snares. The free one.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.2
+  },
+  {
+   "id": "decay",
+   "name": "Decay",
+   "min": 0.2,
+   "max": 0.85,
+   "default": 0.5
+  },
+  {
+   "id": "predelay",
+   "name": "Pre-delay",
+   "min": 0,
+   "max": 120,
+   "default": 20,
+   "unit": "ms"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal",
+   "values": {
+    "mix": 0.18,
+    "decay": 0.45,
+    "predelay": 25
+   }
+  },
+  {
+   "name": "Snare",
+   "values": {
+    "mix": 0.25,
+    "decay": 0.35,
+    "predelay": 5
+   }
+  },
+  {
+   "name": "Long plate",
+   "values": {
+    "mix": 0.28,
+    "decay": 0.75,
+    "predelay": 40
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": 180,
+     "q": 0.7
+    }
+   },
+   {
+    "id": "plate",
+    "type": "reverb",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "size": {
+      "param": "decay"
+     },
+     "damp": 0.2,
+     "mix": 1,
+     "predelay": {
+      "param": "predelay"
+     },
+     "width": 1,
+     "mod": 0.6
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "plate.in"
+   },
+   {
+    "from": "plate.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

@@ -1,0 +1,102 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "pitch-shifter",
+ "name": "Pitch Shifter",
+ "author": "Motion Audio",
+ "family": "pitch",
+ "tier": "free",
+ "description": "Moves the sound up or down, from a few cents to two octaves, keeping its timing. The free pitch shifter.",
+ "params": [
+  {
+   "id": "semitones",
+   "name": "Semitones",
+   "min": -24,
+   "max": 24,
+   "default": 12
+  },
+  {
+   "id": "fine",
+   "name": "Fine",
+   "min": -100,
+   "max": 100,
+   "default": 0,
+   "unit": "cents"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  }
+ ],
+ "presets": [
+  {
+   "name": "Octave up",
+   "values": {
+    "semitones": 12,
+    "mix": 0.4
+   }
+  },
+  {
+   "name": "Octave down",
+   "values": {
+    "semitones": -12,
+    "mix": 0.5
+   }
+  },
+  {
+   "name": "Fifth",
+   "values": {
+    "semitones": 7,
+    "mix": 0.35
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "ps",
+    "type": "pitch",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "semitones": {
+      "param": "semitones"
+     },
+     "fine": {
+      "param": "fine"
+     },
+     "mix": {
+      "param": "mix"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "ps.in"
+   },
+   {
+    "from": "ps.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

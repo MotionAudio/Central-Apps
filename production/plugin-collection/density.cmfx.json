@@ -1,0 +1,67 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "density",
+ "name": "Density",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "saturation",
+ "tier": "free",
+ "description": "Airwindows Density by Chris Johnson: a smooth, musical saturation that adds weight and loudness (or, below zero, takes it away). Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "density",
+   "name": "Density",
+   "min": -1,
+   "max": 4,
+   "default": 1
+  },
+  {
+   "id": "highpass",
+   "name": "Highpass",
+   "min": 0,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -24,
+   "max": 0,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Weight",
+   "values": {
+    "density": 1
+   }
+  },
+  {
+   "name": "Thick",
+   "values": {
+    "density": 2.2,
+    "output": -3
+   }
+  },
+  {
+   "name": "Thinner",
+   "values": {
+    "density": -0.5
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows Density, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n@init\nflip = 1\n@block\niir = highpass * highpass * highpass / (srate / 44100)\nd = density\namt = abs(d)\nd = d * abs(d)\nif (amt > 1) { amt = amt - ceil(amt - 1) }\nstages = d > 1 ? ceil(d - 1) : 0\ng = db2gain(output)\n@sample\ndryL = inL\ndryR = inR\nxL = inL + 1e-20\nxR = inR + 1e-20\nif (flip > 0) { aL = aL * (1 - iir) + xL * iir; xL -= aL; aR = aR * (1 - iir) + xR * iir; xR -= aR }\nelse { bL = bL * (1 - iir) + xL * iir; xL -= bL; bR = bR * (1 - iir) + xR * iir; xR -= bR }\nflip = -flip\nloop (stages) {\n  b = sin(min(abs(xL) * 1.57079633, 1.57079633)); xL = xL > 0 ? b : -b\n  b = sin(min(abs(xR) * 1.57079633, 1.57079633)); xR = xR > 0 ? b : -b\n}\nb = min(abs(xL) * 1.57079633, 1.57079633); b = d > 0 ? sin(b) : 1 - cos(b)\nxL = xL > 0 ? xL * (1 - amt) + b * amt : xL * (1 - amt) - b * amt\nb = min(abs(xR) * 1.57079633, 1.57079633); b = d > 0 ? sin(b) : 1 - cos(b)\nxR = xR > 0 ? xR * (1 - amt) + b * amt : xR * (1 - amt) - b * amt\noutL = (xL * g) * mix + dryL * (1 - mix)\noutR = (xR * g) * mix + dryR * (1 - mix)\n"
+}

@@ -1,0 +1,165 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "chamber",
+ "name": "Chamber",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "plugins",
+ "description": "An echo chamber: dense and natural, the sound of a lot of classic records. Sits a voice or a piano in a real room.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.22
+  },
+  {
+   "id": "size",
+   "name": "Size",
+   "min": 0.25,
+   "max": 0.7,
+   "default": 0.45
+  },
+  {
+   "id": "damp",
+   "name": "Darkness",
+   "min": 0,
+   "max": 1,
+   "default": 0.35
+  },
+  {
+   "id": "predelay",
+   "name": "Pre-delay",
+   "min": 0,
+   "max": 80,
+   "default": 12,
+   "unit": "ms"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal chamber",
+   "values": {
+    "mix": 0.2
+   }
+  },
+  {
+   "name": "Piano",
+   "values": {
+    "mix": 0.26,
+    "size": 0.55,
+    "damp": 0.4
+   }
+  },
+  {
+   "name": "Drum room",
+   "values": {
+    "mix": 0.18,
+    "size": 0.3,
+    "damp": 0.25,
+    "predelay": 2
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "hp",
+    "type": "filter",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": 120,
+     "q": 0.7
+    }
+   },
+   {
+    "id": "room",
+    "type": "reverb",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "size": {
+      "param": "size"
+     },
+     "damp": {
+      "param": "damp"
+     },
+     "mix": 1,
+     "predelay": {
+      "param": "predelay"
+     },
+     "width": 0.85,
+     "mod": 0.2
+    }
+   },
+   {
+    "id": "mids",
+    "type": "eq",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": 1200,
+     "q": 0.8,
+     "gain": 1.5
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "hp.in"
+   },
+   {
+    "from": "hp.out",
+    "to": "room.in"
+   },
+   {
+    "from": "room.out",
+    "to": "mids.in"
+   },
+   {
+    "from": "mids.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

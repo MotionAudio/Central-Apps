@@ -1,0 +1,156 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "parallel-compressor",
+ "name": "Parallel Compressor",
+ "author": "Motion Audio",
+ "family": "compressor",
+ "tier": "plugins",
+ "description": "New York compression: a hard-squashed copy blended under the original. Punch and body without losing the hits.",
+ "params": [
+  {
+   "id": "crush",
+   "name": "Crush",
+   "min": -50,
+   "max": -10,
+   "default": -32,
+   "unit": "dB"
+  },
+  {
+   "id": "attack",
+   "name": "Attack",
+   "min": 0.1,
+   "max": 40,
+   "default": 3,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "release",
+   "name": "Release",
+   "min": 30,
+   "max": 600,
+   "default": 90,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "blend",
+   "name": "Blend",
+   "min": 0,
+   "max": 1,
+   "default": 0.35
+  },
+  {
+   "id": "makeup",
+   "name": "Makeup",
+   "min": 0,
+   "max": 24,
+   "default": 12,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Drum bus",
+   "values": {
+    "crush": -34,
+    "attack": 3,
+    "release": 80,
+    "blend": 0.4
+   }
+  },
+  {
+   "name": "Vocal thickener",
+   "values": {
+    "crush": -30,
+    "attack": 8,
+    "release": 150,
+    "blend": 0.25,
+    "makeup": 10
+   }
+  },
+  {
+   "name": "Smash",
+   "values": {
+    "crush": -45,
+    "attack": 0.5,
+    "release": 60,
+    "blend": 0.5,
+    "makeup": 18
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "squash",
+    "type": "compressor",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "style": "fet",
+     "detect": "peak",
+     "threshold": {
+      "param": "crush"
+     },
+     "ratio": 12,
+     "attack": {
+      "param": "attack"
+     },
+     "release": {
+      "param": "release"
+     },
+     "knee": 2,
+     "makeup": {
+      "param": "makeup"
+     }
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "blend"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "squash.in"
+   },
+   {
+    "from": "squash.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

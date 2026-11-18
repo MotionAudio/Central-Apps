@@ -1,0 +1,272 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "vintage-eq",
+ "name": "Vintage EQ",
+ "author": "Motion Audio",
+ "family": "eq",
+ "tier": "plugins",
+ "description": "A passive program EQ in the classic style: boost and cut the same low frequency for a big, tight bottom, and a broad, silky top.",
+ "params": [
+  {
+   "id": "lowFreq",
+   "name": "Low freq",
+   "min": 20,
+   "max": 100,
+   "default": 60,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "Low"
+  },
+  {
+   "id": "lowBoost",
+   "name": "Low boost",
+   "min": 0,
+   "max": 10,
+   "default": 3,
+   "unit": "dB",
+   "group": "Low"
+  },
+  {
+   "id": "lowAtten",
+   "name": "Low cut",
+   "min": 0,
+   "max": 10,
+   "default": 2,
+   "unit": "dB",
+   "group": "Low"
+  },
+  {
+   "id": "highFreq",
+   "name": "High freq",
+   "min": 3000,
+   "max": 16000,
+   "default": 10000,
+   "unit": "Hz",
+   "curve": "log",
+   "group": "High"
+  },
+  {
+   "id": "highBoost",
+   "name": "High boost",
+   "min": 0,
+   "max": 10,
+   "default": 2,
+   "unit": "dB",
+   "group": "High"
+  },
+  {
+   "id": "highAtten",
+   "name": "Top cut",
+   "min": 0,
+   "max": 10,
+   "default": 0,
+   "unit": "dB",
+   "group": "High"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Kick and bass",
+   "values": {
+    "lowFreq": 60,
+    "lowBoost": 4,
+    "lowAtten": 3,
+    "highBoost": 0
+   }
+  },
+  {
+   "name": "Vocal sheen",
+   "values": {
+    "lowBoost": 0,
+    "lowAtten": 0,
+    "highFreq": 12000,
+    "highBoost": 3
+   }
+  },
+  {
+   "name": "Master glow",
+   "values": {
+    "lowFreq": 30,
+    "lowBoost": 1.5,
+    "lowAtten": 1,
+    "highFreq": 16000,
+    "highBoost": 1.5,
+    "highAtten": 0.5
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "lf",
+    "type": "param",
+    "x": 40,
+    "y": 610,
+    "props": {
+     "param": "lowFreq"
+    }
+   },
+   {
+    "id": "la",
+    "type": "param",
+    "x": 240,
+    "y": 610,
+    "props": {
+     "param": "lowAtten"
+    }
+   },
+   {
+    "id": "lf2",
+    "type": "math",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "op": "multiply",
+     "b": 1.8
+    }
+   },
+   {
+    "id": "laN",
+    "type": "math",
+    "x": 440,
+    "y": 610,
+    "props": {
+     "op": "negate"
+    }
+   },
+   {
+    "id": "hb",
+    "type": "eq",
+    "x": 240,
+    "y": 230,
+    "props": {
+     "mode": "lowshelf",
+     "q": 0.6,
+     "gain": {
+      "param": "lowBoost"
+     }
+    }
+   },
+   {
+    "id": "dip",
+    "type": "eq",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "mode": "peak",
+     "q": 0.7
+    }
+   },
+   {
+    "id": "hiB",
+    "type": "eq",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "mode": "peak",
+     "freq": {
+      "param": "highFreq"
+     },
+     "q": 0.5,
+     "gain": {
+      "param": "highBoost"
+     }
+    }
+   },
+   {
+    "id": "ha",
+    "type": "param",
+    "x": 640,
+    "y": 610,
+    "props": {
+     "param": "highAtten"
+    }
+   },
+   {
+    "id": "haN",
+    "type": "math",
+    "x": 840,
+    "y": 610,
+    "props": {
+     "op": "negate"
+    }
+   },
+   {
+    "id": "top",
+    "type": "eq",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "mode": "highshelf",
+     "freq": 18000,
+     "q": 0.7
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "lf.out",
+    "to": "lf2.a"
+   },
+   {
+    "from": "la.out",
+    "to": "laN.a"
+   },
+   {
+    "from": "in.out",
+    "to": "hb.in"
+   },
+   {
+    "from": "lf.out",
+    "to": "hb.freq"
+   },
+   {
+    "from": "hb.out",
+    "to": "dip.in"
+   },
+   {
+    "from": "lf2.out",
+    "to": "dip.freq"
+   },
+   {
+    "from": "laN.out",
+    "to": "dip.gain"
+   },
+   {
+    "from": "dip.out",
+    "to": "hiB.in"
+   },
+   {
+    "from": "ha.out",
+    "to": "haN.a"
+   },
+   {
+    "from": "hiB.out",
+    "to": "top.in"
+   },
+   {
+    "from": "haN.out",
+    "to": "top.gain"
+   },
+   {
+    "from": "top.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

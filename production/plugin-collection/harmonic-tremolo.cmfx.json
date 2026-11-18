@@ -1,0 +1,212 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "harmonic-tremolo",
+ "name": "Harmonic Tremolo",
+ "author": "Motion Audio",
+ "family": "modulation",
+ "tier": "plugins",
+ "description": "The brownface amp tremolo: the lows and highs pulse in turn, for a phasey, liquid wobble instead of a plain on-off.",
+ "params": [
+  {
+   "id": "rate",
+   "name": "Speed",
+   "min": 0.5,
+   "max": 12,
+   "default": 4,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "depth",
+   "name": "Depth",
+   "min": 0,
+   "max": 18,
+   "default": 12,
+   "unit": "dB"
+  },
+  {
+   "id": "split",
+   "name": "Split",
+   "min": 300,
+   "max": 2000,
+   "default": 700,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Brownface",
+   "values": {
+    "rate": 4,
+    "depth": 12
+   }
+  },
+  {
+   "name": "Slow liquid",
+   "values": {
+    "rate": 1.5,
+    "depth": 10,
+    "split": 500
+   }
+  },
+  {
+   "name": "Deep",
+   "values": {
+    "rate": 6,
+    "depth": 18
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "dep",
+    "type": "param",
+    "x": 40,
+    "y": 610,
+    "props": {
+     "param": "depth"
+    }
+   },
+   {
+    "id": "depN",
+    "type": "math",
+    "x": 240,
+    "y": 610,
+    "props": {
+     "op": "negate"
+    }
+   },
+   {
+    "id": "low",
+    "type": "crossover",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "band": "low",
+     "low": {
+      "param": "split"
+     },
+     "high": 20000
+    }
+   },
+   {
+    "id": "high",
+    "type": "crossover",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "band": "high",
+     "low": 20,
+     "high": {
+      "param": "split"
+     }
+    }
+   },
+   {
+    "id": "lfoA",
+    "type": "lfo",
+    "x": 440,
+    "y": 610,
+    "props": {
+     "rate": {
+      "param": "rate"
+     },
+     "shape": "sine",
+     "to": 0,
+     "phase": 0
+    }
+   },
+   {
+    "id": "lfoB",
+    "type": "lfo",
+    "x": 440,
+    "y": 800,
+    "props": {
+     "rate": {
+      "param": "rate"
+     },
+     "shape": "sine",
+     "to": 0,
+     "phase": 180
+    }
+   },
+   {
+    "id": "gl",
+    "type": "gain",
+    "x": 640,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "gh",
+    "type": "gain",
+    "x": 640,
+    "y": 420,
+    "props": {}
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "dep.out",
+    "to": "depN.a"
+   },
+   {
+    "from": "in.out",
+    "to": "low.in"
+   },
+   {
+    "from": "in.out",
+    "to": "high.in"
+   },
+   {
+    "from": "depN.out",
+    "to": "lfoA.from"
+   },
+   {
+    "from": "depN.out",
+    "to": "lfoB.from"
+   },
+   {
+    "from": "low.out",
+    "to": "gl.in"
+   },
+   {
+    "from": "lfoA.out",
+    "to": "gl.gain"
+   },
+   {
+    "from": "high.out",
+    "to": "gh.in"
+   },
+   {
+    "from": "lfoB.out",
+    "to": "gh.gain"
+   },
+   {
+    "from": "gl.out",
+    "to": "out.in"
+   },
+   {
+    "from": "gh.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

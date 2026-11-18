@@ -1,0 +1,159 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "ducking-delay",
+ "name": "Ducking Delay",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "plugins",
+ "description": "Repeats that wait for you to stop playing or singing: busy echoes in the gaps, a clean line while you play.",
+ "params": [
+  {
+   "id": "time",
+   "tempoSync": true,
+   "name": "Time",
+   "min": 60,
+   "max": 1200,
+   "default": 430,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.85,
+   "default": 0.45
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.35
+  },
+  {
+   "id": "duck",
+   "name": "Duck threshold",
+   "min": -50,
+   "max": 0,
+   "default": -24,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Lead guitar",
+   "values": {
+    "time": 430,
+    "feedback": 0.45,
+    "mix": 0.38
+   }
+  },
+  {
+   "name": "Vocal throw",
+   "values": {
+    "time": 500,
+    "feedback": 0.35,
+    "mix": 0.3,
+    "duck": -30
+   }
+  },
+  {
+   "name": "Ambient",
+   "values": {
+    "time": 750,
+    "feedback": 0.65,
+    "mix": 0.42,
+    "duck": -20
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "echo",
+    "type": "delay",
+    "x": 240,
+    "y": 230,
+    "props": {
+     "time": {
+      "param": "time"
+     },
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": 1,
+     "tone": 5000
+    }
+   },
+   {
+    "id": "duck",
+    "type": "compressor",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "threshold": {
+      "param": "duck"
+     },
+     "ratio": 10,
+     "attack": 3,
+     "release": 250,
+     "knee": 6
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "echo.in"
+   },
+   {
+    "from": "echo.out",
+    "to": "duck.in"
+   },
+   {
+    "from": "in.out",
+    "to": "duck.key"
+   },
+   {
+    "from": "duck.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

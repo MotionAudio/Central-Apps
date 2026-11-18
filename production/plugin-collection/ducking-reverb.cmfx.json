@@ -1,0 +1,159 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "ducking-reverb",
+ "name": "Ducking Reverb",
+ "author": "Motion Audio",
+ "family": "reverb",
+ "tier": "plugins",
+ "description": "A big reverb that gets out of the way while you sing or play, and blooms in the gaps. The words stay clear.",
+ "params": [
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.35
+  },
+  {
+   "id": "size",
+   "name": "Size",
+   "min": 0.3,
+   "max": 0.95,
+   "default": 0.75
+  },
+  {
+   "id": "duck",
+   "name": "Duck threshold",
+   "min": -50,
+   "max": 0,
+   "default": -26,
+   "unit": "dB"
+  },
+  {
+   "id": "release",
+   "name": "Bloom",
+   "min": 80,
+   "max": 1500,
+   "default": 400,
+   "unit": "ms",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Lead vocal",
+   "values": {
+    "mix": 0.32,
+    "duck": -28
+   }
+  },
+  {
+   "name": "Ambient guitar",
+   "values": {
+    "mix": 0.45,
+    "size": 0.9,
+    "duck": -22,
+    "release": 700
+   }
+  },
+  {
+   "name": "Speech",
+   "values": {
+    "mix": 0.2,
+    "size": 0.5,
+    "duck": -35,
+    "release": 250
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "verb",
+    "type": "reverb",
+    "x": 240,
+    "y": 230,
+    "props": {
+     "size": {
+      "param": "size"
+     },
+     "damp": 0.4,
+     "mix": 1,
+     "predelay": 30,
+     "width": 1,
+     "mod": 0.5
+    }
+   },
+   {
+    "id": "duck",
+    "type": "compressor",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "threshold": {
+      "param": "duck"
+     },
+     "ratio": 8,
+     "attack": 5,
+     "release": {
+      "param": "release"
+     },
+     "knee": 6
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "verb.in"
+   },
+   {
+    "from": "verb.out",
+    "to": "duck.in"
+   },
+   {
+    "from": "in.out",
+    "to": "duck.key"
+   },
+   {
+    "from": "duck.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

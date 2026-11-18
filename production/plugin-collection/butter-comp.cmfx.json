@@ -1,0 +1,60 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "butter-comp",
+ "name": "ButterComp",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "compressor",
+ "tier": "plugins",
+ "description": "Airwindows ButterComp2 by Chris Johnson: a smooth, glue-like compressor that works on the two halves of the wave apart - natural, never pumpy. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "compress",
+   "name": "Compress",
+   "min": 0,
+   "max": 1,
+   "default": 0.4
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -12,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Glue",
+   "values": {
+    "compress": 0.3
+   }
+  },
+  {
+   "name": "Smooth vocal",
+   "values": {
+    "compress": 0.5
+   }
+  },
+  {
+   "name": "Parallel squeeze",
+   "values": {
+    "compress": 0.85,
+    "mix": 0.5
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows ButterComp2, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n@init\ncApL = 1; cAnL = 1; cBpL = 1; cBnL = 1; tpL = 1; tnL = 1\ncApR = 1; cAnR = 1; cBpR = 1; cBnR = 1; tpR = 1; tnR = 1\n@block\nig = pow(10, (compress * 14) / 20)\ncf = 0.012 * (compress / 135) / (srate / 44100)\nk = db2gain(output) / ((ig - 1) / 1.5 + 1)\n@sample\nx = inL * ig\nrm = cf / (1 + abs(lastL))\ndv = 1 - rm\nip = max(x + 1, 0)\niq = max(1 - x, 0)\ntpL = tpL * dv + ip * ip * rm\ntnL = tnL * dv + iq * iq * rm\nif (x > 0) { c = rm / (tpL * tpL); if (flip) { cApL = cApL * dv + c } else { cBpL = cBpL * dv + c } }\nelse { c = rm / (tnL * tnL); if (flip) { cAnL = cAnL * dv + c } else { cBnL = cBnL * dv + c } }\ntm = flip ? cApL * min(ip * 0.5, 1) + cAnL * min(iq * 0.5, 1) : cBpL * min(ip * 0.5, 1) + cBnL * min(iq * 0.5, 1)\nx = inL + (x * tm * k - inL) * mix\nlastL = x\noutL = x\ny = inR * ig\nrm = cf / (1 + abs(lastR))\ndv = 1 - rm\nip = max(y + 1, 0)\niq = max(1 - y, 0)\ntpR = tpR * dv + ip * ip * rm\ntnR = tnR * dv + iq * iq * rm\nif (y > 0) { c = rm / (tpR * tpR); if (flip) { cApR = cApR * dv + c } else { cBpR = cBpR * dv + c } }\nelse { c = rm / (tnR * tnR); if (flip) { cAnR = cAnR * dv + c } else { cBnR = cBnR * dv + c } }\ntm = flip ? cApR * min(ip * 0.5, 1) + cAnR * min(iq * 0.5, 1) : cBpR * min(ip * 0.5, 1) + cBnR * min(iq * 0.5, 1)\ny = inR + (y * tm * k - inR) * mix\nlastR = y\noutR = y\nflip = !flip\n"
+}

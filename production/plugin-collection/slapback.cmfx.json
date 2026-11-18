@@ -1,0 +1,116 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "slapback",
+ "name": "Slapback",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "free",
+ "description": "One quick repeat: the rockabilly vocal and the country guitar. The free short delay.",
+ "params": [
+  {
+   "id": "time",
+   "name": "Time",
+   "min": 40,
+   "max": 220,
+   "default": 110,
+   "unit": "ms"
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.4,
+   "default": 0.1
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 1500,
+   "max": 12000,
+   "default": 5000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal slap",
+   "values": {
+    "time": 100,
+    "mix": 0.25
+   }
+  },
+  {
+   "name": "Country guitar",
+   "values": {
+    "time": 130,
+    "feedback": 0.15,
+    "mix": 0.35
+   }
+  },
+  {
+   "name": "Doubled",
+   "values": {
+    "time": 45,
+    "feedback": 0,
+    "mix": 0.3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "slap",
+    "type": "delay",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "time": {
+      "param": "time"
+     },
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": {
+      "param": "mix"
+     },
+     "tone": {
+      "param": "tone"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 440,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "slap.in"
+   },
+   {
+    "from": "slap.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

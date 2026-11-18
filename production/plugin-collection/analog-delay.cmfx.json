@@ -1,0 +1,170 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "analog-delay",
+ "name": "Analog Delay",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "plugins",
+ "description": "Dark, warm repeats that soften as they go, with a little grit: the bucket-brigade pedal sound.",
+ "params": [
+  {
+   "id": "time",
+   "tempoSync": true,
+   "name": "Time",
+   "min": 40,
+   "max": 900,
+   "default": 380,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.9,
+   "default": 0.45
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "grit",
+   "name": "Grit",
+   "min": 0,
+   "max": 18,
+   "default": 6,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Warm echo",
+   "values": {
+    "time": 380,
+    "feedback": 0.45,
+    "mix": 0.3
+   }
+  },
+  {
+   "name": "Ambient",
+   "values": {
+    "time": 600,
+    "feedback": 0.7,
+    "mix": 0.35,
+    "grit": 4
+   }
+  },
+  {
+   "name": "Slap",
+   "values": {
+    "time": 120,
+    "feedback": 0.15,
+    "mix": 0.3,
+    "grit": 9
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "echo",
+    "type": "delay",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "time": {
+      "param": "time"
+     },
+     "feedback": {
+      "param": "feedback"
+     },
+     "mix": 1,
+     "tone": 2600
+    }
+   },
+   {
+    "id": "bbd",
+    "type": "drive",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "tape",
+     "drive": {
+      "param": "grit"
+     },
+     "tone": 3200,
+     "level": -3,
+     "mix": 1
+    }
+   },
+   {
+    "id": "wow",
+    "type": "chorus",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "rate": 0.4,
+     "depth": 0.15,
+     "mix": 1
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1040,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "echo.in"
+   },
+   {
+    "from": "echo.out",
+    "to": "bbd.in"
+   },
+   {
+    "from": "bbd.out",
+    "to": "wow.in"
+   },
+   {
+    "from": "wow.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

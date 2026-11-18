@@ -368,6 +368,13 @@ g.chain(g.block("in", "input"), g.block("g", "gain", {"gain": inp}), g.block("li
 g.preset("Streaming (-1 dBTP)", input=3, ceiling=-1, release=100); g.preset("Loud master", input=8, ceiling=-1, release=60); g.preset("Broadcast", input=4, ceiling=-2, release=150)
 P.append(g.done())
 
+# (10.8) more effects: reverbs, delays, a channel strip and vocal chain, filters, pitch, modulation, and Airwindows ports
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cmfx_more import more  # noqa: E402
+P.extend(more(G))
+assert len({p["id"] for p in P}) == len(P), "two plugins with the same id"
+
 
 def main():
     os.makedirs(OUT, exist_ok=True)

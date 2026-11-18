@@ -1,0 +1,63 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "spiral",
+ "name": "Spiral",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "saturation",
+ "tier": "free",
+ "description": "Airwindows Spiral by Chris Johnson: the smoothest clipping curve - loud peaks roll over sweetly instead of breaking up. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "input",
+   "name": "Input",
+   "min": -12,
+   "max": 18,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -24,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Glue",
+   "values": {
+    "input": 3
+   }
+  },
+  {
+   "name": "Push",
+   "values": {
+    "input": 9,
+    "output": -4
+   }
+  },
+  {
+   "name": "Parallel",
+   "values": {
+    "input": 12,
+    "output": -6,
+    "mix": 0.5
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows Spiral, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n@block\ngi = db2gain(input)\ngo = db2gain(output)\n@sample\nxL = inL * gi\naL = abs(xL)\nxL = aL == 0 ? 0 : sin(xL * aL) / aL\nxR = inR * gi\naR = abs(xR)\nxR = aR == 0 ? 0 : sin(xR * aR) / aR\noutL = xL * go * mix + inL * (1 - mix)\noutR = xR * go * mix + inR * (1 - mix)\n"
+}

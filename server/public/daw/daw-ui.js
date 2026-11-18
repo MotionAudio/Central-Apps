@@ -24,11 +24,39 @@
   UI.posText = function (beat) { var b = D.tempo.beatToBar(Math.max(0, beat)), s = D.tempo.beatToSec(Math.max(0, beat)); return (b.bar + 1) + "." + (Math.floor(b.beat + 1e-6) + 1) + "." + String(Math.floor((b.beat % 1) * 4 + 1e-6) + 1); };
   UI.timeText = function (beat) { var s = Math.max(0, D.tempo.beatToSec(Math.max(0, beat))); return Math.floor(s / 60) + ":" + ("0" + (s % 60).toFixed(1)).slice(-4); };
   UI.noteName = function (n) { return ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1); };
-  // a small menu next to an element: items [[label, fn, enabled?, hint?], null = a line]
+  // a small menu next to an element: items [[label, fn, enabled?, hint?, tooltip?], null = a line, "text" = a heading]
+  // (10.8) a long one (more than 24 choices) gets a search box at the top: type to narrow it, Enter takes the first
   UI.menu = function (anchor, items, x, y) {
-    var m = $(".cd-pop", U.root); m.innerHTML = items.map(function (it, i) { return it ? '<button data-i="' + i + '"' + (it[2] === false ? " disabled" : "") + ">" + esc(it[0]) + (it[3] ? "<kbd>" + esc(it[3]) + "</kbd>" : "") + "</button>" : "<hr>"; }).join("");
+    var m = $(".cd-pop", U.root), many = items.filter(function (it) { return it && typeof it !== "string"; }).length > 24;
+    m.innerHTML = (many ? '<input class="cd-popq" type="search" placeholder="Search…" aria-label="Search the list" autocomplete="off">' : "") + items.map(function (it, i) {
+      if (typeof it === "string") return '<div class="cd-pophead">' + esc(it) + "</div>";
+      return it ? '<button data-i="' + i + '"' + (it[2] === false ? " disabled" : "") + (it[4] ? ' title="' + esc(it[4]) + '"' : "") + ">" + esc(it[0]) + (it[3] ? "<kbd>" + esc(it[3]) + "</kbd>" : "") + "</button>" : "<hr>";
+    }).join("");
+    var q = $(".cd-popq", m);
+    if (q) {
+      q.oninput = function () {
+        var w = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        Array.prototype.forEach.call(m.children, function (el) {
+          if (el === q) return;
+          if (el.tagName === "HR" || el.classList.contains("cd-pophead")) { el.hidden = !!w.length; return; }
+          var it = items[+el.dataset.i], hay = ((it[0] || "") + " " + (it[4] || "")).toLowerCase();
+          el.hidden = !w.every(function (t) { return hay.indexOf(t) > -1; });
+        });
+      };
+      q.onkeydown = function (e) {
+        if (e.key !== "Enter") return; e.preventDefault();
+        var first = Array.prototype.filter.call(m.querySelectorAll("button[data-i]"), function (b2) { return !b2.hidden && !b2.disabled; })[0];
+        if (first) first.click();
+      };
+    }
     var r = anchor ? anchor.getBoundingClientRect() : { left: x, bottom: y }, rr = U.root.getBoundingClientRect();
-    m.hidden = false; m.style.left = Math.max(4, Math.min((x != null ? x : r.left) - rr.left, rr.width - 260)) + "px"; m.style.top = ((y != null ? y : r.bottom + 2) - rr.top) + "px";
+    m.hidden = false; m.style.left = Math.max(4, Math.min((x != null ? x : r.left) - rr.left, rr.width - 260)) + "px";
+    // (10.8) below the button if it fits there, else above it if there's more room, and never off the screen
+    var at = y != null ? y : r.bottom + 2, top0 = r.top != null ? r.top - 2 : at, lo = Math.min(rr.bottom, window.innerHeight) - 6, hi = Math.max(rr.top, 0) + 6;
+    m.style.maxHeight = ""; var h = m.offsetHeight, below = lo - at, above = top0 - hi;
+    if (h > below && above > below) { var hh = Math.min(h, above); m.style.maxHeight = hh + "px"; m.style.top = (top0 - hh - rr.top) + "px"; }
+    else { if (h > below) m.style.maxHeight = Math.max(120, below) + "px"; m.style.top = (at - rr.top) + "px"; }
+    m.scrollTop = 0; if (q) setTimeout(function () { try { q.focus(); } catch (_) { } }, 0);
     m.onclick = function (e) { var b = e.target.closest("[data-i]"); if (!b) return; m.hidden = true; items[+b.dataset.i][1](); };
     function done() { m.hidden = true; document.removeEventListener("pointerdown", off, true); document.removeEventListener("keydown", esc2, true); }
     function off(e) { if (!m.contains(e.target)) done(); }

@@ -1,0 +1,183 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "auto-filter",
+ "name": "Auto Filter",
+ "author": "Motion Audio",
+ "family": "filter",
+ "tier": "plugins",
+ "description": "A filter that sweeps by itself, slow or fast: movement for pads, synths and drum loops.",
+ "params": [
+  {
+   "id": "low",
+   "name": "From",
+   "min": 80,
+   "max": 4000,
+   "default": 300,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "high",
+   "name": "To",
+   "min": 500,
+   "max": 18000,
+   "default": 4000,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "rate",
+   "name": "Rate",
+   "min": 0.05,
+   "max": 12,
+   "default": 0.5,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "resonance",
+   "name": "Resonance",
+   "min": 0.5,
+   "max": 10,
+   "default": 2.5
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Slow sweep",
+   "values": {
+    "low": 300,
+    "high": 4000,
+    "rate": 0.15
+   }
+  },
+  {
+   "name": "Wobble",
+   "values": {
+    "low": 150,
+    "high": 1500,
+    "rate": 4,
+    "resonance": 5
+   }
+  },
+  {
+   "name": "Pad movement",
+   "values": {
+    "low": 800,
+    "high": 9000,
+    "rate": 0.08,
+    "resonance": 1.2
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "lo",
+    "type": "param",
+    "x": 40,
+    "y": 420,
+    "props": {
+     "param": "low"
+    }
+   },
+   {
+    "id": "hi",
+    "type": "param",
+    "x": 40,
+    "y": 610,
+    "props": {
+     "param": "high"
+    }
+   },
+   {
+    "id": "lfo",
+    "type": "lfo",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "rate": {
+      "param": "rate"
+     },
+     "shape": "sine",
+     "stereo": 60
+    }
+   },
+   {
+    "id": "f",
+    "type": "filter",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "q": {
+      "param": "resonance"
+     }
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "lo.out",
+    "to": "lfo.from"
+   },
+   {
+    "from": "hi.out",
+    "to": "lfo.to"
+   },
+   {
+    "from": "in.out",
+    "to": "f.in"
+   },
+   {
+    "from": "lfo.out",
+    "to": "f.freq"
+   },
+   {
+    "from": "f.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

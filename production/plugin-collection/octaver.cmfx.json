@@ -1,0 +1,192 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "octaver",
+ "name": "Octaver",
+ "author": "Motion Audio",
+ "family": "pitch",
+ "tier": "plugins",
+ "description": "A clean octave below (and one above, if you like) under the original: a bass line from a guitar, or a huge low end on a synth.",
+ "params": [
+  {
+   "id": "down",
+   "name": "Octave down",
+   "min": 0,
+   "max": 1,
+   "default": 0.6
+  },
+  {
+   "id": "up",
+   "name": "Octave up",
+   "min": 0,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "id": "dry",
+   "name": "Dry",
+   "min": -24,
+   "max": 0,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 300,
+   "max": 4000,
+   "default": 1200,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Guitar to bass",
+   "values": {
+    "down": 0.8,
+    "dry": -12,
+    "tone": 800
+   }
+  },
+  {
+   "name": "Thick synth",
+   "values": {
+    "down": 0.5,
+    "up": 0.2
+   }
+  },
+  {
+   "name": "Organ",
+   "values": {
+    "down": 0.4,
+    "up": 0.35,
+    "tone": 2500
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "dn",
+    "type": "pitch",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "semitones": -12,
+     "mix": 1
+    }
+   },
+   {
+    "id": "lp",
+    "type": "filter",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": {
+      "param": "tone"
+     },
+     "q": 0.7
+    }
+   },
+   {
+    "id": "dl",
+    "type": "mix",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "down"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "upb",
+    "type": "pitch",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "semitones": 12,
+     "mix": 1
+    }
+   },
+   {
+    "id": "ul",
+    "type": "mix",
+    "x": 640,
+    "y": 420,
+    "props": {
+     "mix": {
+      "param": "up"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "d",
+    "type": "gain",
+    "x": 440,
+    "y": 230,
+    "props": {
+     "gain": {
+      "param": "dry"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "dn.in"
+   },
+   {
+    "from": "dn.out",
+    "to": "lp.in"
+   },
+   {
+    "from": "lp.out",
+    "to": "dl.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "upb.in"
+   },
+   {
+    "from": "upb.out",
+    "to": "ul.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "d.in"
+   },
+   {
+    "from": "dl.out",
+    "to": "out.in"
+   },
+   {
+    "from": "ul.out",
+    "to": "out.in"
+   },
+   {
+    "from": "d.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

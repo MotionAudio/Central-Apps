@@ -1,0 +1,55 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "console-preamp",
+ "name": "Console Preamp",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "saturation",
+ "tier": "plugins",
+ "description": "Airwindows Mackity by Chris Johnson: the sound of a small-format console's preamp - a tight low end, a soft top and grit when pushed. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "drive",
+   "name": "Drive",
+   "min": -12,
+   "max": 24,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -24,
+   "max": 0,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Channel",
+   "values": {
+    "drive": 0
+   }
+  },
+  {
+   "name": "Pushed",
+   "values": {
+    "drive": 9,
+    "output": -6
+   }
+  },
+  {
+   "name": "Driven bus",
+   "values": {
+    "drive": 15,
+    "output": -10
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows Mackity, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n@init\nos = srate / 44100\niA = 0.001860867 / os\niB = 0.000287496 / os\nK = tan(pi * 19160 / srate)\nqa = 0.431684981684982\nn = 1 / (1 + K / qa + K * K)\na0 = K * K * n; a1 = 2 * a0; a3 = 2 * (K * K - 1) * n; a4 = (1 - K / qa + K * K) * n\nqb = 1.1582298\nn = 1 / (1 + K / qb + K * K)\nb0 = K * K * n; b1 = 2 * b0; b3 = 2 * (K * K - 1) * n; b4 = (1 - K / qb + K * K) * n\n@block\ntr = db2gain(drive)\ntr = tr * tr\ngo = db2gain(output)\n@sample\nn = noise() * 1e-17\nx = inL + n\njAL += (x - jAL) * iA\nx = (x - jAL) * tr\no = a0 * (x + xa2L) + a1 * xa1L - a3 * ya1L - a4 * ya2L\nxa2L = xa1L; xa1L = x; ya2L = ya1L; ya1L = o\nx = clamp(o, -1, 1)\nx2 = x * x\nx -= x2 * x2 * x * 0.1768\no = b0 * (x + xb2L) + b1 * xb1L - b3 * yb1L - b4 * yb2L\nxb2L = xb1L; xb1L = x; yb2L = yb1L; yb1L = o\njBL += (o - jBL) * iB\noutL = (o - jBL) * go\ny = inR + n\njAR += (y - jAR) * iA\ny = (y - jAR) * tr\no = a0 * (y + xa2R) + a1 * xa1R - a3 * ya1R - a4 * ya2R\nxa2R = xa1R; xa1R = y; ya2R = ya1R; ya1R = o\ny = clamp(o, -1, 1)\ny2 = y * y\ny -= y2 * y2 * y * 0.1768\no = b0 * (y + xb2R) + b1 * xb1R - b3 * yb1R - b4 * yb2R\nxb2R = xb1R; xb1R = y; yb2R = yb1R; yb1R = o\njBR += (o - jBR) * iB\noutR = (o - jBR) * go\n"
+}

@@ -1,0 +1,115 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "doubler",
+ "name": "Doubler",
+ "author": "Motion Audio",
+ "family": "modulation",
+ "tier": "free",
+ "description": "A second take, slightly out of step: thickens a vocal or a guitar and spreads it a little.",
+ "params": [
+  {
+   "id": "depth",
+   "name": "Depth",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "width",
+   "name": "Width",
+   "min": 0.5,
+   "max": 2,
+   "default": 1.4
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.45
+  }
+ ],
+ "presets": [
+  {
+   "name": "Vocal double",
+   "values": {
+    "depth": 0.25,
+    "mix": 0.4
+   }
+  },
+  {
+   "name": "Wide guitar",
+   "values": {
+    "depth": 0.35,
+    "width": 1.8,
+    "mix": 0.5
+   }
+  },
+  {
+   "name": "Subtle",
+   "values": {
+    "depth": 0.15,
+    "mix": 0.3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "dbl",
+    "type": "chorus",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "rate": 0.25,
+     "depth": {
+      "param": "depth"
+     },
+     "mix": {
+      "param": "mix"
+     }
+    }
+   },
+   {
+    "id": "wide",
+    "type": "stereo",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "width": {
+      "param": "width"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "dbl.in"
+   },
+   {
+    "from": "dbl.out",
+    "to": "wide.in"
+   },
+   {
+    "from": "wide.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

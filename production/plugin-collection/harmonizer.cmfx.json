@@ -1,0 +1,161 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "harmonizer",
+ "name": "Harmonizer",
+ "author": "Motion Audio",
+ "family": "pitch",
+ "tier": "plugins",
+ "description": "A second voice at an interval - a third, a fifth, an octave - for instant harmonies on a lead line or a big synth stack.",
+ "params": [
+  {
+   "id": "interval",
+   "name": "Interval",
+   "min": -12,
+   "max": 12,
+   "default": 7,
+   "unit": "st"
+  },
+  {
+   "id": "interval2",
+   "name": "Second interval",
+   "min": -12,
+   "max": 12,
+   "default": 12,
+   "unit": "st"
+  },
+  {
+   "id": "level",
+   "name": "Voice",
+   "min": 0,
+   "max": 1,
+   "default": 0.5
+  },
+  {
+   "id": "level2",
+   "name": "Second voice",
+   "min": 0,
+   "max": 1,
+   "default": 0
+  }
+ ],
+ "presets": [
+  {
+   "name": "Fifth",
+   "values": {
+    "interval": 7,
+    "level": 0.45
+   }
+  },
+  {
+   "name": "Octave stack",
+   "values": {
+    "interval": 12,
+    "interval2": -12,
+    "level": 0.4,
+    "level2": 0.3
+   }
+  },
+  {
+   "name": "Third",
+   "values": {
+    "interval": 4,
+    "level": 0.45
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "v1",
+    "type": "pitch",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "semitones": {
+      "param": "interval"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "l1",
+    "type": "mix",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mix": {
+      "param": "level"
+     }
+    }
+   },
+   {
+    "id": "v2",
+    "type": "pitch",
+    "x": 240,
+    "y": 420,
+    "props": {
+     "semitones": {
+      "param": "interval2"
+     },
+     "mix": 1
+    }
+   },
+   {
+    "id": "l2",
+    "type": "mix",
+    "x": 440,
+    "y": 420,
+    "props": {
+     "mix": {
+      "param": "level2"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 640,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "v1.in"
+   },
+   {
+    "from": "v1.out",
+    "to": "l1.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "v2.in"
+   },
+   {
+    "from": "v2.out",
+    "to": "l2.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "out.in"
+   },
+   {
+    "from": "l1.out",
+    "to": "out.in"
+   },
+   {
+    "from": "l2.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

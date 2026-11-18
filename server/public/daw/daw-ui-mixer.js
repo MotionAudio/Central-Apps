@@ -53,24 +53,26 @@
     });
     var ab = $("[data-addbus]", body); if (ab) ab.onclick = function () { D.edit("Add a bus", function (p) { var t = D.newTrack("bus", ["Reverb", "Delay", "Group"][p.tracks.filter(function (x) { return x.kind === "bus"; }).length % 3]); t.color = "#6E7680"; if (/Delay/.test(t.name)) t.inserts = [{ id: D.uid("f"), type: "delay", on: true, params: { time: 3, feedback: 0.35, mix: 1 } }]; if (/Group/.test(t.name)) t.inserts = []; p.tracks.push(t); }); };
   }
+  // (10.8) the collection's kinds, as the add-effect list heads them
+  var FAMILY = { reverb: "Reverb", delay: "Delay", compressor: "Compressors", dynamics: "Dynamics", eq: "EQ", filter: "Filters", saturation: "Saturation and drive", modulation: "Modulation", pitch: "Pitch", stereo: "Stereo and utility", limiter: "Limiters and clippers" };
   function addFx(btn, done) {
-    var items = Object.keys(D.FX).filter(function (k) { return k !== "cmfx"; }).map(function (k) { var def = D.FX[k], locked = def.pro && !D.pro(); return [def.name + (locked ? " (Central Plugins)" : def.pro ? "" : ""), function () { done({ id: D.uid("f"), type: k, on: true, params: D.fxDefaults(k) }); }, !locked]; });
+    var items = ["Built in"].concat(Object.keys(D.FX).filter(function (k) { return k !== "cmfx"; }).map(function (k) { var def = D.FX[k], locked = def.pro && !D.pro(); return [def.name + (locked ? " (Central Plugins)" : def.pro ? "" : ""), function () { done({ id: D.uid("f"), type: k, on: true, params: D.fxDefaults(k) }); }, !locked]; }));
     // Central FX plugins: the builder's examples, your own (made in Central Production) and installed community ones
-    function cm(pl, tag) { return [pl.name + (tag ? " (" + tag + ")" : ""), function () { done({ id: D.uid("f"), type: "cmfx", on: true, params: D.fxDefaults({ type: "cmfx", plugin: pl }), plugin: pl }); }, !!window.CMFx]; }
+    function cm(pl, tag) { return [pl.name + (tag ? " (" + tag + ")" : ""), function () { done({ id: D.uid("f"), type: "cmfx", on: true, params: D.fxDefaults({ type: "cmfx", plugin: pl }), plugin: pl }); }, !!window.CMFx, "", [pl.description || "", pl.family || "", pl.author && pl.author !== "Motion Audio" ? pl.author : ""].filter(Boolean).join(" · ")]; }
     var ex = window.CPPluginPresets || [], src = window.CDawPlugins && window.CDawPlugins.list ? window.CDawPlugins.list() : [];
     Promise.resolve(src).catch(function () { return []; }).then(function (more) {
       more = (more || []).filter(function (x) { return x && x.plugin; });
       var mine = more.filter(function (x) { return x.from === "mine"; }), inst = more.filter(function (x) { return x.from !== "mine"; });
-      if (mine.length) { items.push(null); mine.forEach(function (x) { items.push(cm(x.plugin, "yours")); }); }
-      if (inst.length) { items.push(null); inst.forEach(function (x) { items.push(cm(x.plugin, x.author ? "by " + x.author : "installed")); }); }
+      if (mine.length) { items.push("Yours"); mine.forEach(function (x) { items.push(cm(x.plugin, "yours")); }); }
+      if (inst.length) { items.push("Installed"); inst.forEach(function (x) { items.push(cm(x.plugin, x.author ? "by " + x.author : "installed")); }); }
       // (10.3) the Central FX collection, by family: the basic ones free, the better ones with Central Plugins
       var coll = window.CMFxCollection || [], fams = [];
       coll.forEach(function (pl) { if (fams.indexOf(pl.family) < 0) fams.push(pl.family); });
       fams.forEach(function (fam) {
-        items.push(null);
+        items.push("Central FX · " + (FAMILY[fam] || fam));
         coll.filter(function (pl) { return pl.family === fam; }).forEach(function (pl) { var locked = pl.tier === "plugins" && !D.pro(); var it = cm(pl, locked ? "Central Plugins" : ""); if (locked) it[2] = false; items.push(it); });
       });
-      if (ex.length) { items.push(null); ex.forEach(function (pl) { items.push(cm(pl, "example")); }); }
+      if (ex.length) { items.push("The plugin builder's examples"); ex.forEach(function (pl) { items.push(cm(pl, "example")); }); }
       if (D.native.host()) items.push(null, ["Your VST3 / CLAP plugins…", function () { nativeMenu(btn, done, false); }]);
       items.push(null, ["A plugin file (.cmfx.json)…", function () { var i = document.createElement("input"); i.type = "file"; i.accept = ".json"; i.onchange = function () { var file = i.files[0]; if (!file) return; file.text().then(function (txt) { var pl = JSON.parse(txt); if (pl.format !== "central-fx") throw new Error(); if (window.CMFx) { var r = window.CMFx.check(pl); if (!r.ok) return UI.say("That plugin has a problem: " + r.error, true); } cm(pl)[1](); }).catch(function () { UI.say("That isn't a Central FX plugin.", true); }); }; i.click(); }]);
       if (!window.CMFx) items.push(["(Central FX plugins need the plugin engine, which isn't in this build)", null, false]);
