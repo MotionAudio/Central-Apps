@@ -12,6 +12,17 @@ and every app installs it on its own (the Central Pedal's driver about 90 s afte
 minute after they open, then once a day for a newer version). A loop set can be split between it and a pack: the entry's
 `"only": [names]` takes those grooves, the pack's `"except": [names]` leaves them out (`tools/build-libraries.py loop_wanted`).
 
+**Central Starter 1.1** (10.8) adds 138 one-shot **samples** for the Samples browser in Central Production and the Studio
+(`samples/<set>/<name>.flac`, items of the kind `sample` with their `group` and, when pitched, their `note`): kicks, snares,
+claps, hi-hats, cymbals, toms, hand and world percussion, bass hits, guitar, effects and atmospheres. They come from Sonic
+Pi's samples (github.com/sonic-pi-net/sonic-pi `etc/samples`, pinned in `tools/make-samples.py`: freesound recordings placed
+in the public domain, CC0 1.0 - its README lists each one's page) and from VCSL (CC0), choosing recordings the paid kits
+don't play; the hand claps and rim click are made by us. The same tool makes **Central Starter Kits** from them (an Acoustic
+Kit, an Electronic Kit, Tabla & Hand Drums), and the library gains **Central Starter Accordion** (FreePats' Button
+Accordion HN, a Hohner recorded by Jeff Stauffer, CC0 1.0 - `tools/sounds-sfz.py`) and **Central Starter Instruments** (a
+tubular glockenspiel and a Nyunga Nyunga mbira from VCSL, CC0). Nothing moved there from a paid library. The pedal installs
+Central Starter without its samples (they're for the computers' DAW).
+
 | Library | Plan | Sound banks (presets) | Sources and licenses | Size (est.) |
 |---|---|---|---|---|
 | Central Keys Library 1.1 | Central Keys | **Grand Pianos** (Concert Grand - Steinway B, Studio Grand - Kawai, Soft Grand, Grand & FM, FM Piano 2), **Pianos** (Upright, Soft Upright, FM Piano, FM & Upright, Clavisynth, Harpsichord), **Organs** (Pipe Organ with pedals, manual only, Quiet, Swell, Positive), **Mallets** (Vibraphone soft / hard, Marimba, Xylophone, Glockenspiel, Tubular Bells, Church Bells, Hand Chimes, Chime Pad, Vibes & Chimes), **Pads** (Warm, Air, Choir Aah, Choir Ooh, Shimmer, String, Glass, Swell, Worship), **Synths** (10.0: Saw / Square / Soft Lead, Synth Brass, Super Saw, String Machine, Sub Bass, Synth Bass, Pluck, Electric Bells) + 32 presets | VCSL (CC0 1.0); pads and synths made by us (`tools/make-synths.py`) | about 450 MB |

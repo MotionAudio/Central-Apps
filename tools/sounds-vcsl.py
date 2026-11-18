@@ -85,6 +85,9 @@ INSTR = {
     "kal2": dict(folder="Idiophones/Plucked Idiophones/Kalimba, Kenya", inc=r"\.wav$", kind="decay", cut=4.0),
     "hm64": dict(folder=AE + "Free Aerophones/Harmonica-Hohner-Super64", inc=r"^Sustains/Normal/.*\.wav$", kind="sus"),
     "sxl": dict(folder=AE + "Reed Aerophones/Saxello", inc=r"^Non-Vibrato/.*_rr1\.wav$", kind="sus"),
+    # 10.8, free in every app (Central Starter): two that none of the plans use
+    "tglk": dict(folder=ID + "Tubular Glockenspiel", inc=r"_(loud|medium|quiet)1\.wav$", kind="decay", cut=6.0),
+    "nyu": dict(folder="Idiophones/Plucked Idiophones/Nyunga Nyunga, Mozambique, Low F", inc=r"\.wav$", kind="decay", cut=4.0),
 }
 
 # kits: (General MIDI key, folder, pattern, seconds kept) - one key each, its dynamic layers across the velocity range
@@ -170,6 +173,12 @@ BANKS = [
         ("Mbira", [("mbira", 0, 127, 0.002, 0.8, 0)]),
         ("Kalimba (Kenya)", [("kal2", 0, 127, 0.002, 0.8, 0)]),
     ]),
+    # 10.8: free in every app (Central Starter)
+    ("Central Starter Instruments", "free", [
+        ("Tubular Glock", [("tglk", 0, 127, 0.002, 1.4, 0)]),
+        ("Soft Tubular Glock", [("tglk", 0, 127, 0.01, 2.0, 0, {"layers": "soft", "fc": 4500})]),
+        ("Nyunga Nyunga Mbira", [("nyu", 0, 127, 0.002, 0.8, 0)]),
+    ]),
     ("Central Instrument Percussion", "instrument", [
         ("Hand Percussion", "kit", HAND_KIT),
         ("Orchestral Percussion", "kit", ORCH_KIT),
@@ -177,7 +186,7 @@ BANKS = [
 ]
 
 NOTE = re.compile(r"(?:^|[_ ])([A-Ga-g])(#|b)?(-?\d)(?=[_ .]|$)")
-DYN = {"ppp": 1, "pp": 2, "p": 3, "mp": 4, "mf": 5, "f": 6, "ff": 7, "fff": 8, "soft": 3, "med": 5, "medium": 5, "loud": 7}
+DYN = {"ppp": 1, "pp": 2, "p": 3, "mp": 4, "mf": 5, "f": 6, "ff": 7, "fff": 8, "soft": 3, "quiet": 3, "med": 5, "medium": 5, "loud": 7}
 PC = {"c": 0, "d": 2, "e": 4, "f": 5, "g": 7, "a": 9, "b": 11}
 
 

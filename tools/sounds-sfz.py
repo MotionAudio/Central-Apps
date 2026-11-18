@@ -54,6 +54,8 @@ SOURCES = {
     "epianos": ("sfzinstruments/GregSullivan.E-Pianos", "8c3e581acda3594b553948ff0222d4f84a698376", "Greg Sullivan E-Pianos - Wurlitzer EP200, Yamaha CP80, Hohner Pianet T (CC-BY 3.0; SFZ by kinwie)"),
     # 10.5 (README: "released as public domain in early 2000 by Akai"; the sfzinstruments listing says Public Domain)
     "splendid": ("sfzinstruments/SplendidGrandPiano", "1c595d827b7fd7f0be3134aaed0f90b3662a09cf", "Splendid Grand Piano - AKAI (public domain; SFZ on sfzinstruments)"),
+    # 10.8, free in every app (Central Starter; LICENSE.txt: CC0 1.0)
+    "accordion": ("freepats/button-accordion-HN", "d70d16456fd99305d1c24c612b205ab38846eb0f", "Button Accordion HN - a Hohner accordion recorded by Jeff Stauffer (2023), sound bank by michael02022 for FreePats"),
 }
 LICENSE = "CC0 1.0"
 LICENSES = {"epianos": "CC-BY 3.0", "splendid": "Public domain"}   # (10.5: everything else is CC0 1.0)
@@ -85,6 +87,8 @@ INSTR = {
     "wurli": dict(src="epianos", program="Wurlitzer EP200/Wurlitzer EP200.sfz", kind="decay", keys=(33, 96), cut=5.0, layers=3, exclude=r"(?i)release|rel_"),
     "cp80": dict(src="epianos", program="CP80/CP80.sfz", kind="decay", keys=(28, 103), cut=5.0, layers=3, exclude=r"(?i)release|rel_"),
     "pianet": dict(src="epianos", program="Pianet T/Pianet T.sfz", kind="decay", keys=(36, 96), cut=4.0, layers=3, exclude=r"(?i)release|rel_"),
+    # 10.8
+    "accordion": dict(src="accordion", program="PRESET Button Accordion HN tuned.sfz", kind="sus", keys=(41, 96), layers=1, exclude=r"(?i)rel"),
 }
 
 # bank -> (plan, presets: (name, [(instrument, key lo, key hi, attack, release or None, dB)]))
@@ -122,6 +126,11 @@ BANKS = [
         ("CP80 Electric Grand", [("cp80", 0, 127, 0.002, 0.5, 0)]),
         ("Pianet T", [("pianet", 0, 127, 0.002, 0.4, 0)]),
         ("Wurlitzer & Pad", [("wurli", 0, 127, 0.002, 0.8, -1), ("cp80", 0, 127, 0.4, 2.0, -9)]),
+    ]),
+    # 10.8: free in every app (Central Starter) - a real accordion (FreePats, CC0), for hymns, folk songs and waltzes
+    ("Central Starter Accordion", "free", [
+        ("Accordion", [("accordion", 0, 127, 0.04, 0.15, 0)]),
+        ("Soft Accordion", [("accordion", 0, 127, 0.3, 0.5, -3)]),
     ]),
     ("Central Instrument Saxophones", "instrument", [
         ("Alto Sax", [("altosax", 0, 127, 0.03, 0.3, 0)]),

@@ -10,7 +10,10 @@
   * tools/make-loops.py: drum loops of four bars at their own tempos, ambient loops of 12 s in every key, all seamless;
   * the loops in a library zip install on the Pi (libraries.py): listed per groove with its files, each file found only
     inside its library; a kind the installer doesn't know is left out, not refused;
-  * js/pedals.js: the 30 new pedals, every knob a control of its plugin, studio tools Central Plugins, the rest Central Pedals.
+  * js/pedals.js: the 30 new pedals, every knob a control of its plugin, studio tools Central Plugins, the rest Central Pedals;
+  * tools/make-samples.py (10.8): Central Starter's one-shots - every VCSL file it names is in VCSL, none is one the paid
+    kits play, the kits name real samples, the two made here sound and fade, a hit is trimmed and levelled, and the kits'
+    SoundFont reads back with three presets and the hi-hats choking each other.
     python3 test_content.py"""
 import hashlib
 import importlib.util
@@ -45,6 +48,7 @@ def load(rel, name):
 
 MH = load("tools/make-hymns.py", "make_hymns")
 SY = load("tools/make-synths.py", "make_synths")
+MS = load("tools/make-samples.py", "make_samples")
 PL = load("tools/make-pad-loops.py", "make_pad_loops")
 ML = load("tools/make-loops.py", "make_loops")
 BUILD = load("tools/build-libraries.py", "build_libraries")
@@ -187,6 +191,39 @@ def main():
             check(d0 < -60 and d2 > -40 and k0 > -45, "the band follows the energy: no drums in the quiet intro (keys and pad), drums in the second verse", (round(d0, 1), round(d2, 1), round(k0, 1)))
         else:
             print("\n(no fluidsynth / ffmpeg / General MIDI SoundFont here: the render checks are skipped)")
+
+        print("\nCentral Starter's samples (tools/make-samples.py, 10.8):")
+        names = set(open(os.path.join(HERE, "tools", "vcsl-names.txt"), encoding="utf-8").read().split("\n"))
+        vc = [os.path.normpath(it[1]) for _s, _n, items in MS.SETS for it in items if it[0] == "vcsl"]
+        check(vc and all(v in names for v in vc), "every VCSL file it names is in VCSL (at the pinned commit)", [v for v in vc if v not in names])
+        import re as _re
+        VCm = load("tools/sounds-vcsl.py", "sounds_vcsl_t")
+        paid = [(f, pat) for kit in (VCm.HAND_KIT, VCm.ORCH_KIT) for _k, f, pat, _c in kit]
+        taken = [v for v in vc for f, pat in paid if v.startswith(f + "/") and _re.search(pat, v[len(f) + 1:])]
+        check(not taken, "none of them is a recording the paid percussion kits play (the free set is its own)", taken)
+        all_names = [it[2] for _s, _n, items in MS.SETS for it in items]
+        kit_names = {(l if isinstance(l, str) else l[0]) for _k, keys in MS.KITS for ls in keys.values() for l in ls}
+        check(len(all_names) >= 100 and len(set(all_names)) == len(all_names) and kit_names <= set(all_names) and len(set(MS.file_of(n) for n in all_names)) == len(all_names),
+              "%d samples, every name (and file) once; the kits play only samples in the set" % len(all_names), sorted(kit_names - set(all_names)))
+        check(all(len(k[0]) <= 19 for k in MS.KITS), "each kit's name fits a SoundFont preset name (19 letters)", [k[0] for k in MS.KITS])
+        clap, sr = MS.made("clap")
+        wide, _ = MS.made("clap_wide")
+        rim, _ = MS.made("rim")
+        y = MS.tidy(clap, sr, {})
+        check(clap.shape[1] == 1 and wide.shape[1] == 2 and float(np.max(np.abs(rim))) > 0.1 and abs(float(np.max(np.abs(y))) - 10 ** (-1 / 20)) < 1e-3 and float(np.max(np.abs(y[-20:]))) < 0.02,
+              "the clap and the rim click made here: they sound, the big clap is stereo, and a tidied hit peaks at -1 dBFS and fades out")
+        z = np.zeros((4800, 1), np.float32); z[1200:2400, 0] = np.sin(np.arange(1200) * 0.3) * np.linspace(1, 0.001, 1200)
+        t = MS.tidy(z, 48000, {})
+        check(len(t) < 2400 and abs(float(t[48, 0])) > 0 and abs(float(t[0, 0])) < 0.05, "the silence before a hit is trimmed (1 ms kept) and the silence after it goes")
+        rv = MS.tidy(np.concatenate([np.linspace(0, 1, 4800), np.linspace(1, 0, 48000)]).astype(np.float32)[:, None], 48000, {"rev": True, "long": True})
+        check(np.argmax(np.abs(rv[:, 0])) >= len(rv) - 200, "a reversed swell ends on its loudest point", (int(np.argmax(np.abs(rv[:, 0]))), len(rv)))
+        pcm = {n: (np.full((2400, 1), 0.3, np.float32), 48000) for n in all_names}
+        kpath = MS.build_kits(pcm, os.path.join(tmp, "kits"), log=lambda *a: None)
+        import midi_render as M
+        kp = [p[2] for p in M.sf2_presets(kpath)]
+        raw = open(kpath, "rb").read()
+        check(kp == [k[0] for k in MS.KITS] and raw[:4] == b"RIFF" and raw.count(b"\x39\x00\x01\x00") >= 3,
+              "the kits' SoundFont reads back: three presets, the names the library lists, the hi-hats in one choke group", kp)
 
         print("\nSynths (tools/make-synths.py):")
         sf2 = SY.build(os.path.join(tmp, "synths"))

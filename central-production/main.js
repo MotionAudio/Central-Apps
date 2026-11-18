@@ -11,7 +11,7 @@
 const { app, BrowserWindow, Menu, shell, ipcMain, dialog, net } = require("electron");
 const path = require("node:path"), fs = require("node:fs"), os = require("node:os"), crypto = require("node:crypto");
 const { Updater } = require("./updater");
-const { Libraries } = require("./libraries");
+const { Libraries, newer } = require("./libraries");
 
 if (!app.commandLine.hasSwitch("user-data-dir")) app.setPath("userData", path.join(app.getPath("appData"), "Central Production"));
 app.setName("Central Production");
@@ -73,6 +73,25 @@ ipcMain.handle("lib-install", async (_e, a) => { a = a || {}; try { return libOu
 ipcMain.handle("lib-install-file", async () => { const r = await dialog.showOpenDialog(win, { properties: ["openFile"], filters: [{ name: "Sound library", extensions: ["zip"] }] }); if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true, installed: libsHere().listing() }; try { return libOut(libsHere().installFile(r.filePaths[0], null, "file")); } catch (e) { return { ok: false, error: e.message, installed: libsHere().listing() }; } });
 ipcMain.handle("lib-remove", (_e, id) => { try { libsHere().remove(String(id || "")); return libOut(null); } catch (e) { return { ok: false, error: e.message, installed: libsHere().listing() }; } });
 ipcMain.handle("lib-community", (_e, a) => { a = a || {}; if (a.set != null) libsHere().setPluginsAllowed(!!a.set); return { ok: true, on: libsHere().pluginsAllowed() }; });
+// (10.8) the free library (Central Starter: the stock sounds, and its samples and kits for the Samples browser) installs
+// on its own here too, as in Central Control and Central Usage: a look a minute after the app opens, then once a day; a
+// newer version replaces the old one. Nothing offline, nothing when the disk would keep less than 2 GB. Off with
+// CC_STOCK_LIBRARIES=0 (tests).
+async function stockLibraries() {
+  const L = libsHere(), idx = await L.index(), have = {};
+  for (const r of L.listing()) have[r.id] = r;
+  let free = Infinity; try { const st = await fs.promises.statfs(userData()); free = Number(st.bavail) * Number(st.bsize); } catch (_) { }
+  for (const l of (idx && idx.libraries) || []) {
+    if (l.plan !== "free" || !l.sha256 || !l.url) continue;
+    const rec = have[l.id]; if (rec && !newer(l.version, rec.version)) continue;
+    if (L.progress[l.id] && ["downloading", "installing"].includes(L.progress[l.id].state)) continue;
+    const need = (l.size || 0) * 2.5; if (free - need < 2 * 1024 ** 3) { console.log("stock library " + l.id + " waits: not enough disk"); continue; }
+    free -= need;
+    try { await L.installUrl(l.url, l.sha256, l.id, l.size, (p) => win && win.webContents.send("lib-progress", { id: l.id, done: p.done, total: p.total, state: p.state })); if (win) win.webContents.send("lib-installed", { installed: L.listing(), id: l.id }); }
+    catch (e) { console.log("stock library " + l.id + ": " + (e.message || e)); }
+  }
+}
+if (process.env.CC_STOCK_LIBRARIES !== "0") app.whenReady().then(() => { const tick = () => stockLibraries().catch(() => { }); setTimeout(tick, 60e3).unref(); setInterval(tick, 24 * 3600e3).unref(); });
 // Install into my apps: this app, Central Control and Central Usage on this computer (the ones that have been opened here)
 ipcMain.handle("cp-install-personal", (_e, bytes, name) => {
   const tmp = path.join(os.tmpdir(), "cp-" + crypto.randomBytes(5).toString("hex") + ".zip"); fs.writeFileSync(tmp, Buffer.from(bytes));

@@ -40,7 +40,7 @@ PLANS = ("keys", "instrument", "plugins", "pedals", "pads", "utility")
 LIBRARY_PLANS = PLANS + ("free",)   # (10.5: a library can be free - Central Starter, the stock sounds the apps install on their own)
 # (10.2) Central Utility adds lighting looks, slide templates, lyric backgrounds and graphics: kept here as files and
 # records (Central Control shows them); its clicks join the click sounds a song can pick.
-KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic", "fx")   # (10.2 fx: a plugin you made in Central Production, .cmfx.json)
+KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic", "fx", "sample")   # (10.2 fx: a plugin you made in Central Production, .cmfx.json; 10.8 sample: see below)
 EXTRA_KINDS = {"look": "looks", "slide": "slides", "background": "backgrounds", "graphic": "graphics"}
 PLUGIN_FORMATS = ("lv2", "vst3", "clap", "component", "cmfx")   # (10.2) cmfx: a Central FX plugin, one .cmfx.json file
 MAX_CMFX = 512 * 1024
@@ -549,6 +549,8 @@ class LibraryStore:
         sounds, irs = [], []
         for it in man["items"]:
             if it["kind"] not in KINDS:   # (a kind a newer version knows: left out)
+                continue
+            if it["kind"] == "sample":   # (10.8: a one-shot for the Samples browser in Central Production and the Studio - not kept on the pedal)
                 continue
             data = zf.read(it["file"])
             if it.get("sha256") and sha256_bytes(data) != str(it["sha256"]).lower():

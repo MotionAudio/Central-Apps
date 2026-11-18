@@ -6,13 +6,13 @@
    "plan": "free",
    "planName": "Free",
    "title": "Central Starter",
-   "version": "1.0",
-   "summary": "The stock sounds, free in every Central app (10.5) - the apps install it on their own, no key needed: twelve pads for the pad pedal in all 12 keys (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass), each a seamless 12-second loop; ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) with seven presets; six drum grooves at three tempos each (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) and two ambient loops in every key (Drift, Breath) for the texture channels; three plain cabinets and an acoustic body for the IR loader; and seven boards built from the free pedals (clean, worship delay, crunch and chorus electrics, an acoustic, a bass DI and clean keys). The richer pads, grooves, loops, instruments and boards are in the plans' libraries.",
-   "file": "central-starter-1.0.zip",
-   "size": 380000000,
+   "version": "1.1",
+   "summary": "The stock sounds, free in every Central app (10.5) - the apps install it on their own, no key needed: twelve pads for the pad pedal in all 12 keys (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass), each a seamless 12-second loop; ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) with seven presets; six drum grooves at three tempos each (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) and two ambient loops in every key (Drift, Breath) for the texture channels; three plain cabinets and an acoustic body for the IR loader; and seven boards built from the free pedals (clean, worship delay, crunch and chorus electrics, an acoustic, a bass DI and clean keys). The richer pads, grooves, loops, instruments and boards are in the plans' libraries. 1.1 (10.8): 138 samples for the Samples browser in Central Production and the Studio - kicks, snares, claps, hi-hats, cymbals and toms, hand and world percussion, bass hits, guitar, effects (impacts, whooshes, a cymbal swell and its reverse) and atmospheres, from Sonic Pi's and VCSL's public-domain recordings - and the drum kits made from them (an acoustic kit, an electronic kit, tabla and hand drums); a real accordion (FreePats); and a tubular glockenspiel and a Nyunga Nyunga mbira (VCSL). All CC0: none of it is taken from the plans' libraries.",
+   "file": "central-starter-1.1.zip",
+   "size": 470000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-starter-1.0.zip",
+   "url": "https://libraries.motionaudio.org/central-starter-1.1.zip",
    "contents": {
     "sounds": [
      {
@@ -30,6 +30,32 @@
        "Electric Bells"
       ],
       "license": "Motion Audio - free, in every app"
+     },
+     {
+      "name": "Central Starter Kits",
+      "presets": [
+       "Acoustic Kit",
+       "Electronic Kit",
+       "Tabla & Hand Drums"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Starter Accordion",
+      "presets": [
+       "Accordion",
+       "Soft Accordion"
+      ],
+      "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Starter Instruments",
+      "presets": [
+       "Tubular Glock",
+       "Soft Tubular Glock",
+       "Nyunga Nyunga Mbira"
+      ],
+      "license": "CC0 1.0"
      }
     ],
     "presets": [
@@ -39,7 +65,14 @@
      "String Machine Pad",
      "Sub Bass (keys left hand)",
      "Plucky Arp",
-     "Electric Bells"
+     "Electric Bells",
+     "Hymn Accordion",
+     "Soft Accordion Bed",
+     "Christmas Glockenspiel",
+     "Mbira",
+     "Starter Kit",
+     "Electronic Kit",
+     "Tabla and Hand Drums"
     ],
     "boards": [
      "Starter: Clean Electric",
@@ -79,23 +112,170 @@
      "Drum loops: Waltz",
      "Ambient loops: Drift",
      "Ambient loops: Breath"
+    ],
+    "samples": [
+     "Kicks: 808 Kick",
+     "Kicks: Boom Kick",
+     "Kicks: Fat Kick",
+     "Kicks: House Kick",
+     "Kicks: Club Kick",
+     "Kicks: Pure Kick",
+     "Kicks: Tight Kick",
+     "Kicks: Deep Kick",
+     "Kicks: Punchy Kick",
+     "Kicks: Jazz Kick",
+     "Kicks: Heavy Kick",
+     "Kicks: Acoustic Kick",
+     "Kicks: Acoustic Kick (soft)",
+     "Kicks: Soft Electronic Kick",
+     "Kicks: Hollow Kick",
+     "Kicks: Concert Bass Drum",
+     "Snares: Acoustic Snare",
+     "Snares: Acoustic Snare (soft)",
+     "Snares: Snare",
+     "Snares: Dub Snare",
+     "Snares: Crack Snare",
+     "Snares: Room Snare",
+     "Snares: Electronic Snare",
+     "Snares: High Snare",
+     "Snares: Mid Snare",
+     "Snares: Low Snare",
+     "Snares: Filtered Snare",
+     "Snares: Concert Snare",
+     "Snares: Snare Roll",
+     "Claps and snaps: Hand Clap",
+     "Claps and snaps: Big Clap",
+     "Claps and snaps: Rim Click",
+     "Claps and snaps: Finger Snap",
+     "Claps and snaps: Snap",
+     "Hi-hats: Closed Hat",
+     "Hi-hats: Pedal Hat",
+     "Hi-hats: Open Hat",
+     "Hi-hats: Tight Hat",
+     "Hi-hats: Tap Hat",
+     "Hi-hats: Snappy Hat",
+     "Hi-hats: Metal Hat",
+     "Hi-hats: Raw Hat",
+     "Hi-hats: Bright Hat",
+     "Hi-hats: Shimmer Hat",
+     "Hi-hats: Soft Hat",
+     "Hi-hats: Electronic Hat",
+     "Cymbals: Crash",
+     "Cymbals: Crash (soft)",
+     "Cymbals: Splash",
+     "Cymbals: Splash (soft)",
+     "Cymbals: Ride",
+     "Cymbals: Ride (dark)",
+     "Cymbals: Electronic Cymbal",
+     "Cymbals: Ride Bell",
+     "Cymbals: Orchestral Crash",
+     "Toms: High Tom",
+     "Toms: Mid Tom",
+     "Toms: Low Tom",
+     "Toms: High Tom (soft)",
+     "Toms: Mid Tom (soft)",
+     "Toms: Low Tom (soft)",
+     "Toms: Fuzz Tom",
+     "Percussion: Cowbell",
+     "Percussion: Electronic Triangle",
+     "Percussion: Wood Block",
+     "Percussion: Tick",
+     "Percussion: Pop",
+     "Percussion: Bong",
+     "Percussion: Blip",
+     "Percussion: Plip",
+     "Percussion: Agogo (high)",
+     "Percussion: Agogo (low)",
+     "Percussion: Anvil",
+     "Percussion: Brake Drum",
+     "Percussion: Guiro",
+     "Percussion: Guiro Hit",
+     "Percussion: Ratchet",
+     "Percussion: Slapstick",
+     "Percussion: Vibraslap",
+     "Percussion: Flexatone",
+     "Percussion: Tambourine",
+     "Percussion: Tambourine Shake",
+     "Percussion: Tambourine Roll",
+     "Percussion: Triangle",
+     "Percussion: Triangle Roll",
+     "Percussion: Finger Cymbals",
+     "World percussion: Darbuka (dum)",
+     "World percussion: Darbuka (tek)",
+     "World percussion: Log Drum (high)",
+     "World percussion: Log Drum (low)",
+     "World percussion: Tabla Na",
+     "World percussion: Tabla Tun",
+     "World percussion: Tabla Ghe",
+     "World percussion: Tabla Te",
+     "World percussion: Tabla Ke",
+     "World percussion: Tabla Dhec",
+     "World percussion: Tabla Tas",
+     "World percussion: Tabla Re",
+     "Bells and chimes: Nepalese Bell",
+     "Bells and chimes: Bell Tree",
+     "Bells and chimes: Wind Chimes",
+     "Bells and chimes: Bell",
+     "Bells and chimes: Small Bell",
+     "Bells and chimes: Chime",
+     "Bells and chimes: Electronic Bell",
+     "Bells and chimes: Ping",
+     "Bass hits: Bass Hit",
+     "Bass hits: Hard Bass",
+     "Bass hits: Thick Bass",
+     "Bass hits: Bass Drop",
+     "Bass hits: Woody Bass",
+     "Bass hits: Vocal Bass Hit",
+     "Bass hits: Trance Bass",
+     "Guitar: Guitar Harmonics",
+     "Guitar: Guitar Fifths (E)",
+     "Guitar: Guitar Em9",
+     "Guitar: Guitar Slide (E)",
+     "Effects: Cymbal Swell",
+     "Effects: Reverse Cymbal",
+     "Effects: Cinematic Boom",
+     "Effects: Impact",
+     "Effects: Impact (dark)",
+     "Effects: Swoosh",
+     "Effects: Dark Whoosh",
+     "Effects: Air Swoosh",
+     "Effects: Swash",
+     "Effects: Vinyl Backspin",
+     "Effects: Rewind",
+     "Effects: Scratch",
+     "Atmospheres: Ocean Drum",
+     "Atmospheres: Drone",
+     "Atmospheres: Glass Hum",
+     "Atmospheres: Glass Rub",
+     "Atmospheres: Lunar",
+     "Atmospheres: Soft Buzz",
+     "Atmospheres: Choir Breath",
+     "Atmospheres: Ambient Piano",
+     "Atmospheres: Vinyl Hiss"
     ]
    },
    "counts": {
-    "sound": 1,
+    "sound": 4,
     "board": 7,
-    "preset": 7,
+    "preset": 14,
     "ir": 4,
     "click": 0,
     "pad": 12,
-    "loop": 8
+    "loop": 8,
+    "sample": 138
    },
    "credits": [
     "Ambient loops made by Motion Audio (tools/make-loops.py) from our synthesised pads and bells and the libraries' own instruments (piano, harp: VCSL; guitar and bowed bass: Karoryfer; cello: VSCO 2 CE - all CC0 1.0; 10.5: Piano Arps, Organ Swell, Strings Rise, Bell Tower, Guitar Arpeggio, Wurlitzer Haze (the Wurlitzer is Greg Sullivan's, CC-BY 3.0) and Hum Drone)",
+    "Bass hits, guitar, effects and atmospheres from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0)",
+    "Button Accordion HN - a Hohner accordion recorded by Jeff Stauffer, sound bank by michael02022 for FreePats - CC0 1.0 (github.com/freepats/button-accordion-HN)",
     "Drum and percussion loops played by Motion Audio (tools/make-loops.py) on the library's own kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums, Gogodze Phu Vol II (the Lo-fi Kit), Swirly Drums (the Vintage Kit), VCSL hand and orchestral percussion - CC0 1.0)",
+    "Drum hits from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0); the hand claps and rim click made by Motion Audio",
+    "Drum kits made by Motion Audio (tools/make-samples.py) from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0)",
     "Made by Motion Audio (tools/make-irs.py: synthesised, no recording)",
     "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
-    "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)"
+    "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)",
+    "Percussion from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0)",
+    "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
    ],
    "sources": [
     {
@@ -103,6 +283,36 @@
      "text": "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)",
      "license": "Motion Audio - free, in every app",
      "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-synths.py"
+    },
+    {
+     "item": "Central Starter Kits",
+     "text": "Sonic Pi's samples (from freesound.org, placed in the public domain) - sonic-pi-net/sonic-pi, etc/samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
+    },
+    {
+     "item": "Central Starter Kits",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Starter Kits",
+     "text": "Made by Motion Audio (tools/make-samples.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-samples.py"
+    },
+    {
+     "item": "Central Starter Accordion",
+     "text": "Button Accordion HN - Jeff Stauffer (recording), michael02022 (sound bank), FreePats",
+     "license": "CC0 1.0",
+     "url": "https://github.com/freepats/button-accordion-HN/tree/d70d16456fd99305d1c24c612b205ab38846eb0f"
+    },
+    {
+     "item": "Central Starter Instruments",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
     },
     {
      "item": "Central Starter 1x12",
@@ -247,6 +457,48 @@
      "text": "Greg Sullivan E-Pianos (Wurlitzer EP200, Yamaha CP80, Hohner Pianet T) - SFZ by kinwie",
      "license": "CC-BY 3.0",
      "url": "https://github.com/sfzinstruments/GregSullivan.E-Pianos/tree/8c3e581acda3594b553948ff0222d4f84a698376"
+    },
+    {
+     "item": "Drum hits",
+     "text": "Sonic Pi's samples (from freesound.org, placed in the public domain) - sonic-pi-net/sonic-pi, etc/samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
+    },
+    {
+     "item": "Drum hits",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Drum hits",
+     "text": "Made by Motion Audio (tools/make-samples.py: synthesised, no recording)",
+     "license": "Motion Audio - free, in every app",
+     "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-samples.py"
+    },
+    {
+     "item": "Percussion",
+     "text": "Sonic Pi's samples (from freesound.org, placed in the public domain) - sonic-pi-net/sonic-pi, etc/samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
+    },
+    {
+     "item": "Percussion",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Sounds and effects",
+     "text": "Sonic Pi's samples (from freesound.org, placed in the public domain) - sonic-pi-net/sonic-pi, etc/samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
+    },
+    {
+     "item": "Sounds and effects",
+     "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
     }
    ],
    "previews": [
@@ -495,6 +747,70 @@
      "preset": "Electric Bells"
     },
     {
+     "kind": "sound",
+     "name": "Central Starter Kits",
+     "file": "preview--central-starter--sound--kits--acoustic-kit.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--kits--acoustic-kit.mp3",
+     "seconds": 30,
+     "preset": "Acoustic Kit"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Starter Kits",
+     "file": "preview--central-starter--sound--kits--electronic-kit.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--kits--electronic-kit.mp3",
+     "seconds": 30,
+     "preset": "Electronic Kit"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Starter Kits",
+     "file": "preview--central-starter--sound--kits--tabla-hand-drums.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--kits--tabla-hand-drums.mp3",
+     "seconds": 30,
+     "preset": "Tabla & Hand Drums"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Starter Accordion",
+     "file": "preview--central-starter--sound--accordion--accordion.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--accordion--accordion.mp3",
+     "seconds": 30,
+     "preset": "Accordion"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Starter Accordion",
+     "file": "preview--central-starter--sound--accordion--soft-accordion.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--accordion--soft-accordion.mp3",
+     "seconds": 30,
+     "preset": "Soft Accordion"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Starter Instruments",
+     "file": "preview--central-starter--sound--instruments--tubular-glock.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--instruments--tubular-glock.mp3",
+     "seconds": 30,
+     "preset": "Tubular Glock"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Starter Instruments",
+     "file": "preview--central-starter--sound--instruments--soft-tubular-glock.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--instruments--soft-tubular-glock.mp3",
+     "seconds": 30,
+     "preset": "Soft Tubular Glock"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Starter Instruments",
+     "file": "preview--central-starter--sound--instruments--nyunga-nyunga-mbira.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--instruments--nyunga-nyunga-mbira.mp3",
+     "seconds": 30,
+     "preset": "Nyunga Nyunga Mbira"
+    },
+    {
      "kind": "preset",
      "name": "Worship Saw Lead",
      "file": "preview--central-starter--preset--worship-saw-lead.mp3",
@@ -541,6 +857,55 @@
      "name": "Electric Bells",
      "file": "preview--central-starter--preset--electric-bells.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-starter--preset--electric-bells.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Hymn Accordion",
+     "file": "preview--central-starter--preset--hymn-accordion.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--hymn-accordion.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Soft Accordion Bed",
+     "file": "preview--central-starter--preset--soft-accordion-bed.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--soft-accordion-bed.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Christmas Glockenspiel",
+     "file": "preview--central-starter--preset--christmas-glockenspiel.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--christmas-glockenspiel.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Mbira",
+     "file": "preview--central-starter--preset--mbira.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--mbira.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Starter Kit",
+     "file": "preview--central-starter--preset--starter-kit.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--starter-kit.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Electronic Kit",
+     "file": "preview--central-starter--preset--electronic-kit.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--electronic-kit.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Tabla and Hand Drums",
+     "file": "preview--central-starter--preset--tabla-and-hand-drums.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--tabla-and-hand-drums.mp3",
      "seconds": 30
     },
     {

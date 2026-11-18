@@ -3,11 +3,11 @@
  "libraries": [
   {
    "id": "central-starter",
-   "approxMB": 380,
+   "approxMB": 470,
    "plan": "free",
-   "version": "1.0",
+   "version": "1.1",
    "title": "Central Starter",
-   "summary": "The stock sounds, free in every Central app (10.5) - the apps install it on their own, no key needed: twelve pads for the pad pedal in all 12 keys (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass), each a seamless 12-second loop; ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) with seven presets; six drum grooves at three tempos each (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) and two ambient loops in every key (Drift, Breath) for the texture channels; three plain cabinets and an acoustic body for the IR loader; and seven boards built from the free pedals (clean, worship delay, crunch and chorus electrics, an acoustic, a bass DI and clean keys). The richer pads, grooves, loops, instruments and boards are in the plans' libraries.",
+   "summary": "The stock sounds, free in every Central app (10.5) - the apps install it on their own, no key needed: twelve pads for the pad pedal in all 12 keys (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass), each a seamless 12-second loop; ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) with seven presets; six drum grooves at three tempos each (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) and two ambient loops in every key (Drift, Breath) for the texture channels; three plain cabinets and an acoustic body for the IR loader; and seven boards built from the free pedals (clean, worship delay, crunch and chorus electrics, an acoustic, a bass DI and clean keys). The richer pads, grooves, loops, instruments and boards are in the plans' libraries. 1.1 (10.8): 138 samples for the Samples browser in Central Production and the Studio - kicks, snares, claps, hi-hats, cymbals and toms, hand and world percussion, bass hits, guitar, effects (impacts, whooshes, a cymbal swell and its reverse) and atmospheres, from Sonic Pi's and VCSL's public-domain recordings - and the drum kits made from them (an acoustic kit, an electronic kit, tabla and hand drums); a real accordion (FreePats); and a tubular glockenspiel and a Nyunga Nyunga mbira (VCSL). All CC0: none of it is taken from the plans' libraries.",
    "sounds": [
     {
      "name": "Central Keys Synths",
@@ -19,6 +19,55 @@
        "text": "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)",
        "license": "Motion Audio - free, in every app",
        "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-synths.py"
+      }
+     ]
+    },
+    {
+     "name": "Central Starter Kits",
+     "source": "make-samples",
+     "license": "CC0 1.0",
+     "credit": "Drum kits made by Motion Audio (tools/make-samples.py) from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Sonic Pi's samples (from freesound.org, placed in the public domain) - sonic-pi-net/sonic-pi, etc/samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      },
+      {
+       "text": "Made by Motion Audio (tools/make-samples.py: synthesised, no recording)",
+       "license": "Motion Audio - free, in every app",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-samples.py"
+      }
+     ]
+    },
+    {
+     "name": "Central Starter Accordion",
+     "source": "sfz",
+     "license": "CC0 1.0",
+     "credit": "Button Accordion HN - a Hohner accordion recorded by Jeff Stauffer, sound bank by michael02022 for FreePats - CC0 1.0 (github.com/freepats/button-accordion-HN)",
+     "sources": [
+      {
+       "text": "Button Accordion HN - Jeff Stauffer (recording), michael02022 (sound bank), FreePats",
+       "license": "CC0 1.0",
+       "url": "https://github.com/freepats/button-accordion-HN/tree/d70d16456fd99305d1c24c612b205ab38846eb0f"
+      }
+     ]
+    },
+    {
+     "name": "Central Starter Instruments",
+     "source": "vcsl",
+     "license": "CC0 1.0",
+     "credit": "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)",
+     "sources": [
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
       }
      ]
     }
@@ -163,6 +212,115 @@
       ]
      ],
      "sound": "electric bells"
+    },
+    {
+     "name": "Hymn Accordion",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.8
+       }
+      ]
+     ],
+     "sound": "accordion"
+    },
+    {
+     "name": "Soft Accordion Bed",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.12
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.0
+       }
+      ]
+     ],
+     "sound": "soft accordion|accordion"
+    },
+    {
+     "name": "Christmas Glockenspiel",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.4
+       }
+      ]
+     ],
+     "sound": "tubular glock"
+    },
+    {
+     "name": "Mbira",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 25,
+        "Mix": 18
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2
+       }
+      ]
+     ],
+     "sound": "nyunga nyunga mbira"
+    },
+    {
+     "name": "Starter Kit",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.1
+       }
+      ]
+     ],
+     "sound": "acoustic kit"
+    },
+    {
+     "name": "Electronic Kit",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.3,
+        "Ratio": 3
+       }
+      ]
+     ],
+     "sound": "electronic kit"
+    },
+    {
+     "name": "Tabla and Hand Drums",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.4
+       }
+      ]
+     ],
+     "sound": "tabla & hand drums"
     }
    ],
    "boards": [
@@ -628,6 +786,67 @@
      "only": [
       "Drift",
       "Breath"
+     ]
+    }
+   ],
+   "samples": [
+    {
+     "set": "starter-drums",
+     "name": "Drum hits",
+     "license": "CC0 1.0 (two made by Motion Audio)",
+     "credit": "Drum hits from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0); the hand claps and rim click made by Motion Audio",
+     "sources": [
+      {
+       "text": "Sonic Pi's samples (from freesound.org, placed in the public domain) - sonic-pi-net/sonic-pi, etc/samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      },
+      {
+       "text": "Made by Motion Audio (tools/make-samples.py: synthesised, no recording)",
+       "license": "Motion Audio - free, in every app",
+       "url": "https://github.com/MotionAudio/central-apps/blob/main/tools/make-samples.py"
+      }
+     ]
+    },
+    {
+     "set": "starter-percussion",
+     "name": "Percussion",
+     "license": "CC0 1.0",
+     "credit": "Percussion from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Sonic Pi's samples (from freesound.org, placed in the public domain) - sonic-pi-net/sonic-pi, etc/samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "set": "starter-sounds",
+     "name": "Sounds and effects",
+     "license": "CC0 1.0",
+     "credit": "Bass hits, guitar, effects and atmospheres from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0)",
+     "sources": [
+      {
+       "text": "Sonic Pi's samples (from freesound.org, placed in the public domain) - sonic-pi-net/sonic-pi, etc/samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
+      },
+      {
+       "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
      ]
     }
    ]

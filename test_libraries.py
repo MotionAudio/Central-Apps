@@ -127,7 +127,7 @@ def run(tmp):
     check("Keys and Instrument presets use only free pedals (they need just their own plan)", not plans_of(by["keys"]) and not plans_of(by["instrument"]), (plans_of(by["keys"]), plans_of(by["instrument"])))
     starter = by["free"]
     check("(10.5) Central Starter is free through and through: its boards and presets use only free pedals, and nothing in it needs a plan", not plans_of(starter) and starter["id"] == "central-starter"
-          and all(ls.get("only") for ls in starter["loops"]) and len(starter["pads"]) == 12 and len(starter["irs"]) == 4 and len(starter["boards"]) >= 6 and len(starter["presets"]) == 7, plans_of(starter))
+          and all(ls.get("only") for ls in starter["loops"]) and len(starter["pads"]) == 12 and len(starter["irs"]) == 4 and len(starter["boards"]) >= 6 and len(starter["presets"]) == 14 and len(starter["samples"]) == 3, plans_of(starter))
     check("(10.5) the loops a set gives the free library are the ones the pack leaves out (only / except), and the pack keeps the rest",
           all(set(ls["only"]) == set(next(x for x in pack["loops"] if x["set"] == ls["set"])["except"]) for ls in starter["loops"] for pack in [by["instrument"] if ls["set"] == "drums" else by["pads"]])
           and BUILD.loop_names(starter) and not (set(BUILD.loop_names(starter)) & set(BUILD.loop_names(by["instrument"]) + BUILD.loop_names(by["pads"]))), BUILD.loop_names(starter))
@@ -285,6 +285,12 @@ def run(tmp):
             LOOPS.loop_wav(os.path.join(snd, "loops", ls["set"], "one.wav"), np.zeros(64, np.float32), np.zeros(64, np.float32))
             with open(os.path.join(snd, "loops", ls["set"], "index.json"), "w") as handle:
                 json.dump([{"name": "One", "file": "one.wav", "bpm": 90, "meter": 4, "bars": 2}], handle)
+    for lib in defs:   # (10.8: the one-shot samples - a tiny one per set; tools/make-samples.py itself is checked in test_content.py)
+        for ss in lib.get("samples") or []:
+            os.makedirs(os.path.join(snd, "samples", ss["set"]), exist_ok=True)
+            LOOPS.loop_wav(os.path.join(snd, "samples", ss["set"], "one.wav"), np.zeros(64, np.float32), np.zeros(64, np.float32))
+            with open(os.path.join(snd, "samples", ss["set"], "index.json"), "w") as handle:
+                json.dump([{"name": "One", "group": "Kicks", "file": "one.wav", "note": 36, "seconds": 0.01}], handle)
     import runpy   # (10.2: Central Utility's click sets and lighting looks, made the real way - it takes a second)
     runpy.run_path(os.path.join(HERE, "tools", "make-utility.py"), run_name="make_utility")["main"]([os.path.join(snd, "utility")])
     out = os.path.join(tmp, "out")
@@ -379,8 +385,13 @@ def run(tmp):
     with zipfile.ZipFile(os.path.join(out, starter_e["file"])) as zf:
         sman = json.loads(zf.read("manifest.json"))
     check("(10.5) Central Starter installs with the tier \"free\" on everything: its pads, boards, presets, loops and IRs open with no key", srec["plan"] == "free" and srec["tier"] == "free" and sman["planName"] == "Free"
-          and all(it["tier"] == "free" for it in sman["items"]) and srec["counts"]["pad"] == 12 and srec["counts"]["ir"] == 4 and srec["counts"]["board"] == len(by["free"]["boards"]) and srec["counts"]["preset"] == 7
+          and all(it["tier"] == "free" for it in sman["items"]) and srec["counts"]["pad"] == 12 and srec["counts"]["ir"] == 4 and srec["counts"]["board"] == len(by["free"]["boards"]) and srec["counts"]["preset"] == len(by["free"]["presets"])
           and all(x["tier"] == "free" for x in store.pads()) and "needs no key" in zf_credits(os.path.join(out, starter_e["file"])), srec["counts"])
+    smp = [it for it in sman["items"] if it["kind"] == "sample"]
+    check("(10.8) Central Starter's samples are in its zip (samples/<set>/..., with their group and note, free), and the pedal leaves them out (they're for the DAW)",
+          len(smp) == len(by["free"]["samples"]) and all(it["file"].startswith("samples/" + it["set"] + "/") and it["group"] == "Kicks" and it["note"] == 36 and it["tier"] == "free" for it in smp)
+          and "sample" not in srec["counts"] and not os.path.exists(os.path.join(data_root, "libraries", "central-starter", "samples"))
+          and starter_e["counts"]["sample"] == len(smp) and starter_e["contents"]["samples"] == ["Kicks: One"] * len(smp), (len(smp), srec["counts"]))
     store.remove("central-starter")
     old_max = BUILD.MAX_ZIP
     BUILD.MAX_ZIP = 1000

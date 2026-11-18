@@ -4,7 +4,8 @@
 #   1. the VCSL SoundFonts (tools/sounds-vcsl.py - downloads about 2 GB of WAVs, one at a time, deleting each once used)
 #   2. the SFZ libraries' SoundFonts (tools/sounds-sfz.py - drum kits, guitars, basses, saxes; about 1.5 GB of samples)
 #   3. the pads and textures (tools/make-pads.py - synthesised, plus a few VCSL cymbals), the synths (tools/make-synths.py,
-#      10.0 - synthesised), Central Pads' loops (tools/make-pad-loops.py - synthesised, every style in every key) and the
+#      10.0 - synthesised), Central Starter's samples and kits (tools/make-samples.py, 10.8 - Sonic Pi and VCSL, CC0),
+#      Central Pads' loops (tools/make-pad-loops.py - synthesised, every style in every key) and the
 #      drum, percussion and ambient loops (tools/make-loops.py, 10.0 - played on the kits built in step 2)
 #   4. the cabinet / acoustic-body impulse responses (tools/make-irs.py - made here, nothing downloaded)
 #   5. the zips, libraries-index.json and SHA256SUMS (tools/build-libraries.py)
@@ -30,12 +31,13 @@ python3 "$HERE/tools/sounds-sfz.py" "$WORK/cache" "$WORK/sounds"
 echo "3/5  pads and textures (synthesised; VCSL cymbals) -> $WORK/sounds"
 python3 "$HERE/tools/make-pads.py" "$WORK/cache" "$WORK/sounds"
 python3 "$HERE/tools/make-synths.py" "$WORK/sounds"
+python3 "$HERE/tools/make-samples.py" "$WORK/cache" "$WORK/starter-samples" --sounds "$WORK/sounds"   # (10.8: Central Starter's one-shots and its kits - Sonic Pi and VCSL, CC0)
 python3 "$HERE/tools/make-pad-loops.py" "$WORK/pad-loops" --cache "$WORK/cache" --pulse "$WORK/loops/pulse"
 python3 "$HERE/tools/make-loops.py" --sounds "$WORK/sounds" --pads "$WORK/pad-loops" --out "$WORK/loops"
 echo "4/5  impulse responses -> $WORK/irs; Central Utility's clicks and lighting looks -> $WORK/utility"
 python3 "$HERE/tools/make-irs.py" "$WORK/irs"
 python3 "$HERE/tools/make-utility.py" "$WORK/utility"
 echo "5/5  zips -> $OUT"
-python3 "$HERE/tools/build-libraries.py" --sounds "$WORK/sounds" --irs "$WORK/irs" --pads "$WORK/pad-loops" --loops "$WORK/loops" --utility "$WORK/utility" --out "$OUT" --base-url "$BASE" ${ONLY:+--only "$ONLY"}
+python3 "$HERE/tools/build-libraries.py" --sounds "$WORK/sounds" --irs "$WORK/irs" --pads "$WORK/pad-loops" --loops "$WORK/loops" --utility "$WORK/utility" --samples "$WORK/starter-samples" --out "$OUT" --base-url "$BASE" ${ONLY:+--only "$ONLY"}
 ( cd "$OUT" && sha256sum -c SHA256SUMS >/dev/null ) && echo "    SHA256SUMS checked"
 echo "Done: $OUT"

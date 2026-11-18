@@ -8,13 +8,15 @@ install.
 --sounds: the SoundFonts tools/sounds-vcsl.py built; --irs: the impulses tools/make-irs.py made; --pads: the pad loops
 tools/make-pads.py made (default: <sounds>/pad-loops); --loops: the loops tools/make-loops.py made, <set>/index.json each
 (default: <sounds>/loops; 10.0); --utility: what tools/make-utility.py made - click sets, lighting looks, and later
-slide templates, backgrounds and graphics (default: <sounds>/utility; 10.2).
+slide templates, backgrounds and graphics (default: <sounds>/utility; 10.2); --samples: the one-shots tools/make-samples.py
+made, <set>/index.json each (default: <sounds>/samples; 10.8).
 --base-url: where the zips will be downloaded from (written into the index; default: the GitHub release "libraries").
 --allow-missing: leave out a sound that wasn't built (tests) instead of stopping.
 --no-previews: skip the 30-second previews (10.2; tools/make-previews.py makes them from the sounds just built).
 
 Writes to --out:
-  <id>-<version>.zip       manifest.json + sounds/*.sf2, irs/*.wav, pads/<style>/<key>.wav, presets/*.json, boards/*.json, CREDITS.txt
+  <id>-<version>.zip       manifest.json + sounds/*.sf2, irs/*.wav, pads/<style>/<key>.wav, samples/<set>/*.flac, presets/*.json,
+                           boards/*.json, CREDITS.txt
   libraries-index.json     what the website's /v1/libraries and the apps read: each library, its size, sha256, url and contents
   SHA256SUMS               sha256sum format, for the zips, the previews and the index
   preview--<library>--<kind>--<name>.mp3   (10.2) 30 seconds of each pad style, loop set and loop, instrument preset,
@@ -47,7 +49,7 @@ def loop_wanted(ls, name):
         return name in ls["only"]
     return name not in (ls.get("except") or [])
 # (10.2) Central Utility: click sets, lighting looks, slide templates, lyric backgrounds, graphics (tools/make-utility.py)
-KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "look", "slide", "background", "graphic")
+KINDS = ("sound", "board", "preset", "ir", "click", "pad", "loop", "look", "slide", "background", "graphic", "sample")   # (10.8 sample: a one-shot for the DAW's Samples browser)
 UTILITY_KINDS = (("look", "looks"), ("slide", "slides"), ("background", "backgrounds"), ("graphic", "graphics"))
 PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -134,7 +136,7 @@ def load_definitions(path=DEFINITIONS):
     return libs
 
 
-def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=print, pads_dir=None, loops_dir=None, previews=False, utility_dir=None):
+def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=print, pads_dir=None, loops_dir=None, previews=False, utility_dir=None, samples_dir=None):
     """Writes <id>-<version>.zip (and, with previews, its 30-second previews beside it); returns its index entry (without
     the urls)."""
     tier = lib["plan"]
@@ -142,6 +144,28 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
     pads_dir = pads_dir or os.path.join(sounds_dir or "", "pad-loops")
     loops_dir = loops_dir or os.path.join(sounds_dir or "", "loops")
     utility_dir = utility_dir or os.path.join(sounds_dir or "", "utility")
+    samples_dir = samples_dir or os.path.join(sounds_dir or "", "samples")
+    for ss in lib.get("samples") or []:   # (10.8: a set of one-shots tools/make-samples.py made - <samples>/<set>/index.json lists them)
+        listing = os.path.join(samples_dir, ss["set"], "index.json")
+        if not os.path.isfile(listing):
+            if allow_missing:
+                missing.append(ss["name"])
+                continue
+            raise FileNotFoundError("%s: the samples %s weren't made (%s)" % (lib["id"], ss["set"], listing))
+        with open(listing, encoding="utf-8") as handle:
+            entries = json.load(handle)
+        for e in entries:
+            src = os.path.join(samples_dir, ss["set"], e["file"])
+            arc = "samples/%s/%s" % (ss["set"], e["file"])
+            item = {"kind": "sample", "name": e["name"], "set": ss["set"], "group": e.get("group") or ss["name"], "file": arc, "tier": tier, "size": os.path.getsize(src),
+                    "sha256": sha256_file(src), "license": ss.get("license", ""), "credit": ss.get("credit", "")}
+            for k in ("note", "bpm", "key", "seconds"):
+                if e.get(k) is not None:
+                    item[k] = e[k]
+            items.append(item)
+            files.append((arc, src))
+        if ss.get("credit") and ss["credit"] not in credits:
+            credits.append(ss["credit"])
     for c in lib.get("clicks") or []:   # (10.2: a click set, the accent and the beat - tools/make-utility.py)
         for role in ("accent", "beat"):
             src = os.path.join(utility_dir, "clicks", c["set"], role + ".wav")
@@ -257,7 +281,7 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
     credit_txt = "%s %s - %s\n\n%s\n\n%s\n\n%s\n\nSources (license, where it is):\n%s\n" % (
         lib["title"], lib["version"], "free, in every app" if tier == "free" else "part of " + PLANS[tier], lib.get("summary", ""), opens, "\n".join("- " + c for c in credits) or "",
         "\n".join("- %s: %s - %s - %s" % (s["item"], s["text"], s["license"], s["url"]) for s in sources) or "- (all made by Motion Audio)")
-    if any(i["kind"] in ("sound", "ir", "pad", "loop") for i in items):   # (sounds/CREDITS.txt: every source of every sound and IR, with its license and URL)
+    if any(i["kind"] in ("sound", "ir", "pad", "loop", "sample") for i in items):   # (sounds/CREDITS.txt: every source of every sound and IR, with its license and URL)
         blobs.append(("sounds/CREDITS.txt", ("Sources of the sounds and impulse responses in %s %s\n\n%s\n" % (lib["title"], lib["version"], "\n".join(
             "%s\n    %s\n    License: %s\n    %s" % (s["item"], s["text"], s["license"], s["url"]) for s in sources))).encode()))
     name = "%s-%s.zip" % (lib["id"], lib["version"])
@@ -298,6 +322,8 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
         "pads": sorted({i["name"] for i in items if i["kind"] == "pad"}, key=[p["name"] for p in lib.get("pads") or []].index),
         "loops": list(dict.fromkeys("%s: %s" % (i["group"], i["name"]) for i in items if i["kind"] == "loop")),
     }
+    if count["sample"]:
+        contents["samples"] = ["%s: %s" % (i["group"], i["name"]) for i in items if i["kind"] == "sample"]
     if count["click"]:
         contents["clicks"] = list(dict.fromkeys(i["name"] for i in items if i["kind"] == "click"))
     for kind, key in UTILITY_KINDS:
@@ -311,7 +337,7 @@ def build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=False, log=pr
 def source_lines(lib, missing=()):
     """[{item, text, license, url}] - every source of the library's sounds and IRs (what it is, its license, where)."""
     out = []
-    for s in (lib.get("sounds") or []) + (lib.get("irs") or []) + (lib.get("pads") or []) + (lib.get("loops") or []):
+    for s in (lib.get("sounds") or []) + (lib.get("irs") or []) + (lib.get("pads") or []) + (lib.get("loops") or []) + (lib.get("samples") or []):
         if s["name"] in missing:
             continue
         for src in s.get("sources") or []:
@@ -337,7 +363,16 @@ def vcsl_presets():
     out.update({b[0]: list(b[2]) for b in _load("tools/make-pads.py", "make_pads").BANKS})
     synths = _load("tools/make-synths.py", "make_synths")
     out[synths.NAME] = [s[0] for s in synths.SOUNDS]
+    ms = _load("tools/make-samples.py", "make_samples")   # (10.8: Central Starter's drum kits, made from its samples)
+    out[ms.KITS_NAME] = [k[0] for k in ms.KITS]
     return out
+
+
+def sample_names(lib):
+    """(10.8) What a library's samples will be, before they're made (tools/make-samples.py's lists): ["group: name"]."""
+    ms = _load("tools/make-samples.py", "make_samples")
+    sets = {sid: items for sid, _n, items in ms.SETS}
+    return ["%s: %s" % (it[3], it[2]) for ss in lib.get("samples") or [] for it in sets.get(ss["set"], [])]
 
 
 def loop_names(lib):
@@ -359,6 +394,9 @@ def builtin_list(definitions=DEFINITIONS, base_url=DEFAULT_BASE):
                     "irs": [i["name"] for i in lib.get("irs") or []], "pads": [p["name"] for p in lib.get("pads") or []], "loops": loop_names(lib)}
         count = {"sound": len(sounds), "board": len(contents["boards"]), "preset": len(contents["presets"]), "ir": len(contents["irs"]), "click": len(lib.get("clicks") or []), "pad": len(contents["pads"]),
                  "loop": len(contents["loops"])}
+        if lib.get("samples"):
+            contents["samples"] = sample_names(lib)
+            count["sample"] = len(contents["samples"])
         if lib.get("clicks"):
             contents["clicks"] = [c["name"] for c in lib["clicks"]]
         for kind, key in UTILITY_KINDS:
@@ -369,7 +407,7 @@ def builtin_list(definitions=DEFINITIONS, base_url=DEFAULT_BASE):
         pv = expected_previews(lib, banks, base_url)
         out.append({"id": lib["id"], "plan": lib["plan"], "planName": PLANS[lib["plan"]], "title": lib["title"], "version": str(lib["version"]), "summary": lib.get("summary", ""),
                     "file": name, "size": int(lib.get("approxMB", 1) * 1e6), "approximate": True, "sha256": None, "url": base_url.rstrip("/") + "/" + name,
-                    "contents": contents, "counts": count, "credits": sorted({s.get("credit", "") for s in (lib.get("sounds") or []) + (lib.get("irs") or []) + (lib.get("pads") or []) + (lib.get("loops") or []) if s.get("credit")}),
+                    "contents": contents, "counts": count, "credits": sorted({s.get("credit", "") for s in (lib.get("sounds") or []) + (lib.get("irs") or []) + (lib.get("pads") or []) + (lib.get("loops") or []) + (lib.get("samples") or []) if s.get("credit")}),
                     "sources": source_lines(lib), "previews": pv, "previewsExpected": True})
     return out
 
@@ -408,13 +446,13 @@ def expected_previews(lib, banks, base_url=DEFAULT_BASE):
     return out
 
 
-def build_all(sounds_dir, irs_dir, out_dir, base_url=DEFAULT_BASE, only=None, allow_missing=False, definitions=DEFINITIONS, log=print, pads_dir=None, loops_dir=None, previews=False, utility_dir=None):
+def build_all(sounds_dir, irs_dir, out_dir, base_url=DEFAULT_BASE, only=None, allow_missing=False, definitions=DEFINITIONS, log=print, pads_dir=None, loops_dir=None, previews=False, utility_dir=None, samples_dir=None):
     libs = load_definitions(definitions)
     entries = []
     for lib in libs:
         if only and lib["id"] != only:
             continue
-        e = build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=allow_missing, log=log, pads_dir=pads_dir, loops_dir=loops_dir, previews=previews, utility_dir=utility_dir)
+        e = build_library(lib, sounds_dir, irs_dir, out_dir, allow_missing=allow_missing, log=log, pads_dir=pads_dir, loops_dir=loops_dir, previews=previews, utility_dir=utility_dir, samples_dir=samples_dir)
         e["url"] = base_url.rstrip("/") + "/" + e["file"]
         for p in e["previews"]:
             p["url"] = base_url.rstrip("/") + "/" + p["file"]
@@ -443,7 +481,7 @@ def main(argv):
             opt["previews"] = False
             i += 1
             continue
-        if a in ("--sounds", "--irs", "--pads", "--loops", "--utility", "--out", "--base-url", "--only", "--definitions", "--write-builtin") and i + 1 < len(argv):
+        if a in ("--sounds", "--irs", "--pads", "--loops", "--utility", "--samples", "--out", "--base-url", "--only", "--definitions", "--write-builtin") and i + 1 < len(argv):
             opt[a[2:].replace("-", "_")] = argv[i + 1]
             i += 2
             continue
@@ -459,7 +497,7 @@ def main(argv):
         print(__doc__)
         return 2
     build_all(opt.get("sounds"), opt.get("irs"), opt["out"], opt.get("base_url") or DEFAULT_BASE, opt.get("only"), opt.get("allow_missing", False), opt.get("definitions") or DEFINITIONS,
-              pads_dir=opt.get("pads"), loops_dir=opt.get("loops"), previews=opt["previews"], utility_dir=opt.get("utility"))
+              pads_dir=opt.get("pads"), loops_dir=opt.get("loops"), previews=opt["previews"], utility_dir=opt.get("utility"), samples_dir=opt.get("samples"))
     return 0
 
 
