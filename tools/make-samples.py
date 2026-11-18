@@ -14,10 +14,11 @@ Where they come from (all CC0 1.0 - no conditions, checked in each source's own 
 Each sample is trimmed (the silence before it goes, a short fade after it), levelled (hits peak at -1 dBFS, long sounds
 at -3) and written as 24-bit FLAC. A pitched one says its note, so a drop on an instrument track plays in tune.
 
-    python3 tools/make-samples.py <download cache> <out folder> [--sounds DIR] [--list]
+    python3 tools/make-samples.py <download cache> <out folder> [--sounds DIR] [--loops DIR] [--list]
 Writes <out>/<set>/<file>.flac and <out>/<set>/index.json ([{name, group, file, note?, seconds}]) for each set below,
 and, with --sounds, "<sounds>/Central Starter Kits - central-starter-kits.sf2": an Acoustic Kit, an Electronic Kit and
-Tabla & Hand Drums, on the General MIDI keys. --list prints what would be made, with no download.
+Tabla & Hand Drums, on the General MIDI keys; with --loops, "<loops>/starter-beats/": Sonic Pi's beat loops as WAVs, each
+with its tempo, and their index.json (tools/build-libraries.py packs them like tools/make-loops.py's). --list prints what would be made, with no download.
 Needs python3-numpy, ffmpeg and the internet (raw.githubusercontent.com). Deterministic: the same files every build
 (files already there are kept)."""
 import importlib.util
@@ -77,6 +78,10 @@ SETS = [
         (S, "drum_tom_hi_hard", "High Tom", "Toms", {}), (S, "drum_tom_mid_hard", "Mid Tom", "Toms", {}), (S, "drum_tom_lo_hard", "Low Tom", "Toms", {}),
         (S, "drum_tom_hi_soft", "High Tom (soft)", "Toms", {}), (S, "drum_tom_mid_soft", "Mid Tom (soft)", "Toms", {}), (S, "drum_tom_lo_soft", "Low Tom (soft)", "Toms", {}),
         (S, "elec_fuzz_tom", "Fuzz Tom", "Toms", {}),
+        (S, "bd_sone", "Round Kick", "Kicks", {}), (S, "bd_zome", "Dusty Kick", "Kicks", {}), (S, "bd_gas", "Thud Kick", "Kicks", {}),
+        (S, "bd_chip", "Chip Kick", "Kicks", {}), (S, "bd_mehackit", "Short Kick", "Kicks", {}),
+        (S, "hat_gnu", "Crisp Hat", "Hi-hats", {}), (S, "hat_hier", "Ticky Hat", "Hi-hats", {}), (S, "hat_len", "Long Hat", "Hi-hats", {}),
+        (S, "hat_psych", "Phased Hat", "Hi-hats", {}), (S, "hat_sci", "Sizzle Hat", "Hi-hats", {}), (S, "hat_zap", "Zap Hat", "Hi-hats", {}),
     ]),
     ("starter-percussion", "Percussion", [
         (S, "drum_cowbell", "Cowbell", "Percussion", {}), (S, "elec_triangle", "Electronic Triangle", "Percussion", {}),
@@ -101,6 +106,13 @@ SETS = [
         (VS, ID + "Mark Trees/Legacy/windchimes_slowDesc1.wav", "Wind Chimes", "Bells and chimes", {"long": True}),
         (S, "perc_bell", "Bell", "Bells and chimes", {"long": True}), (S, "perc_bell2", "Small Bell", "Bells and chimes", {}),
         (S, "elec_chime", "Chime", "Bells and chimes", {}), (S, "elec_bell", "Electronic Bell", "Bells and chimes", {}), (S, "elec_ping", "Ping", "Bells and chimes", {}),
+        (S, "elec_twang", "Twang", "Percussion", {}), (S, "elec_flip", "Flip", "Percussion", {}), (S, "elec_beep", "Beep", "Percussion", {}),
+        (S, "elec_blip2", "Blip 2", "Percussion", {}), (S, "elec_twip", "Twip", "Percussion", {}), (S, "elec_blup", "Blup", "Percussion", {}),
+        (S, "glitch_perc1", "Glitch 1", "Percussion", {}), (S, "glitch_perc2", "Glitch 2", "Percussion", {}), (S, "glitch_perc3", "Glitch 3", "Percussion", {}),
+        (S, "glitch_perc4", "Glitch 4", "Percussion", {}), (S, "glitch_perc5", "Glitch 5", "Percussion", {}), (S, "perc_door", "Door Knock", "Percussion", {}),
+        (S, "tabla_ghe2", "Tabla Ghe 2", "World percussion", {}), (S, "tabla_ghe4", "Tabla Ghe 3", "World percussion", {}), (S, "tabla_tas2", "Tabla Tas 2", "World percussion", {}),
+        (S, "tabla_te2", "Tabla Te 2", "World percussion", {}), (S, "tabla_te_ne", "Tabla Tene", "World percussion", {}), (S, "tabla_tun2", "Tabla Tun 2", "World percussion", {}),
+        (S, "tabla_ke2", "Tabla Ke 2", "World percussion", {}), (S, "tabla_na_o", "Tabla Na (open)", "World percussion", {}), (S, "tabla_na_s", "Tabla Na (short)", "World percussion", {}),
     ]),
     ("starter-sounds", "Sounds and effects", [
         (S, "bass_hit_c", "Bass Hit", "Bass hits", {"note": 24}), (S, "bass_hard_c", "Hard Bass", "Bass hits", {"note": 36}),
@@ -121,7 +133,19 @@ SETS = [
         (S, "ambi_glass_rub", "Glass Rub", "Atmospheres", {"long": True}), (S, "ambi_lunar_land", "Lunar", "Atmospheres", {"long": True}),
         (S, "ambi_soft_buzz", "Soft Buzz", "Atmospheres", {"long": True}), (S, "ambi_choir", "Choir Breath", "Atmospheres", {"long": True}),
         (S, "ambi_piano", "Ambient Piano", "Atmospheres", {"long": True}), (S, "vinyl_hiss", "Vinyl Hiss", "Atmospheres", {"long": True}),
+        (S, "ambi_sauna", "Warm Room", "Atmospheres", {"long": True}),
     ]),
+]
+# (10.8) loops for the Loops tab: Sonic Pi's (CC0), whole and untouched, each with its tempo (worked out from its length
+# and bars) - (file, name, bars, bpm)
+LOOPS_SET, LOOPS_NAME = "starter-beats", "Beats and breaks"
+LOOPS = [
+    ("loop_amen", "Amen Break", 1, 136.9), ("loop_amen_full", "Amen Break (4 bars)", 4, 140.0), ("loop_breakbeat", "Breakbeat", 1, 126.0),
+    ("loop_compus", "Compus Beat", 4, 148.0), ("loop_garzul", "Garzul Groove", 4, 120.0), ("loop_mika", "Mika Groove", 4, 120.0),
+    ("loop_safari", "Safari Percussion", 4, 119.9), ("loop_tabla", "Tabla Groove", 4, 89.9), ("loop_perc1", "Percussion Loop 1", 1, 97.0),
+    ("loop_perc2", "Percussion Loop 2", 1, 97.0), ("loop_electric", "Electric Loop", 1, 97.0), ("loop_mehackit1", "Beat Loop 1", 1, 97.0),
+    ("loop_mehackit2", "Beat Loop 2", 1, 97.0), ("arovane_beat_a", "Arovane Beat A", 8, 130.0), ("arovane_beat_b", "Arovane Beat B", 8, 130.0),
+    ("arovane_beat_c", "Arovane Beat C", 4, 130.0), ("arovane_beat_d", "Arovane Beat D", 4, 86.7), ("arovane_beat_e", "Arovane Beat E", 4, 86.7),
 ]
 SOURCES = {
     "sp": {"text": "Sonic Pi's samples (from freesound.org, placed in the public domain) - sonic-pi-net/sonic-pi, etc/samples", "license": "CC0 1.0",
@@ -261,7 +285,30 @@ def fetch(cache, src, rel):
 
 
 # ---------------------------------------------------------------- building
-def build(cache, out, sounds=None, log=print):
+def build_loops(cache, loops_dir, log=print):
+    """The loops, as 24-bit WAVs at their own rate (the length exact, so they loop), and <loops>/<set>/index.json."""
+    d = os.path.join(loops_dir, LOOPS_SET)
+    os.makedirs(d, exist_ok=True)
+    index = []
+    for rel, name, bars, bpm in LOOPS:
+        f = os.path.join(d, file_of(name).replace(".flac", ".wav"))
+        src = fetch(cache, "sp", rel)
+        if not os.path.isfile(f):
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-c:a", "pcm_s24le", "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact", f + ".part.wav"], check=True)
+            os.replace(f + ".part.wav", f)
+        secs = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f], capture_output=True, text=True).stdout.strip() or 0)
+        exact = round(bars * 240.0 / secs, 2) if secs else bpm   # (its tempo to the hundredth, from its own length)
+        if abs(exact - bpm) > bpm * 0.01:
+            raise RuntimeError("%s: %g BPM from its length, not about %g - check its bars" % (name, exact, bpm))
+        index.append({"name": name, "file": os.path.basename(f), "bpm": exact, "meter": 4, "bars": bars, "seconds": round(secs, 3)})
+    with open(os.path.join(d, "index.json"), "w", encoding="utf-8") as h:
+        json.dump(index, h, indent=1)
+    log("  %s: %d loops" % (LOOPS_NAME, len(index)))
+
+
+def build(cache, out, sounds=None, log=print, loops=None):
+    if loops:
+        build_loops(cache, loops, log)
     pcm = {}
     for set_id, set_name, items in SETS:
         index = []
@@ -332,16 +379,20 @@ def main(argv):
             for it in items:
                 print("    %-22s %-18s %s" % (it[2], it[3], it[0] + ":" + it[1]))
         print("%s: %s" % (KITS_NAME, ", ".join(k[0] for k in KITS)))
+        print("%s (%s): %s" % (LOOPS_NAME, LOOPS_SET, ", ".join("%s %g BPM" % (l[1], l[3]) for l in LOOPS)))
         return 0
     if len(args) < 2:
         print(__doc__)
         return 2
-    sounds = None
+    sounds = loops = None
     if "--sounds" in argv:
         sounds = argv[argv.index("--sounds") + 1]
         args = [a for a in args if a != sounds]
+    if "--loops" in argv:
+        loops = argv[argv.index("--loops") + 1]
+        args = [a for a in args if a != loops]
     print("Central Starter samples (Sonic Pi and VCSL, CC0; two made here) -> " + args[1])
-    build(args[0], args[1], sounds)
+    build(args[0], args[1], sounds, loops=loops)
     return 0
 
 

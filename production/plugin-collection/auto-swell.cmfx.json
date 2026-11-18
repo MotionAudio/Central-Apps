@@ -1,0 +1,70 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "auto-swell",
+ "name": "Auto Swell",
+ "author": "Motion Audio",
+ "family": "dynamics",
+ "tier": "plugins",
+ "description": "Fades each note in by itself, like rolling the volume knob up after you pick: the violin-like swell of ambient worship guitar. Set how loud a note must be to count and how slowly it rises.",
+ "params": [
+  {
+   "id": "threshold",
+   "name": "Sensitivity",
+   "min": -60,
+   "max": -10,
+   "default": -38,
+   "unit": "dB"
+  },
+  {
+   "id": "rise",
+   "name": "Rise",
+   "min": 50,
+   "max": 2000,
+   "default": 450,
+   "unit": "ms",
+   "curve": "log"
+  },
+  {
+   "id": "curve",
+   "name": "Curve",
+   "min": 1,
+   "max": 3,
+   "default": 2
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Violin swell",
+   "values": {
+    "rise": 450
+   }
+  },
+  {
+   "name": "Slow pad",
+   "values": {
+    "rise": 1200,
+    "curve": 2.5
+   }
+  },
+  {
+   "name": "Quick fade",
+   "values": {
+    "rise": 150,
+    "curve": 1.5
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "@init\narmed = 1\n@block\nka = 1 - exp(-1 / (0.001 * srate))\nkr = 1 - exp(-1 / (0.06 * srate))\nth = db2gain(threshold)\nstep = 1000 / (rise * srate)\n@sample\nlv = max(abs(inL), abs(inR))\nenv += (lv - env) * (lv > env ? ka : kr)\nif (env > th && armed) { armed = 0; g = 0 }\nif (env < th * 0.5) { armed = 1 }\ng = min(1, g + step)\nw = pow(g, curve)\noutL = inL * (1 - mix + mix * w)\noutR = inR * (1 - mix + mix * w)\n"
+}

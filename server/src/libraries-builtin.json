@@ -7,9 +7,9 @@
    "planName": "Free",
    "title": "Central Starter",
    "version": "1.1",
-   "summary": "The stock sounds, free in every Central app (10.5) - the apps install it on their own, no key needed: twelve pads for the pad pedal in all 12 keys (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass), each a seamless 12-second loop; ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) with seven presets; six drum grooves at three tempos each (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) and two ambient loops in every key (Drift, Breath) for the texture channels; three plain cabinets and an acoustic body for the IR loader; and seven boards built from the free pedals (clean, worship delay, crunch and chorus electrics, an acoustic, a bass DI and clean keys). The richer pads, grooves, loops, instruments and boards are in the plans' libraries. 1.1 (10.8): 138 samples for the Samples browser in Central Production and the Studio - kicks, snares, claps, hi-hats, cymbals and toms, hand and world percussion, bass hits, guitar, effects (impacts, whooshes, a cymbal swell and its reverse) and atmospheres, from Sonic Pi's and VCSL's public-domain recordings - and the drum kits made from them (an acoustic kit, an electronic kit, tabla and hand drums); a real accordion (FreePats); and a tubular glockenspiel and a Nyunga Nyunga mbira (VCSL). All CC0: none of it is taken from the plans' libraries.",
+   "summary": "The stock sounds, free in every Central app (10.5) - the apps install it on their own, no key needed: twelve pads for the pad pedal in all 12 keys (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass), each a seamless 12-second loop; ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) with seven presets; six drum grooves at three tempos each (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) and two ambient loops in every key (Drift, Breath) for the texture channels; three plain cabinets and an acoustic body for the IR loader; and seven boards built from the free pedals (clean, worship delay, crunch and chorus electrics, an acoustic, a bass DI and clean keys). The richer pads, grooves, loops, instruments and boards are in the plans' libraries. 1.1 (10.8): 171 samples for the Samples browser in Central Production and the Studio - kicks, snares, claps, hi-hats, cymbals and toms, hand and world percussion, bass hits, guitar, effects (impacts, whooshes, a cymbal swell and its reverse) and atmospheres, from Sonic Pi's and VCSL's public-domain recordings - and the drum kits made from them (an acoustic kit, an electronic kit, tabla and hand drums); a real accordion (FreePats); a tubular glockenspiel and a Nyunga Nyunga mbira (VCSL); eight more boards of free pedals (an ambient swell, a blues drive, a boosted lead, funk clean, two acoustics, a warm bass and wide keys) and presets for the square lead, the soft lead and the synth bass; two synth-effect pads from FreePats (Goblins and Sci-Fi) for intros and soundscapes; and 18 beat and break loops with their tempos (the Amen break, breakbeats, grooves, tabla and percussion loops, Arovane's beats). All CC0: none of it is taken from the plans' libraries.",
    "file": "central-starter-1.1.zip",
-   "size": 470000000,
+   "size": 520000000,
    "approximate": true,
    "sha256": null,
    "url": "https://libraries.motionaudio.org/central-starter-1.1.zip",
@@ -56,6 +56,14 @@
        "Nyunga Nyunga Mbira"
       ],
       "license": "CC0 1.0"
+     },
+     {
+      "name": "Central Starter Synth FX",
+      "presets": [
+       "Goblins Pad",
+       "Sci-Fi Pad"
+      ],
+      "license": "CC0 1.0"
      }
     ],
     "presets": [
@@ -72,7 +80,12 @@
      "Mbira",
      "Starter Kit",
      "Electronic Kit",
-     "Tabla and Hand Drums"
+     "Tabla and Hand Drums",
+     "Square Lead",
+     "Soft Flute Lead",
+     "Squelch Bass",
+     "Goblins Intro",
+     "Sci-Fi Atmosphere"
     ],
     "boards": [
      "Starter: Clean Electric",
@@ -81,7 +94,15 @@
      "Starter: Chorus Clean",
      "Starter: Acoustic",
      "Starter: Bass DI",
-     "Starter: Keys Clean"
+     "Starter: Keys Clean",
+     "Starter: Ambient Swell",
+     "Starter: Blues Drive",
+     "Starter: Boosted Lead",
+     "Starter: Funk Clean",
+     "Starter: Acoustic Ballad",
+     "Starter: Acoustic Live",
+     "Starter: Warm Bass",
+     "Starter: Keys Wide"
     ],
     "irs": [
      "Central Starter 1x12",
@@ -111,7 +132,25 @@
      "Drum loops: Brushes Ballad",
      "Drum loops: Waltz",
      "Ambient loops: Drift",
-     "Ambient loops: Breath"
+     "Ambient loops: Breath",
+     "Beats and breaks: Amen Break",
+     "Beats and breaks: Amen Break (4 bars)",
+     "Beats and breaks: Breakbeat",
+     "Beats and breaks: Compus Beat",
+     "Beats and breaks: Garzul Groove",
+     "Beats and breaks: Mika Groove",
+     "Beats and breaks: Safari Percussion",
+     "Beats and breaks: Tabla Groove",
+     "Beats and breaks: Percussion Loop 1",
+     "Beats and breaks: Percussion Loop 2",
+     "Beats and breaks: Electric Loop",
+     "Beats and breaks: Beat Loop 1",
+     "Beats and breaks: Beat Loop 2",
+     "Beats and breaks: Arovane Beat A",
+     "Beats and breaks: Arovane Beat B",
+     "Beats and breaks: Arovane Beat C",
+     "Beats and breaks: Arovane Beat D",
+     "Beats and breaks: Arovane Beat E"
     ],
     "samples": [
      "Kicks: 808 Kick",
@@ -176,6 +215,17 @@
      "Toms: Mid Tom (soft)",
      "Toms: Low Tom (soft)",
      "Toms: Fuzz Tom",
+     "Kicks: Round Kick",
+     "Kicks: Dusty Kick",
+     "Kicks: Thud Kick",
+     "Kicks: Chip Kick",
+     "Kicks: Short Kick",
+     "Hi-hats: Crisp Hat",
+     "Hi-hats: Ticky Hat",
+     "Hi-hats: Long Hat",
+     "Hi-hats: Phased Hat",
+     "Hi-hats: Sizzle Hat",
+     "Hi-hats: Zap Hat",
      "Percussion: Cowbell",
      "Percussion: Electronic Triangle",
      "Percussion: Wood Block",
@@ -220,6 +270,27 @@
      "Bells and chimes: Chime",
      "Bells and chimes: Electronic Bell",
      "Bells and chimes: Ping",
+     "Percussion: Twang",
+     "Percussion: Flip",
+     "Percussion: Beep",
+     "Percussion: Blip 2",
+     "Percussion: Twip",
+     "Percussion: Blup",
+     "Percussion: Glitch 1",
+     "Percussion: Glitch 2",
+     "Percussion: Glitch 3",
+     "Percussion: Glitch 4",
+     "Percussion: Glitch 5",
+     "Percussion: Door Knock",
+     "World percussion: Tabla Ghe 2",
+     "World percussion: Tabla Ghe 3",
+     "World percussion: Tabla Tas 2",
+     "World percussion: Tabla Te 2",
+     "World percussion: Tabla Tene",
+     "World percussion: Tabla Tun 2",
+     "World percussion: Tabla Ke 2",
+     "World percussion: Tabla Na (open)",
+     "World percussion: Tabla Na (short)",
      "Bass hits: Bass Hit",
      "Bass hits: Hard Bass",
      "Bass hits: Thick Bass",
@@ -251,22 +322,24 @@
      "Atmospheres: Soft Buzz",
      "Atmospheres: Choir Breath",
      "Atmospheres: Ambient Piano",
-     "Atmospheres: Vinyl Hiss"
+     "Atmospheres: Vinyl Hiss",
+     "Atmospheres: Warm Room"
     ]
    },
    "counts": {
-    "sound": 4,
-    "board": 7,
-    "preset": 14,
+    "sound": 5,
+    "board": 15,
+    "preset": 19,
     "ir": 4,
     "click": 0,
     "pad": 12,
-    "loop": 8,
-    "sample": 138
+    "loop": 26,
+    "sample": 171
    },
    "credits": [
     "Ambient loops made by Motion Audio (tools/make-loops.py) from our synthesised pads and bells and the libraries' own instruments (piano, harp: VCSL; guitar and bowed bass: Karoryfer; cello: VSCO 2 CE - all CC0 1.0; 10.5: Piano Arps, Organ Swell, Strings Rise, Bell Tower, Guitar Arpeggio, Wurlitzer Haze (the Wurlitzer is Greg Sullivan's, CC-BY 3.0) and Hum Drone)",
     "Bass hits, guitar, effects and atmospheres from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0)",
+    "Beat and break loops from Sonic Pi's samples (freesound.org and Arovane, CC0 1.0), each with its tempo (tools/make-samples.py)",
     "Button Accordion HN - a Hohner accordion recorded by Jeff Stauffer, sound bank by michael02022 for FreePats - CC0 1.0 (github.com/freepats/button-accordion-HN)",
     "Drum and percussion loops played by Motion Audio (tools/make-loops.py) on the library's own kits (Virtuosity Drums, Big Rusty Drums, Unruly Drums, Gogodze Phu Vol II (the Lo-fi Kit), Swirly Drums (the Vintage Kit), VCSL hand and orchestral percussion - CC0 1.0)",
     "Drum hits from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0); the hand claps and rim click made by Motion Audio",
@@ -275,6 +348,7 @@
     "Made by Motion Audio (tools/make-pads.py: synthesised, no recording)",
     "Made by Motion Audio (tools/make-synths.py: synthesised, no recording)",
     "Percussion from Sonic Pi's samples (freesound.org, CC0 1.0) and VCSL by Versilian Studios (CC0 1.0)",
+    "Synth Goblins and Synth Sci-Fi by FreePats - CC0 1.0 (github.com/freepats/synth-goblins, github.com/freepats/synth-scifi)",
     "Versilian Community Sample Library (VCSL) by Versilian Studios - CC0 1.0, no special terms (github.com/sgossner/VCSL)"
    ],
    "sources": [
@@ -313,6 +387,18 @@
      "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
      "license": "CC0 1.0",
      "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+    },
+    {
+     "item": "Central Starter Synth FX",
+     "text": "Synth Goblins - FreePats",
+     "license": "CC0 1.0",
+     "url": "https://github.com/freepats/synth-goblins/tree/f6034596936ddb8f94832106a6d13c19d7ac07ea"
+    },
+    {
+     "item": "Central Starter Synth FX",
+     "text": "Synth Sci-Fi - FreePats",
+     "license": "CC0 1.0",
+     "url": "https://github.com/freepats/synth-scifi/tree/b630598bd2832bcf69a8d8ff7cc61f90f2b51421"
     },
     {
      "item": "Central Starter 1x12",
@@ -457,6 +543,12 @@
      "text": "Greg Sullivan E-Pianos (Wurlitzer EP200, Yamaha CP80, Hohner Pianet T) - SFZ by kinwie",
      "license": "CC-BY 3.0",
      "url": "https://github.com/sfzinstruments/GregSullivan.E-Pianos/tree/8c3e581acda3594b553948ff0222d4f84a698376"
+    },
+    {
+     "item": "Beats and breaks",
+     "text": "Sonic Pi's samples (from freesound.org, placed in the public domain; the Arovane beats donated under CC0) - sonic-pi-net/sonic-pi, etc/samples",
+     "license": "CC0 1.0",
+     "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
     },
     {
      "item": "Drum hits",
@@ -667,6 +759,158 @@
      "set": "ambient"
     },
     {
+     "kind": "loops",
+     "name": "Beats and breaks",
+     "file": "preview--central-starter--loops--beats-and-breaks.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loops--beats-and-breaks.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Amen Break",
+     "file": "preview--central-starter--loop--amen-break.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--amen-break.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Amen Break (4 bars)",
+     "file": "preview--central-starter--loop--amen-break-4-bars.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--amen-break-4-bars.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Breakbeat",
+     "file": "preview--central-starter--loop--breakbeat.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--breakbeat.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Compus Beat",
+     "file": "preview--central-starter--loop--compus-beat.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--compus-beat.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Garzul Groove",
+     "file": "preview--central-starter--loop--garzul-groove.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--garzul-groove.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Mika Groove",
+     "file": "preview--central-starter--loop--mika-groove.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--mika-groove.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Safari Percussion",
+     "file": "preview--central-starter--loop--safari-percussion.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--safari-percussion.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Tabla Groove",
+     "file": "preview--central-starter--loop--tabla-groove.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--tabla-groove.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Percussion Loop 1",
+     "file": "preview--central-starter--loop--percussion-loop-1.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--percussion-loop-1.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Percussion Loop 2",
+     "file": "preview--central-starter--loop--percussion-loop-2.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--percussion-loop-2.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Electric Loop",
+     "file": "preview--central-starter--loop--electric-loop.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--electric-loop.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Beat Loop 1",
+     "file": "preview--central-starter--loop--beat-loop-1.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--beat-loop-1.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Beat Loop 2",
+     "file": "preview--central-starter--loop--beat-loop-2.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--beat-loop-2.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Arovane Beat A",
+     "file": "preview--central-starter--loop--arovane-beat-a.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--arovane-beat-a.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Arovane Beat B",
+     "file": "preview--central-starter--loop--arovane-beat-b.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--arovane-beat-b.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Arovane Beat C",
+     "file": "preview--central-starter--loop--arovane-beat-c.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--arovane-beat-c.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Arovane Beat D",
+     "file": "preview--central-starter--loop--arovane-beat-d.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--arovane-beat-d.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
+     "kind": "loop",
+     "name": "Arovane Beat E",
+     "file": "preview--central-starter--loop--arovane-beat-e.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--loop--arovane-beat-e.mp3",
+     "seconds": 30,
+     "set": "starter-beats"
+    },
+    {
      "kind": "sound",
      "name": "Central Keys Synths",
      "file": "preview--central-starter--sound--central-keys-synths--saw-lead.mp3",
@@ -811,6 +1055,22 @@
      "preset": "Nyunga Nyunga Mbira"
     },
     {
+     "kind": "sound",
+     "name": "Central Starter Synth FX",
+     "file": "preview--central-starter--sound--synth-fx--goblins-pad.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--synth-fx--goblins-pad.mp3",
+     "seconds": 30,
+     "preset": "Goblins Pad"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Starter Synth FX",
+     "file": "preview--central-starter--sound--synth-fx--sci-fi-pad.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--sound--synth-fx--sci-fi-pad.mp3",
+     "seconds": 30,
+     "preset": "Sci-Fi Pad"
+    },
+    {
      "kind": "preset",
      "name": "Worship Saw Lead",
      "file": "preview--central-starter--preset--worship-saw-lead.mp3",
@@ -909,6 +1169,41 @@
      "seconds": 30
     },
     {
+     "kind": "preset",
+     "name": "Square Lead",
+     "file": "preview--central-starter--preset--square-lead.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--square-lead.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Soft Flute Lead",
+     "file": "preview--central-starter--preset--soft-flute-lead.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--soft-flute-lead.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Squelch Bass",
+     "file": "preview--central-starter--preset--squelch-bass.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--squelch-bass.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Goblins Intro",
+     "file": "preview--central-starter--preset--goblins-intro.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--goblins-intro.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Sci-Fi Atmosphere",
+     "file": "preview--central-starter--preset--sci-fi-atmosphere.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-starter--preset--sci-fi-atmosphere.mp3",
+     "seconds": 30
+    },
+    {
      "kind": "ir",
      "name": "Central Starter 1x12",
      "file": "preview--central-starter--ir--central-starter-1x12.mp3",
@@ -944,13 +1239,13 @@
    "plan": "keys",
    "planName": "Central Keys",
    "title": "Central Keys Library",
-   "version": "1.5",
-   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; eighteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, Ember and Selah Strings - a grand piano and a string section stretched into clouds - and Sunday Bright, Easter Brass and Christmas Bells) - with worship-ready presets. 10.5: real electric pianos - a Wurlitzer EP200, a CP80 electric grand and a Pianet T (Greg Sullivan's recordings, CC-BY 3.0) - with six presets for them And the Pop Grand - AKAI's Splendid Grand (public domain), the bright, even piano of a thousand records - with three presets. 1.5: the ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) are now stock in every app - the free Central Starter library - with their presets.",
-   "file": "central-keys-library-1.5.zip",
-   "size": 700000000,
+   "version": "1.6",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; eighteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, Ember and Selah Strings - a grand piano and a string section stretched into clouds - and Sunday Bright, Easter Brass and Christmas Bells) - with worship-ready presets. 10.5: real electric pianos - a Wurlitzer EP200, a CP80 electric grand and a Pianet T (Greg Sullivan's recordings, CC-BY 3.0) - with six presets for them And the Pop Grand - AKAI's Splendid Grand (public domain), the bright, even piano of a thousand records - with three presets. 1.5: the ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) are now stock in every app - the free Central Starter library - with their presets. 1.6 (10.8): three more harpsichords - English (with its lute stop), Italian and French - with four presets.",
+   "file": "central-keys-library-1.6.zip",
+   "size": 760000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-keys-library-1.5.zip",
+   "url": "https://libraries.motionaudio.org/central-keys-library-1.6.zip",
    "contents": {
     "sounds": [
      {
@@ -961,7 +1256,11 @@
        "FM Piano",
        "FM Piano & Upright",
        "Clavisynth",
-       "Harpsichord"
+       "Harpsichord",
+       "English Harpsichord",
+       "Lute Harpsichord",
+       "Italian Harpsichord",
+       "French Harpsichord"
       ],
       "license": "CC0 1.0"
      },
@@ -1089,7 +1388,11 @@
      "Wurli and Pad Bed",
      "Pop Grand Worship",
      "Pop Grand Ballad",
-     "Pop Grand Stage"
+     "Pop Grand Stage",
+     "Baroque Harpsichord (Italian)",
+     "English Harpsichord",
+     "Lute Stop",
+     "French Harpsichord"
     ],
     "boards": [],
     "irs": [],
@@ -1099,7 +1402,7 @@
    "counts": {
     "sound": 7,
     "board": 0,
-    "preset": 42,
+    "preset": 46,
     "ir": 0,
     "click": 0,
     "pad": 0,
@@ -1215,6 +1518,38 @@
      "url": "https://libraries.motionaudio.org/preview--central-keys--sound--pianos--harpsichord.mp3",
      "seconds": 30,
      "preset": "Harpsichord"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--english-harpsichord.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--pianos--english-harpsichord.mp3",
+     "seconds": 30,
+     "preset": "English Harpsichord"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--lute-harpsichord.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--pianos--lute-harpsichord.mp3",
+     "seconds": 30,
+     "preset": "Lute Harpsichord"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--italian-harpsichord.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--pianos--italian-harpsichord.mp3",
+     "seconds": 30,
+     "preset": "Italian Harpsichord"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Keys Pianos",
+     "file": "preview--central-keys--sound--pianos--french-harpsichord.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-keys--sound--pianos--french-harpsichord.mp3",
+     "seconds": 30,
+     "preset": "French Harpsichord"
     },
     {
      "kind": "sound",
@@ -1869,6 +2204,34 @@
      "file": "preview--central-keys--preset--pop-grand-stage.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-keys--preset--pop-grand-stage.mp3",
      "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Baroque Harpsichord (Italian)",
+     "file": "preview--central-keys--preset--baroque-harpsichord-italian.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--baroque-harpsichord-italian.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "English Harpsichord",
+     "file": "preview--central-keys--preset--english-harpsichord.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--english-harpsichord.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Lute Stop",
+     "file": "preview--central-keys--preset--lute-stop.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--lute-stop.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "French Harpsichord",
+     "file": "preview--central-keys--preset--french-harpsichord.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-keys--preset--french-harpsichord.mp3",
+     "seconds": 30
     }
    ],
    "previewsExpected": true
@@ -1878,13 +2241,13 @@
    "plan": "instrument",
    "planName": "Central Instrument",
    "title": "Central Instrument Library",
-   "version": "1.4",
-   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell. 10.5: a Lo-fi Kit, a Vintage Kit, a Quiet Upright Bass and a Banjo (all CC0), and twelve more loops, every groove at three tempos - a worship pocket, a tom groove, a four-bar builder, gospel 12/8, a country two-step, soft pop, two lo-fi beats, a processional march, tambourine and shaker, a djembe groove and timpani under a hymn. 1.4: six more grooves - an anthem ride in half-time, an acoustic set (cajon, tambourine and shaker), a soft bossa nova and a 70s pocket on the Vintage Kit, a lo-fi 6/8 and a celebration - and the six plainest grooves (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) moved to the free Central Starter library, stock in every app.",
-   "file": "central-instrument-library-1.4.zip",
+   "version": "1.5",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell. 10.5: a Lo-fi Kit, a Vintage Kit, a Quiet Upright Bass and a Banjo (all CC0), and twelve more loops, every groove at three tempos - a worship pocket, a tom groove, a four-bar builder, gospel 12/8, a country two-step, soft pop, two lo-fi beats, a processional march, tambourine and shaker, a djembe groove and timpani under a hymn. 1.4: six more grooves - an anthem ride in half-time, an acoustic set (cajon, tambourine and shaker), a soft bossa nova and a 70s pocket on the Vintage Kit, a lo-fi 6/8 and a celebration - and the six plainest grooves (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) moved to the free Central Starter library, stock in every app. 1.5 (10.8): the rest of the recorder family - soprano and bass recorders and a recorder quartet across the keys - with three presets.",
+   "file": "central-instrument-library-1.5.zip",
    "size": 660000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-instrument-library-1.4.zip",
+   "url": "https://libraries.motionaudio.org/central-instrument-library-1.5.zip",
    "contents": {
     "sounds": [
      {
@@ -1908,7 +2271,10 @@
        "Tenor Sax",
        "Ocarina",
        "Chromatic Harmonica",
-       "Saxello"
+       "Saxello",
+       "Soprano Recorder",
+       "Bass Recorder",
+       "Recorder Quartet"
       ],
       "license": "CC0 1.0"
      },
@@ -2004,7 +2370,10 @@
      "Bowed Psaltery Air",
      "Balafon & Mbira",
      "Banjo Picker",
-     "Quiet Upright Ballad"
+     "Quiet Upright Ballad",
+     "Soprano Recorder",
+     "Bass Recorder",
+     "Recorder Quartet"
     ],
     "boards": [],
     "irs": [],
@@ -2047,7 +2416,7 @@
    "counts": {
     "sound": 7,
     "board": 0,
-    "preset": 32,
+    "preset": 35,
     "ir": 0,
     "click": 0,
     "pad": 0,
@@ -2559,6 +2928,30 @@
     },
     {
      "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--soprano-recorder.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--sound--winds--soprano-recorder.mp3",
+     "seconds": 30,
+     "preset": "Soprano Recorder"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--bass-recorder.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--sound--winds--bass-recorder.mp3",
+     "seconds": 30,
+     "preset": "Bass Recorder"
+    },
+    {
+     "kind": "sound",
+     "name": "Central Instrument Winds",
+     "file": "preview--central-instrument--sound--winds--recorder-quartet.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--sound--winds--recorder-quartet.mp3",
+     "seconds": 30,
+     "preset": "Recorder Quartet"
+    },
+    {
+     "kind": "sound",
      "name": "Central Instrument Percussion",
      "file": "preview--central-instrument--sound--percussion--hand-percussion.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-instrument--sound--percussion--hand-percussion.mp3",
@@ -3012,6 +3405,27 @@
      "file": "preview--central-instrument--preset--quiet-upright-ballad.mp3",
      "url": "https://libraries.motionaudio.org/preview--central-instrument--preset--quiet-upright-ballad.mp3",
      "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Soprano Recorder",
+     "file": "preview--central-instrument--preset--soprano-recorder.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--preset--soprano-recorder.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Bass Recorder",
+     "file": "preview--central-instrument--preset--bass-recorder.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--preset--bass-recorder.mp3",
+     "seconds": 30
+    },
+    {
+     "kind": "preset",
+     "name": "Recorder Quartet",
+     "file": "preview--central-instrument--preset--recorder-quartet.mp3",
+     "url": "https://libraries.motionaudio.org/preview--central-instrument--preset--recorder-quartet.mp3",
+     "seconds": 30
     }
    ],
    "previewsExpected": true
@@ -3021,13 +3435,13 @@
    "plan": "plugins",
    "planName": "Central Plugins",
    "title": "Central Plugins Library",
-   "version": "1.4",
-   "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish. 10.5: twelve more boards - keys glue, a Wurli studio chain, a vocal-space pad, lo-fi and mono stage keys, shimmer, dotted and tape-echo electrics, fingerstyle and sparkle acoustics, sub-glue and broadcast bass - and a Wurli Dream preset. 1.4: six more boards - a vocal bus polish, a worship electric swell bed, keys tape warmth, an acoustic live-stream chain, a bass parallel squash and a wide, soft pad bus.",
-   "file": "central-plugins-library-1.4.zip",
+   "version": "1.5",
+   "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish. 10.5: twelve more boards - keys glue, a Wurli studio chain, a vocal-space pad, lo-fi and mono stage keys, shimmer, dotted and tape-echo electrics, fingerstyle and sparkle acoustics, sub-glue and broadcast bass - and a Wurli Dream preset. 1.4: six more boards - a vocal bus polish, a worship electric swell bed, keys tape warmth, an acoustic live-stream chain, a bass parallel squash and a wide, soft pad bus. 1.5 (10.8): eight more boards - a shimmer swell guitar, spring surf, a tape-echo lead, frozen pad keys, a piano plate, an acoustic studio chain, a bass studio chain and a swell-verb ambience.",
+   "file": "central-plugins-library-1.5.zip",
    "size": 18000000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-plugins-library-1.4.zip",
+   "url": "https://libraries.motionaudio.org/central-plugins-library-1.5.zip",
    "contents": {
     "sounds": [
      {
@@ -3084,7 +3498,15 @@
      "Plugins: Keys Tape Warmth",
      "Plugins: Acoustic Live Stream",
      "Plugins: Bass Parallel Squash",
-     "Plugins: Pad Bus (wide and soft)"
+     "Plugins: Pad Bus (wide and soft)",
+     "Plugins: Shimmer Swell Guitar",
+     "Plugins: Spring Surf",
+     "Plugins: Tape Echo Lead",
+     "Plugins: Frozen Pad Keys",
+     "Plugins: Piano Plate",
+     "Plugins: Acoustic Studio",
+     "Plugins: Bass Studio",
+     "Plugins: Swell Verb Ambience"
     ],
     "irs": [],
     "pads": [],
@@ -3092,7 +3514,7 @@
    },
    "counts": {
     "sound": 1,
-    "board": 40,
+    "board": 48,
     "preset": 3,
     "ir": 0,
     "click": 0,
@@ -3162,13 +3584,13 @@
    "plan": "pedals",
    "planName": "Central Pedals",
    "title": "Central Pedals Library",
-   "version": "1.4",
-   "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies. 10.5: 26 more impulse responses - a tweed deluxe, a jazz clean 2x12, a greenback 4x12, a 1x15 blues combo, a modern clean 2x12 and a little practice amp (each close, off the cone's edge and in the room), two more bass cabinets, and OM, 12-string, mandolin, ukulele, resonator and acoustic bass bodies - with eighteen boards built on them. 1.4: six more boards - a clean amp into the free Starter 1x12, a Uni-Vibe worship clean, an octave-up lead, a spring tweed rhythm, and bass and acoustic chains into the Starter cabinet and body.",
-   "file": "central-pedals-library-1.4.zip",
+   "version": "1.5",
+   "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies. 10.5: 26 more impulse responses - a tweed deluxe, a jazz clean 2x12, a greenback 4x12, a 1x15 blues combo, a modern clean 2x12 and a little practice amp (each close, off the cone's edge and in the room), two more bass cabinets, and OM, 12-string, mandolin, ukulele, resonator and acoustic bass bodies - with eighteen boards built on them. 1.4: six more boards - a clean amp into the free Starter 1x12, a Uni-Vibe worship clean, an octave-up lead, a spring tweed rhythm, and bass and acoustic chains into the Starter cabinet and body. 1.5 (10.8): eight more boards - a tri-chorus clean, a harmonic-tremolo ballad, a gold-drive lead, envelope funk, electric to acoustic, a blues-drive crunch, a rotary organ and a growling bass.",
+   "file": "central-pedals-library-1.5.zip",
    "size": 400000,
    "approximate": true,
    "sha256": null,
-   "url": "https://libraries.motionaudio.org/central-pedals-library-1.4.zip",
+   "url": "https://libraries.motionaudio.org/central-pedals-library-1.5.zip",
    "contents": {
     "sounds": [],
     "presets": [],
@@ -3222,7 +3644,15 @@
      "Pedals: Octave-Up Lead",
      "Pedals: Spring Tweed Rhythm",
      "Pedals: Bass Starter Cab",
-     "Pedals: Acoustic Starter Body"
+     "Pedals: Acoustic Starter Body",
+     "Pedals: Tri-Chorus Clean",
+     "Pedals: Harmonic Trem Ballad",
+     "Pedals: Gold Drive Lead",
+     "Pedals: Envelope Funk",
+     "Pedals: Electric to Acoustic",
+     "Pedals: Blues Drive Crunch",
+     "Pedals: Rotary Organ",
+     "Pedals: Bass Growl"
     ],
     "irs": [
      "Central 1x12 Open Back",
@@ -3285,7 +3715,7 @@
    },
    "counts": {
     "sound": 0,
-    "board": 50,
+    "board": 58,
     "preset": 0,
     "ir": 54,
     "click": 0,

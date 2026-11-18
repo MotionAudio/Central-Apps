@@ -1,0 +1,302 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "guitar-amp",
+ "name": "Guitar Amp",
+ "author": "Motion Audio",
+ "family": "saturation",
+ "tier": "plugins",
+ "description": "A guitar amp and cabinet for a guitar plugged straight in: gain, a three-band tone stack, presence, a speaker's shape and a little room.",
+ "params": [
+  {
+   "id": "gain",
+   "name": "Gain",
+   "min": 0,
+   "max": 36,
+   "default": 14,
+   "unit": "dB"
+  },
+  {
+   "id": "bass",
+   "name": "Bass",
+   "min": -12,
+   "max": 12,
+   "default": 1,
+   "unit": "dB"
+  },
+  {
+   "id": "mid",
+   "name": "Middle",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "treble",
+   "name": "Treble",
+   "min": -12,
+   "max": 12,
+   "default": 1,
+   "unit": "dB"
+  },
+  {
+   "id": "presence",
+   "name": "Presence",
+   "min": -6,
+   "max": 9,
+   "default": 2,
+   "unit": "dB"
+  },
+  {
+   "id": "room",
+   "name": "Room",
+   "min": 0,
+   "max": 0.5,
+   "default": 0.12
+  },
+  {
+   "id": "level",
+   "name": "Level",
+   "min": -30,
+   "max": 6,
+   "default": -10,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Clean",
+   "values": {
+    "gain": 4,
+    "bass": 2,
+    "treble": 2,
+    "level": -4
+   }
+  },
+  {
+   "name": "Edge of breakup",
+   "values": {
+    "gain": 14,
+    "mid": 1,
+    "level": -10
+   }
+  },
+  {
+   "name": "Crunch",
+   "values": {
+    "gain": 24,
+    "mid": 2,
+    "treble": 0,
+    "level": -16
+   }
+  },
+  {
+   "name": "Lead",
+   "values": {
+    "gain": 32,
+    "mid": 4,
+    "presence": 4,
+    "room": 0.2,
+    "level": -20
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 40,
+    "props": {}
+   },
+   {
+    "id": "tight",
+    "type": "filter",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": 90,
+     "q": 0.7
+    }
+   },
+   {
+    "id": "pre",
+    "type": "drive",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "tube",
+     "drive": {
+      "param": "gain"
+     },
+     "tone": 7000,
+     "level": 0,
+     "mix": 1,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "bass",
+    "type": "eq",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "lowshelf",
+     "freq": 120,
+     "q": 0.7,
+     "gain": {
+      "param": "bass"
+     }
+    }
+   },
+   {
+    "id": "mid",
+    "type": "eq",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": 750,
+     "q": 0.8,
+     "gain": {
+      "param": "mid"
+     }
+    }
+   },
+   {
+    "id": "treb",
+    "type": "eq",
+    "x": 1040,
+    "y": 40,
+    "props": {
+     "mode": "highshelf",
+     "freq": 2800,
+     "q": 0.7,
+     "gain": {
+      "param": "treble"
+     }
+    }
+   },
+   {
+    "id": "cab",
+    "type": "filter",
+    "x": 1240,
+    "y": 40,
+    "props": {
+     "mode": "lowpass",
+     "freq": 5200,
+     "q": 0.9,
+     "slope": 24
+    }
+   },
+   {
+    "id": "pres",
+    "type": "eq",
+    "x": 1440,
+    "y": 40,
+    "props": {
+     "mode": "peak",
+     "freq": 2400,
+     "q": 1.1,
+     "gain": {
+      "param": "presence"
+     }
+    }
+   },
+   {
+    "id": "cabhp",
+    "type": "filter",
+    "x": 1640,
+    "y": 40,
+    "props": {
+     "mode": "highpass",
+     "freq": 75,
+     "q": 0.8
+    }
+   },
+   {
+    "id": "room",
+    "type": "reverb",
+    "x": 1840,
+    "y": 40,
+    "props": {
+     "size": 0.25,
+     "damp": 0.5,
+     "mix": {
+      "param": "room"
+     },
+     "predelay": 4,
+     "width": 0.7,
+     "mod": 0.1
+    }
+   },
+   {
+    "id": "lvl",
+    "type": "gain",
+    "x": 2040,
+    "y": 40,
+    "props": {
+     "gain": {
+      "param": "level"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 2240,
+    "y": 40,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "tight.in"
+   },
+   {
+    "from": "tight.out",
+    "to": "pre.in"
+   },
+   {
+    "from": "pre.out",
+    "to": "bass.in"
+   },
+   {
+    "from": "bass.out",
+    "to": "mid.in"
+   },
+   {
+    "from": "mid.out",
+    "to": "treb.in"
+   },
+   {
+    "from": "treb.out",
+    "to": "cab.in"
+   },
+   {
+    "from": "cab.out",
+    "to": "pres.in"
+   },
+   {
+    "from": "pres.out",
+    "to": "cabhp.in"
+   },
+   {
+    "from": "cabhp.out",
+    "to": "room.in"
+   },
+   {
+    "from": "room.out",
+    "to": "lvl.in"
+   },
+   {
+    "from": "lvl.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

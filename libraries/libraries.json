@@ -3,11 +3,11 @@
  "libraries": [
   {
    "id": "central-starter",
-   "approxMB": 470,
+   "approxMB": 520,
    "plan": "free",
    "version": "1.1",
    "title": "Central Starter",
-   "summary": "The stock sounds, free in every Central app (10.5) - the apps install it on their own, no key needed: twelve pads for the pad pedal in all 12 keys (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass), each a seamless 12-second loop; ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) with seven presets; six drum grooves at three tempos each (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) and two ambient loops in every key (Drift, Breath) for the texture channels; three plain cabinets and an acoustic body for the IR loader; and seven boards built from the free pedals (clean, worship delay, crunch and chorus electrics, an acoustic, a bass DI and clean keys). The richer pads, grooves, loops, instruments and boards are in the plans' libraries. 1.1 (10.8): 138 samples for the Samples browser in Central Production and the Studio - kicks, snares, claps, hi-hats, cymbals and toms, hand and world percussion, bass hits, guitar, effects (impacts, whooshes, a cymbal swell and its reverse) and atmospheres, from Sonic Pi's and VCSL's public-domain recordings - and the drum kits made from them (an acoustic kit, an electronic kit, tabla and hand drums); a real accordion (FreePats); and a tubular glockenspiel and a Nyunga Nyunga mbira (VCSL). All CC0: none of it is taken from the plans' libraries.",
+   "summary": "The stock sounds, free in every Central app (10.5) - the apps install it on their own, no key needed: twelve pads for the pad pedal in all 12 keys (Warm, Air, Strings, Shimmer, Swell, Analog, Organ, Felt, Bells, Deep, Choir Aah, Glass), each a seamless 12-second loop; ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) with seven presets; six drum grooves at three tempos each (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) and two ambient loops in every key (Drift, Breath) for the texture channels; three plain cabinets and an acoustic body for the IR loader; and seven boards built from the free pedals (clean, worship delay, crunch and chorus electrics, an acoustic, a bass DI and clean keys). The richer pads, grooves, loops, instruments and boards are in the plans' libraries. 1.1 (10.8): 171 samples for the Samples browser in Central Production and the Studio - kicks, snares, claps, hi-hats, cymbals and toms, hand and world percussion, bass hits, guitar, effects (impacts, whooshes, a cymbal swell and its reverse) and atmospheres, from Sonic Pi's and VCSL's public-domain recordings - and the drum kits made from them (an acoustic kit, an electronic kit, tabla and hand drums); a real accordion (FreePats); a tubular glockenspiel and a Nyunga Nyunga mbira (VCSL); eight more boards of free pedals (an ambient swell, a blues drive, a boosted lead, funk clean, two acoustics, a warm bass and wide keys) and presets for the square lead, the soft lead and the synth bass; two synth-effect pads from FreePats (Goblins and Sci-Fi) for intros and soundscapes; and 18 beat and break loops with their tempos (the Amen break, breakbeats, grooves, tabla and percussion loops, Arovane's beats). All CC0: none of it is taken from the plans' libraries.",
    "sounds": [
     {
      "name": "Central Keys Synths",
@@ -68,6 +68,24 @@
        "text": "Versilian Community Sample Library (VCSL) - Versilian Studios",
        "license": "CC0 1.0",
        "url": "https://github.com/sgossner/VCSL/tree/c1ea7bcc3c7309650ab0da9d15c9cd1fbc4a4c7e"
+      }
+     ]
+    },
+    {
+     "name": "Central Starter Synth FX",
+     "source": "sfz",
+     "license": "CC0 1.0",
+     "credit": "Synth Goblins and Synth Sci-Fi by FreePats - CC0 1.0 (github.com/freepats/synth-goblins, github.com/freepats/synth-scifi)",
+     "sources": [
+      {
+       "text": "Synth Goblins - FreePats",
+       "license": "CC0 1.0",
+       "url": "https://github.com/freepats/synth-goblins/tree/f6034596936ddb8f94832106a6d13c19d7ac07ea"
+      },
+      {
+       "text": "Synth Sci-Fi - FreePats",
+       "license": "CC0 1.0",
+       "url": "https://github.com/freepats/synth-scifi/tree/b630598bd2832bcf69a8d8ff7cc61f90f2b51421"
       }
      ]
     }
@@ -321,6 +339,95 @@
       ]
      ],
      "sound": "tabla & hand drums"
+    },
+    {
+     "name": "Square Lead",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 30,
+        "Mix": 20
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.0
+       }
+      ]
+     ],
+     "sound": "square lead"
+    },
+    {
+     "name": "Soft Flute Lead",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.0,
+        "Late": 28
+       }
+      ]
+     ],
+     "sound": "soft lead"
+    },
+    {
+     "name": "Squelch Bass",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.25,
+        "Ratio": 3
+       }
+      ]
+     ],
+     "sound": "synth bass"
+    },
+    {
+     "name": "Goblins Intro",
+     "kind": "keys",
+     "chain": [
+      [
+       "digdelay",
+       {
+        "Feedback": 45,
+        "Mix": 25
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 5.0,
+        "Late": 35
+       }
+      ]
+     ],
+     "sound": "goblins pad"
+    },
+    {
+     "name": "Sci-Fi Atmosphere",
+     "kind": "keys",
+     "chain": [
+      [
+       "gxchorus",
+       {
+        "Level": 0.2
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 6.0,
+        "Late": 38
+       }
+      ]
+     ],
+     "sound": "sci-fi pad"
     }
    ],
    "boards": [
@@ -514,6 +621,243 @@
        {
         "Decay": 2.2,
         "Late": 22
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Starter: Ambient Swell",
+     "kind": "electric",
+     "chain": [
+      [
+       "ma-volume",
+       {}
+      ],
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "gxamp",
+       {
+        "Drive": 0.15
+       }
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 55,
+        "Mix": 35
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 5.0,
+        "Late": 35
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Starter: Blues Drive",
+     "kind": "electric",
+     "chain": [
+      [
+       "ts9",
+       {
+        "Drive": 0.4,
+        "Level": 0.8
+       }
+      ],
+      [
+       "gxamp",
+       {
+        "Drive": 0.3
+       }
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.6,
+        "Late": 22
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Starter: Boosted Lead",
+     "kind": "electric",
+     "chain": [
+      [
+       "booster",
+       {}
+      ],
+      [
+       "ts9",
+       {
+        "Drive": 0.55,
+        "Level": 0.8
+       }
+      ],
+      [
+       "gxamp",
+       {
+        "Drive": 0.5
+       }
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 30,
+        "Mix": 20
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2,
+        "Late": 24
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Starter: Funk Clean",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "gxamp",
+       {
+        "Drive": 0.15
+       }
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.0,
+        "Late": 20
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Starter: Acoustic Ballad",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "gxchorus",
+       {
+        "Level": 0.12
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.8,
+        "Late": 28
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Starter: Acoustic Live",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "ma-gate",
+       {}
+      ],
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "calfeq5",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.2,
+        "Late": 20
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Starter: Warm Bass",
+     "kind": "bass",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.25,
+        "Ratio": 3
+       }
+      ],
+      [
+       "calfbass",
+       {
+        "Amount": 0.3
+       }
+      ],
+      [
+       "calfeq5",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Starter: Keys Wide",
+     "kind": "keys",
+     "chain": [
+      [
+       "calfcomp",
+       {
+        "Threshold": 0.3,
+        "Ratio": 2
+       }
+      ],
+      [
+       "gxchorus",
+       {
+        "Level": 0.2
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.2,
+        "Late": 30
        }
       ]
      ]
@@ -787,6 +1131,19 @@
       "Drift",
       "Breath"
      ]
+    },
+    {
+     "set": "starter-beats",
+     "name": "Beats and breaks",
+     "license": "CC0 1.0",
+     "credit": "Beat and break loops from Sonic Pi's samples (freesound.org and Arovane, CC0 1.0), each with its tempo (tools/make-samples.py)",
+     "sources": [
+      {
+       "text": "Sonic Pi's samples (from freesound.org, placed in the public domain; the Arovane beats donated under CC0) - sonic-pi-net/sonic-pi, etc/samples",
+       "license": "CC0 1.0",
+       "url": "https://github.com/sonic-pi-net/sonic-pi/tree/a5313655d4fa5c2167de3789bf9bea73259f655e/etc/samples"
+      }
+     ]
     }
    ],
    "samples": [
@@ -853,11 +1210,11 @@
   },
   {
    "id": "central-keys-library",
-   "approxMB": 700,
+   "approxMB": 760,
    "plan": "keys",
-   "version": "1.5",
+   "version": "1.6",
    "title": "Central Keys Library",
-   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; eighteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, Ember and Selah Strings - a grand piano and a string section stretched into clouds - and Sunday Bright, Easter Brass and Christmas Bells) - with worship-ready presets. 10.5: real electric pianos - a Wurlitzer EP200, a CP80 electric grand and a Pianet T (Greg Sullivan's recordings, CC-BY 3.0) - with six presets for them And the Pop Grand - AKAI's Splendid Grand (public domain), the bright, even piano of a thousand records - with three presets. 1.5: the ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) are now stock in every app - the free Central Starter library - with their presets.",
+   "summary": "Two grand pianos (Steinway B and Kawai), an upright, FM pianos, a clavisynth and a harpsichord; pipe, quiet and positive organs; vibraphone, marimba, xylophone, glockenspiel, bells and hand chimes; eighteen stereo pads, each with its own character (warm, air, choir aah and ooh, shimmer, strings, glass, swell, worship, analog sweep, dark, bell, a Sunday-keys worship pad, Ember and Selah Strings - a grand piano and a string section stretched into clouds - and Sunday Bright, Easter Brass and Christmas Bells) - with worship-ready presets. 10.5: real electric pianos - a Wurlitzer EP200, a CP80 electric grand and a Pianet T (Greg Sullivan's recordings, CC-BY 3.0) - with six presets for them And the Pop Grand - AKAI's Splendid Grand (public domain), the bright, even piano of a thousand records - with three presets. 1.5: the ten synths made by us (saw, square and soft leads, synth brass, super saw, string machine, sub and synth bass, a plucked string, FM electric bells) are now stock in every app - the free Central Starter library - with their presets. 1.6 (10.8): three more harpsichords - English (with its lute stop), Italian and French - with four presets.",
    "sounds": [
     {
      "name": "Central Keys Pianos",
@@ -1754,6 +2111,62 @@
       ]
      ],
      "sound": "pop grand"
+    },
+    {
+     "name": "Baroque Harpsichord (Italian)",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2,
+        "Late": 24
+       }
+      ]
+     ],
+     "sound": "italian harpsichord"
+    },
+    {
+     "name": "English Harpsichord",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.8,
+        "Late": 22
+       }
+      ]
+     ],
+     "sound": "english harpsichord"
+    },
+    {
+     "name": "Lute Stop",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.6,
+        "Late": 20
+       }
+      ]
+     ],
+     "sound": "lute harpsichord"
+    },
+    {
+     "name": "French Harpsichord",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.0,
+        "Late": 22
+       }
+      ]
+     ],
+     "sound": "french harpsichord"
     }
    ]
   },
@@ -1761,9 +2174,9 @@
    "id": "central-instrument-library",
    "approxMB": 660,
    "plan": "instrument",
-   "version": "1.4",
+   "version": "1.5",
    "title": "Central Instrument Library",
-   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell. 10.5: a Lo-fi Kit, a Vintage Kit, a Quiet Upright Bass and a Banjo (all CC0), and twelve more loops, every groove at three tempos - a worship pocket, a tom groove, a four-bar builder, gospel 12/8, a country two-step, soft pop, two lo-fi beats, a processional march, tambourine and shaker, a djembe groove and timpani under a hymn. 1.4: six more grooves - an anthem ride in half-time, an acoustic set (cajon, tambourine and shaker), a soft bossa nova and a 70s pocket on the Vintage Kit, a lo-fi 6/8 and a celebration - and the six plainest grooves (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) moved to the free Central Starter library, stock in every app.",
+   "summary": "Four drum kits (studio, rock, unruly, brushes); hollowbody, archtop and clean electric guitars; upright (plucked and bowed), jazz and hollowbody basses; alto and baritone saxes and a sax section; harps, kalimbas, recorders, harmonicas, saxello, ocarina, world instruments and percussion kits - with presets to play from keys or your instrument; an electric upright bass (plucked and bowed); and twenty drum and percussion loops for the texture channels, each with its own feel and tempos - worship eighths, a big ride, rim and hat, half-time, four on the floor, driving sixteenths, toms, brushes (ballad, waltz and swing), a waltz, a gospel shuffle, a 6/8 ballad, 6/8 Celtic toms, a train beat, kick and clap, a cajon groove, shaker and congas, a frame drum in 6/8 and a cinematic swell. 10.5: a Lo-fi Kit, a Vintage Kit, a Quiet Upright Bass and a Banjo (all CC0), and twelve more loops, every groove at three tempos - a worship pocket, a tom groove, a four-bar builder, gospel 12/8, a country two-step, soft pop, two lo-fi beats, a processional march, tambourine and shaker, a djembe groove and timpani under a hymn. 1.4: six more grooves - an anthem ride in half-time, an acoustic set (cajon, tambourine and shaker), a soft bossa nova and a 70s pocket on the Vintage Kit, a lo-fi 6/8 and a celebration - and the six plainest grooves (worship eighths, rim and hat, four on the floor, half-time, brushes ballad, waltz) moved to the free Central Starter library, stock in every app. 1.5 (10.8): the rest of the recorder family - soprano and bass recorders and a recorder quartet across the keys - with three presets.",
    "sounds": [
     {
      "name": "Central Instrument Harps",
@@ -2459,6 +2872,48 @@
       ]
      ],
      "sound": "quiet upright bass|upright bass"
+    },
+    {
+     "name": "Soprano Recorder",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.0,
+        "Late": 24
+       }
+      ]
+     ],
+     "sound": "soprano recorder"
+    },
+    {
+     "name": "Bass Recorder",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.0,
+        "Late": 24
+       }
+      ]
+     ],
+     "sound": "bass recorder"
+    },
+    {
+     "name": "Recorder Quartet",
+     "kind": "keys",
+     "chain": [
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.6,
+        "Late": 28
+       }
+      ]
+     ],
+     "sound": "recorder quartet"
     }
    ],
    "loops": [
@@ -2499,9 +2954,9 @@
    "id": "central-plugins-library",
    "approxMB": 18,
    "plan": "plugins",
-   "version": "1.4",
+   "version": "1.5",
    "title": "Central Plugins Library",
-   "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish. 10.5: twelve more boards - keys glue, a Wurli studio chain, a vocal-space pad, lo-fi and mono stage keys, shimmer, dotted and tape-echo electrics, fingerstyle and sparkle acoustics, sub-glue and broadcast bass - and a Wurli Dream preset. 1.4: six more boards - a vocal bus polish, a worship electric swell bed, keys tape warmth, an acoustic live-stream chain, a bass parallel squash and a wide, soft pad bus.",
+   "summary": "Ambient drone and transitions (risers, a downlifter, swells, reverse cymbals, an impact) as sounds, and mix-ready boards built from the Central Plugins effects: ambient and rhythm electric, acoustic and bass channel strips, pad wash, shimmer keys and piano polish. 10.5: twelve more boards - keys glue, a Wurli studio chain, a vocal-space pad, lo-fi and mono stage keys, shimmer, dotted and tape-echo electrics, fingerstyle and sparkle acoustics, sub-glue and broadcast bass - and a Wurli Dream preset. 1.4: six more boards - a vocal bus polish, a worship electric swell bed, keys tape warmth, an acoustic live-stream chain, a bass parallel squash and a wide, soft pad bus. 1.5 (10.8): eight more boards - a shimmer swell guitar, spring surf, a tape-echo lead, frozen pad keys, a piano plate, an acoustic studio chain, a bass studio chain and a swell-verb ambience.",
    "sounds": [
     {
      "name": "Central Plugins Textures",
@@ -3633,6 +4088,227 @@
        }
       ]
      ]
+    },
+    {
+     "name": "Plugins: Shimmer Swell Guitar",
+     "kind": "electric",
+     "chain": [
+      [
+       "ma-volume",
+       {}
+      ],
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "gxamp",
+       {
+        "Drive": 0.15
+       }
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "ma-reverse-delay",
+       {}
+      ],
+      [
+       "ma-shimmer",
+       {
+        "Decay": 9,
+        "Mix": 0.35,
+        "Shimmer": 0.4
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Spring Surf",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxamp",
+       {
+        "Drive": 0.2
+       }
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "ma-spring",
+       {}
+      ],
+      [
+       "ma-analog-delay",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Tape Echo Lead",
+     "kind": "electric",
+     "chain": [
+      [
+       "ts9",
+       {
+        "Drive": 0.45,
+        "Level": 0.8
+       }
+      ],
+      [
+       "gxamp",
+       {
+        "Drive": 0.5
+       }
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "ma-tape-delay",
+       {}
+      ],
+      [
+       "ma-plate",
+       {
+        "Decay": 2.0,
+        "Mix": 0.2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Frozen Pad Keys",
+     "kind": "keys",
+     "chain": [
+      [
+       "ma-studio-comp",
+       {
+        "Threshold": -20,
+        "Ratio": 2.5
+       }
+      ],
+      [
+       "ma-freeze",
+       {}
+      ],
+      [
+       "ma-hall",
+       {
+        "Decay": 5,
+        "Mix": 0.35
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Piano Plate",
+     "kind": "keys",
+     "chain": [
+      [
+       "ma-opto-comp",
+       {}
+      ],
+      [
+       "ma-peq",
+       {}
+      ],
+      [
+       "ma-plate",
+       {
+        "Decay": 2.0,
+        "Mix": 0.2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Acoustic Studio",
+     "kind": "acoustic",
+     "chain": [
+      [
+       "acoustic-comp",
+       {}
+      ],
+      [
+       "ma-peq",
+       {}
+      ],
+      [
+       "ma-geq7",
+       {}
+      ],
+      [
+       "ma-plate",
+       {
+        "Decay": 2.0,
+        "Mix": 0.2
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Bass Studio",
+     "kind": "bass",
+     "chain": [
+      [
+       "ma-studio-comp",
+       {
+        "Threshold": -20,
+        "Ratio": 2.5
+       }
+      ],
+      [
+       "ma-peq",
+       {}
+      ],
+      [
+       "x42-limiter",
+       {}
+      ]
+     ]
+    },
+    {
+     "name": "Plugins: Swell Verb Ambience",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "gxamp",
+       {
+        "Drive": 0.15
+       }
+      ],
+      [
+       "gxcab",
+       {}
+      ],
+      [
+       "ma-dotted-delay",
+       {
+        "Tempo": 72,
+        "Repeats": 0.45,
+        "Mix": 0.3
+       }
+      ],
+      [
+       "ma-swell-verb",
+       {
+        "Swell": 350,
+        "Decay": 7,
+        "Mix": 0.45
+       }
+      ]
+     ]
     }
    ],
    "presets": [
@@ -3694,9 +4370,9 @@
    "id": "central-pedals-library",
    "approxMB": 0.4,
    "plan": "pedals",
-   "version": "1.4",
+   "version": "1.5",
    "title": "Central Pedals Library",
-   "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies. 10.5: 26 more impulse responses - a tweed deluxe, a jazz clean 2x12, a greenback 4x12, a 1x15 blues combo, a modern clean 2x12 and a little practice amp (each close, off the cone's edge and in the room), two more bass cabinets, and OM, 12-string, mandolin, ukulele, resonator and acoustic bass bodies - with eighteen boards built on them. 1.4: six more boards - a clean amp into the free Starter 1x12, a Uni-Vibe worship clean, an octave-up lead, a spring tweed rhythm, and bass and acoustic chains into the Starter cabinet and body.",
+   "summary": "28 cabinet and acoustic-body impulse responses for the IR loader (7 guitar cabinets with centre, edge and room microphones, 3 bass cabinets, 4 acoustic bodies) and pedalboards that use them: worship crunch and lead, edge delay, vintage and modern stacks, fuzz walls, tremolo combos, bass rigs and acoustic bodies. 10.5: 26 more impulse responses - a tweed deluxe, a jazz clean 2x12, a greenback 4x12, a 1x15 blues combo, a modern clean 2x12 and a little practice amp (each close, off the cone's edge and in the room), two more bass cabinets, and OM, 12-string, mandolin, ukulele, resonator and acoustic bass bodies - with eighteen boards built on them. 1.4: six more boards - a clean amp into the free Starter 1x12, a Uni-Vibe worship clean, an octave-up lead, a spring tweed rhythm, and bass and acoustic chains into the Starter cabinet and body. 1.5 (10.8): eight more boards - a tri-chorus clean, a harmonic-tremolo ballad, a gold-drive lead, envelope funk, electric to acoustic, a blues-drive crunch, a rotary organ and a growling bass.",
    "sounds": [],
    "irs": [
     {
@@ -5896,6 +6572,206 @@
        {
         "Decay": 2.2,
         "Late": 22
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Tri-Chorus Clean",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ma-tri-chorus",
+       {}
+      ],
+      [
+       "ma-amp-clean",
+       {
+        "Gain": 0.35,
+        "Cabinet": 0
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 35,
+        "Mix": 25
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 3.0,
+        "Late": 28
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Harmonic Trem Ballad",
+     "kind": "electric",
+     "chain": [
+      [
+       "ma-amp-clean",
+       {
+        "Gain": 0.4,
+        "Cabinet": 0
+       }
+      ],
+      [
+       "ma-harm-trem",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.2,
+        "Late": 24
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Gold Drive Lead",
+     "kind": "electric",
+     "chain": [
+      [
+       "ma-gold-drive",
+       {
+        "Gain": 0.25
+       }
+      ],
+      [
+       "ma-amp-crunch",
+       {
+        "Gain": 0.5,
+        "Cabinet": 0
+       }
+      ],
+      [
+       "digdelay",
+       {
+        "Feedback": 30,
+        "Mix": 20
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 2.0,
+        "Late": 24
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Envelope Funk",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ma-env-filter",
+       {}
+      ],
+      [
+       "ma-amp-clean",
+       {
+        "Gain": 0.35,
+        "Cabinet": 0
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Electric to Acoustic",
+     "kind": "electric",
+     "chain": [
+      [
+       "gxcomp",
+       {}
+      ],
+      [
+       "ma-ac-sim",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.8,
+        "Late": 22
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Blues Drive Crunch",
+     "kind": "electric",
+     "chain": [
+      [
+       "ma-blues-drive",
+       {
+        "Drive": 0.3
+       }
+      ],
+      [
+       "ma-amp-crunch",
+       {
+        "Gain": 0.5,
+        "Cabinet": 0
+       }
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.6,
+        "Late": 22
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Rotary Organ",
+     "kind": "keys",
+     "chain": [
+      [
+       "ma-rotary",
+       {}
+      ],
+      [
+       "dfly-hall",
+       {
+        "Decay": 1.8,
+        "Late": 22
+       }
+      ]
+     ]
+    },
+    {
+     "name": "Pedals: Bass Growl",
+     "kind": "bass",
+     "chain": [
+      [
+       "ma-bass-pre",
+       {
+        "Bass": 2
+       }
+      ],
+      [
+       "ma-bass-drive",
+       {}
+      ],
+      [
+       "ma-amp-bass",
+       {
+        "Gain": 0.4,
+        "Cabinet": 0
        }
       ]
      ]

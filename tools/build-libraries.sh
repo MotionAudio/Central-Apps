@@ -31,7 +31,7 @@ python3 "$HERE/tools/sounds-sfz.py" "$WORK/cache" "$WORK/sounds"
 echo "3/5  pads and textures (synthesised; VCSL cymbals) -> $WORK/sounds"
 python3 "$HERE/tools/make-pads.py" "$WORK/cache" "$WORK/sounds"
 python3 "$HERE/tools/make-synths.py" "$WORK/sounds"
-python3 "$HERE/tools/make-samples.py" "$WORK/cache" "$WORK/starter-samples" --sounds "$WORK/sounds"   # (10.8: Central Starter's one-shots and its kits - Sonic Pi and VCSL, CC0)
+python3 "$HERE/tools/make-samples.py" "$WORK/cache" "$WORK/starter-samples" --sounds "$WORK/sounds" --loops "$WORK/loops"   # (10.8: Central Starter's one-shots and its kits - Sonic Pi and VCSL, CC0)
 python3 "$HERE/tools/make-pad-loops.py" "$WORK/pad-loops" --cache "$WORK/cache" --pulse "$WORK/loops/pulse"
 python3 "$HERE/tools/make-loops.py" --sounds "$WORK/sounds" --pads "$WORK/pad-loops" --out "$WORK/loops"
 echo "4/5  impulse responses -> $WORK/irs; Central Utility's clicks and lighting looks -> $WORK/utility"

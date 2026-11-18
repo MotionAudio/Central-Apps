@@ -1,0 +1,65 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "sub-enhancer",
+ "name": "Sub Enhancer",
+ "author": "Motion Audio",
+ "family": "pitch",
+ "tier": "plugins",
+ "description": "Adds a note an octave below the low end, made from it: a deeper kick, a bass that you feel on a big system, or weight under a thin synth.",
+ "params": [
+  {
+   "id": "amount",
+   "name": "Sub",
+   "min": 0,
+   "max": 1,
+   "default": 0.4
+  },
+  {
+   "id": "freq",
+   "name": "From below",
+   "min": 60,
+   "max": 250,
+   "default": 140,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "tone",
+   "name": "Smoothness",
+   "min": 40,
+   "max": 160,
+   "default": 90,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Kick weight",
+   "values": {
+    "amount": 0.35,
+    "freq": 120
+   }
+  },
+  {
+   "name": "Deep bass",
+   "values": {
+    "amount": 0.5,
+    "freq": 150,
+    "tone": 80
+   }
+  },
+  {
+   "name": "Subtle",
+   "values": {
+    "amount": 0.2
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "@block\nk = 1 - exp(-2 * pi * freq / srate)\nks = 1 - exp(-2 * pi * tone / srate)\nke = 1 - exp(-1 / (0.01 * srate))\n@sample\nm = (inL + inR) * 0.5\nl1 += (m - l1) * k + 1e-20\nl2 += (l1 - l2) * k\nif (l2 > 0 && pr <= 0) { sq = sq > 0 ? -1 : 1 }\nif (sq == 0) { sq = 1 }\npr = l2\ne += (abs(l2) - e) * ke\ns1 += (sq * e - s1) * ks\ns2 += (s1 - s2) * ks\nsub = s2 * amount * 2.2\noutL = inL + sub\noutR = inR + sub\n"
+}

@@ -12,7 +12,7 @@ and every app installs it on its own (the Central Pedal's driver about 90 s afte
 minute after they open, then once a day for a newer version). A loop set can be split between it and a pack: the entry's
 `"only": [names]` takes those grooves, the pack's `"except": [names]` leaves them out (`tools/build-libraries.py loop_wanted`).
 
-**Central Starter 1.1** (10.8) adds 138 one-shot **samples** for the Samples browser in Central Production and the Studio
+**Central Starter 1.1** (10.8) adds 171 one-shot **samples** for the Samples browser in Central Production and the Studio
 (`samples/<set>/<name>.flac`, items of the kind `sample` with their `group` and, when pitched, their `note`): kicks, snares,
 claps, hi-hats, cymbals, toms, hand and world percussion, bass hits, guitar, effects and atmospheres. They come from Sonic
 Pi's samples (github.com/sonic-pi-net/sonic-pi `etc/samples`, pinned in `tools/make-samples.py`: freesound recordings placed
@@ -21,7 +21,12 @@ don't play; the hand claps and rim click are made by us. The same tool makes **C
 Kit, an Electronic Kit, Tabla & Hand Drums), and the library gains **Central Starter Accordion** (FreePats' Button
 Accordion HN, a Hohner recorded by Jeff Stauffer, CC0 1.0 - `tools/sounds-sfz.py`) and **Central Starter Instruments** (a
 tubular glockenspiel and a Nyunga Nyunga mbira from VCSL, CC0). Nothing moved there from a paid library. The pedal installs
-Central Starter without its samples (they're for the computers' DAW).
+Central Starter without its samples (they're for the computers' DAW). It also gains 18 **beat and break loops** from
+Sonic Pi (`loops/starter-beats/`, each with its tempo worked out from its length and bars), **Central Starter Synth FX**
+(FreePats' Goblins and Sci-Fi pads, CC0 - `tools/sounds-sfz.py`), eight more boards of free pedals and five presets. The
+plans get more too: Central Keys 1.6 three more harpsichords (VCSL: English with its lute stop, Italian, French),
+Central Instrument 1.5 the soprano and bass recorders and a recorder quartet (VCSL), and Central Plugins and Central
+Pedals 1.5 eight boards each.
 
 | Library | Plan | Sound banks (presets) | Sources and licenses | Size (est.) |
 |---|---|---|---|---|

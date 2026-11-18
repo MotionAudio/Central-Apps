@@ -1,0 +1,54 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "mono-bass",
+ "name": "Mono Bass",
+ "author": "Motion Audio",
+ "family": "stereo",
+ "tier": "free",
+ "description": "Puts everything below a frequency in the middle and leaves the rest as wide as it was: a tight, centred low end that's safe on mono speakers and subwoofers.",
+ "params": [
+  {
+   "id": "freq",
+   "name": "Below",
+   "min": 40,
+   "max": 400,
+   "default": 120,
+   "unit": "Hz",
+   "curve": "log"
+  },
+  {
+   "id": "width",
+   "name": "Width above",
+   "min": 0,
+   "max": 2,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Tight bass",
+   "values": {
+    "freq": 120
+   }
+  },
+  {
+   "name": "Subwoofer safe",
+   "values": {
+    "freq": 80
+   }
+  },
+  {
+   "name": "Mono lows, wide top",
+   "values": {
+    "freq": 200,
+    "width": 1.4
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "@block\nk = 1 - exp(-2 * pi * freq / srate)\n@sample\na1 += (inL - a1) * k + 1e-20\na2 += (a1 - a2) * k\nb1 += (inR - b1) * k + 1e-20\nb2 += (b1 - b2) * k\nlo = (a2 + b2) * 0.5\nhl = inL - a2\nhr = inR - b2\nm = (hl + hr) * 0.5\ns = (hl - hr) * 0.5 * width\noutL = lo + m + s\noutR = lo + m - s\n"
+}

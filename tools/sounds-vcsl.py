@@ -85,6 +85,13 @@ INSTR = {
     "kal2": dict(folder="Idiophones/Plucked Idiophones/Kalimba, Kenya", inc=r"\.wav$", kind="decay", cut=4.0),
     "hm64": dict(folder=AE + "Free Aerophones/Harmonica-Hohner-Super64", inc=r"^Sustains/Normal/.*\.wav$", kind="sus"),
     "sxl": dict(folder=AE + "Reed Aerophones/Saxello", inc=r"^Non-Vibrato/.*_rr1\.wav$", kind="sus"),
+    # 10.8, more for the plans: two more recorders (Central Instrument), three more harpsichords (Central Keys)
+    "srec": dict(folder=AE + "Edge-blown Aerophones/Baroque Soprano Recorder", inc=r"^Sustain/.*_rr1_Main\.wav$", kind="sus"),
+    "brec": dict(folder=AE + "Edge-blown Aerophones/Baroque Bass Recorder", inc=r"^Sustain/.*_rr1_Main\.wav$", kind="sus"),
+    "hse": dict(folder=ZI + "Harpsichord, English", inc=r"^Sustains/Normal/.*_rr1\.wav$", kind="decay", cut=4.5),
+    "hsel": dict(folder=ZI + "Harpsichord, English", inc=r"^Sustains/Lute/.*_rr1\.wav$", kind="decay", cut=3.5),
+    "hsi": dict(folder=ZI + "Harpsichord, Italian", inc=r"^Sustains/stop1/.*_1\.wav$", kind="decay", cut=4.5),
+    "hsf": dict(folder=ZI + "Harpsichord, French", inc=r"^Sustains/.*_rr1_Main\.wav$", kind="decay", cut=4.5),
     # 10.8, free in every app (Central Starter): two that none of the plans use
     "tglk": dict(folder=ID + "Tubular Glockenspiel", inc=r"_(loud|medium|quiet)1\.wav$", kind="decay", cut=6.0),
     "nyu": dict(folder="Idiophones/Plucked Idiophones/Nyunga Nyunga, Mozambique, Low F", inc=r"\.wav$", kind="decay", cut=4.0),
@@ -120,6 +127,10 @@ BANKS = [
         ("FM Piano & Upright", [("upr", 0, 127, 0.002, 0.6, -2), ("fmp", 0, 127, 0.002, 0.8, -5)]),
         ("Clavisynth", [("clv", 0, 127, 0.002, 0.25, 0)]),
         ("Harpsichord", [("hsc", 0, 127, 0.002, 0.35, 0)]),
+        ("English Harpsichord", [("hse", 0, 127, 0.002, 0.35, 0)]),   # (10.8: three more harpsichords, each its own instrument)
+        ("Lute Harpsichord", [("hsel", 0, 127, 0.002, 0.3, 0)]),
+        ("Italian Harpsichord", [("hsi", 0, 127, 0.002, 0.35, 0)]),
+        ("French Harpsichord", [("hsf", 0, 127, 0.002, 0.35, 0)]),
     ]),
     ("Central Keys Organs", "keys", [
         ("Pipe Organ", [("orgp", 0, 47, 0.04, 0.5, -2), ("org", 48, 127, 0.04, 0.5, 0)]),
@@ -163,6 +174,9 @@ BANKS = [
         ("Ocarina", [("oca", 0, 127, 0.03, 0.3, 0)]),
         ("Chromatic Harmonica", [("hm64", 0, 127, 0.02, 0.2, 0)]),
         ("Saxello", [("sxl", 0, 127, 0.03, 0.25, 0)]),
+        ("Soprano Recorder", [("srec", 0, 127, 0.04, 0.25, 0)]),   # (10.8: the rest of the recorder family)
+        ("Bass Recorder", [("brec", 0, 127, 0.05, 0.3, 0)]),
+        ("Recorder Quartet", [("brec", 0, 52, 0.06, 0.4, -2), ("trec", 53, 64, 0.06, 0.4, -2), ("rec", 65, 76, 0.06, 0.4, -2), ("srec", 77, 127, 0.06, 0.4, -2)]),
     ]),
     ("Central Instrument World", "instrument", [
         ("Dan Tranh (zither)", [("dan", 0, 127, 0.002, 0.8, 0)]),

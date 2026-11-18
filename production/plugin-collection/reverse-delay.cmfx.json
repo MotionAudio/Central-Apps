@@ -1,0 +1,75 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "reverse-delay",
+ "name": "Reverse Delay",
+ "author": "Motion Audio",
+ "family": "delay",
+ "tier": "plugins",
+ "description": "Plays what you just played backwards, a moment later: the dreamy, sucked-in repeats of an ambient guitar or a vocal throw. Two overlapping readers keep it smooth.",
+ "params": [
+  {
+   "id": "time",
+   "name": "Time",
+   "min": 100,
+   "max": 650,
+   "default": 400,
+   "unit": "ms"
+  },
+  {
+   "id": "feedback",
+   "name": "Repeats",
+   "min": 0,
+   "max": 0.8,
+   "default": 0.3
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 0.35
+  },
+  {
+   "id": "tone",
+   "name": "Tone",
+   "min": 1500,
+   "max": 12000,
+   "default": 6000,
+   "unit": "Hz",
+   "curve": "log"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Dream",
+   "values": {
+    "time": 400,
+    "feedback": 0.3,
+    "mix": 0.35
+   }
+  },
+  {
+   "name": "Swirl",
+   "values": {
+    "time": 600,
+    "feedback": 0.6,
+    "mix": 0.45,
+    "tone": 4000
+   }
+  },
+  {
+   "name": "Short flip",
+   "values": {
+    "time": 180,
+    "feedback": 0.1,
+    "mix": 0.3
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "array bL[65536]\narray bR[65536]\n@block\nn = max(64, min(32000, floor(time * srate / 1000)))\nkt = 1 - exp(-2 * pi * tone / srate)\n@sample\nk += 1\nif (k >= n) { k = 0 }\nk2 = k + n * 0.5\nif (k2 >= n) { k2 -= n }\nw1 = 1 - abs(2 * k / n - 1)\nw2 = 1 - w1\nrL = bL[w - 2 * k - 1] * w1 + bL[w - 2 * k2 - 1] * w2\nrR = bR[w - 2 * k - 1] * w1 + bR[w - 2 * k2 - 1] * w2\nfL += (rL - fL) * kt\nfR += (rR - fR) * kt\nbL[w] = inL + fL * feedback\nbR[w] = inR + fR * feedback\nw += 1\nif (w >= 65536) { w = 0 }\noutL = inL * (1 - mix) + fL * mix\noutR = inR * (1 - mix) + fR * mix\n"
+}

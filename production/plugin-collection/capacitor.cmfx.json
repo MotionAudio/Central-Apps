@@ -1,0 +1,67 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "capacitor",
+ "name": "Capacitor",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "filter",
+ "tier": "free",
+ "description": "Airwindows Capacitor2 by Chris Johnson: a gentle low-pass and high-pass made like real capacitors, with their soft, musical character. Trims the top and bottom without sounding like an EQ. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "lowpass",
+   "name": "Low-pass",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  },
+  {
+   "id": "highpass",
+   "name": "High-pass",
+   "min": 0,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "id": "nonlin",
+   "name": "Capacitor character",
+   "min": 0,
+   "max": 1,
+   "default": 0
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Warm top",
+   "values": {
+    "lowpass": 0.6
+   }
+  },
+  {
+   "name": "Clean the lows",
+   "values": {
+    "highpass": 0.08
+   }
+  },
+  {
+   "name": "Vintage band",
+   "values": {
+    "lowpass": 0.5,
+    "highpass": 0.1,
+    "nonlin": 0.6
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows Capacitor2, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n// (each sample runs stage A and two of B-F in turn, as Chris's count 0-5 does: B/C alternate, D/E/F take turns)\n@block\nlc = lowpass * lowpass\nhc = highpass * highpass\nnl = 1 + (1 - nonlin) * 6\ntrim = 1.5 / pow(nl, 1 / 3)\n@sample\ncnt += 1\nif (cnt > 5) { cnt = 0 }\nodd = cnt == 1 || cnt == 3 || cnt == 5\nthird = cnt == 1 || cnt == 4 ? 1 : (cnt == 2 || cnt == 5 ? 2 : 0)\nx = inL + 1e-20\nds = abs(2 - ((x + nl) / nl))\nla = lc * ds; il = 1 - la; ha = hc * ds; ih = 1 - ha\nhAL = hAL * ih + x * ha; x -= hAL; lAL = lAL * il + x * la; x = lAL\nif (odd) { hCL = hCL * ih + x * ha; x -= hCL; lCL = lCL * il + x * la; x = lCL } else { hBL = hBL * ih + x * ha; x -= hBL; lBL = lBL * il + x * la; x = lBL }\nif (third == 0) { hDL = hDL * ih + x * ha; x -= hDL; lDL = lDL * il + x * la; x = lDL } else { if (third == 1) { hEL = hEL * ih + x * ha; x -= hEL; lEL = lEL * il + x * la; x = lEL } else { hFL = hFL * ih + x * ha; x -= hFL; lFL = lFL * il + x * la; x = lFL } }\noutL = inL + (x * trim - inL) * mix\nx = inR + 1e-20\nds = abs(2 - ((x + nl) / nl))\nla = lc * ds; il = 1 - la; ha = hc * ds; ih = 1 - ha\nhAR = hAR * ih + x * ha; x -= hAR; lAR = lAR * il + x * la; x = lAR\nif (odd) { hCR = hCR * ih + x * ha; x -= hCR; lCR = lCR * il + x * la; x = lCR } else { hBR = hBR * ih + x * ha; x -= hBR; lBR = lBR * il + x * la; x = lBR }\nif (third == 0) { hDR = hDR * ih + x * ha; x -= hDR; lDR = lDR * il + x * la; x = lDR } else { if (third == 1) { hER = hER * ih + x * ha; x -= hER; lER = lER * il + x * la; x = lER } else { hFR = hFR * ih + x * ha; x -= hFR; lFR = lFR * il + x * la; x = lFR } }\noutR = inR + (x * trim - inR) * mix\n"
+}

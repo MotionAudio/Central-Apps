@@ -1,5 +1,5 @@
 Airwindows (github.com/airwindows/airwindows) - the algorithms in density, purest-drive, spiral, clip-only, warm,
-tube, console-preamp, butter-comp and slew (.cmfx.json) are Chris Johnson's, ported to Central FX by Motion Audio.
+de-esser, capacitor, tube, console-preamp, butter-comp, slew and pressure (.cmfx.json) are Chris Johnson's, ported to Central FX by Motion Audio.
 
 MIT License
 

@@ -1,0 +1,266 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "bass-amp",
+ "name": "Bass Amp",
+ "author": "Motion Audio",
+ "family": "saturation",
+ "tier": "plugins",
+ "description": "A bass amp for a bass plugged straight in: a compressor to even it out, drive blended under the clean sound, and a bass, mid and treble that suit a bass guitar.",
+ "params": [
+  {
+   "id": "comp",
+   "name": "Compression",
+   "min": -40,
+   "max": 0,
+   "default": -18,
+   "unit": "dB"
+  },
+  {
+   "id": "drive",
+   "name": "Drive",
+   "min": 0,
+   "max": 30,
+   "default": 10,
+   "unit": "dB"
+  },
+  {
+   "id": "blend",
+   "name": "Drive blend",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "bass",
+   "name": "Bass",
+   "min": -12,
+   "max": 12,
+   "default": 2,
+   "unit": "dB"
+  },
+  {
+   "id": "mid",
+   "name": "Middle",
+   "min": -12,
+   "max": 12,
+   "default": -2,
+   "unit": "dB"
+  },
+  {
+   "id": "treble",
+   "name": "Treble",
+   "min": -12,
+   "max": 12,
+   "default": 0,
+   "unit": "dB"
+  },
+  {
+   "id": "level",
+   "name": "Level",
+   "min": -24,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Round",
+   "values": {
+    "bass": 3,
+    "mid": -2,
+    "treble": -2,
+    "blend": 0.15
+   }
+  },
+  {
+   "name": "Growl",
+   "values": {
+    "drive": 20,
+    "blend": 0.45,
+    "mid": 2,
+    "treble": 2
+   }
+  },
+  {
+   "name": "Worship pocket",
+   "values": {
+    "comp": -22,
+    "bass": 2,
+    "mid": -3,
+    "blend": 0.2
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "comp",
+    "type": "compressor",
+    "x": 240,
+    "y": 230,
+    "props": {
+     "style": "opto",
+     "detect": "rms",
+     "threshold": {
+      "param": "comp"
+     },
+     "ratio": 4,
+     "attack": 15,
+     "release": 200,
+     "knee": 8,
+     "makeup": 4
+    }
+   },
+   {
+    "id": "dr",
+    "type": "drive",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "tube",
+     "drive": {
+      "param": "drive"
+     },
+     "tone": 3000,
+     "level": -6,
+     "mix": 1,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 640,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "blend"
+     },
+     "law": "equal"
+    }
+   },
+   {
+    "id": "bass",
+    "type": "eq",
+    "x": 840,
+    "y": 230,
+    "props": {
+     "mode": "lowshelf",
+     "freq": 80,
+     "q": 0.7,
+     "gain": {
+      "param": "bass"
+     }
+    }
+   },
+   {
+    "id": "mid",
+    "type": "eq",
+    "x": 1040,
+    "y": 230,
+    "props": {
+     "mode": "peak",
+     "freq": 500,
+     "q": 0.9,
+     "gain": {
+      "param": "mid"
+     }
+    }
+   },
+   {
+    "id": "treb",
+    "type": "eq",
+    "x": 1240,
+    "y": 230,
+    "props": {
+     "mode": "highshelf",
+     "freq": 2500,
+     "q": 0.7,
+     "gain": {
+      "param": "treble"
+     }
+    }
+   },
+   {
+    "id": "top",
+    "type": "filter",
+    "x": 1440,
+    "y": 230,
+    "props": {
+     "mode": "lowpass",
+     "freq": 7000,
+     "q": 0.7
+    }
+   },
+   {
+    "id": "lvl",
+    "type": "gain",
+    "x": 1640,
+    "y": 230,
+    "props": {
+     "gain": {
+      "param": "level"
+     }
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1840,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "comp.in"
+   },
+   {
+    "from": "comp.out",
+    "to": "dr.in"
+   },
+   {
+    "from": "dr.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "comp.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "bass.in"
+   },
+   {
+    "from": "bass.out",
+    "to": "mid.in"
+   },
+   {
+    "from": "mid.out",
+    "to": "treb.in"
+   },
+   {
+    "from": "treb.out",
+    "to": "top.in"
+   },
+   {
+    "from": "top.out",
+    "to": "lvl.in"
+   },
+   {
+    "from": "lvl.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

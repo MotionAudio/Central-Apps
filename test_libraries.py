@@ -127,9 +127,9 @@ def run(tmp):
     check("Keys and Instrument presets use only free pedals (they need just their own plan)", not plans_of(by["keys"]) and not plans_of(by["instrument"]), (plans_of(by["keys"]), plans_of(by["instrument"])))
     starter = by["free"]
     check("(10.5) Central Starter is free through and through: its boards and presets use only free pedals, and nothing in it needs a plan", not plans_of(starter) and starter["id"] == "central-starter"
-          and all(ls.get("only") for ls in starter["loops"]) and len(starter["pads"]) == 12 and len(starter["irs"]) == 4 and len(starter["boards"]) >= 6 and len(starter["presets"]) == 14 and len(starter["samples"]) == 3, plans_of(starter))
+          and all(ls.get("only") for ls in starter["loops"] if ls["set"] in ("drums", "ambient")) and len(starter["pads"]) == 12 and len(starter["irs"]) == 4 and len(starter["boards"]) >= 6 and len(starter["presets"]) == 19 and len(starter["samples"]) == 3, plans_of(starter))
     check("(10.5) the loops a set gives the free library are the ones the pack leaves out (only / except), and the pack keeps the rest",
-          all(set(ls["only"]) == set(next(x for x in pack["loops"] if x["set"] == ls["set"])["except"]) for ls in starter["loops"] for pack in [by["instrument"] if ls["set"] == "drums" else by["pads"]])
+          all(set(ls["only"]) == set(next(x for x in pack["loops"] if x["set"] == ls["set"])["except"]) for ls in starter["loops"] if ls["set"] in ("drums", "ambient") for pack in [by["instrument"] if ls["set"] == "drums" else by["pads"]])
           and BUILD.loop_names(starter) and not (set(BUILD.loop_names(starter)) & set(BUILD.loop_names(by["instrument"]) + BUILD.loop_names(by["pads"]))), BUILD.loop_names(starter))
     check("Plugins boards need nothing but Central Plugins; Pedals boards nothing but Central Pedals", plans_of(by["plugins"]) <= {"plugins"} and plans_of(by["pedals"]) <= {"pedals"}, (plans_of(by["plugins"]), plans_of(by["pedals"])))
     with open(os.path.join(HERE, "server", "src", "libraries-builtin.json"), encoding="utf-8") as handle:

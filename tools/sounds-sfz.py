@@ -56,6 +56,8 @@ SOURCES = {
     "splendid": ("sfzinstruments/SplendidGrandPiano", "1c595d827b7fd7f0be3134aaed0f90b3662a09cf", "Splendid Grand Piano - AKAI (public domain; SFZ on sfzinstruments)"),
     # 10.8, free in every app (Central Starter; LICENSE.txt: CC0 1.0)
     "accordion": ("freepats/button-accordion-HN", "d70d16456fd99305d1c24c612b205ab38846eb0f", "Button Accordion HN - a Hohner accordion recorded by Jeff Stauffer (2023), sound bank by michael02022 for FreePats"),
+    "goblins": ("freepats/synth-goblins", "f6034596936ddb8f94832106a6d13c19d7ac07ea", "Synth Goblins - FreePats (synthesised by Roberto, CC0)"),
+    "scifi": ("freepats/synth-scifi", "b630598bd2832bcf69a8d8ff7cc61f90f2b51421", "Synth Sci-Fi - FreePats (synthesised by Roberto, CC0)"),
 }
 LICENSE = "CC0 1.0"
 LICENSES = {"epianos": "CC-BY 3.0", "splendid": "Public domain"}   # (10.5: everything else is CC0 1.0)
@@ -89,6 +91,8 @@ INSTR = {
     "pianet": dict(src="epianos", program="Pianet T/Pianet T.sfz", kind="decay", keys=(36, 96), cut=4.0, layers=3, exclude=r"(?i)release|rel_"),
     # 10.8
     "accordion": dict(src="accordion", program="PRESET Button Accordion HN tuned.sfz", kind="sus", keys=(41, 96), layers=1, exclude=r"(?i)rel"),
+    "goblins": dict(src="goblins", program="SynthGoblins 20200612.sfz", kind="sus", keys=(34, 100), layers=1),
+    "scifi": dict(src="scifi", program="SynthSciFi 20200517.sfz", kind="sus", keys=(31, 100), layers=1),
 }
 
 # bank -> (plan, presets: (name, [(instrument, key lo, key hi, attack, release or None, dB)]))
@@ -131,6 +135,11 @@ BANKS = [
     ("Central Starter Accordion", "free", [
         ("Accordion", [("accordion", 0, 127, 0.04, 0.15, 0)]),
         ("Soft Accordion", [("accordion", 0, 127, 0.3, 0.5, -3)]),
+    ]),
+    # 10.8: free in every app (Central Starter) - two synth-effect pads from FreePats (CC0) for intros and soundscapes
+    ("Central Starter Synth FX", "free", [
+        ("Goblins Pad", [("goblins", 0, 127, 0.3, 2.5, 0)]),
+        ("Sci-Fi Pad", [("scifi", 0, 127, 0.3, 2.5, 0)]),
     ]),
     ("Central Instrument Saxophones", "instrument", [
         ("Alto Sax", [("altosax", 0, 127, 0.03, 0.3, 0)]),

@@ -372,7 +372,9 @@ P.append(g.done())
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cmfx_more import more  # noqa: E402
+from cmfx_more2 import more2  # noqa: E402
 P.extend(more(G))
+P.extend(more2(G))
 assert len({p["id"] for p in P}) == len(P), "two plugins with the same id"
 
 

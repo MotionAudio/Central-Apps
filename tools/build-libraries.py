@@ -380,7 +380,14 @@ def loop_names(lib):
     ml = _load("tools/make-loops.py", "make_loops")
     pv = _load("tools/pad_voices.py", "pad_voices")
     names = {"drums": [g[0] for g in ml.GROOVES], "ambient": list(ml.AMBIENT), "pulse": [p[0] for p in pv.PULSES], "pulse-more": [p[0] for p in pv.PULSES_MORE]}
+    names.update(sample_loop_names())
     return ["%s: %s" % (ls["name"], n) for ls in lib.get("loops") or [] for n in names.get(ls["set"], []) if loop_wanted(ls, n)]
+
+
+def sample_loop_names():
+    """(10.8) {set: [names]} of the loop sets tools/make-samples.py makes (Central Starter's beats and breaks)."""
+    ms = _load("tools/make-samples.py", "make_samples")
+    return {ms.LOOPS_SET: [l[1] for l in ms.LOOPS]}
 
 
 def builtin_list(definitions=DEFINITIONS, base_url=DEFAULT_BASE):
@@ -430,6 +437,7 @@ def expected_previews(lib, banks, base_url=DEFAULT_BASE):
     ml = _load("tools/make-loops.py", "make_loops")
     pv = _load("tools/pad_voices.py", "pad_voices")
     names = {"drums": list(dict.fromkeys(g[0] for g in ml.GROOVES)), "ambient": list(ml.AMBIENT), "pulse": [p[0] for p in pv.PULSES], "pulse-more": [p[0] for p in pv.PULSES_MORE]}
+    names.update(sample_loop_names())
     for ls in lib.get("loops") or []:
         add("loops", ls["name"], set=ls["set"])
         for n in names.get(ls["set"], []):

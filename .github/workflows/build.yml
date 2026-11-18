@@ -33,6 +33,10 @@ on:
     branches: [platforms, v8.1]
 permissions:
   contents: read
+env:
+  # (10.8.1) onnxruntime-node's installer fetches its CUDA (GPU) files from GitHub on Linux, and that download now 404s.
+  # The apps never ship them (package.json leaves the CUDA providers out), so skip it.
+  ONNXRUNTIME_NODE_INSTALL_CUDA: skip
 jobs:
   natives:
     name: Native helpers (Linux + Windows), ffmpeg and sounds

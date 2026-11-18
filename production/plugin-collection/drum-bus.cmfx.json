@@ -1,0 +1,219 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "drum-bus",
+ "name": "Drum Bus",
+ "author": "Motion Audio",
+ "family": "dynamics",
+ "tier": "plugins",
+ "description": "Everything a drum bus wants in one: punch from a transient shaper, glue from a compressor, weight in the low end, tape grit and a blend control.",
+ "params": [
+  {
+   "id": "punch",
+   "name": "Punch",
+   "min": -50,
+   "max": 100,
+   "default": 35,
+   "unit": "%"
+  },
+  {
+   "id": "crush",
+   "name": "Glue",
+   "min": -40,
+   "max": 0,
+   "default": -18,
+   "unit": "dB"
+  },
+  {
+   "id": "boom",
+   "name": "Boom",
+   "min": 0,
+   "max": 9,
+   "default": 3,
+   "unit": "dB"
+  },
+  {
+   "id": "drive",
+   "name": "Grit",
+   "min": 0,
+   "max": 18,
+   "default": 5,
+   "unit": "dB"
+  },
+  {
+   "id": "mix",
+   "name": "Mix",
+   "min": 0,
+   "max": 1,
+   "default": 1
+  }
+ ],
+ "presets": [
+  {
+   "name": "Worship kit",
+   "values": {
+    "punch": 30,
+    "crush": -16,
+    "boom": 2,
+    "drive": 4
+   }
+  },
+  {
+   "name": "Big rock",
+   "values": {
+    "punch": 55,
+    "crush": -24,
+    "boom": 4,
+    "drive": 9
+   }
+  },
+  {
+   "name": "Parallel smash",
+   "values": {
+    "punch": 70,
+    "crush": -32,
+    "boom": 3,
+    "drive": 10,
+    "mix": 0.45
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [
+   {
+    "id": "in",
+    "type": "input",
+    "x": 40,
+    "y": 230,
+    "props": {}
+   },
+   {
+    "id": "tr",
+    "type": "transient",
+    "x": 40,
+    "y": 40,
+    "props": {
+     "attack": {
+      "param": "punch"
+     },
+     "sustain": -10,
+     "level": 0
+    }
+   },
+   {
+    "id": "comp",
+    "type": "compressor",
+    "x": 240,
+    "y": 40,
+    "props": {
+     "style": "glue",
+     "detect": "rms",
+     "threshold": {
+      "param": "crush"
+     },
+     "ratio": 4,
+     "attack": 10,
+     "release": 120,
+     "knee": 6,
+     "makeup": 4,
+     "schpf": 90
+    }
+   },
+   {
+    "id": "boom",
+    "type": "eq",
+    "x": 440,
+    "y": 40,
+    "props": {
+     "mode": "lowshelf",
+     "freq": 70,
+     "q": 0.7,
+     "gain": {
+      "param": "boom"
+     }
+    }
+   },
+   {
+    "id": "air",
+    "type": "eq",
+    "x": 640,
+    "y": 40,
+    "props": {
+     "mode": "highshelf",
+     "freq": 9000,
+     "q": 0.7,
+     "gain": 1.5
+    }
+   },
+   {
+    "id": "tape",
+    "type": "drive",
+    "x": 840,
+    "y": 40,
+    "props": {
+     "mode": "tape",
+     "drive": {
+      "param": "drive"
+     },
+     "tone": 14000,
+     "level": -3,
+     "mix": 1,
+     "oversample": 2
+    }
+   },
+   {
+    "id": "blend",
+    "type": "mix",
+    "x": 1440,
+    "y": 230,
+    "props": {
+     "mix": {
+      "param": "mix"
+     },
+     "law": "linear"
+    }
+   },
+   {
+    "id": "out",
+    "type": "output",
+    "x": 1640,
+    "y": 230,
+    "props": {}
+   }
+  ],
+  "wires": [
+   {
+    "from": "in.out",
+    "to": "tr.in"
+   },
+   {
+    "from": "tr.out",
+    "to": "comp.in"
+   },
+   {
+    "from": "comp.out",
+    "to": "boom.in"
+   },
+   {
+    "from": "boom.out",
+    "to": "air.in"
+   },
+   {
+    "from": "air.out",
+    "to": "tape.in"
+   },
+   {
+    "from": "tape.out",
+    "to": "blend.wet"
+   },
+   {
+    "from": "in.out",
+    "to": "blend.dry"
+   },
+   {
+    "from": "blend.out",
+    "to": "out.in"
+   }
+  ]
+ }
+}

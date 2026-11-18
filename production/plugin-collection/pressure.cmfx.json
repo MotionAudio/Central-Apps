@@ -1,0 +1,71 @@
+{
+ "format": "central-fx",
+ "version": 1,
+ "id": "pressure",
+ "name": "Pressure",
+ "author": "Airwindows (Chris Johnson, MIT licence)",
+ "family": "compressor",
+ "tier": "plugins",
+ "description": "Airwindows Pressure4 by Chris Johnson: a vari-mu style compressor that clamps down on peaks and lets go smoothly, with a soft clip after it so nothing goes over. Ported from Airwindows (MIT licence).",
+ "params": [
+  {
+   "id": "pressure",
+   "name": "Pressure",
+   "min": 0,
+   "max": 1,
+   "default": 0.3
+  },
+  {
+   "id": "speed",
+   "name": "Speed",
+   "min": 0,
+   "max": 1,
+   "default": 0.2
+  },
+  {
+   "id": "mu",
+   "name": "Mewiness",
+   "min": -1,
+   "max": 1,
+   "default": 1
+  },
+  {
+   "id": "output",
+   "name": "Output",
+   "min": -18,
+   "max": 6,
+   "default": 0,
+   "unit": "dB"
+  }
+ ],
+ "presets": [
+  {
+   "name": "Glue",
+   "values": {
+    "pressure": 0.25,
+    "speed": 0.2
+   }
+  },
+  {
+   "name": "Vocal pressure",
+   "values": {
+    "pressure": 0.45,
+    "speed": 0.35,
+    "output": -2
+   }
+  },
+  {
+   "name": "Squash",
+   "values": {
+    "pressure": 0.75,
+    "speed": 0.5,
+    "output": -4
+   }
+  }
+ ],
+ "graph": {
+  "blocks": [],
+  "wires": []
+ },
+ "code": "// Airwindows Pressure4, Copyright (c) 2018 Chris Johnson, MIT licence (LICENSE-airwindows.txt) - ported to Central FX\n@init\nsp = 10000\nco = 1\n@block\nos = srate / 44100\nth = 1 - pressure * 0.95\nmk = 1 / th\nrel = pow(1.28 - speed, 5) * 32768 / os\nfa = sqrt(rel)\nmw = abs(mu)\num = 1 - mw\npm = mu >= 0\ngo = db2gain(output)\n@sample\nxl = inL * mk\nxr = inR * mk\nse = max(abs(xl), abs(xr))\nif (se > th) {\n  mv = th / se\n  ma = sqrt(abs(sp))\n  co = (co * (ma - 1) + (mv < th ? th : mv)) / ma\n} else {\n  co = (co * (sp * sp - 1) + 1) / (sp * sp)\n}\nsp = (sp * (sp - 1) + abs(se * rel) + fa) / sp\nc = (pm ? co * co : sqrt(co)) * mw + co * um\nxl = xl * c * go\nxr = xr * c * go\nb = abs(xl)\nb = b > 1.57079633 ? 1 : sin(b)\noutL = xl > 0 ? b : -b\nb = abs(xr)\nb = b > 1.57079633 ? 1 : sin(b)\noutR = xr > 0 ? b : -b\n"
+}

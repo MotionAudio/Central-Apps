@@ -102,23 +102,23 @@ The builder ships with these, under **Examples…**:
 
 ## The Central FX collection
 
-Motion Audio's own effects are built on the same engine. There are 82 of them, in `production/plugin-collection/`, made by `tools/make-cmfx-collection.py` (and, since 10.8, `tools/cmfx_more.py`). 27 come free with every app. The other 55 come with the Central Plugins plan.
+Motion Audio's own effects are built on the same engine. There are 92 of them, in `production/plugin-collection/`, made by `tools/make-cmfx-collection.py` (and, since 10.8, `tools/cmfx_more.py` and `tools/cmfx_more2.py`). 30 come free with every app. The other 62 come with the Central Plugins plan.
 
 | Kind | Free | With Central Plugins |
 |---|---|---|
 | Reverb | Hall Reverb, Plate Reverb, Room Reverb | Cathedral, Chamber, Ducking Reverb, Gated Reverb, Lush Hall, Spring Reverb, Vocal Plate, Worship Shimmer |
-| Delay | Delay, Slapback | Analog Delay, Dotted Eighth Delay, Ducking Delay, Multi-Tap Delay, Ping-Pong Delay, Shimmer Delay, Tape Echo |
-| Compressor | Compressor | Bus Glue, ButterComp, De-esser Pro, FET Compressor (1176-style), Multiband Compressor, Opto Leveler (LA-2A-style), Parallel Compressor |
-| Dynamics | Gate | Channel Strip, Expander, Transient Shaper, Vocal Chain |
+| Delay | Delay, Slapback | Analog Delay, Dotted Eighth Delay, Ducking Delay, Multi-Tap Delay, Ping-Pong Delay, Reverse Delay, Shimmer Delay, Tape Echo |
+| Compressor | Compressor | Bus Glue, ButterComp, De-esser Pro, FET Compressor (1176-style), Multiband Compressor, Opto Leveler (LA-2A-style), Parallel Compressor, Pressure |
+| Dynamics | De-esser, Gate | Auto Swell, Channel Strip, Drum Bus, Expander, Transient Shaper, Vocal Chain |
 | EQ | 4-Band EQ, Low & High Cut, Telephone | 8-Band Parametric EQ, Air Band, Slew, Tilt EQ, Vintage EQ |
-| Filters | High-Pass Filter, Low-Pass Filter | Auto Filter, Envelope Filter, Synth Filter |
-| Saturation and drive | Bitcrusher, Density, Overdrive, Purest Drive, Spiral, Warm | Console Preamp, Exciter, Lo-Fi Filter, Lo-Fi Tape, Multiband Saturator, Tape Saturation, Tube |
+| Filters | Capacitor, High-Pass Filter, Low-Pass Filter | Auto Filter, Envelope Filter, Synth Filter |
+| Saturation and drive | Bitcrusher, Density, Overdrive, Purest Drive, Spiral, Warm | Bass Amp, Console Preamp, Exciter, Guitar Amp, Lo-Fi Filter, Lo-Fi Tape, Multiband Saturator, Tape Saturation, Tube |
 | Modulation | Chorus, Doubler, Ring Modulator, Tremolo / Auto-pan, Vibrato | Dimension Chorus, Ensemble, Flanger, Harmonic Tremolo, Micro Pitch, Phaser, Rotary Speaker, Uni-Vibe |
-| Pitch | Pitch Shifter | Harmonizer, Octaver |
-| Stereo and utility | Utility | Haas Widener, Stereo Widener |
+| Pitch | Pitch Shifter | Harmonizer, Octaver, Sub Enhancer |
+| Stereo and utility | Mono Bass, Utility | Haas Widener, Stereo Widener |
 | Limiters and clippers | Clipper, Limiter | Maximizer, True-Peak Limiter |
 
-Density, Purest Drive, Spiral, Clipper, Warm, Tube, Console Preamp, ButterComp and Slew are ports of Airwindows effects by Chris Johnson (MIT licence, see [CREDITS.md](../CREDITS.md)), written in the code language. They show how far the code language goes: each is Chris's algorithm line for line.
+Density, Purest Drive, Spiral, Clipper, Warm, De-esser, Capacitor, Tube, Console Preamp, ButterComp, Slew and Pressure are ports of Airwindows effects by Chris Johnson (MIT licence, see [CREDITS.md](../CREDITS.md)), written in the code language. They show how far the code language goes: each is Chris's algorithm line for line.
 
 Each one has its own knobs and three or four starting points. You'll find them wherever effects go (in Central Production, a long Add effect list has a search box at the top): the track, pad and stem effects, Add effect in the Studio and Central Production, Add pedal → Central FX on pedal boards, and Central Control's channel inserts (up to 4 per channel, after the compressor). The locked ones say which plan they need.
 
