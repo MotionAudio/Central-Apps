@@ -177,7 +177,7 @@
     if (mounted) return; mounted = true;
     root.innerHTML = '<div class="cu-studio-bar"></div><div class="cu-studio-daw"></div>';
     fresh({});
-    UI.mount($(".cu-studio-daw", root), { layout: "compact", openInProduction: openInProduction, onSave: save, loops: loops });
+    UI.mount($(".cu-studio-daw", root), { layout: "compact", openInProduction: openInProduction, onSave: save, loops: loops, keys: !CU || !CU.edition || CU.edition() === "usage" });   // (10.8: ⌘K's keyboard in Central Usage; Central Control keeps ⌘K for its search)
     bar(); D.on("change", function (w) { if (w !== "nudge") bar(); });
     UI.offerRecovery("central-usage", function () { bar(); });
   }

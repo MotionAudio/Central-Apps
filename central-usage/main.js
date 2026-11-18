@@ -58,7 +58,7 @@ function menu() {
   const send = (name, arg) => { if (win) win.webContents.send("menu", name, arg); };
   const template = [
     { label: "File", submenu: [
-      { label: "Connect to a Central Pedal…", accelerator: "CmdOrCtrl+K", click: () => send("connect") },
+      { label: "Connect to a Central Pedal…", accelerator: "CmdOrCtrl+Shift+K", click: () => send("connect") },   // (10.8: ⌘K is the keyboard in Central Usage, the search in Central Control)
       { label: "Find Central Pedals on this network", accelerator: "CmdOrCtrl+F", click: () => send("discover") },
       { label: "Enter pairing code…", click: () => send("code") },
       { type: "separator" },

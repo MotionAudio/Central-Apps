@@ -1048,6 +1048,84 @@
       });
     });
   }
+  // (10.8) several files at once - a folder of stems, a multitrack's files: each on its own new audio track, all starting
+  // at the same beat (one undo for the lot). An empty song takes the tempo written in the names ("Way Maker 68bpm").
+  var ROLE_ORDER = [["click", /click|metronome|\bclk\b/i], ["guide", /guide|\bcues?\b|\bmd\b|director|count/i], ["drums", /drum|kick|snare|\bperc|loop|\bkit\b|\btom|cymbal|hat|overhead|\boh\b/i], ["bass", /bass|\bsub\b|808/i],
+    ["keys", /key|piano|synth|pad|organ|rhodes|\bep\b|\bb3\b|strings|\bstr\b/i], ["guitar", /gtr|guitar|acoustic|\beg\s*\d*\b|\bag\s*\d*\b|elec/i], ["vocals", /vox|vocal|bgv|choir|lead|\bvoc\b|harmony|alto|tenor|soprano/i]];
+  function stemRole(name) { for (var i = 0; i < ROLE_ORDER.length; i++) if (ROLE_ORDER[i][1].test(name)) return i; return ROLE_ORDER.length; }
+  function stemName(name) { return String(name || "Audio").replace(/^.*[\/]/, "").replace(/\.[^.]+$/, "").replace(/^\s*\d{1,3}(?:\s*[-_.)]\s*|\s+)(?=\D)/, "").replace(/[_]+/g, " ").trim().slice(0, 32) || "Audio"; }
+  function bpmIn(names) { for (var i = 0; i < names.length; i++) { var m = /(?:^|[^\d.])(\d{2,3}(?:\.\d+)?)\s*-?\s*bpm/i.exec(names[i]); if (m && +m[1] >= 40 && +m[1] <= 240) return +m[1]; } return 0; }
+  function importStems(list, atBeat, opts) {
+    opts = opts || {}; list = (list || []).slice().sort(function (a, b) { return stemRole(a.name) - stemRole(b.name) || String(a.name).localeCompare(String(b.name), undefined, { numeric: true }); });
+    var bad = [];
+    return Promise.all(list.map(function (f) { return decode(f.bytes).then(function (buf) { return { f: f, buf: buf }; }, function () { bad.push(f.name); return null; }); })).then(function (got) {
+      got = got.filter(Boolean); if (!got.length) return { tracks: [], bad: bad };
+      var empty = !proj.tracks.some(function (t) { return t.clips.length; }), bpm = empty ? bpmIn(list.map(function (f) { return f.path || f.name; }).concat(opts.folder ? [opts.folder] : [])) : 0;
+      return edit(got.length > 1 ? "Add " + got.length + " tracks" : "Add " + stemName(got[0].f.name), function (p) {
+        if (bpm) p.bpm = bpm;
+        var start = atBeat || 0, made = [];
+        got.forEach(function (g) {
+          var t = newTrack("audio", stemName(g.f.name)); t.color = COLORS[p.tracks.length % COLORS.length]; insertTrack(t);
+          var src = addAudio(g.buf), len = secToBeat(beatToSec(start) + g.buf.duration) - start;
+          t.clips.push({ id: uid("c"), kind: "audio", start: start, len: len, name: stemName(g.f.name), audio: { src: src, offset: 0, gain: 0, fadeIn: 0.004, fadeOut: 0.008, loop: false, warp: null } });
+          made.push(t);
+        });
+        return { tracks: made, bad: bad, bpm: bpm };
+      });
+    });
+  }
+  // (10.8) a MIDI file: an instrument track for each part (channel 10: drums), its notes in one clip from atBeat. An empty
+  // song takes the file's tempo, tempo changes and time signature.
+  function soundFor(program, drums, name) {
+    var all = SND && SND.list ? SND.list().filter(function (x) { return !(SND.locked && SND.locked(x)); }) : [], fam = window.CDawSMF ? window.CDawSMF.gmFamily(program) : "Pianos";
+    if (drums) { var kit = all.filter(function (x) { return x.drums && !x.builtin; })[0]; return kit ? kit.id : "builtin:kit"; }
+    var words = String((window.CDawSMF ? window.CDawSMF.gmName(program) : "") + " " + (name || "")).toLowerCase().split(/[^a-z]+/).filter(function (w) { return w.length > 2; });
+    var cands = all.filter(function (x) { return !x.drums && x.category === fam; }), best = null, bs = -1;
+    cands.forEach(function (x) { var n = x.name.toLowerCase(), sc = (x.builtin ? 0 : 1); words.forEach(function (w) { if (n.indexOf(w) >= 0) sc += 3; }); if (sc > bs) { bs = sc; best = x; } });
+    if (best) return best.id;
+    return { "Bass": "builtin:bass", "Synths & leads": "builtin:lead", "Pads & choirs": "builtin:pad", "Strings": "builtin:pad" }[fam] || "builtin:keys";
+  }
+  function importMidi(bytes, name, atBeat, opts) {
+    opts = opts || {};
+    var S = window.CDawSMF; if (!S) return Promise.reject(new Error("MIDI files can't be read here."));
+    var song; try { song = S.read(bytes); } catch (e) { return Promise.reject(e); }
+    if (!song.parts.length) return Promise.reject(new Error("There are no notes in that MIDI file."));
+    var empty = !proj.tracks.some(function (t) { return t.clips.length; }), start = atBeat || 0;
+    return Promise.resolve(edit("Add " + stemName(name || "MIDI"), function (p) {
+      if (empty && opts.tempo !== false) {
+        p.bpm = clamp(song.bpm, 30, 300);
+        if (song.sigs.length && song.sigs[0].beat === 0) p.sig = [song.sigs[0].n, song.sigs[0].d];
+        // later tempo and metre changes land on the bar they're in (the DAW changes them at bar lines)
+        p.tempos = song.tempos.filter(function (t) { return t.beat > 0; }).map(function (t) { return { bar: beatToBar(t.beat).bar, bpm: clamp(t.bpm, 30, 300) }; }).filter(function (t, i, a) { return t.bar > 0 && (!i || a[i - 1].bar !== t.bar); });
+        p.sigs = song.sigs.filter(function (s) { return s.beat > 0; }).map(function (s) { return { bar: beatToBar(s.beat).bar, n: s.n, d: s.d }; }).filter(function (s) { return s.bar > 0; });
+      }
+      var made = [], base = stemName(name || song.name || "MIDI");
+      song.parts.forEach(function (part, i) {
+        var t = newTrack(part.drums ? "drums" : "instrument", (song.parts.length > 1 ? part.name : (part.name && !/^MIDI \d/.test(part.name) ? part.name : base)).slice(0, 24), soundFor(part.program, part.drums, part.name));
+        t.color = COLORS[(p.tracks.length + i) % COLORS.length]; insertTrack(t);
+        var end = part.notes.reduce(function (a, n) { return Math.max(a, n.s + n.d); }, 0), bpb = beatToBar(start).per, len = Math.max(bpb, Math.ceil(end / bpb) * bpb);
+        t.clips.push({ id: uid("c"), kind: "midi", start: start, len: len, name: t.name, notes: part.notes.map(function (n) { return { p: n.p, v: n.v, s: n.s, d: n.d }; }) });
+        made.push(t);
+      });
+      return { tracks: made, bpm: empty ? p.bpm : 0 };
+    }));
+  }
+  // (10.8) a clip or a whole track as a MIDI file
+  function midiOf(trackIds, clipIds) {
+    var S = window.CDawSMF; if (!S) return null;
+    var parts = [];
+    proj.tracks.filter(function (t) { return t.kind !== "audio" && t.kind !== "bus" && (!trackIds || trackIds.indexOf(t.id) >= 0); }).forEach(function (t, i) {
+      var notes = [];
+      t.clips.forEach(function (c) {
+        if (c.kind !== "midi" || c.mute || (clipIds && clipIds.indexOf(c.id) < 0)) return;
+        var L = c.loopLen > 0 ? c.loopLen : c.len, from = clipIds ? c.start : 0;
+        for (var r = 0; r * L < c.len; r++) (c.notes || []).forEach(function (n) { if (n.s >= L) return; var s = r * L + n.s; if (s >= c.len) return; notes.push({ p: n.p, v: n.v, s: c.start - from + s, d: Math.min(n.d, c.len - s) }); });
+      });
+      if (notes.length) parts.push({ name: t.name, drums: t.kind === "drums", channel: t.kind === "drums" ? 10 : undefined, program: 0, notes: notes });
+    });
+    if (!parts.length) return null;
+    return S.write({ bpm: proj.bpm, sig: proj.sig, name: proj.name, parts: parts });
+  }
   // (10.6) the shortest move between two keys, minor keys by their relative major: A minor in C is 0, E minor in C is up 5 (to A minor)
   function keyShift(from, to) {
     if (!from || !to) return 0;
@@ -1061,7 +1139,7 @@
     return jobs;
   }
   function insertTrack(t) { var i = proj.tracks.findIndex(function (x) { return x.kind === "bus"; }); if (i < 0) proj.tracks.push(t); else proj.tracks.splice(i, 0, t); }
-  function usedAudio() { var used = {}; proj.tracks.forEach(function (t) { if (t.frozen && t.frozen.src) used[t.frozen.src] = 1; t.clips.forEach(function (c) { if (c.kind !== "audio") return; if (c.audio && c.audio.src) used[c.audio.src] = 1; (c.takes || []).forEach(function (k) { used[k.src] = 1; }); if (c.audio && c.audio.warp && c.audio.warp.orig) used[c.audio.warp.orig] = 1; }); }); return Object.keys(used).filter(function (id) { return buffers[id]; }); }
+  function usedAudio() { var used = {}; proj.tracks.forEach(function (t) { if (t.frozen && t.frozen.src) used[t.frozen.src] = 1; (t.layers || []).forEach(function (l) { (l.zones || []).forEach(function (z) { if (z.src) used[z.src] = 1; }); });   /* (10.8: a sampler layer's samples) */ t.clips.forEach(function (c) { if (c.kind !== "audio") return; if (c.audio && c.audio.src) used[c.audio.src] = 1; (c.takes || []).forEach(function (k) { used[k.src] = 1; }); if (c.audio && c.audio.warp && c.audio.warp.orig) used[c.audio.warp.orig] = 1; }); }); return Object.keys(used).filter(function (id) { return buffers[id]; }); }
 
   // ------------------------------------------------------------- render (exports, faster than real time)
   function songEnd() { var e = 0; proj.tracks.forEach(function (t) { t.clips.forEach(function (c) { if (!c.mute) e = Math.max(e, c.start + c.len); }); }); return e; }
@@ -1079,6 +1157,7 @@
     var rate = o.rate || 48000, tail = o.tail == null ? 3 : o.tail, secs = beatToSec(to) - beatToSec(from) + tail, oc = new OfflineAudioContext(2, Math.ceil(secs * rate), rate);
     var keep = proj; proj = clone(proj);
     if (o.tracks) proj.tracks.forEach(function (t) { if (t.kind === "bus") return; t.solo = o.tracks.indexOf(t.id) >= 0; if (t.solo) t.mute = false; });
+    if (o.clips) proj.tracks.forEach(function (t) { t.clips.forEach(function (c) { if (o.clips.indexOf(c.id) < 0) c.mute = true; }); });   // (10.8: one clip on its own - dragged out as a WAV)
     if (o.temp) proj.tracks.forEach(function (t) { if (o.temp[t.id]) { t.frozen = Object.assign({}, o.temp[t.id]); t.frozen.sig = freezeSig(t); } });
     if (o.dry) { proj.tracks.forEach(function (t) { if (t.id !== o.dry) return; t.inserts = []; t.volume = 0; t.pan = 0; t.sends = []; t.auto = {}; t.output = "master"; t.frozen = null; t.mute = false; t.solo = true; }); proj.master = { volume: 0, inserts: [] }; }
     proj.metronome = Object.assign({}, proj.metronome, { on: false });
@@ -1160,7 +1239,7 @@
     canUndo: function () { return undoStack.length ? undoStack[undoStack.length - 1].label : null; }, canRedo: function () { return redoStack.length ? redoStack[redoStack.length - 1].label : null; },
     isDirty: function () { return dirty; }, markSaved: markSaved, load: load, fresh: fresh,
     play: play, stop: stop, toggle: toggle, setPos: setPos, position: position, state: state, record: record, live: liveMidi, startMonitor: startMonitor, monitor: function () { return monitor; },
-    render: render, stems: stems, songEnd: songEnd, buffers: buffers, addAudio: addAudio, decode: decode, importAudio: importAudio, usedAudio: usedAudio, rewarp: rewarp, keyShift: keyShift,
+    render: render, stems: stems, songEnd: songEnd, buffers: buffers, addAudio: addAudio, decode: decode, importAudio: importAudio, importStems: importStems, importMidi: importMidi, midiOf: midiOf, stemName: stemName, soundFor: soundFor, usedAudio: usedAudio, rewarp: rewarp, keyShift: keyShift,
     split: split, cutRange: cutRange, quantize: quantize, humanize: humanize, snapBeat: snapBeat, autoAt: autoAt, clipSrc: clipSrc,
     tempo: { NOTES: DNOTES, noteSec: noteSec, beatToSec: beatToSec, secToBeat: secToBeat, barToBeat: barToBeat, beatToBar: beatToBar, bpmAt: bpmAt, bpb: function (b) { return beatToBar(b || 0).per; } },
     FX: FX, fxDef: fxDef, fxDefaults: fxDefaults, pro: pro, ctx: ensureCtx, graph: function () { return rt; }, latency: latency, recovery: recovery,

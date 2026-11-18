@@ -1,6 +1,6 @@
 /* Central Control / Central Usage - the 10.2 shell (docs/DESIGN-SYSTEM.md): one top bar in the same order in every app,
  * the tabs this computer's jobs need with the rest under More, the Central Pedal's connection as a status chip that
- * opens its address / Find / pairing code, the account button, Ctrl+K search everything, Ctrl+, Settings, and the
+ * opens its address / Find / pairing code, the account button, Ctrl+P search everything (10.8: Ctrl+K is Central Usage's pop-up keyboard), Ctrl+, Settings, and the
  * small ⋯ menus the tabs use to keep rare options out of the way (CUShell.menu). */
 (function () {
   "use strict";
@@ -106,7 +106,7 @@
   });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") document.querySelectorAll("details.ux-menu[open]").forEach(function (d) { d.open = false; }); });
 
-  // ------------------------------------------------------------------ Ctrl+K: search everything
+  // ------------------------------------------------------------------ Ctrl+P: search everything (Ctrl+K until 10.8; still Ctrl+K in Central Control)
   var TAB_NAMES = { service: "Service", chart: "Chord chart", instrument: "Instrument", studio: "Studio", lights: "Lighting", lyrics: "Lyrics", slides: "Slides", video: "Video", mix: "Online mix", inears: "In-ears", shorts: "Shorts", devices: "Devices", io: "I/O", controls: "Controls", settings: "Settings" };
   function allowed(t) { var b = document.querySelector('.tab[data-tab="' + t + '"]'); return b && !b.hidden; }
   function clickWhen(sel, tries) { var el = document.querySelector(sel); if (el) { el.click(); return; } if ((tries || 0) < 20) setTimeout(function () { clickWhen(sel, (tries || 0) + 1); }, 150); }
@@ -133,6 +133,7 @@
       }
       if (allowed("shorts")) a.push({ group: "Actions", title: "Make shorts from the last service", keywords: "shorts clips social youtube instagram tiktok", run: function () { CU.showTab("shorts"); } });
       a.push({ group: "Actions", title: "Check for updates", keywords: "update version", run: function () { if (window.CUUpdates) window.CUUpdates.open(); } });
+      if (window.CKeys && window.CKeys.wants()) a.push({ group: "Actions", title: "Show the keyboard", sub: (/Mac/.test(navigator.platform) ? "⌘K" : "Ctrl+K") + " · play the instrument or the Studio with the mouse or the computer keys", keywords: "keyboard piano keys play notes musical typing", run: function () { window.CKeys.open(); } });
       if (admin && allowed("lyrics")) a.push({ group: "Actions", title: "Confidence monitor colours", sub: "The band's screen", keywords: "band screen stage display yellow white", run: function () { if (window.CUSettings) window.CUSettings.go("screens", "Confidence"); } });
       return a;
     });
@@ -166,8 +167,8 @@
   // the search button in the top bar (the same as Ctrl+K)
   (function () {
     var hdr = $("header.top"); if (!hdr || !window.CmdK) return;
-    var b = document.createElement("button"); b.className = "cmdk-open"; b.type = "button"; b.title = "Search everything (Ctrl+K)"; b.setAttribute("aria-label", "Search everything");
-    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg><span>Search</span><kbd>' + (/Mac/.test(navigator.platform) ? "⌘K" : "Ctrl K") + "</kbd>";
+    var b = document.createElement("button"); b.className = "cmdk-open"; b.type = "button"; b.title = "Search everything (" + (/Mac/.test(navigator.platform) ? "⌘P" : "Ctrl+P") + ")"; b.setAttribute("aria-label", "Search everything");
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg><span>Search</span><kbd>' + (/Mac/.test(navigator.platform) ? "⌘P" : "Ctrl P") + "</kbd>";
     b.addEventListener("click", function () { window.CmdK.open(); });
     hdr.insertBefore(b, $("#cdChip"));
   })();

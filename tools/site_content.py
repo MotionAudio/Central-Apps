@@ -146,7 +146,7 @@ APPS = [
                 ("Pre-service check", "Half an hour before service it checks the pedals, computers, keys, outputs, mics, lights, cameras, screens and the stream. Anything that isn't right shows amber or red, with what to do about it."),
                 ("Give each computer its jobs", "When you set up a computer, pick what it handles. That might be lyrics, lights, cameras, in-ears, tracks, the stream mix or slides."),
                 ("Talk", "Hold Talk to speak into everyone's in-ears. Tap it quickly to leave it on."),
-                ("Find anything", "Press Ctrl+K (⌘K on a Mac) and type. It finds songs, setlists, settings, presets, slide decks and actions like \"Start stream\"."),
+                ("Find anything", "Press Ctrl+P (⌘P on a Mac) and type. It finds songs, setlists, settings, presets, slide decks and actions like \"Start stream\"."),
             ]),
             ("Lights", [
                 ("Your stage in 3D", "See each light where it hangs and where it's pointing, with haze and trusses. Screens and projectors show whatever the real screens are showing."),

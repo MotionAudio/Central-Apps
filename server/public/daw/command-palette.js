@@ -1,5 +1,6 @@
-/* Motion Audio Central - the command search (10.2): Ctrl+K / ⌘K in Central Control, Central Usage and Central
- * Production. One box finds songs, setlists, settings, lights presets, slide decks and actions, and Enter does it.
+/* Motion Audio Central - the command search (10.2): Ctrl+P / ⌘P in Central Control, Central Usage and Central
+ * Production (Ctrl+K / ⌘K until 10.8 - it's the pop-up keyboard now, keys-popup.js; where there's no keyboard, ⌘K still
+ * opens this). One box finds songs, setlists, settings, lights presets, slide decks and actions, and Enter does it.
  *
  *   CmdK.register(provider)   provider() returns [{ title, sub?, group, keywords?, run }] (called each time it opens,
  *                             so lists are always current)
@@ -75,8 +76,11 @@
     el.hidden = false; var input = el.querySelector("input"); input.value = text || ""; paint(); input.focus(); input.select();
   }
   function close() { if (!el || el.hidden) return; el.hidden = true; if (lastFocus && lastFocus.focus) try { lastFocus.focus(); } catch (_) { } }
+  // ⌘P / Ctrl+P; ⌘K / Ctrl+K too in an app without the pop-up keyboard (it takes ⌘K first where it's on)
+  function hotkey(e) { var k = e.key, c = e.code; if (k === "p" || k === "P" || c === "KeyP") return true; return (k === "k" || k === "K" || c === "KeyK") && !(window.CKeys && window.CKeys.wants()); }
   document.addEventListener("keydown", function (e) {
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === "k" || e.key === "K")) { e.preventDefault(); if (el && !el.hidden) close(); else open(); }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && hotkey(e)) { e.preventDefault(); if (el && !el.hidden) close(); else { if (window.CKeys && window.CKeys.isOpen()) window.CKeys.close(); open(); } }
   }, true);
-  window.CmdK = { register: function (p) { if (typeof p === "function") providers.push(p); }, open: open, close: close, isOpen: function () { return !!el && !el.hidden; }, score: score };
+  function keyLabel() { return /Mac|iPhone|iPad/.test(navigator.platform || "") ? "⌘P" : "Ctrl P"; }
+  window.CmdK = { register: function (p) { if (typeof p === "function") providers.push(p); }, open: open, close: close, isOpen: function () { return !!el && !el.hidden; }, score: score, keyLabel: keyLabel };
 })();

@@ -1,15 +1,25 @@
 /* The DAW's browser: Sounds (the built-in ones and the sound plans' - click to put one on the selected track, ▶ to hear
  * it: a 30-second preview when the library has one, else a few notes), Loops (from your installed libraries - drag one
- * onto the timeline and it's stretched to the song's tempo and moved to its key) and Files (audio from this computer).
- * Hosts can add loops: opts.loops() -> Promise<[{ id, name, bpm, key, bars, group, preview?, read() -> Promise<bytes> }]>. */
+ * onto the timeline and it's stretched to the song's tempo and moved to its key), Samples (10.8: the libraries'
+ * one-shots - drum hits, sound effects, single notes - drag one onto an audio track or empty space for a clip, onto an
+ * instrument track to play it from the keys, onto a drums track to add it to the kit) and Files (audio from this computer,
+ * which drag the same way).
+ * Hosts can add loops: opts.loops() -> Promise<[{ id, name, bpm, key, bars, group, preview?, read() -> Promise<bytes> }]>,
+ * and samples: opts.samples() -> Promise<[{ id, name, group, library, note?, read() -> Promise<bytes> }]> (the apps' own
+ * list, window.CU.studio.samples, when the host doesn't give one). */
 (function () {
   "use strict";
   var D = window.CDaw, UI = window.CDawUI, U = UI.U, $ = UI.$, $$ = UI.$$, esc = UI.esc, SND = window.CUStudioSounds;
-  var br = { el: null, tab: UI.store("btab", "sounds"), q: "", cat: "all", loops: null, files: [], items: {}, audio: null };
+  var br = { el: null, tab: UI.store("btab", "sounds"), q: "", cat: "all", loops: null, samples: null, scat: "all", files: [], items: {}, audio: null };
+  function samplesFrom() {
+    if (U.opts.samples) return U.opts.samples();
+    var NS = window.CU && window.CU.studio; if (!NS || !NS.samples) return Promise.resolve([]);
+    return NS.samples().then(function (l) { return (l || []).map(function (x) { return Object.assign({}, x, { read: function () { return NS.readSample(x.file).then(function (b) { return new Uint8Array(b); }); } }); }); });
+  }
   function build(el) { br.el = el; draw(); }
   function draw() {
     var el = br.el; if (!el) return;
-    el.innerHTML = '<div class="cd-btabs"><button data-bt="sounds">Sounds</button><button data-bt="loops">Loops</button><button data-bt="files">Files</button></div><input class="cd-bq" placeholder="Search" value="' + esc(br.q) + '"><div class="cd-blist"></div>';
+    el.innerHTML = '<div class="cd-btabs"><button data-bt="sounds">Sounds</button><button data-bt="loops">Loops</button><button data-bt="samples">Samples</button><button data-bt="files">Files</button></div><input class="cd-bq" placeholder="Search" value="' + esc(br.q) + '"><div class="cd-blist"></div>';
     $$("[data-bt]", el).forEach(function (b) { b.classList.toggle("on", b.dataset.bt === br.tab); b.onclick = function () { br.tab = b.dataset.bt; UI.keep("btab", br.tab); draw(); }; });
     $(".cd-bq", el).oninput = function () { br.q = this.value; list(); };
     list();
@@ -36,8 +46,16 @@
       var groups = {}; br.loops.filter(function (l) { return match(l.name + " " + (l.group || "") + " " + (l.key || "")); }).forEach(function (l) { (groups[l.group || "Loops"] = groups[l.group || "Loops"] || []).push(l); });
       box.innerHTML = Object.keys(groups).map(function (g) { return '<div class="cd-bgroup">' + esc(g) + "</div>" + groups[g].map(function (l) { br.items["l:" + l.id] = l; return '<div class="cd-bitem" draggable="true" data-bi="l:' + esc(l.id) + '"><button class="cd-bplay" data-prev>▶</button><span><b>' + esc(l.name) + "</b><i>" + [l.bpm ? l.bpm + " BPM" : "", l.key || "", l.bars ? l.bars + " bars" : ""].filter(Boolean).join(" · ") + "</i></span></div>"; }).join(""); }).join("") ||
         '<p class="cd-dim">No loops yet. Loops come with the Central Pads library (Settings → Sound plans), and loops you make in Central Production install here too. Drag a loop onto the timeline: it plays at the song\'s tempo and in its key.</p>';
+    } else if (br.tab === "samples") {
+      if (!br.samples) { box.innerHTML = '<p class="cd-dim">Looking for samples…</p>'; samplesFrom().then(function (l) { br.samples = l || []; list(); }).catch(function () { br.samples = []; list(); }); return; }
+      var sg = {}, scats = []; br.samples.forEach(function (x) { if (scats.indexOf(x.group) < 0) scats.push(x.group); });
+      br.samples.filter(function (x) { return (br.scat === "all" || x.group === br.scat) && match(x.name + " " + (x.group || "") + " " + (x.library || "")); }).forEach(function (x) { (sg[x.group || "Samples"] = sg[x.group || "Samples"] || []).push(x); });
+      box.innerHTML = (scats.length > 1 ? '<select class="cd-bcat"><option value="all">Every kind</option>' + scats.map(function (c) { return "<option" + (br.scat === c ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select>" : "") +
+        (Object.keys(sg).map(function (g) { return '<div class="cd-bgroup">' + esc(g) + "</div>" + sg[g].slice(0, 300).map(function (x) { var locked = x.tier && x.tier !== "free" && window.PPPedals && window.PPPedals.has && !window.PPPedals.has(x.tier); br.items["m:" + x.id] = x; return '<div class="cd-bitem' + (locked ? " locked" : "") + '" draggable="' + (locked ? "false" : "true") + '" data-bi="m:' + esc(x.id) + '" title="' + (locked ? esc(window.PPPedals.lockText(x.tier)) : "Drag onto a track: audio and empty space get a clip, an instrument plays it from the keys, a drums track adds it to the kit") + '"><button class="cd-bplay" data-prev>▶</button><span><b>' + esc(x.name) + "</b><i>" + esc(x.library || "") + "</i></span></div>"; }).join(""); }).join("") ||
+        '<p class="cd-dim">' + (br.samples.length ? "Nothing matches." : "No samples yet. Drum hits, sound effects and single notes come with the free Central Starter library in the apps (it installs by itself) and with the sound plans. Your own: the Files tab, or drag them in from your computer.") + "</p>");
+      var sc = $(".cd-bcat", box); if (sc) sc.onchange = function () { br.scat = this.value; list(); };
     } else {
-      box.innerHTML = '<button class="cd-bwide" data-addfiles>Add audio files…</button><p class="cd-dim">Or drag files from your computer straight onto a track.</p>' +
+      box.innerHTML = '<button class="cd-bwide" data-addfiles>Add audio files…</button><p class="cd-dim">Or drag files from your computer straight onto a track. Onto an instrument track they play from the keys; onto a drums track they become the kit.</p>' +
         br.files.filter(function (f) { return match(f.name); }).map(function (f) { br.items["f:" + f.id] = f; return '<div class="cd-bitem" draggable="true" data-bi="f:' + f.id + '"><button class="cd-bplay" data-prev>▶</button><span><b>' + esc(f.name) + "</b><i>" + (f.buf ? f.buf.duration.toFixed(1) + " s" : "") + "</i></span></div>"; }).join("");
       $("[data-addfiles]", box).onclick = function () { pick("audio/*,.wav,.mp3,.aif,.aiff,.flac,.ogg", function (f, bytes) { D.decode(bytes).then(function (buf) { br.files.unshift({ id: D.uid("f"), name: f.name, bytes: bytes, buf: buf }); list(); }).catch(function () { UI.say(f.name + " isn't audio this computer can read.", true); }); }, true); };
     }
@@ -45,7 +63,8 @@
       var it = e.target.closest("[data-bi]"); if (!it) return; var key = it.dataset.bi, item = br.items[key]; if (!item) return;
       if (e.target.closest("[data-prev]")) return previewItem(key, item);
       if (key[0] === "s") { if (SND.locked(item)) return UI.say(SND.lockText(item) + ": add your package key in Settings to use it.", true); useSound(item); }
-      else addAt(key, item, null, D.snapBeat(D.state().pos));
+      else if (it.classList.contains("locked")) UI.say(it.title, true);
+      else { var sel = UI.track(); addAt(key, item, (key[0] === "m" || key[0] === "f") && sel ? sel.id : null, D.snapBeat(D.state().pos)); }
     };
     box.ondragstart = function (e) { var it = e.target.closest("[data-bi]"); if (!it) return; e.dataTransfer.setData("application/x-cdaw", it.dataset.bi); e.dataTransfer.effectAllowed = "copy"; };
   }
@@ -67,6 +86,13 @@
   function addAt(key, item, trackId, beat) {
     if (key[0] === "s") { if (!SND.locked(item)) useSound(item); return; }
     var bytesP = item.bytes ? Promise.resolve(item.bytes) : item.read ? item.read() : Promise.reject(new Error("no audio"));
+    // (10.8) a sample or a file onto an instrument track: it plays from the keys; onto a drums track: a pad of the kit
+    var tt = trackId && D.track(trackId);
+    if ((key[0] === "m" || key[0] === "f") && tt && tt.kind !== "audio" && tt.kind !== "bus" && UI.addInstrument) {
+      var nm = /\.[a-z0-9]{2,5}$/i.test(item.name) ? item.name : item.name + ".wav";
+      return bytesP.then(function (b) { return UI.addInstrument({ samples: [{ name: nm, bytes: b, path: item.id || nm }] }, tt.id); }).then(function () { UI.draw("select"); }).catch(function (e) { UI.say((item.name || "That") + " couldn't be added: " + (e.message || e), true); });
+    }
+    if (key[0] === "m" && tt && tt.kind !== "audio") trackId = null;
     UI.say("Adding " + item.name + "…");
     return bytesP.then(function (b) { return D.importAudio(trackId, b, item.name, beat || 0, key[0] === "l" && item.bpm ? { bpm: item.bpm, key: item.key, bars: item.bars } : {}); })
       .then(function (r) { UI.say(key[0] === "l" && item.bpm ? "Added " + item.name + " at " + Math.round(D.tempo.bpmAt(beat || 0)) + " BPM" + (item.key ? " in " + D.project().key : "") + "." : "Added " + item.name + "."); if (r && r.track) U.sel = r.track.id; })
@@ -76,6 +102,6 @@
     var key = e.dataTransfer.getData("application/x-cdaw"); if (!key) return false;
     var item = br.items[key]; if (!item) return false; addAt(key, item, trackId, beat); return true;
   }
-  UI.parts.browser = { build: build, draw: draw, drop: drop, refreshLoops: function () { br.loops = null; if (br.tab === "loops") list(); } };
+  UI.parts.browser = { build: build, draw: draw, drop: drop, refreshLoops: function () { br.loops = null; br.samples = null; if (br.tab === "loops" || br.tab === "samples") list(); }, items: function () { return br.items; } };
   if (SND && SND.onChange) SND.onChange(function () { if (br.el && br.tab === "sounds") list(); });
 })();

@@ -24,7 +24,7 @@ const http = require("node:http");
 const PLANS = ["keys", "instrument", "plugins", "pedals", "pads", "utility"];
 const LIBRARY_PLANS = ["free"].concat(PLANS);   // (10.5: a library can be free - Central Starter, the stock sounds the app installs on its own)
 // (10.2) Central Utility: lighting looks (the lights page lists them), slide templates, lyric backgrounds and graphics
-const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic", "fx"];   // (10.2 fx: a plugin made in Central Production, .cmfx.json)
+const KINDS = ["sound", "board", "preset", "ir", "click", "pad", "loop", "plugin", "look", "slide", "background", "graphic", "fx", "sample"];   // (10.2 fx: a plugin made in Central Production, .cmfx.json; 10.8 sample: a one-shot for the DAW's Samples browser)
 const EXTRA_KINDS = { look: "looks", slide: "slides", background: "backgrounds", graphic: "graphics" };
 const PLUGIN_FORMATS = ["lv2", "vst3", "clap", "component", "cmfx"], MAX_PLUGIN = 300 * 1024 * 1024, MAX_CMFX = 512 * 1024;   // (10.2) cmfx: a Central FX plugin, one .cmfx.json
 const PAD_KEYS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -281,7 +281,7 @@ class Libraries {
     const id = man.id, tier = man.plan;
     if (this.record(id)) this.remove(id, true);
     const rec = { id, plan: tier, version: String(man.version), title: String(man.title || id).slice(0, 80), summary: String(man.summary || "").slice(0, 400), installedAt: new Date().toISOString().slice(0, 19),
-      source: source === "file" ? "file" : source === "personal" ? "personal" : "website", sounds: [], irs: [], clicks: [], pads: [], loops: [], boards: [], presets: [], plugins: [], fx: [], tier };
+      source: source === "file" ? "file" : source === "personal" ? "personal" : "website", sounds: [], irs: [], clicks: [], pads: [], loops: [], samples: [], boards: [], presets: [], plugins: [], fx: [], tier };
     if (man.personal === true) rec.personal = true;
     if (man.community && typeof man.community === "object") rec.community = { item: man.community.item, creator: String(man.community.creator || "").slice(0, 80), kind: String(man.community.kind || "").slice(0, 20) };   // (10.1: from Make & sell)
     const soundLines = [], irLines = [], sounds = [], irs = [];
@@ -320,6 +320,16 @@ class Libraries {
         ["bpm", "meter", "bars", "seconds"].forEach((k) => { if (typeof it[k] === "number" && it[k] > 0 && it[k] < 1000) e[k] = it[k]; });
         if (PAD_KEYS.includes(it.key)) e.key = it.key;
         rec.loops.push(e);
+      } else if (it.kind === "sample") {   // (10.8: a one-shot - a drum hit, a sound effect, a note of an instrument - for the DAW's Samples browser)
+        const isWav = data.slice(0, 4).toString() === "RIFF" && data.slice(8, 12).toString() === "WAVE", isFlac = data.slice(0, 4).toString() === "fLaC";
+        if (!isWav && !isFlac) throw new Error("a sample in that library isn't a WAV or FLAC file");
+        const group = String(it.group || "Samples").slice(0, 40), dir = path.join(this.root, id, "samples", safeName(group.replace(/ /g, "-"), "samples")); fs.mkdirSync(dir, { recursive: true });
+        const f = path.join(dir, safeName(it.file, isWav ? "sample.wav" : "sample.flac")); fs.writeFileSync(f, data);
+        const e = { name: String(it.name || "Sample").slice(0, 60), group, file: f, tier };
+        if (typeof it.note === "number" && it.note >= 0 && it.note <= 127) e.note = Math.round(it.note);
+        if (typeof it.bpm === "number" && it.bpm > 0 && it.bpm < 1000) e.bpm = it.bpm;
+        if (PAD_KEYS.includes(it.key)) e.key = it.key;
+        rec.samples.push(e);
       } else if (it.kind === "fx") {   // (10.2: a plugin made in Central Production - one .cmfx.json, no program files)
         let fx; try { fx = JSON.parse(data.toString("utf8")); } catch (_) { throw new Error("a plugin in that library can't be read"); }
         if (!fx || fx.format !== "central-fx") throw new Error("a plugin in that library isn't a Central Production plugin");
@@ -347,6 +357,7 @@ class Libraries {
     if (rec.plugins.length) rec.counts.plugin = rec.plugins.length;   // (10.1: community plugins)
     for (const [kind, key] of Object.entries(EXTRA_KINDS)) if (rec[key] && rec[key].length) rec.counts[kind] = rec[key].length;
     if (rec.fx.length) rec.counts.fx = rec.fx.length;   // (10.2: plugins made in Central Production)
+    if (rec.samples.length) rec.counts.sample = rec.samples.length;   // (10.8: one-shots for the DAW)
     const rf = path.join(this.root, id + ".json"); fs.writeFileSync(rf + ".part", JSON.stringify(rec, null, 1)); fs.renameSync(rf + ".part", rf);
     this.send({ type: "instrument", action: "rescan" }); this.send({ type: "instrument", action: "status" });
     return rec;

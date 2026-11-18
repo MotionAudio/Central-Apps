@@ -137,6 +137,10 @@
     else { buffers.sample = b; zones.push({ sample: "sample", root: d.root == null ? 60 : d.root, lo: 0, hi: 127, vlo: 1, vhi: 127, loop: b.__meta && b.__meta.loop ? { on: true, start: b.__meta.loop[0], end: b.__meta.loop[1] } : null }); }
     return { inst: { name: name, zones: zones, env: { attack: 0.002, decay: 0.2, sustain: 1, release: 0.25 } }, buffers: buffers };
   }
+  // (10.8) the pop-up keyboard (⌘K) plays it: across the keyboard from its note, or a slice on each key from C2
+  var kv = {};
+  function keyOn(n, v) { var r; try { r = instrument(); } catch (e) { return; } var c = ctx(); if (c.state === "suspended") c.resume(); if (kv[n]) keyOff(n); kv[n] = SM.voice(c, c.destination, r.inst, r.buffers, n, v || 100); }
+  function keyOff(n) { if (kv[n]) { kv[n].stop(); delete kv[n]; } }
   function wavFiles() {
     var b = cur(); if (!b) throw new Error("Record or bring in a sound first.");
     var d = D(), sl = slices(), base = Z.slug(window.CP.project().name, "sample");
@@ -151,7 +155,7 @@
       bufs = {}; var d = project.data || {}; if (!d.cur || !files["audio/" + d.cur + ".wav"]) return null;
       return Z.decode(ctx(), files["audio/" + d.cur + ".wav"]).then(function (b) { bufs[d.cur] = b; });
     },
-    mount: mount, unmount: function () { A.stopAudition(); if (ui.rec) ui.rec.stop(); ui.el = null; },
+    mount: mount, unmount: function () { A.stopAudition(); if (ui.rec) ui.rec.stop(); Object.keys(kv).forEach(keyOff); ui.el = null; },
     changed: function () { draw(); },
     collect: function (project) { var f = {}, b = cur(); if (b) f["audio/" + project.data.cur + ".wav"] = new Uint8Array(Z.wav(b, 24, { root: project.data.root })); return { data: project.data, files: f }; },
     exports: [["Export (WAV)", function () { return H.exportFiles(window.CP.project().name, wavFiles()); }, "24-bit WAV, or one per slice"],
@@ -159,6 +163,7 @@
       ["Export as an instrument (SF2)", function () { var x = instrument(); return H.exportFiles(window.CP.project().name, [{ name: Z.slug(window.CP.project().name) + ".sf2", data: SM.sf2(x.inst, x.buffers) }]); }, "A SoundFont any sampler opens"]],
     publish: { store: "make", kind: "sample", build: function () { var files = wavFiles(), b = cur(); return { zip: Z.zip(files), zipName: Z.slug(window.CP.project().name) + ".zip", demo: A.demo(b, 30) }; } },
     install: function () { var x = instrument(); return { sf2: SM.sf2(x.inst, x.buffers) }; },
+    play: keyOn, stop: keyOff, playable: function () { return !!cur(); }, playName: function () { return slices().length > 1 ? "the slices, one a key from C2" : "the sample, from its note"; },
     instrument: instrument, buffer: cur
   });
 })();

@@ -274,7 +274,7 @@ Keys:
 * `F1`–`F9`: the tabs
 * `H`: a hit on the Lighting tab
 * `←` / `→`: lyrics pages
-* `Ctrl+K`: connect
+* `Ctrl+Shift+K`: connect (`Ctrl+K` is the pop-up keyboard in Central Usage and the search in Central Control; `Ctrl+P` searches in both)
 * `Ctrl+F`: find
 
 ## Build it yourself

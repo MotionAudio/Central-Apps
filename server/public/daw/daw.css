@@ -220,3 +220,19 @@
 .cd-ctls { min-width: min(560px, 86vw); }
 .cd-ctl > span { min-width: 150px; }
 .cd-ctl code { white-space: normal; text-align: right; font-size: 11px; }
+
+/* (10.8) MIDI in: a light that flashes when a keyboard plays */
+.cdaw .cd-midi { width: 8px; height: 8px; border-radius: 50%; background: var(--line2, #454C58); display: inline-block; margin-right: 8px; flex: none; transition: background .3s; }
+.cdaw .cd-midi.on { background: var(--ok, #6FCF97); transition: none; }
+/* (10.8) drag and drop: where it lands, a track being moved, and the ⤓ handles that drag a track or clip out as a WAV */
+.cd-lanes-wrap.cd-dropping .cd-row.cd-dropon{box-shadow:inset 0 0 0 2px var(--d-acc);background:color-mix(in srgb,var(--d-acc) 8%,transparent)}
+.cd-lanes-wrap.cd-dropping .cd-endrow.cd-dropon{box-shadow:inset 0 2px 0 var(--d-acc);background:color-mix(in srgb,var(--d-acc) 7%,transparent);min-height:64px}
+.cd-lanes-wrap.cd-dropping .cd-endrow.cd-dropon .cd-endlane::after{content:"Drop here: each file gets its own track";position:absolute;left:12px;top:10px;color:var(--d-acc2);font-size:12px}
+.cd-endlane{position:relative}
+.cd-rows{position:relative}.cd-moveline{position:absolute;left:0;right:0;height:3px;background:var(--d-acc);z-index:30;pointer-events:none;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+body.cd-movingtrack,body.cd-movingtrack *{cursor:grabbing!important}
+.cd-head[data-t]{cursor:grab}.cd-head[data-t] input,.cd-head[data-t] button{cursor:auto}.cd-head[data-t] button{cursor:pointer}
+.cdaw .cd-tout{padding:1px 6px!important;color:var(--d-mut);cursor:grab!important;margin-right:2px}.cdaw .cd-tout.ready{color:var(--d-acc2);border-color:color-mix(in srgb,var(--d-acc) 50%,var(--d-line))}
+.cd-cout{position:absolute;right:3px;top:2px;z-index:4;font:700 11px/1 Archivo,system-ui,sans-serif;padding:2px 4px;border-radius:4px;background:rgba(0,0,0,.45);color:var(--d-mut);cursor:grab}.cd-cout.ready{color:var(--d-acc2);background:rgba(0,0,0,.6)}
+/* (10.8) a sampler layer's samples, and a kit's pads */
+.cd-zones{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin-top:6px}.cd-zone{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 8px;border:1px solid var(--d-line);border-radius:6px;background:var(--d-bg2);font-size:12px}.cd-zone b{color:var(--d-acc2);font-variant-numeric:tabular-nums}.cdaw .cd-zone button{padding:0 5px}

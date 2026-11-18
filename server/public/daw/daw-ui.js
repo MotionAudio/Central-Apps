@@ -54,9 +54,9 @@
         '<div class="cd-g"><button data-a="undo" title="Undo (Ctrl+Z)">↶</button><button data-a="redo" title="Redo (Ctrl+Shift+Z)">↷</button></div>' +
         (c ? "" : '<div class="cd-g cd-songtools">' + (window.CDawSong ? '<button data-a="keytempo" title="The whole song in a new key and tempo: MIDI, audio and sections">Key &amp; tempo</button>' : "") + (window.CDawControl ? '<button data-a="controls" title="Run the DAW from a MIDI controller or a footswitch">Controls</button>' : "") +
           (window.CDawSong ? '<button data-a="lufs" class="cd-lufs" title="Loudness of what plays (LUFS, EBU R128). Short-term at the top; integrated (the whole play) and the highest true peak underneath. Click to start again."><b class="cd-lufs-s">– LUFS</b><span class="cd-lufs-i">I – · TP –</span></button>' : "") + "</div>") +
-        '<div class="cd-g cd-views"><button data-a="browser" class="cd-t" title="Sounds, loops and files (B)">' + (c ? "Sounds" : "Browser") + '</button><button data-a="editor" class="cd-t" title="Editor (E)">Editor</button><button data-a="mixer" class="cd-t" title="Mixer (X)">Mixer</button><button data-a="keys" class="cd-t" title="Play with the computer keys (K): A W S E D F T G Y H U J K, Z / X octave">Keys</button><button data-a="audio" title="Audio: the input and output, sample rate, buffer, and lining up recordings">Audio</button>' +
+        '<div class="cd-g cd-views"><button data-a="browser" class="cd-t" title="Sounds, loops and files (B)">' + (c ? "Sounds" : "Browser") + '</button><button data-a="editor" class="cd-t" title="Editor (E)">Editor</button><button data-a="mixer" class="cd-t" title="Mixer (X)">Mixer</button><button data-a="keys" class="cd-t" title="The keyboard (K, or ' + (/Mac|iPhone|iPad/.test(navigator.platform || "") ? "⌘K" : "Ctrl+K") + '): play it with the mouse or the computer keys A W S E D F T G Y H U J K, Z / X octave">Keys</button><button data-a="audio" title="Audio: the input and output, sample rate, buffer, and lining up recordings">Audio</button>' +
         (c && U.opts.openInProduction ? '<button data-a="production" class="cd-prod" title="The same song in Central Production, with everything">Open in Central Production</button>' : "") + "</div>" +
-        '<div class="cd-status"><span class="cd-lat"></span><span class="cd-msg"></span></div>' +
+        '<div class="cd-status"><span class="cd-midi" title="MIDI in: lights when a keyboard plays (no need to arm a track - it plays the one you have selected)"></span><span class="cd-lat"></span><span class="cd-msg"></span></div>' +
       "</div>" +
       '<div class="cd-main"><aside class="cd-browser"></aside><div class="cd-arrange"></div></div>' +
       '<div class="cd-dock"><div class="cd-dock-grip" title="Drag to make it taller or shorter"></div><div class="cd-dtabs"><button data-dock="editor">Editor</button><button data-dock="sound">Sound</button><button data-dock="mixer">Mixer</button><span class="cd-dtitle"></span></div><div class="cd-dbody"></div></div>' +
@@ -96,7 +96,7 @@
     else if (a === "browser") { U.browser = !U.browser; keep("browser", U.browser); layout(); if (U.browser && UI.parts.browser) UI.parts.browser.draw(); }
     else if (a === "editor" || a === "mixer") { if (U.dockOpen && U.dock === a) U.dockOpen = false; else { U.dock = a; U.dockOpen = true; keep("dock", a); } layout(); drawDock(); }
     else if (a === "audio") UI.audioDialog();
-    else if (a === "keys") { U.keys = !U.keys; UI.say(U.keys ? "The computer keys play the selected track: A W S E D F T G Y H U J K (Z / X: octave)." : "Computer keys off."); drawTop(); }
+    else if (a === "keys") { if (window.CKeys && window.CKeys.wants()) window.CKeys.toggle(); else { U.keys = !U.keys; UI.say(U.keys ? "The computer keys play the selected track: A W S E D F T G Y H U J K (Z / X: octave)." : "Computer keys off."); } drawTop(); }
     else if (a === "tap") { var now = performance.now(); taps = taps.filter(function (t) { return now - t < 2500; }); taps.push(now); if (taps.length >= 3) { var avg = (taps[taps.length - 1] - taps[0]) / (taps.length - 1), v = Math.round(60000 / avg * 10) / 10; D.edit("Tempo", function (q) { q.bpm = D.clamp(v, 30, 300); }); } }
     else if (a === "production" && U.opts.openInProduction) U.opts.openInProduction();
     else if (a === "keytempo" && window.CDawSong) window.CDawSong.keyTempoDialog();
@@ -124,7 +124,7 @@
     var sig = $(".cd-sig", r); if (sig) sig.value = p.sig.join("/");
     $(".cd-key", r).value = p.key; $(".cd-count", r).value = String(p.metronome.countIn || 0); $(".cd-snap", r).value = p.snap;
     function tg(a, on) { var b = $('[data-a="' + a + '"]', r); if (b) b.classList.toggle("on", !!on); }
-    tg("click", p.metronome.on); tg("loop", p.loop.on); tg("punch", p.punch.on); tg("overdub", p.overdub); tg("browser", U.browser); tg("editor", U.dockOpen && U.dock === "editor"); tg("mixer", U.dockOpen && U.dock === "mixer"); tg("keys", U.keys);
+    tg("click", p.metronome.on); tg("loop", p.loop.on); tg("punch", p.punch.on); tg("overdub", p.overdub); tg("browser", U.browser); tg("editor", U.dockOpen && U.dock === "editor"); tg("mixer", U.dockOpen && U.dock === "mixer"); tg("keys", window.CKeys && window.CKeys.wants() ? window.CKeys.isOpen() : U.keys);
     $('[data-a="play"]', r).classList.toggle("on", st.playing); $('[data-a="play"]', r).textContent = st.playing ? "❚❚" : "▶"; $('[data-a="rec"]', r).classList.toggle("on", st.recording);
     $('[data-a="undo"]', r).disabled = !D.canUndo(); $('[data-a="undo"]', r).title = D.canUndo() ? "Undo: " + D.canUndo() + " (Ctrl+Z)" : "Nothing to undo"; $('[data-a="redo"]', r).disabled = !D.canRedo(); $('[data-a="redo"]', r).title = D.canRedo() ? "Redo: " + D.canRedo() : "Nothing to redo";
     var m = D.monitor(), lat = D.latency(); $(".cd-lat", r).textContent = m.ok ? "Live playing: " + (m.latencyMs || 3) + " ms (low-delay player)" : lat.total ? "Output delay " + Math.round(lat.total * 1000) + " ms (recordings are lined up for it)" : "";
@@ -246,8 +246,44 @@
     var p = P(), dev = m.device && m.device.name, to = p.tracks.filter(function (t) { return t.kind !== "audio" && t.kind !== "bus" && t.arm && (t.input === "any" || t.input === dev); });
     if (!to.length) { var t = UI.track(); if (t && t.kind !== "audio" && t.kind !== "bus") to = [t]; }
     to.forEach(function (t) { D.live(t.id, m.data, m.time); });
+    var ms = st & 0xF0; if (window.CKeys && (ms === 0x90 || ms === 0x80)) window.CKeys.light(m.data[1], ms === 0x90 && m.data[2] > 0);
+    UI.midiSeen(m);
     if (UI.parts.editors && UI.parts.editors.midi) UI.parts.editors.midi(m);
   }
+
+  // ------------------------------------------------------------- (10.8) the pop-up keyboard (⌘K / Ctrl+K, keys-popup.js) plays the DAW
+  // the track it plays: the selected one when it's an instrument, else the armed instrument, else the first instrument track
+  function keysTrack() {
+    if (!U.root || !U.root.isConnected || U.root.offsetParent === null) return null;
+    var p = P(), plays = function (t) { return t && t.kind !== "audio" && t.kind !== "bus"; }, t = D.track(U.sel);
+    if (plays(t)) return t;
+    return p.tracks.filter(function (x) { return plays(x) && x.arm; })[0] || p.tracks.filter(plays)[0] || null;
+  }
+  function soundName(t) {
+    if (t.kind === "external") return t.ext && t.ext.port ? "MIDI out: " + t.ext.port : "MIDI out";
+    var ly = (t.layers || [])[0], S = window.CUStudioSounds, all = S && S.list ? S.list() : [], hit = ly && all.filter(function (x) { return x.id === ly.sound; })[0];
+    return hit ? hit.name : t.kind === "drums" ? "drums" : "";
+  }
+  UI.keysTarget = function (opts) {
+    if (!window.CKeys) return;
+    window.CKeys.target(Object.assign({
+      id: "daw", priority: 10,
+      available: function () { return !!keysTrack(); },
+      name: function () { var t = keysTrack(); if (!t) return ""; var s = soundName(t); return t.name + (s && s !== t.name ? " · " + s : ""); },
+      noteOn: function (n, v) { var t = keysTrack(); if (!t) return; this._t = t.id; D.live(t.id, [0x90, n, v]); if (UI.parts.editors && UI.parts.editors.midi) UI.parts.editors.midi({ data: [0x90, n, v], device: { name: "keyboard" } }); },
+      noteOff: function (n) { var id = this._t || (keysTrack() || {}).id; if (id) D.live(id, [0x80, n, 0]); },
+      sustain: function (on) { var t = keysTrack(); if (t) D.live(t.id, [0xB0, 64, on ? 127 : 0]); },
+      hint: function () { return U.root && U.root.offsetParent !== null ? "Add an instrument or drums track (or select one) and the keys play it." : ""; }
+    }, opts || {}));
+  };
+  // which MIDI keyboards are playing: the top bar's MIDI light and the keyboard's name (plug in and play - no arming needed)
+  var midiLast = { name: "", at: 0 };
+  UI.midiSeen = function (m) {
+    var st = m.data[0] & 0xF0; if (st !== 0x90 && st !== 0xB0 && st !== 0xE0) return;
+    midiLast = { name: (m.device && m.device.name) || "MIDI", at: Date.now() };
+    var r = U.root, dot = r && $(".cd-midi", r); if (!dot) return;
+    dot.classList.add("on"); dot.title = "MIDI in: " + midiLast.name; clearTimeout(dot.__t); dot.__t = setTimeout(function () { dot.classList.remove("on"); }, 220);
+  };
 
   // ------------------------------------------------------------- Settings → Audio (the same panel in both apps)
   // The input and output devices, sample rate, buffer size, how many input channels to open, and lining recordings up:
@@ -326,6 +362,7 @@
     }
     D.on("freeze", function () { if (UI.parts.mixer && U.dockOpen) try { drawDock(); } catch (_) { } UI.draw(); });
     if (window.CUMidiIn) { window.CUMidiIn.start().catch(function () { }); if (!midiOff) midiOff = window.CUMidiIn.on(midiIn); }
+    if (window.CKeys && U.opts.keys !== false) UI.keysTarget(U.opts.keysTarget);   // (10.8) ⌘K: the pop-up keyboard plays the selected instrument track
     if (window.CUStudioSounds && window.CUStudioSounds.refresh) window.CUStudioSounds.refresh();
     D.startMonitor();
     if (!U.rafOn) { U.rafOn = true; requestAnimationFrame(frameLoop); }
@@ -337,6 +374,7 @@
   D.on("record", function () { drawTop(); });
   D.on("monitor", function () { drawTop(); });
   window.addEventListener("resize", function () { if (U.root) UI.draw("nudge"); });
+  window.addEventListener("ckeys", function () { if (U.root) drawTop(); });
   var _dockKeep = store; UI._keepDockOpen = function () { keep("dockOpen", U.dockOpen); };
   setInterval(function () { if (U.root) keep("dockOpen", U.dockOpen); }, 5000);
 })();

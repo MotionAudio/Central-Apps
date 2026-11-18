@@ -26,6 +26,23 @@
     post(m);
   });
   window.addEventListener("message", function (e) { var d = e.data; if (d && d.cu === "inst-out" && d.msg && d.msg.action === "keys" && d.msg.keys && d.msg.keys.midi) midiWant = d.msg.keys.midi; });
+  // (10.8) the pop-up keyboard (⌘K, shared/daw/keys-popup.js) plays the keys sound here - in Central Usage (Central Control
+  // keeps ⌘K for its search): the patch the page last picked, its name from the host's list of sounds
+  var keysNow = { patch: null, kind: "off", catalog: [] };
+  window.addEventListener("message", function (e) { var d = e.data; if (d && d.cu === "inst-out" && d.msg && d.msg.action === "keys" && d.msg.keys) keysNow.patch = d.msg.keys.patch || keysNow.patch; });
+  if (NAT) NAT.on(function (m) { if (m && m.type === "instrumentStatus") { keysNow.kind = m.kind || keysNow.kind; if (m.keysCatalog && m.keysCatalog.length) keysNow.catalog = m.keysCatalog; } });
+  if (window.CKeys && NAT && CU.edition && CU.edition() === "usage") {
+    var sendNote = function (n, on, v) { if (!loaded) { loaded = true; NAT.start(); if (frame && !frame.src) frame.src = frame.dataset.src; } NAT.send({ type: "instrument", action: "note", on: on, note: n, velocity: on ? v : 0 }); if (window.CKeys) window.CKeys.light(n, on); };
+    window.CKeys.target({
+      id: "instrument", priority: 15,
+      available: function () { return CU.prefs && CU.prefs.tab === "instrument"; },
+      name: function () { var p = keysNow.patch; if (p && typeof p === "object" && p.name) return p.name; var hit = keysNow.catalog.filter(function (x) { return x && p && (x.id === p || x.file === p || x.name === p || x.id === p.id); })[0]; return hit ? hit.name : keysNow.kind === "keys" ? "the keys sound" : "the Instrument tab"; },
+      noteOn: function (n, v) { sendNote(n, true, v); },
+      noteOff: function (n) { sendNote(n, false, 0); },
+      sustain: function (on) { NAT.send({ type: "instrument", action: "midi", data: [0xB0, 64, on ? 127 : 0] }); },
+      hint: function () { return CU.prefs && (CU.prefs.tab === "instrument" || CU.prefs.tab === "studio") ? "" : "Open the Instrument tab or the Studio and the keys play there."; }
+    });
+  }
   // the sound plans (Central Keys, Plugins, Instrument, Pedals): which are active, for the locks in the frame
   function postPlans() { var L = window.PPLicense; post({ type: "plans", on: !!(L && L.on && L.on()), plans: L && L.plans ? L.plans() : {}, keeps: L && L.keepsList ? L.keepsList() : {} }); }
   window.addEventListener("pp-plans", postPlans);

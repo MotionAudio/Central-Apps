@@ -25,7 +25,7 @@ live. Red (`--live`) means it's on air, recording or streaming, and nothing else
 - If a panel needs a scroll bar on a 1280×800 screen, ask which half people use on a Sunday morning.
 
 **3. The same place for the same thing in every app:**
-- **Top bar.** App name and church on the left, then the main tabs. On the right: search (⌘K / Ctrl+K, see rule 5),
+- **Top bar.** App name and church on the left, then the main tabs. On the right: search (⌘P / Ctrl+P, see rule 5),
   connection status, the account icon (account, purchases, packages, sign out) and ⚙ Settings.
 - **Settings** opens as one full page. It has a list of groups on the left and one group's options on the right,
   with a search box over the groups. The groups are in this order, using only the ones an app has:
@@ -46,9 +46,11 @@ live. Red (`--live`) means it's on air, recording or streaming, and nothing else
   existing hardware button names.
 - Numbers that change (time, BPM, levels): `font-variant-numeric: tabular-nums`.
 
-**5. Search everything.** One command box (⌘K / Ctrl+K) in Central Control, Central Usage, Central Pedal Control and
+**5. Search everything.** One command box (⌘P / Ctrl+P) in Central Control, Central Usage, Central Pedal Control and
 Central Production. It finds songs, setlists, settings (it jumps to and highlights the option), lights presets, slides
-decks and actions ("Start stream", "Pre-service check"). This is the fix for "hard to find things".
+decks and actions ("Start stream", "Pre-service check"). This is the fix for "hard to find things". (Until 10.8 it was
+⌘K / Ctrl+K. Since 10.8, ⌘K is the pop-up keyboard in the apps that play sounds: Central Production, Central Usage and
+Central Pedal Control (`server/public/daw/keys-popup.js`). In Central Control, ⌘K still opens the search.)
 
 **6. Spacing and shape.**
 - Spacing comes only from `--s1` … `--s7`.

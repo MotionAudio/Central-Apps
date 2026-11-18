@@ -1,6 +1,8 @@
-/* Central Production - Ctrl+K / ⌘K search everything (10.2, docs/DESIGN-SYSTEM.md): start any kind of project, the
- * File menu's actions, the DAW's (play, record, add a track, the mixer…), Settings' pages, and the sounds in the
- * browser. The box itself is shared with Central Control and Central Usage (../daw/command-palette.js). */
+/* Central Production - Ctrl+P / ⌘P search everything (10.2, docs/DESIGN-SYSTEM.md; Ctrl+K until 10.8): start any kind of
+ * project, the File menu's actions, the DAW's (play, record, add a track, the mixer…), Settings' pages, and the sounds in
+ * the browser. The box itself is shared with Central Control and Central Usage (../daw/command-palette.js).
+ * (10.8) Ctrl+K / ⌘K is the pop-up keyboard (../daw/keys-popup.js): it plays the DAW's selected instrument track (the DAW
+ * registers itself), the Instrument you're building, or the Sample (across the keys, or a slice a key). */
 (function () {
   "use strict";
   var CP = window.CP, K = window.CmdK; if (!CP || !K) return;
@@ -42,6 +44,19 @@
       .filter(function (x) { return document.querySelector('.cd-top [data-a="' + x[0] + '"]'); })
       .map(function (x) { return { group: "Studio", title: x[1], keywords: x[2], run: function () { dawAction(x[0]); } }; });
   });
-  var sb = document.getElementById("cpSearch"); if (sb) sb.onclick = function () { K.open(); };
+  // (10.8) the pop-up keyboard: the open project's own sound when it has one (Instrument, Sample)
+  if (window.CKeys) {
+    var typeDef = function () { var p = CP.project(); return p && CP.types[p.type]; };
+    window.CKeys.target({
+      id: "production-type", priority: 20,
+      available: function () { var d = typeDef(); return !!(d && d.play && (!d.playable || d.playable())); },
+      name: function () { var d = typeDef(), p = CP.project(); return (p && p.name ? p.name : "") + (d && d.playName ? " · " + d.playName() : ""); },
+      noteOn: function (n, v) { var d = typeDef(); if (d && d.play) d.play(n, v); },
+      noteOff: function (n) { var d = typeDef(); if (d && d.stop) d.stop(n); },
+      hint: function () { var d = typeDef(); return !CP.project() ? "Open or start a project - a Track, Instrument or Sample - and the keys play it." : d && d.id === "sample" ? "Record or bring in a sound first, then the keys play it." : d && d.id === "instrument" ? "Add samples and the keys play them." : ""; }
+    });
+    K.register(function () { return [{ group: "Actions", title: "Show the keyboard", sub: (/Mac/.test(navigator.platform) ? "⌘K" : "Ctrl+K") + " · play with the mouse or the computer keys", keywords: "keyboard piano keys play notes musical typing midi", run: function () { window.CKeys.open(); } }]; });
+  }
+  var sb = document.getElementById("cpSearch"); if (sb) { sb.onclick = function () { K.open(); }; sb.title = "Search everything (" + (K.keyLabel ? K.keyLabel().replace(" ", "+") : "Ctrl+P") + ")"; var kb = sb.querySelector("kbd"); if (kb && K.keyLabel) kb.textContent = K.keyLabel(); }
   document.addEventListener("keydown", function (e) { if ((e.ctrlKey || e.metaKey) && e.key === ",") { e.preventDefault(); window.CPSettings.open(); } });
 })();

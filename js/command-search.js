@@ -1,5 +1,5 @@
 /* Central Pedal / Central Pedal Control - the command search (10.2, docs/DESIGN-SYSTEM.md rule 5).
- * Ctrl+K / ⌘K (or the Search button in the top bar) opens one box that finds songs, setlists, every setting (it opens
+ * Ctrl+P / ⌘P (Ctrl+K until 10.8, and still where there's no pop-up keyboard; or the Search button in the top bar) opens one box that finds songs, setlists, every setting (it opens
  * Settings at that option and highlights it) and actions ("Start pad sound", "Test sound", "Save project"...).
  * The same index of settings drives the search box over the Settings groups (PPCommand.searchSettings). */
 (function () {
@@ -18,7 +18,7 @@
   var ACTIONS = [["Start pad sound", "play start pad sound on", "#startButton"], ["Stop all sound", "stop silence panic", "#stopButton"],
     ["Perform (big buttons)", "perform big buttons stage", "#performButton"], ["Open the setlist", "setlist songs order service", "#setlistButton"],
     ["Save project", "save project set", "#saveProject"], ["Open a project", "open load project", "#openProject"],
-    ["Import a sound", "import audio sample mp3 wav usb sd", "#importAudio"], ["Play pads from the keyboard", "computer keyboard play", "#keyboardButton"],
+    ["Import a sound", "import audio sample mp3 wav usb sd", "#importAudio"], ["Play pads from the keyboard", "computer keyboard play", "#keyboardButton"], ["Show the keyboard", "keyboard piano keys play notes musical typing", function () { if (window.CKeys && window.CKeys.wants()) window.CKeys.open(); else { var b = document.querySelector("#keyboardButton"); if (b) b.click(); } }],
     ["Add a song", "new song add", "#songAdd"], ["Edit this song", "song editor sections lyrics chords", "#trEdit"],
     ["Test sound", "test tone headphones no sound output", function () { go("settings"); open("audio", "#soundTest"); }],
     ["Check for updates", "software update upgrade version", function () { go("settings"); open("software"); }],
@@ -119,8 +119,10 @@
     var input = $("#cmdInput", dlg); input.value = q || ""; sel = 0; draw(input.value);
     if (!dlg.open) dlg.showModal(); input.focus(); input.select();
   }
+  // Ctrl+P / ⌘P (10.8); Ctrl+K / ⌘K too where there's no pop-up keyboard (Central Pedal Control has one: keys-popup.js)
   document.addEventListener("keydown", function (e) {
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === "k" || e.key === "K")) { e.preventDefault(); if (dlg && dlg.open) dlg.close(); else show(); }
+    var k = e.key, c = e.code, hit = k === "p" || k === "P" || c === "KeyP" || ((k === "k" || k === "K" || c === "KeyK") && !(window.CKeys && window.CKeys.wants()));
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && hit) { e.preventDefault(); if (dlg && dlg.open) dlg.close(); else { if (window.CKeys && window.CKeys.isOpen()) window.CKeys.close(); show(); } }
   });
   function wire() { var b = $("#cmdOpen"); if (b && !b.__cmd) { b.__cmd = 1; b.addEventListener("click", function () { show(); }); } }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire); else wire();

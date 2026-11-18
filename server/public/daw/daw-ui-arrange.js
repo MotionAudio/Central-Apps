@@ -62,7 +62,7 @@
     p.tracks.forEach(function (t) {
       var sel = t.id === U.sel, h = t.height || 64, kindIcon = { audio: "〰", instrument: "♪", drums: "🥁", bus: "⇢" }[t.kind] || "♪";
       html += '<div class="cd-row' + (sel ? " sel" : "") + (t.kind === "bus" ? " bus" : "") + '" data-t="' + t.id + '" style="height:' + h + 'px;--tc:' + t.color + '"><div class="cd-head" data-t="' + t.id + '"><i class="cd-tc"></i>' +
-        '<div class="cd-hl1"><span class="cd-ticon" title="' + esc(t.kind) + '">' + kindIcon + '</span><input class="cd-tname" value="' + esc(t.name) + '" aria-label="Track name"><button class="cd-tmenu" data-tm="' + t.id + '" title="More">⋯</button></div>' +
+        '<div class="cd-hl1"><span class="cd-ticon" title="' + esc(t.kind) + '">' + kindIcon + '</span><input class="cd-tname" value="' + esc(t.name) + '" aria-label="Track name">' + (t.kind !== "bus" && t.clips.length ? '<button class="cd-tout" draggable="true" data-tout="' + t.id + '" title="Drag this onto your desktop or a folder to save the track as a WAV (or click to save it)" aria-label="Save the track as a WAV">⤓</button>' : "") + '<button class="cd-tmenu" data-tm="' + t.id + '" title="More">⋯</button></div>' +
         '<div class="cd-hl2"><button class="cd-m' + (t.mute ? " on" : "") + '" data-tb="mute" title="Mute (M)">M</button><button class="cd-s' + (t.solo ? " on" : "") + '" data-tb="solo" title="Solo (Shift+S)">S</button>' +
         (t.kind !== "bus" ? '<button class="cd-r' + (t.arm ? " on" : "") + '" data-tb="arm" title="Arm for recording">●</button>' : "") + (t.kind === "audio" ? '<button class="cd-i' + (t.monitor === "in" ? " on" : t.monitor === "auto" ? " auto" : "") + '" data-tb="monitor" title="Hear the input: automatic (while armed), always, or off">I</button>' : "") +
         '<button class="cd-a' + (t.lanes && t.lanes.length ? " on" : "") + '" data-tb="auto" title="Automation lanes">A</button><input class="cd-vol" type="range" min="-60" max="6" step="0.1" value="' + t.volume + '" data-tv="' + t.id + '" title="Volume ' + t.volume.toFixed(1) + ' dB"><canvas class="cd-hmeter" data-hm="' + t.id + '"></canvas></div></div>' +
@@ -77,13 +77,14 @@
     $(".cd-add2", rows).onclick = function () { addTrackMenu(this); };
     content.style.height = (RH() + rows.offsetHeight) + "px";
     $$(".cd-clip", rows).forEach(paintClip);
+    $$("[data-cout]", rows).forEach(function (b) { var cid = b.dataset.cout, tid = b.dataset.ct; b.onpointerenter = function () { UI.trackFile(tid, cid); }; b.onpointerdown = function (e) { e.stopPropagation(); UI.trackFile(tid, cid); }; b.ondragstart = function (e) { e.stopPropagation(); UI.dragOut(e, tid, cid); }; });
     $$(".cd-autocv", rows).forEach(paintAuto);
     headEvents(rows);
     paintGrid(); paintRuler();
   }
   function clipHtml(t, c) {
     var sel = U.clips.indexOf(c.id) >= 0, col = c.color || t.color, tk = c.takes && c.takes.length > 1 ? '<span class="cd-takes">' + (c.takes.findIndex(function (k) { return k.id === c.take; }) + 1) + "/" + c.takes.length + "</span>" : "";
-    return '<div class="cd-clip ' + c.kind + (sel ? " sel" : "") + (c.mute ? " muted" : "") + '" data-c="' + c.id + '" style="left:' + bx(c.start) + "px;width:" + Math.max(3, bx(c.len)) + "px;--cc:" + col + '"><span class="cd-cname">' + esc(c.name || t.name || (c.kind === "audio" ? "Audio" : "MIDI")) + (c.audio && c.audio.loop || c.loopLen ? " ↻" : "") + "</span>" + tk + '<i class="cd-ccv"></i><i class="cd-hl"></i><i class="cd-hr"></i>' + (c.kind === "audio" ? '<i class="cd-fi" title="Fade in"></i><i class="cd-fo" title="Fade out"></i>' : "") + "</div>";
+    return '<div class="cd-clip ' + c.kind + (sel ? " sel" : "") + (c.mute ? " muted" : "") + '" data-c="' + c.id + '" style="left:' + bx(c.start) + "px;width:" + Math.max(3, bx(c.len)) + "px;--cc:" + col + '"><span class="cd-cname">' + esc(c.name || t.name || (c.kind === "audio" ? "Audio" : "MIDI")) + (c.audio && c.audio.loop || c.loopLen ? " ↻" : "") + "</span>" + tk + '<i class="cd-ccv"></i><i class="cd-hl"></i><i class="cd-hr"></i>' + (c.kind === "audio" ? '<i class="cd-fi" title="Fade in"></i><i class="cd-fo" title="Fade out"></i>' : "") + (sel && U.clips.length === 1 ? '<b class="cd-cout" draggable="true" data-cout="' + c.id + '" data-ct="' + t.id + '" title="Drag this onto your desktop or a folder to save the clip as a WAV">⤓</b>' : "") + "</div>";
   }
   function peaksOf(id) {
     var b = D.buffers[id]; if (!b) return null; if (peaks[id] && peaks[id].b === b) return peaks[id];
@@ -213,7 +214,13 @@
   // ------------------------------------------------------------- the track headers
   function headEvents(rows) {
     $$(".cd-head[data-t]", rows).forEach(function (h) {
-      h.onpointerdown = function (e) { if (e.target.closest("input,button,select")) return; U.sel = h.dataset.t; UI.draw("select"); };
+      h.onpointerdown = function (e) { if (e.target.closest("input,button,select") || e.button !== 0) return; U.sel = h.dataset.t; UI.draw("select"); moveTrack(e, h.dataset.t); };
+    });
+    $$("[data-tout]", rows).forEach(function (b) {
+      var id = b.dataset.tout;
+      b.onpointerenter = b.onfocus = function () { UI.trackFile(id); };
+      b.ondragstart = function (e) { UI.dragOut(e, id); };
+      b.onclick = function () { UI.trackFile(id).then(function (f) { UI.saveFiles(f.name.replace(/\.wav$/, ""), [f]); }).catch(function (er) { UI.say(er.message || String(er), true); }); };
     });
     $$(".cd-tname", rows).forEach(function (inp) { inp.onchange = function () { var id = inp.closest("[data-t]").dataset.t, v = inp.value.trim() || "Track"; D.edit("Rename track", function () { D.track(id).name = v; }); }; inp.onfocus = function () { U.sel = inp.closest("[data-t]").dataset.t; }; });
     $$("[data-tb]", rows).forEach(function (b) { b.onclick = function () { var id = b.closest("[data-t]").dataset.t, k = b.dataset.tb; U.sel = id;
@@ -224,6 +231,27 @@
     $$("[data-tm]", rows).forEach(function (b) { b.onclick = function () { trackMenu(b, D.track(b.dataset.tm)); }; });
     $$("[data-aset]", rows).forEach(function (s) { s.onchange = function () { var id = s.closest("[data-t]").dataset.t, old = s.dataset.aset, v = s.value; D.edit("Automation lane", function () { var t = D.track(id), i = t.lanes.indexOf(old); if (i >= 0) t.lanes[i] = v; }); }; });
     $$("[data-adel]", rows).forEach(function (b) { b.onclick = function () { var id = b.closest("[data-t]").dataset.t, k = b.dataset.adel; D.edit("Hide automation lane", function () { var t = D.track(id); t.lanes = t.lanes.filter(function (x) { return x !== k; }); }); }; });
+  }
+  // (10.8) drag a track's name up or down to move it (its automation lanes go with it)
+  function moveTrack(e, id) {
+    var y0 = e.clientY, line = null, to = -1, rows = $(".cd-rows", el);
+    function heads() { return $$(".cd-row[data-t]:not(.cd-autorow)", rows); }
+    function mv(ev) {
+      if (!line && Math.abs(ev.clientY - y0) < 6) return;
+      if (!line) { U.dragging = true; line = document.createElement("div"); line.className = "cd-moveline"; rows.appendChild(line); document.body.classList.add("cd-movingtrack"); }
+      var list = heads(), rr = rows.getBoundingClientRect(), y = ev.clientY, at = list.length, top = 0;
+      for (var i = 0; i < list.length; i++) { var b = list[i].getBoundingClientRect(); if (y < b.top + b.height / 2) { at = i; break; } }
+      if (at < list.length) top = list[at].getBoundingClientRect().top - rr.top; else { var last = list[list.length - 1]; while (last && last.nextElementSibling && last.nextElementSibling.classList.contains("cd-autorow")) last = last.nextElementSibling; top = last ? last.getBoundingClientRect().bottom - rr.top : 0; }
+      to = at; line.style.top = (top - 1) + "px";
+    }
+    function up() {
+      document.removeEventListener("pointermove", mv); document.removeEventListener("pointerup", up);
+      if (!line) return; line.remove(); document.body.classList.remove("cd-movingtrack"); U.dragging = false;
+      var ids = heads().map(function (r) { return r.dataset.t; }), from = ids.indexOf(id); if (from < 0 || to < 0 || to === from || to === from + 1) return;
+      var before = ids[to] || null;
+      D.edit("Move track", function (q) { var i = q.tracks.findIndex(function (x) { return x.id === id; }); if (i < 0) return; var tr = q.tracks.splice(i, 1)[0], j = before ? q.tracks.findIndex(function (x) { return x.id === before; }) : q.tracks.length; q.tracks.splice(j < 0 ? q.tracks.length : j, 0, tr); });
+    }
+    document.addEventListener("pointermove", mv); document.addEventListener("pointerup", up);
   }
   function trackMenu(btn, t) {
     var p = P(), buses = p.tracks.filter(function (x) { return x.kind === "bus" && x.id !== t.id; });
@@ -306,13 +334,27 @@
       dragClips(e, mode, e.altKey);
     });
     wrap.addEventListener("contextmenu", function (e) { if (e.target.closest(".cd-lane")) e.preventDefault(); });
-    wrap.addEventListener("dragover", function (e) { if (e.target.closest(".cd-lane")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+    // (10.8) drop anywhere: files and whole folders from the computer, and things from the browser. Onto an audio track:
+    // one file goes on it. Anywhere else, or several at once: each file gets its own new track, lined up where it's
+    // dropped (in the track names column: at bar 1). MIDI files become instrument tracks.
+    function dropAt(e) {
+      var r = wrap.getBoundingClientRect(), x = e.clientX - r.left + wrap.scrollLeft - HW(), row = e.target.closest && e.target.closest(".cd-row[data-t]");
+      return { beat: x < 0 ? 0 : D.snapBeat(xb(x)), track: row && !row.dataset.auto ? row.dataset.t : null, head: x < 0, row: row };
+    }
+    function carries(e) { var t = e.dataTransfer && e.dataTransfer.types; return !!t && (Array.prototype.indexOf.call(t, "Files") >= 0 || Array.prototype.indexOf.call(t, "application/x-cdaw") >= 0); }
+    function mark(e) {
+      var at = dropAt(e), t = at.track && D.track(at.track), onto = t && t.kind === "audio" && !at.head ? at.row : null;
+      wrap.classList.add("cd-dropping"); $$(".cd-row.cd-dropon", wrap).forEach(function (x) { if (x !== onto) x.classList.remove("cd-dropon"); }); if (onto) onto.classList.add("cd-dropon");
+      var end = $(".cd-endrow", wrap); if (end) end.classList.toggle("cd-dropon", !onto);
+    }
+    function unmark() { wrap.classList.remove("cd-dropping"); $$(".cd-dropon", wrap).forEach(function (x) { x.classList.remove("cd-dropon"); }); }
+    wrap.addEventListener("dragover", function (e) { if (!carries(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; mark(e); });
+    wrap.addEventListener("dragleave", function (e) { if (!e.relatedTarget || !wrap.contains(e.relatedTarget)) unmark(); });
     wrap.addEventListener("drop", function (e) {
-      var lane = e.target.closest(".cd-lane"); if (!lane) return; e.preventDefault();
-      var r = wrap.getBoundingClientRect(), beat = D.snapBeat(xb(e.clientX - r.left + wrap.scrollLeft - HW())), tid = lane.dataset.lane || null;
-      if (UI.parts.browser && UI.parts.browser.drop(e, tid, beat)) return;
-      var files = Array.prototype.slice.call(e.dataTransfer.files || []);
-      files.reduce(function (pr, file, i) { return pr.then(function () { return file.arrayBuffer().then(function (b) { return D.importAudio(i === 0 ? tid : null, new Uint8Array(b), file.name, beat); }); }); }, Promise.resolve()).catch(function () { UI.say("That file isn't audio this computer can read.", true); });
+      if (!carries(e)) return; e.preventDefault(); unmark();
+      var at = dropAt(e);
+      if (UI.parts.browser && UI.parts.browser.drop(e, at.track, at.beat)) return;
+      UI.collectFiles(e.dataTransfer).then(function (got) { UI.dropFiles(got, at.track, at.beat); });
     });
   }
   function newClipAt(lane, e) {

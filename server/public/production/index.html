@@ -26,7 +26,7 @@
   <button id="cpFile" class="cp-menu-btn" aria-haspopup="true">File ▾</button>
   <span class="cp-proj"><input id="cpName" class="cp-name" aria-label="Project name" hidden><span id="cpTypeChip" class="cp-chip" hidden></span><span id="cpSaved" class="cp-saved"></span></span>
   <span class="cp-undo"><button id="cpUndo" title="Undo" aria-label="Undo">↶</button><button id="cpRedo" title="Redo" aria-label="Redo">↷</button></span>
-  <span class="cp-right"><button id="cpSearch" class="cp-search" title="Search everything (Ctrl+K)" aria-label="Search everything"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg><span>Search</span><kbd>Ctrl K</kbd></button><button id="cpSettings" title="Settings (Ctrl+,)">Settings</button><button id="cpAccount">Sign in</button></span>
+  <span class="cp-right"><button id="cpSearch" class="cp-search" title="Search everything (Ctrl+P)" aria-label="Search everything"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg><span>Search</span><kbd>Ctrl P</kbd></button><button id="cpSettings" title="Settings (Ctrl+,)">Settings</button><button id="cpAccount">Sign in</button></span>
 </header>
 <main id="cpMain">
   <section id="cpStart" class="cp-start"></section>
@@ -46,6 +46,7 @@
 <script src="../daw/daw-midi.js"></script>
 <script src="../daw/daw-sf2.js"></script>
 <script src="../daw/daw-sounds.js"></script>
+<script src="../daw/daw-smf.js"></script>
 <script src="../daw/daw-stretch.js"></script>
 <script src="cmfx/cmfx.js"></script>
 <script src="plugin-builder/presets.js"></script>
@@ -56,6 +57,8 @@
 <script src="../daw/daw-ui-editors.js"></script>
 <script src="../daw/daw-ui-mixer.js"></script>
 <script src="../daw/daw-ui-browser.js"></script>
+<script src="../daw/daw-ui-files.js"></script>
+<script src="../daw/daw-ui-instruments.js"></script>
 <script src="../daw/daw-song.js"></script>
 <script src="../daw/daw-control.js"></script>
 <script src="vendor/lame.min.js"></script>
@@ -73,6 +76,7 @@
 <script src="types/board.js"></script>
 <script src="prod-publish.js"></script>
 <script src="prod-settings.js"></script>
+<script src="../daw/keys-popup.js"></script>
 <script src="../daw/command-palette.js"></script>
 <script src="prod-search.js"></script>
 <script>

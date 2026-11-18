@@ -110,6 +110,7 @@
   function Instrument(ctx, layers) {
     var self = this; this.ctx = ctx; this.voices = [];
     this.layers = (layers || []).filter(function (l) { return l && l.sound; }).map(function (l) {
+      if (l.sound === "sampler") return Object.assign({ lo: 0, hi: 127, velLo: 1, velHi: 127, octave: 0, transpose: 0, volume: 1, pan: 0 }, l, { s: { id: "sampler", name: l.name || "Sampler", sampler: true, tier: "free" } });   // (10.8: samples of its own)
       var s = byId(l.sound) || (/^builtin:/.test(l.sound) ? null : { id: l.sound, file: l.file, bank: l.bank || 0, prog: l.prog || 0, name: l.name || "Sound", tier: l.tier || "keys" });
       var lk = s && locked(s);
       if (!s || lk) s = byId(stand_in(l)) || BUILTIN[0];   // a locked (or missing) sound: the built-in one closest to it
@@ -118,12 +119,28 @@
     if (!this.layers.length) this.layers = [{ s: BUILTIN[0], lo: 0, hi: 127, velLo: 1, velHi: 127, octave: 0, transpose: 0, volume: 1, pan: 0 }];
     this.ready = Promise.all(this.layers.map(function (L) {
       if (L.s.builtin) return null;
+      if (L.s.sampler) { L.regions = samplerRegions(L); return null; }
       return bankFor(L.s.file).then(function (bank) {
         var pi = bank.presetIndex(L.s.bank, L.s.prog); if (pi < 0) pi = 0;
         L.bank = bank; L.regions = bank.regions(pi);
         return Promise.all(L.regions.map(function (r) { return bank.buffer(ctx, r.sample).then(function (b) { r.buf = b; r.info = bank.sampleInfo(r.sample); }).catch(function () { }); }));
       }).catch(function (e) { L.error = String(e && e.message || e); L.s = BUILTIN[0]; });
     })).then(function () { return self; });
+  }
+  // (10.8) a sampler layer: the track's own samples (a WAV dropped on it, a drum kit built from samples, an SFZ or Decent
+  // Sampler instrument brought in), kept in the project with its audio. Each zone becomes a region sf2Voice plays:
+  //   layer: { sound: "sampler", name, kit?, env: { attack, hold, decay, sustain, release }, zones: [{ src (an audio id in
+  //            CDaw.buffers), root, lo, hi, vlo, vhi, tune (cents), gain, pan, loop: { on, start, end } (frames),
+  //            offset (frames), oneshot, group (cuts the others in its group: an open hi-hat), name }] }
+  function samplerRegions(L) {
+    var B = (window.CDaw && window.CDaw.buffers) || {}, env = Object.assign({ attack: 0.002, hold: 0, decay: 0.4, sustain: 1, release: 0.25 }, L.env || {});
+    return (L.zones || []).map(function (z) {
+      var buf = B[z.src]; if (!buf) return null;
+      var e = Object.assign({}, env, z.env || {}), lp = z.loop && z.loop.on && z.loop.end > z.loop.start;
+      return { buf: buf, lo: z.lo == null ? 0 : z.lo, hi: z.hi == null ? 127 : z.hi, vlo: z.vlo || 1, vhi: z.vhi || 127, root: z.root == null ? 60 : z.root, scale: z.fixed ? 0 : 100, tune: z.tune || 0,
+        atten: z.gain != null ? -20 * Math.log10(Math.max(0.001, z.gain)) : 0, attack: e.attack, hold: e.hold || 0, decay: e.decay, sustain: e.sustain, release: z.oneshot ? Math.max(e.release, buf.duration) : e.release,
+        loop: lp ? 1 : 0, info: { rate: buf.sampleRate, start: 0, loopStart: lp ? z.loop.start : 0, loopEnd: lp ? z.loop.end : 0 }, pan: z.pan || 0, excl: z.group || 0, cutoff: 0, startOfs: z.offset || 0, oneshot: !!z.oneshot };
+    }).filter(Boolean);
   }
   function stand_in(l) { var n = (l.name || "") + " " + (l.category || ""); return /drum|kit|perc/i.test(n) || l.bank >= 128 ? "builtin:kit" : /bass/i.test(n) ? "builtin:bass" : /pad|string|choir|warm/i.test(n) ? "builtin:pad" : /lead|synth|saw/i.test(n) ? "builtin:lead" : "builtin:keys"; }
   Instrument.prototype.noteOn = function (dest, note, vel, when) {
@@ -179,7 +196,7 @@
       if (r.excl) excl = r.excl;
       parts.push({ src: src, g: g, r: r });
     });
-    return { start: t, excl: excl, sources: parts.map(function (p) { return p.src; }), release: function (w) { var at = Math.max(w, ctx.currentTime); parts.forEach(function (p) { try { p.g.gain.cancelAndHoldAtTime(at); } catch (_) { p.g.gain.cancelScheduledValues(at); } p.g.gain.setTargetAtTime(0, at, Math.max(0.005, p.r.release / 5)); try { p.src.stop(at + p.r.release + 0.1); } catch (_) { } }); },
+    return { start: t, excl: excl, sources: parts.map(function (p) { return p.src; }), release: function (w) { var at = Math.max(w, ctx.currentTime); parts.forEach(function (p) { if (p.r.oneshot) return; try { p.g.gain.cancelAndHoldAtTime(at); } catch (_) { p.g.gain.cancelScheduledValues(at); } p.g.gain.setTargetAtTime(0, at, Math.max(0.005, p.r.release / 5)); try { p.src.stop(at + p.r.release + 0.1); } catch (_) { } }); },
       kill: function (w) { var at = Math.max(w || 0, ctx.currentTime); parts.forEach(function (p) { p.g.gain.cancelScheduledValues(at); p.g.gain.setTargetAtTime(0, at, 0.004); try { p.src.stop(at + 0.03); } catch (_) { } }); } };
   }
   window.CUStudioSounds = { list: list, byId: byId, locked: locked, lockText: lockText, refresh: refresh, addBank: addBank, BUILTIN: BUILTIN, CAT_ORDER: CAT_ORDER, categoryOf: categoryOf,

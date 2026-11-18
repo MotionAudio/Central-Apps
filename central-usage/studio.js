@@ -94,6 +94,17 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
   });
   ipcMain.handle("studio-audio", (_e, id, name) => { try { return fs.readFileSync(path.join(dirOf(id), "audio", safe(name))); } catch (_) { return null; } });
   ipcMain.handle("studio-remove", (_e, id) => { try { fs.rmSync(dirOf(id), { recursive: true, force: true }); return true; } catch (_) { return false; } });
+  // (10.8) a track or clip dragged out of the DAW onto the desktop or a folder: written to a temporary file, then the
+  // drag the system carries out is that file (a WAV, or a .mid)
+  ipcMain.on("studio-drag-out", (e, name, data) => {
+    try {
+      const { nativeImage } = require("electron"), dir = path.join(os.tmpdir(), "central-drag-" + process.pid); fs.mkdirSync(dir, { recursive: true });
+      const fname = String(name || "track.wav").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "").trim().slice(0, 120) || "track.wav", file = path.join(dir, fname);
+      fs.writeFileSync(file, Buffer.from(data));
+      let icon = null; for (const p of [path.join(app.getAppPath(), "build", "icon.png"), path.join(__dirname, "build", "icon.png")]) if (fs.existsSync(p)) { icon = nativeImage.createFromPath(p).resize({ width: 48, height: 48 }); break; }
+      e.sender.startDrag({ file, icon: icon && !icon.isEmpty() ? icon : nativeImage.createFromDataURL("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==") });
+    } catch (err) { console.warn("drag out:", err.message); }
+  });
   ipcMain.handle("studio-export", async (_e, suggested, files) => {   // files: [{ name, data }] - one: a save dialog; several: pick a folder
     const { dialog } = require("electron"), w = getWin();
     if (files.length === 1) {
@@ -122,6 +133,15 @@ module.exports.setup = function setup({ ipcMain, app, getWin, binDir, soundsDir 
     for (const n of names) { let r; try { r = JSON.parse(fs.readFileSync(path.join(lr, n), "utf8")); } catch (_) { continue; } for (const l of r.loops || []) if (l && l.file) { out.push({ id: r.id + ":" + path.basename(l.file), name: l.name, group: (r.title || r.id) + (l.group && l.group !== "Loops" ? " · " + l.group : ""), bpm: l.bpm || 0, key: l.key || "", bars: l.bars || 0, file: l.file, tier: l.tier || r.plan }); allowedLoops.add(path.resolve(l.file)); } }
     return out;
   });
+  // (10.8) the one-shot samples of the installed libraries (Central Starter's drum hits and sounds, and the plans'), for the
+  // DAW's Samples browser: [{ id, name, group, library, note?, file, tier }]
+  const allowedSamples = new Set();
+  ipcMain.handle("studio-samples", () => {
+    const lr = path.join(userData, "libraries"), out = []; let names = []; try { names = fs.readdirSync(lr).filter((n) => n.endsWith(".json")); } catch (_) { }
+    for (const n of names) { let r; try { r = JSON.parse(fs.readFileSync(path.join(lr, n), "utf8")); } catch (_) { continue; } for (const x of r.samples || []) if (x && x.file && fs.existsSync(x.file)) { allowedSamples.add(path.resolve(x.file)); out.push({ id: r.id + ":" + path.basename(x.file), name: x.name, group: x.group || "Samples", library: r.title || r.id, note: x.note, bpm: x.bpm, key: x.key, file: x.file, tier: x.tier || r.plan || "free" }); } }
+    return out;
+  });
+  ipcMain.handle("studio-read-sample", (_e, file) => { const f = path.resolve(String(file || "")); if (!allowedSamples.has(f)) throw new Error("not a library sample"); return fs.readFileSync(f); });
   ipcMain.handle("studio-read-loop", (_e, file) => { const f = path.resolve(String(file || "")); if (!allowedLoops.has(f)) throw new Error("not a library loop"); return fs.readFileSync(f); });
 
   // ---- cu-studio: the live sound
